@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aiobmsble"
+version = "0.1.0"
+requires-python = ">=3.13"
+description = "Asynchronous Python library to query battery management systems via Bluetooth Low Energy."
+readme = "README.md"
+authors = [
+  {name = "Patrick Loschmidt"},
+]
+maintainers = [
+  {name = "Patrick Loschmidt"}
+]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = [
+    "BMS", "BLE", "battery", "bluetooth"
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Libraries :: Python Modules"
+]
+dependencies = [
+  "bleak~=0.22.3",
+  "bleak-retry-connector~=3.8.1",
+  "asyncio",
+  "logging",
+  "statistics",
+  "typing"
+]
+
+[project.urls]
+Homepage = "https://github.com/patman15/aiobmsble"
+Documentation = "https://github.com/patman15/aiobmsble/README.md"
+
+[project.scripts]
+aiobmsble = "aiobmsble.__main__:main"
+
+[tool.setuptools]
+packages = ["aiobmsble"]
