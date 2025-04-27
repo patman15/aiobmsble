@@ -5,7 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from statistics import fmean
-from typing import Any, Final, Literal, TypedDict
+from typing import Any, Final
 
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -13,52 +13,13 @@ from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 from bleak_retry_connector import establish_connection
 
-# from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
-# from homeassistant.components.bluetooth.match import ble_device_matches
-# from homeassistant.loader import BluetoothMatcherOptional
-type BMSvalue = Literal[
-    "battery_charging",
-    "battery_level",
-    "current",
-    "power",
-    "temperature",
-    "voltage",
-    "cycles",
-    "cycle_capacity",
-    "cycle_charge",
-    "delta_voltage",
-    "problem",
-    "runtime",
-    "cell_voltages",
-    "design_capacity",
-    "temp_values",
-    "problem_code",
-]
-
-
-class BMSsample(TypedDict, total=False):
-    battery_charging: bool
-    battery_level: int | float
-    current: float
-    power: float
-    temperature: int | float
-    voltage: float
-    cycle_capacity: int
-    cycle_charge: int
-    cycles: int
-    delta_voltage: float
-    problem: bool
-    runtime: int
-    # internal
-    cell_voltages: list[float]
-    design_capacity: int
-    temp_values: list[int | float]
-    problem_code: int
+from aiobmsble import AdvertisementPattern, BMSsample, BMSvalue
 
 KEY_CELL_VOLTAGE: Final[str] = "cell#"  # [V]
 
+
 class BaseBMS(ABC):
-    """Base class for battery management system."""
+    """Abstract base class for battery management system."""
 
     TIMEOUT = 5.0
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
@@ -70,14 +31,17 @@ class BaseBMS(ABC):
         ble_device: BLEDevice,
         reconnect: bool = False,
     ) -> None:
-        """Intialize the BMS.
+        """
+        Intialize the BMS.
 
-        logger_name: name of the logger for the BMS instance (usually file name)
-        ble_device: the Bleak device to connect to
-        reconnect: if true, the connection will be closed after each update
-
-        notification_handler: the callback used for notifications from 'uuid_rx()' characteristics
-            Not defined as abstract, as it can be both, a normal or async function
+        notification_handler: the callback function used for notifications from 'uuid_rx()'
+            characteristic. Not defined as abstract in this base class, as it can be both, 
+            a normal or async function
+        
+        Args:
+            logger_name (str): name of the logger for the BMS instance (usually file name)
+            ble_device (BLEDevice): the Bleak device to connect to
+            reconnect (bool): if true, the connection will be closed after each update
         """
         assert (
             getattr(self, "_notification_handler", None) is not None
@@ -103,8 +67,8 @@ class BaseBMS(ABC):
 
     @staticmethod
     @abstractmethod
-    def matcher_dict_list() -> list[dict]:
-        """Return a list of Bluetooth matchers."""
+    def matcher_dict_list() -> list[AdvertisementPattern]:
+        """Return a list of Bluetooth advertisement matchers."""
 
     @staticmethod
     @abstractmethod
@@ -118,16 +82,6 @@ class BaseBMS(ABC):
     def device_id(cls) -> str:
         """Return device information as string."""
         return " ".join(cls.device_info().values())
-
-    # @classmethod # FIXME! find a replacement location
-    # def supported(cls, discovery_info: BluetoothServiceInfoBleak) -> bool:
-    #     """Return true if service_info matches BMS type."""
-    #     for matcher_dict in cls.matcher_dict_list():
-    #         if ble_device_matches(
-    #             BluetoothMatcherOptional(**matcher_dict), discovery_info
-    #         ):
-    #             return True
-    #     return False
 
     @staticmethod
     @abstractmethod
@@ -148,16 +102,21 @@ class BaseBMS(ABC):
     def _calc_values() -> frozenset[BMSvalue]:
         """Return values that the BMS cannot provide and need to be calculated.
 
-        See calc_values() function for the required input to actually do so.
+        See _add_missing_values() function for the required input to actually do so.
         """
         return frozenset()
 
     @staticmethod
-    def _add_missing_values(data: BMSsample, values: frozenset[str]) -> None:
-        """Calculate missing BMS values from existing ones.
+    def _add_missing_values(data: BMSsample, values: frozenset[BMSvalue]) -> None:
+        """
+        Calculate missing BMS values from existing ones.
 
-        data: data dictionary from BMS
-        values: list of values to add to the dictionary
+        Args:
+            data: data dictionary with values received from BMS
+            values: list of values to calculate and add to the dictionary
+
+        Returns:
+            None
         """
         if not values or not data:
             return
@@ -297,7 +256,7 @@ class BaseBMS(ABC):
         """Retrieve updated values from the BMS using method of the subclass."""
         await self._connect()
 
-        data = await self._async_update()
+        data: BMSsample = await self._async_update()
 
         self._add_missing_values(data, self._calc_values())
 

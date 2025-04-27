@@ -8,7 +8,13 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble.basebms import BaseBMS, BMSsample, BMSvalue, KEY_CELL_VOLTAGE
+from aiobmsble.basebms import (
+    KEY_CELL_VOLTAGE,
+    AdvertisementPattern,
+    BaseBMS,
+    BMSsample,
+    BMSvalue,
+)
 
 
 class BMS(BaseBMS):
@@ -82,7 +88,7 @@ class BMS(BaseBMS):
             self._log.exception("unkown device type '%c'", self._type)
 
     @staticmethod
-    def matcher_dict_list() -> list[dict]:
+    def matcher_dict_list() -> list[AdvertisementPattern]:
         """Return a list of Bluetooth matchers."""
         return [
             {
