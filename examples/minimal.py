@@ -1,11 +1,3 @@
-[![License][license-shield]](LICENSE)
-
-# Aiobmsble
-## Asynchronous library to query battery management systems via Bluetooth LE
-Requires Python 3 and uses asyncio and bleak
-
-## Usage
-```python
 """Example of using the aiobmsble library to find a BLE device by name and print its senosr data."""
 
 import asyncio
@@ -40,28 +32,3 @@ async def main(dev_name) -> None:
 
 
 asyncio.run(main(NAME))
-```
-
-## Installation
-Install python and pip if you have not already, then run:
-```bash
-pip3 install pip --upgrade
-pip3 install wheel
-```
-
-### For Production:
-
-```bash
-pip3 install aiobmsble
-```
-This will install the latest library release and all of it's python dependencies.
-
-### For development:
-```bash
-git clone https://github.com/patman15/aiobmsble.git
-cd aiobmsble
-pip3 install -e .[dev]
-```
-This gives you the latest library code from the main branch.
-
-[license-shield]: https://img.shields.io/github/license/patman15/aiobmsble.svg?style=for-the-badge&cacheSeconds=86400

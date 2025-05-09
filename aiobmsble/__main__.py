@@ -1,11 +1,7 @@
 """Example function for package usage."""
 
 import asyncio
-
-# import importlib
 import logging
-
-# import pkgutil
 from types import ModuleType
 
 from bleak import BleakScanner
@@ -64,5 +60,9 @@ async def detect_bms() -> None:
     logger.info("done.")
 
 
-if __name__ == "__main__":
+def main() -> None:
     asyncio.run(detect_bms())
+
+
+if __name__ == "__main__":
+    main()
