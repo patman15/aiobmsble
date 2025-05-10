@@ -36,8 +36,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/patman15/aiobmsble"
-Documentation = "https://github.com/patman15/aiobmsble/README.md"
+Homepage = "https://github.com/patman15/aiobmsble/"
+Documentation = "https://github.com/patman15/aiobmsble/"
 
 [project.scripts]
 aiobmsble = "aiobmsble.__main__:main"
