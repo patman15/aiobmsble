@@ -1,10 +1,24 @@
 [![License][license-shield]](LICENSE)
 
 # Aiobmsble
+Requires Python 3 and uses [asyncio](https://pypi.org/project/asyncio/) and [bleak](https://pypi.org/project/bleak/)
+> [!IMPORTANT]
+> At the moment the library is under development and not all BMS classes have been ported over from the [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/)!
+> Please do not (yet) report missing BMS support or bugs here. Instead please raise an issue at the integration till the library reached at least development status *beta*.
+> Plan is to support all BMSs that are listed [here](https://github.com/patman15/BMS_BLE-HA/edit/main/README.md#supported-devices).
+
 ## Asynchronous library to query battery management systems via Bluetooth LE
-Requires Python 3 and uses asyncio and bleak
+This library is intended to query data from battery management systems that use Bluetooth LE. It is developed to support [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/) that was written to make BMS data available to Home Assistant. While the integration depends on Home Assistant, this library can be used stand-alone in any Python environment (with necessary dependencies installed).
 
 ## Usage
+In order to identify all devices that are reachable and supported by the library, simply run
+```bash
+aiobmsble
+```
+from the command line after [installation](#installation). In case you need the code as reference, please see [\_\_main\_\_.py](/aiobmsble/__main__.py).
+
+### From a script
+This example can also be found as an [example](/examples/minimal.py) in the respective [folder](/main/examples).
 ```python
 """Example of using the aiobmsble library to find a BLE device by name and print its senosr data."""
 
