@@ -35,9 +35,9 @@ class BaseBMS(ABC):
         Intialize the BMS.
 
         notification_handler: the callback function used for notifications from 'uuid_rx()'
-            characteristic. Not defined as abstract in this base class, as it can be both, 
+            characteristic. Not defined as abstract in this base class, as it can be both,
             a normal or async function
-        
+
         Args:
             logger_name (str): name of the logger for the BMS instance (usually file name)
             ble_device (BLEDevice): the Bleak device to connect to
@@ -126,10 +126,10 @@ class BaseBMS(ABC):
             return (value in values) and (value not in data) and using.issubset(data)
 
         cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
-        design_capacity: Final[int] = data.get("design_capacity", 0)
+        design_capacity: Final[int | float] = data.get("design_capacity", 0)
         battery_level: Final[int | float] = data.get("battery_level", 0)
         voltage: Final[float] = data.get("voltage", 0)
-        cycle_charge: Final[int] = data.get("cycle_charge", 0)
+        cycle_charge: Final[int | float] = data.get("cycle_charge", 0)
         current: Final[float] = data.get("current", 0)
 
         calculations: dict[BMSvalue, tuple[set[BMSvalue], Callable[[], Any]]] = {
@@ -140,11 +140,11 @@ class BaseBMS(ABC):
             ),
             "cycle_charge": (
                 {"design_capacity", "battery_level"},
-                lambda: int((design_capacity * battery_level) / 100),
+                lambda: (design_capacity * battery_level) / 100,
             ),
             "cycle_capacity": (
                 {"voltage", "cycle_charge"},
-                lambda: int(voltage * cycle_charge),
+                lambda: voltage * cycle_charge,
             ),
             "power": ({"voltage", "current"}, lambda: round(voltage * current, 3)),
             "battery_charging": ({"current"}, lambda: current > 0),
@@ -252,13 +252,21 @@ class BaseBMS(ABC):
     async def _async_update(self) -> BMSsample:
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
-    async def async_update(self) -> BMSsample:
-        """Retrieve updated values from the BMS using method of the subclass."""
+    async def async_update(self, raw: bool = False) -> BMSsample:
+        """
+        Retrieve updated values from the BMS using method of the subclass.
+
+        Args:
+            raw (bool): if true, the raw data from the BMS is returned without
+                any calculations or missing values added
+        Returns:
+            BMSsample: dictionary with BMS values
+        """
         await self._connect()
 
         data: BMSsample = await self._async_update()
-
-        self._add_missing_values(data, self._calc_values())
+        if not raw:
+            self._add_missing_values(data, self._calc_values())
 
         if self._reconnect:
             # disconnect after data update to force reconnect next time (slow!)

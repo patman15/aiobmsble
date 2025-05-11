@@ -26,21 +26,21 @@ class BMSsample(TypedDict, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
 
     battery_charging: bool
-    battery_level: int | float
-    current: float
-    power: float
-    temperature: int | float
-    voltage: float
-    cycle_capacity: int
-    cycles: int
-    delta_voltage: float
+    battery_level: int | float  # [%]
+    current: float  # [A]
+    power: float  # [W]
+    temperature: int | float  # [°C]
+    voltage: float  # [V]
+    cycle_capacity: int | float  # [Wh]
+    cycles: int  # [#]
+    delta_voltage: float  # [V]
     problem: bool
-    runtime: int
+    runtime: int  # [s]
     # internal
-    cell_voltages: list[float]
-    cycle_charge: int
-    design_capacity: int
-    temp_values: list[int | float]
+    cell_voltages: list[float]  # [V]
+    cycle_charge: int | float  # [Ah]
+    design_capacity: int  # [Ah]
+    temp_values: list[int | float]  # [°C]
     problem_code: int
 
 
