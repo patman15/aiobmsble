@@ -1,17 +1,17 @@
 """Common fixtures for the BLE Battery Management System integration tests."""
 
-import logging
 from collections.abc import Awaitable, Buffer, Callable, Iterable
+import logging
 from typing import Literal
 from uuid import UUID
 
-import pytest
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.descriptor import BleakGATTDescriptor
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.uuids import normalize_uuid_str, uuidstr_to_str
+import pytest
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 

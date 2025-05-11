@@ -1,7 +1,7 @@
 """Utilitiy/Support functions for aiobmsble."""
 
-import re
 from fnmatch import translate
+import re
 
 from bleak.backends.scanner import AdvertisementData
 
@@ -13,8 +13,7 @@ def advertisement_matches(
     matcher: AdvertisementPattern,
     adv_data: AdvertisementData,
 ) -> bool:
-    """
-    Determines whether the given advertisement data matches the specified pattern.
+    """Determine whether the given advertisement data matches the specified pattern.
 
     Args:
         matcher (AdvertisementPattern): A dictionary containing the matching criteria.
@@ -29,6 +28,7 @@ def advertisement_matches(
 
     Returns:
         bool: True if the advertisement data matches the specified pattern, False otherwise.
+
     """
     if (
         service_uuid := matcher.get("service_uuid")
@@ -50,17 +50,14 @@ def advertisement_matches(
             ):
                 return False
 
-    if (local_name := matcher.get("local_name")) and not re.compile(
-        translate(local_name)
-    ).match(adv_data.local_name or ""):
-        return False
-
-    return True
+    return not (
+        (local_name := matcher.get("local_name"))
+        and not re.compile(translate(local_name)).match(adv_data.local_name or "")
+    )
 
 
 def bms_supported(bms: BaseBMS, adv_data: AdvertisementData) -> bool:
-    """
-    Determine if the given BMS is supported based on advertisement data.
+    """Determine if the given BMS is supported based on advertisement data.
 
     Args:
         bms (BaseBMS): The BMS class to check.
@@ -68,6 +65,7 @@ def bms_supported(bms: BaseBMS, adv_data: AdvertisementData) -> bool:
 
     Returns:
         bool: True if the BMS is supported, False otherwise.
+
     """
     for matcher in bms.matcher_dict_list():
         if advertisement_matches(matcher, adv_data):

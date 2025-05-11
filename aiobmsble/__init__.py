@@ -45,7 +45,7 @@ class BMSsample(TypedDict, total=False):
 
 
 class AdvertisementPattern(TypedDict, total=False):
-    """Optional patterns that can match a Bleak advertisement data"""
+    """Optional patterns that can match Bleak advertisement data."""
 
     local_name: str  # name pattern that supports Unix shell-style wildcards
     service_uuid: str  # 128-bit UUID that the device must advertise

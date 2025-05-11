@@ -5,10 +5,10 @@ from collections.abc import Buffer
 from typing import Final
 from uuid import UUID
 
-import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
+import pytest
 
 from aiobmsble.basebms import BMSsample
 from aiobmsble.bms.ogt_bms import BMS
@@ -153,7 +153,9 @@ class MockInvalidBleakClient(MockOGTBleakClient):
         raise BleakError
 
 
-async def test_update(patch_bleak_client, ogt_bms_fixture: str, reconnect_fixture: bool) -> None:
+async def test_update(
+    patch_bleak_client, ogt_bms_fixture: str, reconnect_fixture: bool
+) -> None:
     """Test OGT BMS data update."""
 
     patch_bleak_client(MockOGTBleakClient)

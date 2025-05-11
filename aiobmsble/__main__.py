@@ -27,7 +27,7 @@ logger.info(
 
 
 async def detect_bms() -> None:
-    """Queries a Bluetooth device based on the provided arguments."""
+    """Query a Bluetooth device based on the provided arguments."""
 
     logger.info("starting scan...")
     scan_result: dict[str, tuple[BLEDevice, AdvertisementData]] = (
@@ -61,6 +61,7 @@ async def detect_bms() -> None:
 
 
 def main() -> None:
+    """Entry point for the script to run the BMS detection."""
     asyncio.run(detect_bms())
 
 
