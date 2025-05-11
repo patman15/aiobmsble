@@ -1,9 +1,9 @@
 """Base class defintion for battery management systems (BMS)."""
 
-import asyncio
-import logging
 from abc import ABC, abstractmethod
+import asyncio
 from collections.abc import Callable
+import logging
 from statistics import fmean
 from typing import Any, Final
 
@@ -31,8 +31,7 @@ class BaseBMS(ABC):
         ble_device: BLEDevice,
         reconnect: bool = False,
     ) -> None:
-        """
-        Intialize the BMS.
+        """Intialize the BMS.
 
         notification_handler: the callback function used for notifications from 'uuid_rx()'
             characteristic. Not defined as abstract in this base class, as it can be both,
@@ -42,6 +41,7 @@ class BaseBMS(ABC):
             logger_name (str): name of the logger for the BMS instance (usually file name)
             ble_device (BLEDevice): the Bleak device to connect to
             reconnect (bool): if true, the connection will be closed after each update
+
         """
         assert (
             getattr(self, "_notification_handler", None) is not None
@@ -108,8 +108,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _add_missing_values(data: BMSsample, values: frozenset[BMSvalue]) -> None:
-        """
-        Calculate missing BMS values from existing ones.
+        """Calculate missing BMS values from existing ones.
 
         Args:
             data: data dictionary with values received from BMS
@@ -117,6 +116,7 @@ class BaseBMS(ABC):
 
         Returns:
             None
+
         """
         if not values or not data:
             return
@@ -253,14 +253,15 @@ class BaseBMS(ABC):
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
     async def async_update(self, raw: bool = False) -> BMSsample:
-        """
-        Retrieve updated values from the BMS using method of the subclass.
+        """Retrieve updated values from the BMS using method of the subclass.
 
         Args:
             raw (bool): if true, the raw data from the BMS is returned without
                 any calculations or missing values added
+
         Returns:
             BMSsample: dictionary with BMS values
+
         """
         await self._connect()
 

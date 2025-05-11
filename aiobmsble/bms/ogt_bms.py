@@ -8,12 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble.basebms import (
-    AdvertisementPattern,
-    BaseBMS,
-    BMSsample,
-    BMSvalue,
-)
+from aiobmsble.basebms import AdvertisementPattern, BaseBMS, BMSsample, BMSvalue
 
 
 class BMS(BaseBMS):
