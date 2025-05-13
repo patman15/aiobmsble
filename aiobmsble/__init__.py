@@ -25,23 +25,23 @@ type BMSvalue = Literal[
 class BMSsample(TypedDict, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
 
-    battery_charging: bool
+    battery_charging: bool # True: battery charging
     battery_level: int | float  # [%]
-    current: float  # [A]
-    power: float  # [W]
+    current: float  # [A] (positive: charging)
+    power: float  # [W] (positive: charging)
     temperature: int | float  # [°C]
     voltage: float  # [V]
     cycle_capacity: int | float  # [Wh]
     cycles: int  # [#]
     delta_voltage: float  # [V]
-    problem: bool
+    problem: bool # True: problem detected
     runtime: int  # [s]
-    # internal
+    # detailed information
     cell_voltages: list[float]  # [V]
     cycle_charge: int | float  # [Ah]
     design_capacity: int  # [Ah]
     temp_values: list[int | float]  # [°C]
-    problem_code: int
+    problem_code: int # BMS specific code, 0 no problem
 
 
 class AdvertisementPattern(TypedDict, total=False):
