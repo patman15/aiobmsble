@@ -99,7 +99,7 @@ class MockOGTBleakClient(MockBleakClient):
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
         data: Buffer,
-        response: bool = None,  # noqa: RUF013 # same as upstream
+        response: bool | None = None,
     ) -> None:
         """Issue write command to GATT."""
         # await super().write_gatt_char(char_specifier, data, response)
@@ -137,7 +137,7 @@ class MockInvalidBleakClient(MockOGTBleakClient):
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
         data: Buffer,
-        response: bool = None,  # noqa: RUF013 # same as upstream
+        response: bool | None = None,
     ) -> None:
         """Issue write command to GATT."""
         # await super().write_gatt_char(char_specifier, data, response)
@@ -165,7 +165,7 @@ async def test_update(
         reconnect_fixture,
     )
 
-    result = await bms.async_update()
+    result: BMSsample = await bms.async_update()
 
     # verify all sensors are reported
     if str(ogt_bms_fixture)[9] == "A":
@@ -185,7 +185,7 @@ async def test_update(
         }
 
     # query again to check already connected state
-    result: BMSsample = await bms.async_update()
+    result = await bms.async_update()
     assert bms._client.is_connected is not reconnect_fixture
 
     await bms.disconnect()

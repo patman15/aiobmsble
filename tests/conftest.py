@@ -77,7 +77,7 @@ class MockBleakClient(BleakClient):
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
         data: Buffer,
-        response: bool = None,  # noqa: RUF013 # same as upstream
+        response: bool | None = None,
     ) -> None:
         """Mock write GATT characteristics."""
         LOGGER.debug(
