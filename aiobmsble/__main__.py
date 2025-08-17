@@ -63,6 +63,17 @@ async def detect_bms() -> None:
 
 def main() -> None:
     """Entry point for the script to run the BMS detection."""
+    parser = argparse.ArgumentParser(
+        description="Reference script for 'aiobmsble' to show all recognized BMS in range."
+    )
+    parser.add_argument("--logfile", type=str, help="Path to the log file")
+
+    args: argparse.Namespace = parser.parse_args()
+    if args.logfile:
+        file_handler = logging.FileHandler(args.logfile)
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s'))
+        logger.addHandler(file_handler)
 
     logger.info(
         "loaded BMS types: %s", [key.__name__.rsplit(".", 1)[-1] for key in BMS_PLUGINS]
