@@ -1,8 +1,11 @@
 """Example function for package usage."""
 
+import argparse
 import asyncio
+import importlib
 import logging
 from types import ModuleType
+from typing import Final
 
 from bleak import BleakScanner
 from bleak.backends.device import BLEDevice
@@ -10,20 +13,18 @@ from bleak.backends.scanner import AdvertisementData
 from bleak.exc import BleakError
 
 from aiobmsble import BMSsample
-from aiobmsble.bms import ogt_bms
 from aiobmsble.utils import bms_supported
 
-bms_plugins: list[ModuleType] = [ogt_bms]
+PLUGIN_NAMES: Final[set[str]] = {"ogt_bms"}
+BMS_PLUGINS: Final[set[ModuleType]] = {
+    importlib.import_module(f"aiobmsble.bms.{name}") for name in PLUGIN_NAMES
+}
 
 logging.basicConfig(
     format="%(levelname)s: %(message)s",
     level=logging.INFO,
 )
 logger: logging.Logger = logging.getLogger(__name__)
-
-logger.info(
-    "loaded BMS types: %s", [key.__name__.rsplit(".", 1)[-1] for key in bms_plugins]
-)
 
 
 async def detect_bms() -> None:
@@ -43,7 +44,7 @@ async def detect_bms() -> None:
             ble_dev.address,
             repr(advertisement).replace(", ", ",\n\t"),
         )
-        for bms_module in bms_plugins:
+        for bms_module in BMS_PLUGINS:
             if bms_supported(bms_module.BMS, advertisement):
                 logger.info(
                     "Found matching BMS type: %s",
@@ -62,6 +63,11 @@ async def detect_bms() -> None:
 
 def main() -> None:
     """Entry point for the script to run the BMS detection."""
+
+    logger.info(
+        "loaded BMS types: %s", [key.__name__.rsplit(".", 1)[-1] for key in BMS_PLUGINS]
+    )
+
     asyncio.run(detect_bms())
 
 
