@@ -4,8 +4,9 @@ import argparse
 import asyncio
 import importlib
 import logging
+import pkgutil
 from types import ModuleType
-from typing import Final
+from typing import Any, Final
 
 from bleak import BleakScanner
 from bleak.backends.device import BLEDevice
@@ -15,9 +16,9 @@ from bleak.exc import BleakError
 from aiobmsble import BMSsample
 from aiobmsble.utils import bms_supported
 
-PLUGIN_NAMES: Final[set[str]] = {"ogt_bms"}
 BMS_PLUGINS: Final[set[ModuleType]] = {
-    importlib.import_module(f"aiobmsble.bms.{name}") for name in PLUGIN_NAMES
+    importlib.import_module(f"aiobmsble.bms.{module_name}")
+    for _, module_name, _ in pkgutil.iter_modules(["aiobmsble/bms"])
 }
 
 logging.basicConfig(
@@ -27,7 +28,7 @@ logging.basicConfig(
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-async def detect_bms() -> None:
+async def detect_bms(loglevel: int) -> None:
     """Query a Bluetooth device based on the provided arguments."""
 
     logger.info("starting scan...")
@@ -50,12 +51,16 @@ async def detect_bms() -> None:
                     "Found matching BMS type: %s",
                     bms_module.__name__.rsplit(".", maxsplit=1)[-1],
                 )
-                bms = bms_module.BMS(ble_device=ble_dev, reconnect=True)
+                bms: Any = bms_module.BMS(ble_device=ble_dev, reconnect=True)
+                logging.getLogger(
+                    f"{bms_module.__name__.replace('.bms', '')}::{ble_dev.name}:"
+                    f"{ble_dev.address[-5:].replace(':','')}"
+                ).setLevel(loglevel)
                 try:
                     logger.info("Updating BMS data...")
                     data: BMSsample = await bms.async_update()
                     logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
-                except BleakError as ex:
+                except (BleakError, TimeoutError) as ex:
                     logger.error("Failed to update BMS: %s", ex)
 
     logger.info("done.")
@@ -66,20 +71,28 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Reference script for 'aiobmsble' to show all recognized BMS in range."
     )
-    parser.add_argument("--logfile", type=str, help="Path to the log file")
+    parser.add_argument("-l", "--logfile", type=str, help="Path to the log file")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable debug logging"
+    )
 
     args: argparse.Namespace = parser.parse_args()
+    loglevel: Final[int] = logging.DEBUG if args.verbose else logging.INFO
     if args.logfile:
         file_handler = logging.FileHandler(args.logfile)
-        file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s'))
+        file_handler.setLevel(loglevel)
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(levelname)s: %(message)s")
+        )
         logger.addHandler(file_handler)
 
-    logger.info(
+    logger.setLevel(loglevel)
+
+    logger.debug(
         "loaded BMS types: %s", [key.__name__.rsplit(".", 1)[-1] for key in BMS_PLUGINS]
     )
 
-    asyncio.run(detect_bms())
+    asyncio.run(detect_bms(loglevel))
 
 
 if __name__ == "__main__":
