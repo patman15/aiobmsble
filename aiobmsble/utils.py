@@ -1,7 +1,11 @@
 """Utilitiy/Support functions for aiobmsble."""
 
 from fnmatch import translate
+from functools import lru_cache
+import importlib
+import pkgutil
 import re
+from types import ModuleType
 
 from bleak.backends.scanner import AdvertisementData
 
@@ -56,6 +60,29 @@ def advertisement_matches(
     )
 
 
+@lru_cache
+def load_bms_plugins() -> set[ModuleType]:
+    """
+    Discover and load all available Battery Management System (BMS) plugin modules.
+
+    This function scans the 'aiobmsble/bms' directory for all Python modules,
+    dynamically imports each discovered module, and returns a set containing
+    the imported module objects.
+
+    Returns:
+        set[ModuleType]: A set of imported BMS plugin modules.
+
+    Raises:
+        ImportError: If a module cannot be imported.
+        OSError: If the plugin directory cannot be accessed.
+
+    """
+    return {
+        importlib.import_module(f"aiobmsble.bms.{module_name}")
+        for _, module_name, _ in pkgutil.iter_modules(["aiobmsble/bms"])
+    }
+
+
 def bms_supported(bms: BaseBMS, adv_data: AdvertisementData) -> bool:
     """Determine if the given BMS is supported based on advertisement data.
 
@@ -71,3 +98,19 @@ def bms_supported(bms: BaseBMS, adv_data: AdvertisementData) -> bool:
         if advertisement_matches(matcher, adv_data):
             return True
     return False
+
+
+def get_bms_cls(adv_data: AdvertisementData) -> type[BaseBMS] | None:
+    """Identify and return the BMS class that matches the given advertisement data.
+
+    Args:
+        adv_data (AdvertisementData): The advertisement data to match against available BMS plugins.
+
+    Returns:
+        type[BaseBMS] | None: The matching BMS class if found, otherwise None.
+
+    """
+    for bms_module in load_bms_plugins():
+        if bms_supported(bms_module.BMS, adv_data):
+            return bms_module.BMS
+    return None
