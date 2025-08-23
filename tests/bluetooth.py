@@ -1,4 +1,4 @@
-"""Test helpers for bluetooth copied from HA 2024.11.0.
+"""Test helpers for bluetooth copied from HA 2025.8.3.
 
 Source: /tests/components/bluetooth/__init__.py
 """
@@ -38,8 +38,6 @@ def generate_ble_device(
         new["name"] = name
     if details is not None:
         new["details"] = details
-    if rssi is not None:
-        new["rssi"] = rssi
     for key, value in BLE_DEVICE_DEFAULTS.items():
         new.setdefault(key, value)
     return BLEDevice(**new)
