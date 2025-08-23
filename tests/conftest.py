@@ -21,6 +21,19 @@ from .bluetooth import generate_ble_device
 LOGGER: logging.Logger = logging.getLogger(__package__)
 
 
+@pytest.fixture(params=[-13, 0, 21])
+def bms_data_fixture(request) -> BMSsample:
+    """Return a fake BMS data dictionary."""
+
+    return {
+        "voltage": 7.0,
+        "current": request.param,
+        "cycle_charge": 34,
+        "cell_voltages": [3.456, 3.567],
+        "temp_values": [-273.15, 0.01, 35.555, 100.0],
+    }
+
+
 @pytest.fixture
 def patch_bms_timeout(monkeypatch):
     """Fixture to patch BMS.TIMEOUT for different BMS classes."""

@@ -35,12 +35,14 @@ dependencies = [
   "typing"
 ]
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "mypy", "ruff"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "mypy", "ruff"]
 
 
 [project.urls]
 Homepage = "https://github.com/patman15/aiobmsble/"
-Documentation = "https://github.com/patman15/aiobmsble/"
+Documentation = "https://github.com/patman15/aiobmsble/README"
+"Source Code" = "https://github.com/patman15/aiobmsble/"
+"Bug Reports" = "https://github.com/patman15/aiobmsble/issues"
 
 [project.scripts]
 aiobmsble = "aiobmsble.__main__:main"
@@ -49,7 +51,11 @@ aiobmsble = "aiobmsble.__main__:main"
 packages = ["aiobmsble"]
 
 [tool.pytest.ini_options]
-minversion = "8.0"
+minversion = "8.4"
+addopts="-n auto --cov=aiobmsble --cov-branch --cov-report=term-missing --cov-fail-under=100"
+pythonpath = [
+    "aiobmsble",
+]
 testpaths = [
     "tests",
 ]
