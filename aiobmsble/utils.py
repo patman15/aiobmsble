@@ -62,8 +62,7 @@ def advertisement_matches(
 
 @lru_cache
 def load_bms_plugins() -> set[ModuleType]:
-    """
-    Discover and load all available Battery Management System (BMS) plugin modules.
+    """Discover and load all available Battery Management System (BMS) plugin modules.
 
     This function scans the 'aiobmsble/bms' directory for all Python modules,
     dynamically imports each discovered module, and returns a set containing

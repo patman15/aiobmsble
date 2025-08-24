@@ -11,7 +11,6 @@ import pytest
 
 from aiobmsble.basebms import BMSsample
 from aiobmsble.bms.ogt_bms import BMS
-
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
 

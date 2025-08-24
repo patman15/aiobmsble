@@ -6,6 +6,7 @@ Source: /tests/components/bluetooth/__init__.py
 from typing import Any
 
 from bleak.backends.device import BLEDevice
+from bleak.backends.scanner import AdvertisementData
 
 ADVERTISEMENT_DATA_DEFAULTS = {
     "local_name": "",
@@ -22,6 +23,15 @@ BLE_DEVICE_DEFAULTS = {
     "rssi": -127,
     "details": None,
 }
+
+
+def generate_advertisement_data(**kwargs: Any) -> AdvertisementData:
+    """Generate advertisement data with defaults."""
+    new = kwargs.copy()
+    for key, value in ADVERTISEMENT_DATA_DEFAULTS.items():
+        new.setdefault(key, value)
+    return AdvertisementData(**new)
+
 
 def generate_ble_device(
     address: str | None = None,
