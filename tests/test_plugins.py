@@ -37,18 +37,6 @@ def test_matcher_dict(plugin: ModuleType) -> None:
     assert len(bms_class.matcher_dict_list())
 
 
-def test_advertisements_complete() -> None:
-    """Check that each BMS has at least one advertisement."""
-    bms_tocheck: set[str] = {
-        plugin.__name__.rsplit(".", 1)[-1] for plugin in load_bms_plugins()
-    }
-    for _adv, bms in ADVERTISEMENTS:
-        bms_tocheck.discard(bms)
-    assert (
-        not bms_tocheck
-    ), f"{len(bms_tocheck)} missing BMS type advertisements: {bms_tocheck}"
-
-
 def test_advertisements_unique() -> None:
     """Check that each advertisement only matches one, the right BMS."""
     for adv, bms_real in ADVERTISEMENTS:

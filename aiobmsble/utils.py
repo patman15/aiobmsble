@@ -66,7 +66,7 @@ def load_bms_plugins() -> set[ModuleType]:
 
     This function scans the 'aiobmsble/bms' directory for all Python modules,
     dynamically imports each discovered module, and returns a set containing
-    the imported module objects.
+    the imported module objects required to end with "_bms".
 
     Returns:
         set[ModuleType]: A set of imported BMS plugin modules.
@@ -79,6 +79,7 @@ def load_bms_plugins() -> set[ModuleType]:
     return {
         importlib.import_module(f"aiobmsble.bms.{module_name}")
         for _, module_name, _ in pkgutil.iter_modules(["aiobmsble/bms"])
+        if module_name.endswith("_bms")
     }
 
 
@@ -99,14 +100,14 @@ def bms_supported(bms: BaseBMS, adv_data: AdvertisementData) -> bool:
     return False
 
 
-def get_bms_cls(adv_data: AdvertisementData) -> type[BaseBMS] | None:
+def bms_identify(adv_data: AdvertisementData) -> type[BaseBMS] | None:
     """Identify and return the BMS class that matches the given advertisement data.
 
     Args:
         adv_data (AdvertisementData): The advertisement data to match against available BMS plugins.
 
     Returns:
-        type[BaseBMS] | None: The matching BMS class if found, otherwise None.
+        type[BaseBMS] | None: The matching BMS class if found, None otherwise.
 
     """
     for bms_module in load_bms_plugins():

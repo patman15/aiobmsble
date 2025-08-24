@@ -12,7 +12,7 @@ from bleak.exc import BleakError
 
 from aiobmsble import BMSsample
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.utils import get_bms_cls
+from aiobmsble.utils import bms_identify
 
 logging.basicConfig(
     format="%(levelname)s: %(message)s",
@@ -44,7 +44,7 @@ async def detect_bms() -> None:
             repr(advertisement).replace(", ", ",\n\t"),
         )
 
-        if bms_cls := get_bms_cls(advertisement):
+        if bms_cls := bms_identify(advertisement):
             logger.info("Found matching BMS type: %s", bms_cls.device_id())
             bms: BaseBMS = bms_cls(ble_device=ble_dev, reconnect=True)
 
