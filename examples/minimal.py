@@ -15,7 +15,7 @@ NAME: Final[str] = "BT Device Name"  # Replace with the name of your BLE device
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 async def main(dev_name) -> None:
