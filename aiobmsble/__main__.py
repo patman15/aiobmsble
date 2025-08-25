@@ -27,6 +27,7 @@ async def scan_devices() -> dict[str, tuple[BLEDevice, AdvertisementData]]:
     scan_result: dict[str, tuple[BLEDevice, AdvertisementData]] = (
         await BleakScanner.discover(return_adv=True)
     )
+    logger.info(scan_result)
     logger.info("%i BT devices in range.", len(scan_result))
     return scan_result
 
@@ -89,4 +90,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main()  # pragma: no cover

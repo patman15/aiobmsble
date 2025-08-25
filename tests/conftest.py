@@ -18,118 +18,8 @@ from aiobmsble.basebms import BaseBMS
 
 from .bluetooth import generate_ble_device
 
+logging.basicConfig(level=logging.INFO)
 LOGGER: logging.Logger = logging.getLogger(__package__)
-
-
-@pytest.fixture(params=[-13, 0, 21])
-def bms_data_fixture(request) -> BMSsample:
-    """Return a fake BMS data dictionary."""
-
-    return {
-        "voltage": 7.0,
-        "current": request.param,
-        "cycle_charge": 34,
-        "cell_voltages": [3.456, 3.567],
-        "temp_values": [-273.15, 0.01, 35.555, 100.0],
-    }
-
-
-@pytest.fixture
-def patch_bms_timeout(monkeypatch):
-    """Fixture to patch BMS.TIMEOUT for different BMS classes."""
-
-    def _patch_timeout(bms_class: str | None = None, timeout: float = 0.001) -> None:
-        patch_class: str = (
-            f"bms.{bms_class}.BMS.TIMEOUT"
-            if bms_class
-            else "basebms.BaseBMS._RETRY_TIMEOUT"
-        )
-        monkeypatch.setattr(f"aiobmsble.{patch_class}", timeout)
-
-    return _patch_timeout
-
-
-@pytest.fixture
-def patch_bleak_client(monkeypatch):
-    """Fixture to patch BleakClient with a given MockClient."""
-
-    def _patch(mock_client=MockBleakClient) -> None:
-        monkeypatch.setattr(
-            "aiobmsble.basebms.BleakClient",
-            mock_client,
-        )
-
-    return _patch
-
-
-@pytest.fixture(params=[False, True], ids=["persist", "reconnect"])
-def reconnect_fixture(request: pytest.FixtureRequest) -> bool:
-    """Return False, True for reconnect test."""
-    return request.param
-
-
-class MockBMS(BaseBMS):
-    """Mock Battery Management System."""
-
-    def __init__(
-        self, exc: Exception | None = None, ret_value: BMSsample | None = None
-    ) -> None:  # , ble_device, reconnect: bool = False
-        """Initialize BMS."""
-        super().__init__(generate_ble_device(address="", details={"path": None}), False)
-        LOGGER.debug("%s init(), Test except: %s", self.device_id(), str(exc))
-        self._exception: Exception | None = exc
-        self._ret_value: BMSsample = (
-            ret_value
-            if ret_value is not None
-            else {
-                "voltage": 13,
-                "current": 1.7,
-                "cycle_charge": 19,
-                "cycles": 23,
-            }
-        )  # set fixed values for dummy battery
-
-    @staticmethod
-    def matcher_dict_list() -> list[AdvertisementPattern]:
-        """Provide BluetoothMatcher definition."""
-        return [{"local_name": "mock", "connectable": True}]
-
-    @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Mock Manufacturer", "model": "mock model"}
-
-    @staticmethod
-    def uuid_services() -> list[str]:
-        """Return list of services required by BMS."""
-        return [normalize_uuid_str("cafe")]
-
-    @staticmethod
-    def uuid_rx() -> str:
-        """Return characteristic that provides notification/read property."""
-        return "feed"
-
-    @staticmethod
-    def uuid_tx() -> str:
-        """Return characteristic that provides write property."""
-        return "cafe"
-
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
-        """Retrieve BMS data update."""
-
-    # async def disconnect(self) -> None:
-    #     """Disconnect connection to BMS if active."""
-
-    async def _async_update(self) -> BMSsample:
-        """Update battery status information."""
-        await self._connect()
-
-        if self._exception:
-            raise self._exception
-
-        return self._ret_value
 
 
 class MockBleakClient(BleakClient):
@@ -217,6 +107,114 @@ class MockBleakClient(BleakClient):
         self._connected = False
         if self._disconnect_callback is not None:
             self._disconnect_callback(self)
+
+
+class MockBMS(BaseBMS):
+    """Mock Battery Management System."""
+
+    def __init__(
+        self, exc: Exception | None = None, ret_value: BMSsample | None = None
+    ) -> None:  # , ble_device, reconnect: bool = False
+        """Initialize BMS."""
+        super().__init__(generate_ble_device(address="", details={"path": None}), False)
+        LOGGER.debug("%s init(), Test except: %s", self.device_id(), str(exc))
+        self._exception: Exception | None = exc
+        self._ret_value: BMSsample = (
+            ret_value
+            if ret_value is not None
+            else {
+                "voltage": 13,
+                "current": 1.7,
+                "cycle_charge": 19,
+                "cycles": 23,
+            }
+        )  # set fixed values for dummy battery
+
+    @staticmethod
+    def matcher_dict_list() -> list[AdvertisementPattern]:
+        """Provide BluetoothMatcher definition."""
+        return [{"local_name": "mock", "connectable": True}]
+
+    @staticmethod
+    def device_info() -> dict[str, str]:
+        """Return device information for the battery management system."""
+        return {"manufacturer": "Mock Manufacturer", "model": "mock model"}
+
+    @staticmethod
+    def uuid_services() -> list[str]:
+        """Return list of services required by BMS."""
+        return [normalize_uuid_str("cafe")]
+
+    @staticmethod
+    def uuid_rx() -> str:
+        """Return characteristic that provides notification/read property."""
+        return "feed"
+
+    @staticmethod
+    def uuid_tx() -> str:
+        """Return characteristic that provides write property."""
+        return "cafe"
+
+    def _notification_handler(
+        self, sender: BleakGATTCharacteristic, data: bytearray
+    ) -> None:
+        """Retrieve BMS data update."""
+
+    async def _async_update(self) -> BMSsample:
+        """Update battery status information."""
+        await self._connect()
+
+        if self._exception:
+            raise self._exception
+
+        return self._ret_value
+
+
+@pytest.fixture(params=[-13, 0, 21], ids=["neg_current", "zero_current", "pos_current"])
+def bms_data_fixture(request) -> BMSsample:
+    """Return a fake BMS data dictionary."""
+
+    return {
+        "voltage": 7.0,
+        "current": request.param,
+        "cycle_charge": 34,
+        "cell_voltages": [3.456, 3.567],
+        "temp_values": [-273.15, 0.01, 35.555, 100.0],
+    }
+
+
+@pytest.fixture
+def patch_bms_timeout(monkeypatch):
+    """Fixture to patch BMS.TIMEOUT for different BMS classes."""
+
+    def _patch_timeout(bms_class: str | None = None, timeout: float = 0.001) -> None:
+        patch_class: str = (
+            f"bms.{bms_class}.BMS.TIMEOUT"
+            if bms_class
+            else "basebms.BaseBMS._RETRY_TIMEOUT"
+        )
+        monkeypatch.setattr(f"aiobmsble.{patch_class}", timeout)
+
+    return _patch_timeout
+
+
+@pytest.fixture
+def patch_bleak_client(monkeypatch):
+    """Fixture to patch BleakClient with a given MockClient."""
+
+    def _patch(mock_client=MockBleakClient) -> None:
+        monkeypatch.setattr(
+            "aiobmsble.basebms.BleakClient",
+            mock_client,
+        )
+
+    return _patch
+
+
+@pytest.fixture(params=[False, True], ids=["persist", "reconnect"])
+def reconnect_fixture(request: pytest.FixtureRequest) -> bool:
+    """Return False, True for reconnect test."""
+    return request.param
 
 
 class DefGATTChar(BleakGATTCharacteristic):
