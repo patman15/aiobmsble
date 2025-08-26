@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
-from aiobmsble import AdvertisementPattern, BMSdp, BMSsample, BMSvalue
+from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
 
 
 class BaseBMS(ABC):
@@ -81,7 +81,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     @abstractmethod
-    def matcher_dict_list() -> list[AdvertisementPattern]:
+    def matcher_dict_list() -> list[MatcherPattern]:
         """Return a list of Bluetooth advertisement matchers."""
 
     @staticmethod

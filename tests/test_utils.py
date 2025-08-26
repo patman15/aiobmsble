@@ -4,9 +4,9 @@ from types import ModuleType
 
 import pytest
 
-from aiobmsble import AdvertisementPattern
+from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.utils import advertisement_matches, bms_identify, load_bms_plugins
+from aiobmsble.utils import _advertisement_matches, bms_identify, load_bms_plugins
 from tests.advertisement_data import ADVERTISEMENTS
 from tests.bluetooth import AdvertisementData, generate_advertisement_data
 
@@ -154,7 +154,7 @@ def test_bms_identify_fail() -> None:
     ],
 )
 def test_advertisement_matches(
-    matcher: AdvertisementPattern, adv_data: AdvertisementData, expected: bool
+    matcher: MatcherPattern, adv_data: AdvertisementData, expected: bool
 ):
     """Tests whether the advertisement_matches function returns the expected result for given matcher and advertisement data.
 
@@ -167,4 +167,4 @@ def test_advertisement_matches(
         That advertisement_matches(matcher, adv_data) returns the value specified by expected.
 
     """
-    assert advertisement_matches(matcher, adv_data) is expected
+    assert _advertisement_matches(matcher, adv_data) is expected

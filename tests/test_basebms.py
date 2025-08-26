@@ -13,7 +13,7 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble.basebms import (
-    AdvertisementPattern,
+    MatcherPattern,
     BaseBMS,
     BMSdp,
     BMSsample,
@@ -76,7 +76,7 @@ class MinTestBMS(BaseBMS):
     """Minimal Test BMS implementation."""
 
     @staticmethod
-    def matcher_dict_list() -> list[AdvertisementPattern]:
+    def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [{"local_name": "Test", "connectable": True}]
 

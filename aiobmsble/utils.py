@@ -9,12 +9,12 @@ from types import ModuleType
 
 from bleak.backends.scanner import AdvertisementData
 
-from aiobmsble import AdvertisementPattern
+from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
-def advertisement_matches(
-    matcher: AdvertisementPattern,
+def _advertisement_matches(
+    matcher: MatcherPattern,
     adv_data: AdvertisementData,
 ) -> bool:
     """Determine whether the given advertisement data matches the specified pattern.
@@ -83,34 +83,42 @@ def load_bms_plugins() -> set[ModuleType]:
     }
 
 
-def bms_supported(bms: BaseBMS, adv_data: AdvertisementData) -> bool:
+def bms_supported(
+    bms: BaseBMS, adv_data: AdvertisementData, mac_addr: str | None = None
+) -> bool:
     """Determine if the given BMS is supported based on advertisement data.
 
     Args:
         bms (BaseBMS): The BMS class to check.
         adv_data (AdvertisementData): The advertisement data to match against.
+        mac_addr (str | None): Optional MAC address to check OUI against
 
     Returns:
         bool: True if the BMS is supported, False otherwise.
 
     """
+    if mac_addr:
+        raise NotImplementedError
     for matcher in bms.matcher_dict_list():
-        if advertisement_matches(matcher, adv_data):
+        if _advertisement_matches(matcher, adv_data):
             return True
     return False
 
 
-def bms_identify(adv_data: AdvertisementData) -> type[BaseBMS] | None:
+def bms_identify(
+    adv_data: AdvertisementData, mac_addr: str | None = None
+) -> type[BaseBMS] | None:
     """Identify and return the BMS class that matches the given advertisement data.
 
     Args:
         adv_data (AdvertisementData): The advertisement data to match against available BMS plugins.
+        mac_addr (str | None): Optional MAC address to check OUI against
 
     Returns:
         type[BaseBMS] | None: The matching BMS class if found, None otherwise.
 
     """
     for bms_module in load_bms_plugins():
-        if bms_supported(bms_module.BMS, adv_data):
+        if bms_supported(bms_module.BMS, adv_data, mac_addr):
             return bms_module.BMS
     return None

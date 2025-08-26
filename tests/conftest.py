@@ -13,7 +13,7 @@ from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import AdvertisementPattern, BMSsample
+from aiobmsble import MatcherPattern, BMSsample
 from aiobmsble.basebms import BaseBMS
 
 from .bluetooth import generate_ble_device
@@ -131,7 +131,7 @@ class MockBMS(BaseBMS):
         )  # set fixed values for dummy battery
 
     @staticmethod
-    def matcher_dict_list() -> list[AdvertisementPattern]:
+    def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [{"local_name": "mock", "connectable": True}]
 
