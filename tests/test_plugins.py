@@ -1,7 +1,6 @@
 """Test the BLE Battery Management System base class functions."""
 
 from types import ModuleType
-from typing import Final
 
 import pytest
 

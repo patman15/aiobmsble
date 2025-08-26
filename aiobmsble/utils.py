@@ -83,26 +83,21 @@ def load_bms_plugins() -> set[ModuleType]:
     }
 
 
-def bms_supported(
-    bms: BaseBMS, adv_data: AdvertisementData, mac_addr: str | None = None
-) -> bool:
-    """Determine if the given BMS is supported based on advertisement data.
+def bms_cls(name: str) -> type[BaseBMS] | None:
+    """Return the BMS class that is defined by the name argument.
 
     Args:
-        bms (BaseBMS): The BMS class to check.
-        adv_data (AdvertisementData): The advertisement data to match against.
-        mac_addr (str | None): Optional MAC address to check OUI against
+        name (str): The name of the BMS type
 
     Returns:
-        bool: True if the BMS is supported, False otherwise.
+        type[BaseBMS] | None: If the BMS class defined by name is found, None otherwise.
 
     """
-    if mac_addr:
-        raise NotImplementedError
-    for matcher in bms.matcher_dict_list():
-        if _advertisement_matches(matcher, adv_data):
-            return True
-    return False
+    try:
+        bms_module: ModuleType = importlib.import_module(f"aiobmsble.bms.{name}_bms")
+    except ModuleNotFoundError:
+        return None
+    return bms_module.BMS
 
 
 def bms_identify(
@@ -122,3 +117,25 @@ def bms_identify(
         if bms_supported(bms_module.BMS, adv_data, mac_addr):
             return bms_module.BMS
     return None
+
+
+def bms_supported(
+    bms: BaseBMS, adv_data: AdvertisementData, mac_addr: str | None = None
+) -> bool:
+    """Determine if the given BMS is supported based on advertisement data.
+
+    Args:
+        bms (BaseBMS): The BMS class to check.
+        adv_data (AdvertisementData): The advertisement data to match against.
+        mac_addr (str | None): Optional MAC address to check OUI against
+
+    Returns:
+        bool: True if the BMS is supported, False otherwise.
+
+    """
+    if mac_addr:
+        raise NotImplementedError  # pragma: no cover
+    for matcher in bms.matcher_dict_list():
+        if _advertisement_matches(matcher, adv_data):
+            return True
+    return False

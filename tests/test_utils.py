@@ -6,7 +6,12 @@ import pytest
 
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.utils import _advertisement_matches, bms_identify, load_bms_plugins
+from aiobmsble.utils import (
+    _advertisement_matches,
+    bms_cls,
+    bms_identify,
+    load_bms_plugins,
+)
 from tests.advertisement_data import ADVERTISEMENTS
 from tests.bluetooth import AdvertisementData, generate_advertisement_data
 
@@ -45,6 +50,22 @@ def test_bms_identify(plugin: ModuleType) -> None:
     assert adv is not None, f"Missing advertisement for {bms_type}"
     bms_class: type[BaseBMS] | None = bms_identify(adv)
     assert bms_class == plugin.BMS
+
+
+def test_bms_cls(plugin: ModuleType) -> None:
+    """Test that a BMS class is correctly returned from its name."""
+    # strip _bms to get only type
+    bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1][:-4]
+    bms_class: type[BaseBMS] | None = bms_cls(bms_type)
+    assert bms_class == plugin.BMS
+
+
+def test_bms_cls_none() -> None:
+    """Test that a BMS class is correctly returned from its name."""
+    # strip _bms to get only type
+    bms_type: str = "unvailable_bms"
+    bms_class: type[BaseBMS] | None = bms_cls(bms_type)
+    assert bms_class is None
 
 
 def test_bms_identify_fail() -> None:
