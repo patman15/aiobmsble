@@ -13,7 +13,7 @@ from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import MatcherPattern, BMSsample
+from aiobmsble import BMSsample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 from .bluetooth import generate_ble_device
