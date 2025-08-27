@@ -8,14 +8,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import AdvertisementPattern, BMSdp, BMSsample, BMSvalue
+from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Ective BMS implementation."""
 
-    _HEAD_RSP: Final[bytes] = bytes([0x5E])  # header for responses
+    _HEAD_RSP: Final[tuple[bytes, ...]] = (b"\x5e", b"\x83")  # header for responses
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
@@ -35,7 +35,7 @@ class BMS(BaseBMS):
         self._data_final: bytearray = bytearray()
 
     @staticmethod
-    def matcher_dict_list() -> list[AdvertisementPattern]:
+    def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
             {
@@ -84,7 +84,11 @@ class BMS(BaseBMS):
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
-        if (start := data.find(BMS._HEAD_RSP)) != -1:  # check for beginning of frame
+        if (
+            start := next(
+                (i for i, b in enumerate(data) if bytes([b]) in BMS._HEAD_RSP), -1
+            )
+        ) != -1:  # check for beginning of frame
             data = data[start:]
             self._data.clear()
 
