@@ -100,23 +100,45 @@ def bms_cls(name: str) -> type[BaseBMS] | None:
     return bms_module.BMS
 
 
-def bms_identify(
+def bms_matching(
     adv_data: AdvertisementData, mac_addr: str | None = None
-) -> type[BaseBMS] | None:
-    """Identify and return the BMS class that matches the given advertisement data.
+) -> list[type[BaseBMS]]:
+    """Return the BMS classes that match the given advertisement data.
+
+    Currently the function returns at most one match, but this behaviour might change
+    in the future to multiple entries, if BMSs cannot be distinguished uniquely using
+    their Bluetooth advertisement / OUI (Organizationally Unique Identifier)
 
     Args:
         adv_data (AdvertisementData): The advertisement data to match against available BMS plugins.
         mac_addr (str | None): Optional MAC address to check OUI against
 
     Returns:
-        type[BaseBMS] | None: The matching BMS class if found, None otherwise.
+        list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwhise.
 
     """
     for bms_module in load_bms_plugins():
         if bms_supported(bms_module.BMS, adv_data, mac_addr):
-            return bms_module.BMS
-    return None
+            return [bms_module.BMS]
+    return []
+
+
+def bms_identify(
+    adv_data: AdvertisementData, mac_addr: str | None = None
+) -> type[BaseBMS] | None:
+    """Return the BMS classes that best matches the given advertisement data.
+
+    Args:
+        adv_data (AdvertisementData): The advertisement data to match against available BMS plugins.
+        mac_addr (str | None): Optional MAC address to check OUI against
+
+    Returns:
+        type[BaseBMS] | None: The identified BMS class if a match is found, None otherwhise
+
+    """
+
+    matching_bms: list[type[BaseBMS]] = bms_matching(adv_data, mac_addr)
+    return matching_bms[0] if matching_bms else None
 
 
 def bms_supported(
