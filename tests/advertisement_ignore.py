@@ -2,9 +2,7 @@
 
 from typing import Final
 
-from bleak.backends.scanner import AdvertisementData
-
-from tests.bluetooth import generate_advertisement_data
+from .bluetooth import AdvertisementData, generate_advertisement_data
 
 ADVERTISEMENTS_IGNORE: Final[list[tuple[AdvertisementData, str]]] = [
     (  # source advmon (https://github.com/patman15/BMS_BLE-HA/issues/282)
@@ -28,6 +26,13 @@ ADVERTISEMENTS_IGNORE: Final[list[tuple[AdvertisementData, str]]] = [
                 "00000001-0000-1000-8000-00805f9b34fb",
             ],
             rssi=-50,
+        ),
+        "classic BT device",
+    ),
+    (  # source advmon (https://github.com/patman15/BMS_BLE-HA/issues/408)
+        generate_advertisement_data(
+            local_name="BMS-SMART_708BFC",
+            rssi=-78,
         ),
         "classic BT device",
     ),

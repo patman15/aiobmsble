@@ -36,4 +36,5 @@ async def main(dev_name) -> None:
         logger.error("Failed to update BMS: %s", type(ex).__name__)
 
 
-asyncio.run(main(NAME))
+if __name__ == "__main__":
+    asyncio.run(main(NAME))  # pragma: no cover

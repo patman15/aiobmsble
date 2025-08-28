@@ -1,5 +1,6 @@
 """Test the BLE Battery Management System base class functions."""
 
+from functools import lru_cache
 from types import ModuleType
 
 import pytest
@@ -15,7 +16,7 @@ from tests.advertisement_ignore import ADVERTISEMENTS_IGNORE
     params=sorted(
         load_bms_plugins(), key=lambda plugin: getattr(plugin, "__name__", "")
     ),
-    ids=lambda param: param.__name__.split(".")[-1],
+    ids=lambda param: param.__name__.rsplit(".", 1)[-1],
 )
 def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
     """Return module of a BMS."""
