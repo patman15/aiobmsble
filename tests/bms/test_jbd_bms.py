@@ -117,10 +117,7 @@ async def test_update(patch_bleak_client, reconnect_fixture) -> None:
 
     patch_bleak_client(MockJBDBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == {
         "temp_sensors": 3,
@@ -180,7 +177,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockJBDBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     with pytest.raises(TimeoutError):
         _result = await bms.async_update()
@@ -193,7 +190,7 @@ async def test_oversized_response(patch_bleak_client) -> None:
 
     patch_bleak_client(MockOversizedBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == {
         "temp_sensors": 3,
@@ -271,7 +268,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockJBDBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == {
         "temp_sensors": 3,

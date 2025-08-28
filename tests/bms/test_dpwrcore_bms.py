@@ -154,10 +154,7 @@ async def test_update(patch_bleak_client, dev_name, reconnect_fixture) -> None:
 
     patch_bleak_client(MockDPwrcoreBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name, None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), reconnect_fixture)
 
     assert await bms.async_update() == {
         "voltage": 53.1,
@@ -206,7 +203,7 @@ async def test_invalid_response(
     patch_bms_timeout()
     patch_bleak_client(MockInvalidBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name, None, -73))
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name))
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -223,7 +220,7 @@ async def test_wrong_crc(patch_bleak_client, patch_bms_timeout, dev_name) -> Non
     patch_bms_timeout()
     patch_bleak_client(MockWrongCRCBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name, None, -73))
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name))
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -239,7 +236,7 @@ async def test_problem_response(patch_bleak_client, dev_name) -> None:
 
     patch_bleak_client(MockProblemBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name, None, -73), False)
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), False)
 
     assert await bms.async_update() == {
         "voltage": 53.1,
@@ -292,7 +289,7 @@ async def test_incomplete_msgs(monkeypatch, patch_bleak_client, dev_name) -> Non
     monkeypatch.setattr(MockDPwrcoreBleakClient, "_response", _stuck_response)
     patch_bleak_client(MockDPwrcoreBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name, None, -73), False)
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), False)
 
     result: BMSsample = {}
     with pytest.raises(ValueError, match="incomplete response set"):

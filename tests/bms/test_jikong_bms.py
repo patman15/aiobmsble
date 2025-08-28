@@ -7,10 +7,9 @@ from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
-from bleak.backends.descriptor import BleakGATTDescriptor
 from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.exc import BleakError
-from bleak.uuids import normalize_uuid_str, uuidstr_to_str
+from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble.basebms import BMSsample
@@ -353,7 +352,9 @@ class MockJikongBleakClient(MockBleakClient):
     async def _send_confirm(self) -> None:
         assert self._notify_callback, "send confirm called but notification not enabled"
         await asyncio.sleep(0.01)
-        self._notify_callback("MockJikongBleakClient", self._FRAME.get("ack", bytearray()))
+        self._notify_callback(
+            "MockJikongBleakClient", self._FRAME.get("ack", bytearray())
+        )
 
     async def write_gatt_char(
         self,
@@ -385,117 +386,6 @@ class MockJikongBleakClient(MockBleakClient):
             await asyncio.wait_for(self._task, 0.1)
             assert self._task.done(), "send task still running!"
         await super().disconnect()
-
-    # class JKservice(BleakGATTService):
-    #     """Mock the main battery info service from JiKong BMS."""
-
-    #     class CharBase(BleakGATTCharacteristic):
-    #         """Basic characteristic for common properties.
-
-    #         Note that Jikong BMS has two characteristics with same UUID!
-    #         """
-
-    #         @property
-    #         def service_handle(self) -> int:
-    #             """The integer handle of the Service containing this characteristic."""
-    #             return 0
-
-    #         @property
-    #         def handle(self) -> int:
-    #             """The handle for this characteristic."""
-    #             return 3
-
-    #         @property
-    #         def service_uuid(self) -> str:
-    #             """The UUID of the Service containing this characteristic."""
-    #             return normalize_uuid_str("ffe0")
-
-    #         @property
-    #         def uuid(self) -> str:
-    #             """The UUID for this characteristic."""
-    #             return normalize_uuid_str("ffe1")
-
-    #         @property
-    #         def descriptors(self) -> list[BleakGATTDescriptor]:
-    #             """List of descriptors for this service."""
-    #             return []
-
-    #         def get_descriptor(
-    #             self, specifier: int | str | UUID
-    #         ) -> BleakGATTDescriptor | None:
-    #             """Get a descriptor by handle (int) or UUID (str or uuid.UUID)."""
-    #             raise NotImplementedError
-
-    #         def add_descriptor(self, descriptor: BleakGATTDescriptor) -> None:
-    #             """Add a :py:class:`~BleakGATTDescriptor` to the characteristic.
-
-    #             Should not be used by end user, but rather by `bleak` itself.
-    #             """
-    #             raise NotImplementedError
-
-    #     class CharNotify(CharBase):
-    #         """Characteristic for notifications."""
-
-    #         @property
-    #         def properties(self) -> list[str]:
-    #             """Properties of this characteristic."""
-    #             return ["notify"]
-
-    #     class CharWrite(CharBase):
-    #         """Characteristic for writing."""
-
-    #         @property
-    #         def properties(self) -> list[str]:
-    #             """Properties of this characteristic."""
-    #             return ["write", "write-without-response"]
-
-    #     class CharFaulty(CharBase):
-    #         """Characteristic for writing."""
-
-    #         @property
-    #         def uuid(self) -> str:
-    #             """The UUID for this characteristic."""
-    #             return normalize_uuid_str("0000")
-
-    #         @property
-    #         def properties(self) -> list[str]:
-    #             """Properties of this characteristic."""
-    #             return ["write", "write-without-response"]
-
-    #     @property
-    #     def handle(self) -> int:
-    #         """The handle of this service."""
-
-    #         return 2
-
-    #     @property
-    #     def uuid(self) -> str:
-    #         """The UUID to this service."""
-
-    #         return normalize_uuid_str("ffe0")
-
-    #     @property
-    #     def description(self) -> str:
-    #         """String description for this service."""
-
-    #         return uuidstr_to_str(self.uuid)
-
-    #     @property
-    #     def characteristics(self) -> list[BleakGATTCharacteristic]:
-    #         """List of characteristics for this service."""
-
-    #         return [
-    #             self.CharNotify(None, lambda: 350),
-    #             self.CharWrite(None, lambda: 350),
-    #             self.CharFaulty(None, lambda: 350),  # leave last!
-    #         ]
-
-    #     def add_characteristic(self, characteristic: BleakGATTCharacteristic) -> None:
-    #         """Add a :py:class:`~BleakGATTCharacteristic` to the service.
-
-    #         Should not be used by end user, but rather by `bleak` itself.
-    #         """
-    #         raise NotImplementedError
 
     @property
     def services(self) -> BleakGATTServiceCollection:
@@ -613,10 +503,7 @@ async def test_update(
 
     patch_bleak_client(MockJikongBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
@@ -648,7 +535,7 @@ async def test_hide_temp_sensors(
 
     patch_bleak_client(MockJikongBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     # modify result dict to match removed temp#1, temp#2
     ref_result: BMSsample = deepcopy(_RESULT_DEFS[protocol_type])
@@ -681,8 +568,8 @@ async def test_stream_update(
     )
 
     bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
+        generate_ble_device(),
+        reconnect_fixture
     )
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
@@ -710,7 +597,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockInvalidBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -736,7 +623,7 @@ async def test_invalid_frame_type(
 
     patch_bleak_client(MockInvalidBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -755,7 +642,7 @@ async def test_oversized_response(
 
     patch_bleak_client(MockOversizedBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
@@ -767,7 +654,7 @@ async def test_invalid_device(patch_bleak_client) -> None:
 
     patch_bleak_client(MockWrongBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
 
@@ -800,7 +687,7 @@ async def test_non_stale_data(
 
     patch_bleak_client(MockJikongBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     # run an update which provides half a valid message and then disconnects
     result: BMSsample = {}
@@ -850,9 +737,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockJikongBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73), False
-    )
+    bms = BMS(generate_ble_device(), False)
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {
         "problem": True,

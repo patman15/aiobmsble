@@ -34,7 +34,7 @@ class TestMinimal:
         """Mock function that returns a BleakDevice for 'Dummy device'."""
         assert timeout > 0
         if name == "Dummy device":
-            return generate_ble_device("11:22:33:44:55:66", name, rssi=-73)
+            return generate_ble_device("11:22:33:44:55:66", name)
         return None
 
     @staticmethod

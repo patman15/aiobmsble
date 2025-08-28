@@ -98,10 +98,7 @@ async def test_update(
     patch_bms_timeout()  # required for optional F9 response
     patch_bleak_client(MockABCBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     result = await bms.async_update()
 
@@ -172,7 +169,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockABCBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -214,7 +211,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockABCBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = await bms.async_update()
     assert result.get("problem", False)  # expect a problem report

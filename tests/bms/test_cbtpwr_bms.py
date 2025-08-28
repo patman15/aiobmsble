@@ -180,8 +180,8 @@ async def test_update(
     patch_bleak_client(MockCBTpwrBleakClient)
 
     bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-        reconnect_fixture,
+        generate_ble_device(),
+        reconnect_fixture
     )
 
     assert await bms.async_update() == ref_value()
@@ -199,7 +199,7 @@ async def test_invalid_response(patch_bleak_client, patch_bms_timeout) -> None:
     patch_bms_timeout()
     patch_bleak_client(MockInvalidBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result = await bms.async_update()
     assert result == {
@@ -220,7 +220,7 @@ async def test_partly_base_data(patch_bleak_client, patch_bms_timeout) -> None:
     patch_bms_timeout()
     patch_bleak_client(MockPartBaseDatBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == {
         "battery_charging": False,
@@ -240,7 +240,7 @@ async def test_all_cell_voltages(patch_bleak_client, patch_bms_timeout) -> None:
     patch_bms_timeout()
     patch_bleak_client(MockAllCellsBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == {
         "voltage": 13.4,
@@ -318,7 +318,7 @@ async def test_problem_response(
     patch_bms_timeout()
     patch_bleak_client(MockCBTpwrBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = await bms.async_update()
     assert result == ref_value() | {

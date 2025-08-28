@@ -246,10 +246,7 @@ async def test_update(
     monkeypatch.setattr(MockTDTBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockTDTBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == ref_value()[protocol_type]
 
@@ -283,10 +280,7 @@ async def test_update_0x1e_head(
     monkeypatch.setattr(MockTDTBleakClient, "RESP", resp_0x1e)
     patch_bleak_client(MockTDTBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == ref_value()["4S4Tv0.0"]
 
@@ -330,7 +324,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockTDTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -363,7 +357,7 @@ async def test_init_fail(
 
     patch_bleak_client(MockTDTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     if bool_fixture:
         with pytest.raises(BleakDeviceNotFoundError):
@@ -457,9 +451,7 @@ async def test_problem_response(
     monkeypatch.setattr(MockTDTBleakClient, "RESP", problem_response[0])
     patch_bleak_client(MockTDTBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73), False
-    )
+    bms = BMS(generate_ble_device(), False)
 
     result: BMSsample = await bms.async_update()
     assert result.get("problem", False)  # we expect a problem

@@ -117,10 +117,7 @@ async def test_update(
     monkeypatch.setattr(MockEctiveBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockEctiveBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
@@ -136,9 +133,7 @@ async def test_tx_notimplemented(patch_bleak_client) -> None:
 
     patch_bleak_client(MockEctiveBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73), False
-    )
+    bms = BMS(generate_ble_device(), False)
 
     with pytest.raises(NotImplementedError):
         _ret = bms.uuid_tx()
@@ -208,7 +203,7 @@ async def test_invalid_response(
     monkeypatch.setattr(MockEctiveBleakClient, "_RESP", bytearray(wrong_response))
     patch_bleak_client(MockEctiveBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -264,7 +259,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockEctiveBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = await bms.async_update()
     assert result == {

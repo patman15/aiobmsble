@@ -33,10 +33,7 @@ async def test_update(patch_bleak_client, reconnect_fixture) -> None:
 
     patch_bleak_client(MockDummyBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == {
         "voltage": 12,

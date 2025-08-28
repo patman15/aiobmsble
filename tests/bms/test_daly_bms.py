@@ -108,6 +108,7 @@ class MockInvalidBleakClient(MockDalyBleakClient):
         """Mock disconnect to raise BleakError."""
         raise BleakError
 
+
 # FIXME! put parameter for MOS_AVAIL
 async def test_update(
     monkeypatch, patch_bleak_client, bool_fixture, reconnect_fixture
@@ -121,8 +122,8 @@ async def test_update(
     patch_bleak_client(MockDalyBleakClient)
 
     bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
+        generate_ble_device(),
+        reconnect_fixture
     )
 
     assert await bms.async_update() == ref_value() | (
@@ -151,7 +152,7 @@ async def test_mos_excl(patch_bleak_client) -> None:
 
     for name_no_mos in BMS.MOS_NOT_AVAILABLE:
         bms = BMS(
-            generate_ble_device("cc:cc:cc:cc:cc:cc", f"{name_no_mos}MockBLEdevice", rssi=-73),
+            generate_ble_device("cc:cc:cc:cc:cc:cc", f"{name_no_mos}MockBLEdevice"),
         )
 
         assert await bms.async_update() == ref_value() | {
@@ -167,7 +168,7 @@ async def test_too_short_frame(patch_bleak_client) -> None:
 
     patch_bleak_client(MockInvalidBleakClient)
 
-    bms: BMS = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms: BMS = BMS(generate_ble_device())
 
     assert not await bms.async_update()
 
@@ -212,7 +213,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockDalyBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -269,7 +270,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockDalyBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = await bms.async_update()
     assert result.get("problem", False)  # we expect a problem

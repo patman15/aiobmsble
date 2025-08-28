@@ -212,7 +212,7 @@ class MockWrongCRCBleakClient(MockSeplosBleakClient):
             self._notify_callback
         ), "write to characteristics but notification not enabled"
 
-        resp = self._response(data)
+        resp: bytearray = self._response(data)
         resp[-2:] = bytearray(b"\00\00")  # make CRC invalid
         for notify_data in [
             resp[i : min(len(resp), i + BT_FRAME_SIZE)]
@@ -269,10 +269,7 @@ async def test_update(patch_bleak_client, reconnect_fixture) -> None:
 
     patch_bleak_client(MockSeplosBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == REF_VALUE
 
@@ -290,7 +287,7 @@ async def test_wrong_crc(patch_bleak_client, patch_bms_timeout) -> None:
 
     patch_bleak_client(MockWrongCRCBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -308,7 +305,7 @@ async def test_error_response(patch_bleak_client, patch_bms_timeout) -> None:
 
     patch_bleak_client(MockErrRespBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -324,7 +321,7 @@ async def test_oversized_response(patch_bleak_client) -> None:
 
     patch_bleak_client(MockOversizedBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == REF_VALUE
 
@@ -337,7 +334,7 @@ async def test_invalid_message(patch_bleak_client, patch_bms_timeout) -> None:
     patch_bms_timeout()
     patch_bleak_client(MockInvalidMessageBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -362,7 +359,7 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
 
     patch_bleak_client(MockSeplosBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == REF_VALUE | {
         "problem": True,

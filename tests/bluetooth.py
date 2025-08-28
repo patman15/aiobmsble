@@ -18,12 +18,6 @@ ADVERTISEMENT_DATA_DEFAULTS = {
     "tx_power": -127,
 }
 
-BLE_DEVICE_DEFAULTS = {
-    "name": None,
-    "rssi": -127,
-    "details": None,
-}
-
 
 def generate_advertisement_data(**kwargs: Any) -> AdvertisementData:
     """Generate advertisement data with defaults."""
@@ -34,20 +28,9 @@ def generate_advertisement_data(**kwargs: Any) -> AdvertisementData:
 
 
 def generate_ble_device(
-    address: str | None = None,
-    name: str | None = None,
+    address: str = "11:22:33:44:55:66",
+    name: str | None = "MockBLEDevice",
     details: Any | None = None,
-    rssi: int | None = None,
-    **kwargs: Any,
 ) -> BLEDevice:
     """Generate a BLEDevice with defaults."""
-    new = kwargs.copy()
-    if address is not None:
-        new["address"] = address
-    if name is not None:
-        new["name"] = name
-    if details is not None:
-        new["details"] = details
-    for key, value in BLE_DEVICE_DEFAULTS.items():
-        new.setdefault(key, value)
-    return BLEDevice(**new)
+    return BLEDevice(address, name, details)

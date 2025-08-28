@@ -114,10 +114,7 @@ async def test_update(patch_bleak_client, ogt_bms_name, reconnect_fixture) -> No
 
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", ogt_bms_name, None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", ogt_bms_name), reconnect_fixture)
 
     result: BMSsample = await bms.async_update()
 
@@ -159,9 +156,7 @@ async def test_update_16s(monkeypatch, patch_bleak_client) -> None:
     )
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294", None, -73), False
-    )
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"), False)
 
     # verify all sensors are reported
     assert await bms.async_update() == base_result | {
@@ -228,7 +223,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294", None, -73))
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"))
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -243,7 +238,7 @@ async def test_invalid_bms_type(patch_bleak_client) -> None:
 
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294", None, -73))
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"))
 
     result: BMSsample = await bms.async_update()
     assert not result

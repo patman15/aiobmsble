@@ -184,10 +184,7 @@ async def test_update(monkeypatch, patch_bleak_client, reconnect_fixture) -> Non
 
     patch_bleak_client(MockNeeyBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == _RESULT_DEFS
 
@@ -209,10 +206,7 @@ async def test_stream_update(
         "aiobmsble.basebms.asyncio.Event.is_set", lambda _: True
     )
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == _RESULT_DEFS
 
@@ -248,7 +242,7 @@ async def test_invalid_response(
     )
     patch_bleak_client(MockNeeyBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -265,7 +259,7 @@ async def test_oversized_response(monkeypatch, patch_bleak_client) -> None:
 
     patch_bleak_client(MockOversizedBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS
 
@@ -291,7 +285,7 @@ async def test_non_stale_data(
 
     patch_bleak_client(MockNeeyBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     # run an update which provides half a valid message and then disconnects
     result: BMSsample = {}
@@ -350,9 +344,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockNeeyBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73), False
-    )
+    bms = BMS(generate_ble_device(), False)
 
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,

@@ -73,10 +73,7 @@ async def test_update(patch_bleak_client, reconnect_fixture) -> None:
 
     patch_bleak_client(MockRedodoBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == _RESULT_DEFS
 
@@ -145,7 +142,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockRedodoBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -199,7 +196,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockRedodoBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,

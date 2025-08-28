@@ -137,10 +137,7 @@ async def test_update(patch_bleak_client, reconnect_fixture) -> None:
 
     patch_bleak_client(MockSeplosv2BleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == REF_VALUE
 
@@ -167,9 +164,7 @@ async def test_short_message(monkeypatch, patch_bleak_client) -> None:
 
     patch_bleak_client(MockSeplosv2BleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73), False
-    )
+    bms = BMS(generate_ble_device(), False)
 
     result: BMSsample = {}
     with pytest.raises(ValueError, match="message too short to decode data"):
@@ -216,7 +211,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockSeplosv2BleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -259,7 +254,7 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
 
     patch_bleak_client(MockSeplosv2BleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == REF_VALUE | {
         "problem": True,

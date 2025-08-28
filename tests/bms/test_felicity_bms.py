@@ -5,14 +5,11 @@ from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
-
-# from bleak.exc import BleakDeviceNotFoundError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble.basebms import BMSsample
 from aiobmsble.bms.felicity_bms import BMS
-
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
@@ -135,10 +132,7 @@ async def test_update(patch_bleak_client, reconnect_fixture) -> None:
 
     patch_bleak_client(MockFelicityBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     result = await bms.async_update()
 
@@ -161,9 +155,7 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
 
     monkeypatch.setattr(MockFelicityBleakClient, "RESP", prb_resp)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73), False
-    )
+    bms = BMS(generate_ble_device(), False)
 
     assert await bms.async_update() == ref_value() | {
         "problem": True,
@@ -198,7 +190,7 @@ async def test_invalid_response(
     )
     patch_bleak_client(MockFelicityBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):

@@ -12,7 +12,6 @@ import pytest
 
 from aiobmsble.basebms import BMSsample, BMSvalue
 from aiobmsble.bms.roypow_bms import BMS
-
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
@@ -106,10 +105,7 @@ async def test_update(patch_bleak_client, reconnect_fixture: bool) -> None:
 
     patch_bleak_client(MockRoyPowBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == ref_value()
 
@@ -134,9 +130,7 @@ async def test_update_dischrg(monkeypatch, patch_bleak_client) -> None:
 
     monkeypatch.setattr(MockRoyPowBleakClient, "RESP", negative_response)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73), False
-    )
+    bms = BMS(generate_ble_device(), False)
 
     assert await bms.async_update() == ref_value() | {
         "battery_charging": False,
@@ -199,7 +193,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockRoyPowBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -229,7 +223,7 @@ async def test_missing_message(
 
     patch_bleak_client(MockRoyPowBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     # remove values from reference that are in 0x4 response (and dependent)
     ref: BMSsample = ref_value()
@@ -285,7 +279,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockRoyPowBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = await bms.async_update()
     assert result == ref_value() | {

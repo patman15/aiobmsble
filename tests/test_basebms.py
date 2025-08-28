@@ -294,7 +294,7 @@ async def test_write_mode(
 
     bms = WMTestBMS(
         ["write-no-response", "write"],
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
+        generate_ble_device(),
         False,
     )
 
@@ -315,10 +315,7 @@ async def test_wr_mode_reset(monkeypatch, patch_bleak_client) -> None:
     monkeypatch.setattr(MockWriteModeBleakClient, "EXP_WRITE_RESPONSE", [False])
     patch_bleak_client(MockWriteModeBleakClient)
 
-    bms: WMTestBMS = WMTestBMS(
-        ["write_without"],
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-    )
+    bms: WMTestBMS = WMTestBMS(["write_without"], generate_ble_device())
     assert await bms.async_update() == {"problem_code": 0x42}
     assert bms._inv_wr_mode is False
     await bms.disconnect(True)
@@ -328,10 +325,7 @@ async def test_wr_mode_reset(monkeypatch, patch_bleak_client) -> None:
 async def test_no_notify(patch_bleak_client, caplog: pytest.LogCaptureFixture) -> None:
     patch_bleak_client(MockBleakClient)
 
-    bms: MinTestBMS = MinTestBMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-        reconnect=True,
-    )
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), reconnect=True)
     with caplog.at_level(DEBUG):
         result: BMSsample = await bms.async_update()
     assert "MockBleakClient write_gatt_char afe2, data: b'mock_command'" in caplog.text
@@ -350,10 +344,7 @@ async def test_disconnect_fail(
     monkeypatch.setattr(MockBleakClient, "disconnect", _raise_bleak_error)
     patch_bleak_client(MockBleakClient)
 
-    bms: MinTestBMS = MinTestBMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-        reconnect=True,
-    )
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), reconnect=True)
     with caplog.at_level(DEBUG):
         result: BMSsample = await bms.async_update()
     assert result == {"problem_code": 21}
@@ -372,9 +363,7 @@ async def test_init_connect_fail(
     patch_bleak_client(MockBleakClient)
     monkeypatch.setattr(MinTestBMS, "_init_connection", _raise_value_error)
 
-    bms: MinTestBMS = MinTestBMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73)
-    )
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
     with caplog.at_level(DEBUG), pytest.raises(ValueError, match="MockValueError"):
         await bms.async_update()
 

@@ -9,7 +9,6 @@ import pytest
 
 from aiobmsble.basebms import BMSsample
 from aiobmsble.bms.ej_bms import BMS
-
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
@@ -125,10 +124,7 @@ async def test_update(patch_bleak_client, reconnect_fixture) -> None:
 
     patch_bleak_client(MockEJBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == {
         "voltage": 39.517,
@@ -171,8 +167,8 @@ async def test_update_single_frame(patch_bleak_client, reconnect_fixture) -> Non
     patch_bleak_client(MockEJsfBleakClient)
 
     bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-        reconnect_fixture,
+        generate_ble_device(),
+        reconnect_fixture
     )
 
     assert await bms.async_update() == MockEJsfBleakClient.values()
@@ -189,10 +185,7 @@ async def test_update_sf_no_crc(patch_bleak_client) -> None:
 
     patch_bleak_client(MockEJsfnoCRCBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "libattU_MockBLEDevice", None, -73),
-        True,
-    )
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "libattU_MockBLEDevice"), True)
 
     assert await bms.async_update() == MockEJsfnoCRCBleakClient.values()
 
@@ -204,7 +197,7 @@ async def test_invalid(patch_bleak_client) -> None:
 
     patch_bleak_client(MockEJinvalidBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == {}
     await bms.disconnect()
@@ -239,7 +232,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockEJBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -285,7 +278,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockEJBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = await bms.async_update()
     assert result.get("problem", False)  # we expect a problem

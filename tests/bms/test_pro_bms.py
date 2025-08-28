@@ -10,6 +10,7 @@ import asyncio
 import contextlib
 import logging
 
+from bleak.backends.device import BLEDevice
 import pytest
 
 from aiobmsble.basebms import BMSsample
@@ -235,7 +236,7 @@ async def test_async_update_no_data_after_init(
 
     monkeypatch.setattr(MockProBMSBleakClient, "write_gatt_char", mock_write)
 
-    device = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
+    device: BLEDevice = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
 
     patch_bms_timeout("pro_bms")
     patch_bleak_client(MockProBMSBleakClient)
@@ -276,7 +277,7 @@ async def test_invalid_response(
     monkeypatch.setattr(MockProBMSBleakClient, "_init_packet", wrong_response)
     patch_bleak_client(MockProBMSBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     logging.getLogger(__name__)
     result: BMSsample = {}

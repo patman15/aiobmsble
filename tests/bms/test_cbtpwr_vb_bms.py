@@ -100,8 +100,8 @@ async def test_update(patch_bleak_client, reconnect_fixture: bool) -> None:
     patch_bleak_client(MockCBTpwrVBBleakClient)
 
     bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-        reconnect_fixture,
+        generate_ble_device(),
+        reconnect_fixture
     )
 
     result = await bms.async_update()
@@ -191,7 +191,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockCBTpwrVBBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -245,7 +245,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockCBTpwrVBBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = await bms.async_update()
     assert result == ref_value() | {

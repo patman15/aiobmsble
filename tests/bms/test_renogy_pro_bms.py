@@ -89,123 +89,6 @@ class MockRenogyProBleakClient(MockBleakClient):
         ]:
             self._notify_callback("MockRenogyProBleakClient", notify_data)
 
-    # class RenogyProService(BleakGATTService):
-    #     """Mock the main battery info service from Renogy BMS."""
-
-    #     def __init__(self, uuid: str) -> None:
-    #         """Initialize the service."""
-    #         super().__init__({"uuid": uuid})
-
-    # class CharBase(BleakGATTCharacteristic):
-    #     """Basic characteristic for common properties.
-
-    #     Note that Renogy Pro BMS has two characteristics with same UUID!
-    #     """
-
-    #     @property
-    #     def service_handle(self) -> int:
-    #         """The integer handle of the Service containing this characteristic."""
-    #         return 0
-
-    #     @property
-    #     def handle(self) -> int:
-    #         """The handle for this characteristic."""
-    #         return (
-    #             hash(self.obj.uuid) + hash(self.uuid) + hash(self.properties[0])
-    #         ) & 0xFF
-
-    #     @property
-    #     def service_uuid(self) -> str:
-    #         """The UUID of the Service containing this characteristic."""
-    #         return self.obj.uuid
-
-    #     @property
-    #     def uuid(self) -> str:
-    #         """The UUID for this characteristic, derived from service UUID."""
-    #         return normalize_uuid_str(f"{self.obj.uuid[4:7]!s}1")
-
-    #     @property
-    #     def descriptors(self) -> list[BleakGATTDescriptor]:
-    #         """List of descriptors for this service."""
-    #         return []
-
-    #     def get_descriptor(
-    #         self, specifier: int | str | UUID
-    #     ) -> BleakGATTDescriptor | None:
-    #         """Get a descriptor by handle (int) or UUID (str or uuid.UUID)."""
-    #         raise NotImplementedError
-
-    #     def add_descriptor(self, descriptor: BleakGATTDescriptor) -> None:
-    #         """Add a :py:class:`~BleakGATTDescriptor` to the characteristic.
-
-    #         Should not be used by end user, but rather by `bleak` itself.
-    #         """
-    #         raise NotImplementedError
-
-    # class CharNotify(CharBase):
-    #     """Characteristic for notifications."""
-
-    #     @property
-    #     def properties(self) -> list[str]:
-    #         """Properties of this characteristic."""
-    #         return ["notify"]
-
-    # class CharWrite(CharBase):
-    #     """Characteristic for writing."""
-
-    #     @property
-    #     def properties(self) -> list[str]:
-    #         """Properties of this characteristic."""
-    #         return ["write", "write-without-response"]
-
-    # class CharFaulty(CharBase):
-    #     """Characteristic for writing."""
-
-    #     @property
-    #     def uuid(self) -> str:
-    #         """The UUID for this characteristic."""
-    #         return normalize_uuid_str("0000")
-
-    #     @property
-    #     def properties(self) -> list[str]:
-    #         """Properties of this characteristic."""
-    #         return ["write", "write-without-response"]
-
-    # @property
-    # def handle(self) -> int:
-    #     """The handle of this service."""
-
-    #     return hash(self.uuid) & 0xFFFF
-
-    # @property
-    # def uuid(self) -> str:
-    #     """The UUID to this service."""
-
-    #     return normalize_uuid_str(self.obj.get("uuid", ""))
-
-    # @property
-    # def description(self) -> str:
-    #     """String description for this service."""
-
-    #     return uuidstr_to_str(self.uuid)
-
-    # @property
-    # def characteristics(self) -> list[BleakGATTCharacteristic]:
-    #     """List of characteristics for this service."""
-
-    #     return [
-    #         self.CharNotify(self, lambda: 350),
-    #         self.CharWrite(self, lambda: 350),
-    #         self.CharFaulty(self, lambda: 350),  # leave last!
-    #     ]
-
-    # def add_characteristic(self, characteristic: BleakGATTCharacteristic) -> None:
-    #     """Add a :py:class:`~BleakGATTCharacteristic` to the service.
-
-    #     Should not be used by end user, but rather by `bleak` itself.
-    #     """
-    #     raise NotImplementedError
-
     @property
     def services(self) -> BleakGATTServiceCollection:
         """Emulate Renogy BT service setup."""
@@ -260,10 +143,7 @@ async def test_update(patch_bleak_client, reconnect_fixture: bool) -> None:
 
     patch_bleak_client(MockRenogyProBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice", None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device(), reconnect_fixture)
 
     assert await bms.async_update() == ref_value()
 
@@ -279,7 +159,7 @@ async def test_invalid_device(patch_bleak_client) -> None:
 
     patch_bleak_client(MockWrongBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice", None, -73))
+    bms = BMS(generate_ble_device())
 
     result: BMSsample = {}
 
