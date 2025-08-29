@@ -61,6 +61,18 @@ jobs:
       url: https://test.pypi.org/project/aiobmsble/${{ github.event.inputs.release_name }}
 
     steps:
+      - name: Fetch releases
+        run: |
+          echo "Checking if release '${{ github.event.inputs.release_tag }}' exists..."
+          RELEASE_EXISTS=$(gh release list --limit 100 | grep "${{ github.event.inputs.release_tag }}" || true)
+          if [ -z "$RELEASE_EXISTS" ]; then
+            echo "❌ Release not found!"
+            exit 1
+          else
+            echo "✅ Release found!"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Retrieve release distributions
         uses: actions/download-artifact@v4
         with:
