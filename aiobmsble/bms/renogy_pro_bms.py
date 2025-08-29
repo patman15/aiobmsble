@@ -5,7 +5,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSdp, MatcherPattern
-from .renogy_bms import BMS as RenogyBMS
+from aiobmsble.bms.renogy_bms import BMS as RenogyBMS
 
 
 class BMS(RenogyBMS):

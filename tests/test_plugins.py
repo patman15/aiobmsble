@@ -1,6 +1,5 @@
 """Test the BLE Battery Management System base class functions."""
 
-from functools import lru_cache
 from types import ModuleType
 
 import pytest

@@ -5,8 +5,7 @@ from collections.abc import Callable
 from logging import DEBUG, INFO
 import sys
 from typing import Final
-import unittest
-from unittest import TestCase, mock
+from unittest import mock
 
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
@@ -37,20 +36,23 @@ async def mock_discover(
     }
 
 
-@pytest.fixture
-def mock_setup_logging():
+@pytest.fixture(name="mock_setup_logging")
+def setup_logging():
+    """Unittest mock for setup_logging to check calls to it."""
     with mock.patch.object(main_mod, "setup_logging") as m:
         yield m
 
 
-@pytest.fixture
-def mock_asyncio_run():
+@pytest.fixture(name="mock_asyncio_run")
+def asyncio_run():
+    """Unittest mock for asyncio_run to check calls to it."""
     with mock.patch("asyncio.run") as m:
         yield m
 
 
-@pytest.fixture
-def mock_detect_bms():
+@pytest.fixture(name="mock_detect_bms")
+def detect_bms():
+    """Unittest mock for detect_bms to check calls to it."""
     with mock.patch.object(main_mod, "detect_bms") as m:
         yield m
 
@@ -60,6 +62,8 @@ async def test_detect_bms(
     patch_bleak_client: Callable[..., None],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """Verify log ouput for working BMS update query."""
+
     monkeypatch.setattr("aiobmsble.__main__.BleakScanner.discover", mock_discover)
     patch_bleak_client()
     with caplog.at_level(INFO):
@@ -77,6 +81,7 @@ async def test_bms_fail(
     patch_bleak_client: Callable[..., None],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """Check that an error message is given if BMS update query fails (TimeoutError)."""
 
     async def mock_async_update(self) -> BMSsample:
         raise TimeoutError
@@ -91,7 +96,9 @@ async def test_bms_fail(
 
 
 def test_main_parses_logfile_and_verbose(
-    monkeypatch: pytest.MonkeyPatch, mock_setup_logging, mock_asyncio_run
+    monkeypatch: pytest.MonkeyPatch,
+    mock_setup_logging: mock.MagicMock | mock.AsyncMock,
+    mock_asyncio_run: mock.MagicMock | mock.AsyncMock,
 ) -> None:
     """Check that command line parses log file option and verbosity level."""
     monkeypatch.setattr(sys, "argv", ["prog", "-l", "test.log", "-v"])
@@ -125,9 +132,11 @@ def test_verbose_logging_wo_file(mock_logger) -> None:
     assert mock_logger.setLevel.call_args[0][0] == DEBUG
     mock_logger.addHandler.assert_not_called()
 
+
 @mock.patch("aiobmsble.__main__.logging.FileHandler")
 @mock.patch("aiobmsble.__main__.logger")
 def test_logging_with_logfile(mock_logger, mock_file_handler_cls) -> None:
+    """Check that logging goes to file if log file is given."""
     mock_file_handler = mock.MagicMock()
     mock_file_handler_cls.return_value = mock_file_handler
 

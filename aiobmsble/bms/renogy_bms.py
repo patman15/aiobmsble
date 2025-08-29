@@ -9,6 +9,7 @@ from bleak.uuids import normalize_uuid_str
 from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
+
 class BMS(BaseBMS):
     """Renogy battery class implementation."""
 

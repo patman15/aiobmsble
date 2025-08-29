@@ -21,10 +21,12 @@ from .bluetooth import generate_ble_device
 logging.basicConfig(level=logging.INFO)
 LOGGER: logging.Logger = logging.getLogger(__package__)
 
+
 @pytest.fixture(params=[False, True])
 def bool_fixture(request) -> bool:
     """Return False, True for tests."""
     return request.param
+
 
 class MockBleakClient(BleakClient):
     """Mock bleak client."""
@@ -247,7 +249,7 @@ class DefGATTChar(BleakGATTCharacteristic):
             properties:
                 List of properties for this characteristic. Default: 'read'
             max_write_without_response_size:
-                The maximum size in bytes that can be written to the characteristic 
+                The maximum size in bytes that can be written to the characteristic
                 in a single write without response command. Default: 512
             service:
                 The service this characteristic belongs to. Default: 'fff0'

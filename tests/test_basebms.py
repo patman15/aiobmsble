@@ -13,10 +13,10 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble.basebms import (
-    MatcherPattern,
     BaseBMS,
     BMSdp,
     BMSsample,
+    MatcherPattern,
     crc8,
     crc_modbus,
     crc_sum,
@@ -24,6 +24,7 @@ from aiobmsble.basebms import (
     lrc_modbus,
 )
 
+#from tests.conftest import _patch, _patch_timeout
 from .bluetooth import generate_ble_device
 from .conftest import MockBleakClient
 
@@ -273,9 +274,9 @@ def test_problems(problem_sample: tuple[BMSsample, str]) -> None:
     ],
 )
 async def test_write_mode(
-    monkeypatch,
-    patch_bleak_client,
-    patch_bms_timeout,
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    patch_bms_timeout: Callable[..., None],
     replies: list[bytearray | Exception | None],
     exp_wr_response: list[bool],
     exp_output: list[int | Exception],
@@ -309,8 +310,10 @@ async def test_write_mode(
             }, f"{request.node.name} failed!"
 
 
-async def test_wr_mode_reset(monkeypatch, patch_bleak_client) -> None:
-
+async def test_wr_mode_reset(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client: Callable[..., None]
+) -> None:
+    """Check that write mode selection is reset on disconnect of the BMS."""
     monkeypatch.setattr(MockWriteModeBleakClient, "PATTERN", [b"\x42"])
     monkeypatch.setattr(MockWriteModeBleakClient, "EXP_WRITE_RESPONSE", [False])
     patch_bleak_client(MockWriteModeBleakClient)
@@ -322,7 +325,10 @@ async def test_wr_mode_reset(monkeypatch, patch_bleak_client) -> None:
     assert bms._inv_wr_mode is None
 
 
-async def test_no_notify(patch_bleak_client, caplog: pytest.LogCaptureFixture) -> None:
+async def test_no_notify(
+    patch_bleak_client: Callable[..., None], caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test BMS update without waiting for notification event."""
     patch_bleak_client(MockBleakClient)
 
     bms: MinTestBMS = MinTestBMS(generate_ble_device(), reconnect=True)
@@ -334,7 +340,9 @@ async def test_no_notify(patch_bleak_client, caplog: pytest.LogCaptureFixture) -
 
 
 async def test_disconnect_fail(
-    monkeypatch, patch_bleak_client, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Check that exceptions in connect function for guarding disconnect are ignored."""
 
@@ -353,7 +361,9 @@ async def test_disconnect_fail(
 
 
 async def test_init_connect_fail(
-    monkeypatch, patch_bleak_client, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Check that exceptions in connect function for guarding disconnect are ignored."""
 
