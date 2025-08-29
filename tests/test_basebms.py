@@ -24,7 +24,6 @@ from aiobmsble.basebms import (
     lrc_modbus,
 )
 
-#from tests.conftest import _patch, _patch_timeout
 from .bluetooth import generate_ble_device
 from .conftest import MockBleakClient
 
