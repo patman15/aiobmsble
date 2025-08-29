@@ -8,7 +8,8 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble.basebms import AdvertisementPattern, BaseBMS, BMSsample, BMSvalue
+from aiobmsble import BMSsample, BMSvalue, MatcherPattern
+from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
@@ -27,7 +28,7 @@ class BMS(BaseBMS):
 
     def __init__(self, ble_device: BLEDevice, reconnect: bool = False) -> None:
         """Intialize private BMS members."""
-        super().__init__(__name__, ble_device, reconnect)
+        super().__init__(ble_device, reconnect)
         self._type: str = (
             self.name[9]
             if len(self.name) >= 10 and set(self.name[10:]).issubset(digits)
@@ -45,19 +46,20 @@ class BMS(BaseBMS):
             self.name[10:],
             self._key,
         )
+        self._exp_reply: int = 0x0
         self._response: BMS._Response = BMS._Response(False, 0, 0)
-        self._REGISTERS: dict[int, tuple[BMSvalue, int, Callable[[int], int | float]]]
+        self._REGISTERS: dict[int, tuple[BMSvalue, int, Callable[[int], Any]]]
         if self._type == "A":
             self._REGISTERS = {
                 # SOC (State of Charge)
                 2: ("battery_level", 1, lambda x: x),
-                4: ("cycle_charge", 3, lambda x: float(x) / 1000),
-                8: ("voltage", 2, lambda x: float(x) / 1000),
+                4: ("cycle_charge", 3, lambda x: x / 1000),
+                8: ("voltage", 2, lambda x: x / 1000),
                 # MOS temperature
-                12: ("temperature", 2, lambda x: round(float(x) * 0.1 - 273.15, 1)),
+                12: ("temperature", 2, lambda x: round(x * 0.1 - 273.15, 1)),
                 # 3rd byte of current is 0 (should be 1 as for B version)
-                16: ("current", 3, lambda x: float(x) / 100),
-                24: ("runtime", 2, lambda x: int(x * 60)),
+                16: ("current", 3, lambda x: x / 100),
+                24: ("runtime", 2, lambda x: x * 60),
                 44: ("cycles", 2, lambda x: x),
                 # Type A batteries have no cell voltage registers
             }
@@ -65,13 +67,13 @@ class BMS(BaseBMS):
         elif self._type == "B":
             self._REGISTERS = {
                 # MOS temperature
-                8: ("temperature", 2, lambda x: round(float(x) * 0.1 - 273.15, 1)),
-                9: ("voltage", 2, lambda x: float(x) / 1000),
-                10: ("current", 3, lambda x: float(x) / 1000),
+                8: ("temperature", 2, lambda x: round(x * 0.1 - 273.15, 1)),
+                9: ("voltage", 2, lambda x: x / 1000),
+                10: ("current", 3, lambda x: x / 1000),
                 # SOC (State of Charge)
                 13: ("battery_level", 1, lambda x: x),
-                15: ("cycle_charge", 3, lambda x: float(x) / 1000),
-                18: ("runtime", 2, lambda x: int(x * 60)),
+                15: ("cycle_charge", 3, lambda x: x / 1000),
+                18: ("runtime", 2, lambda x: x * 60),
                 23: ("cycles", 2, lambda x: x),
             }
             # add cell voltage registers, note: need to be last!
@@ -81,12 +83,13 @@ class BMS(BaseBMS):
             self._log.exception("unkown device type '%c'", self._type)
 
     @staticmethod
-    def matcher_dict_list() -> list[AdvertisementPattern]:
+    def matcher_dict_list() -> list[MatcherPattern]:
         """Return a list of Bluetooth matchers."""
         return [
             {
                 "local_name": "SmartBat-[AB]*",
                 "service_uuid": BMS.uuid_services()[0],
+                "connectable": True,
             }
         ]
 
@@ -128,6 +131,11 @@ class BMS(BaseBMS):
             self._log.debug("response data is invalid")
             return
 
+        if self._response.reg not in (-1, self._exp_reply):
+            self._log.debug("wrong register response")
+            return
+
+        self._exp_reply = -1
         self._data_event.set()
 
     def _ogt_response(self, resp: bytearray) -> _Response:
@@ -170,6 +178,7 @@ class BMS(BaseBMS):
         result: BMSsample = {}
 
         for reg in list(self._REGISTERS):
+            self._exp_reply = reg
             await self._await_reply(
                 data=self._ogt_command(reg, self._REGISTERS[reg][BMS._IDX_LEN])
             )
@@ -177,19 +186,19 @@ class BMS(BaseBMS):
                 raise TimeoutError
 
             name, _length, func = self._REGISTERS[self._response.reg]
-            value: Any = func(self._response.value)
+            result[name] = func(self._response.value)
             self._log.debug(
                 "decoded data: reg: %s (#%i), raw: %i, value: %f",
                 name,
                 reg,
                 self._response.value,
-                value,
+                result.get(name),
             )
-            result[name] = value
 
         # read cell voltages for type B battery
         if self._type == "B":
             for cell_reg in range(16):
+                self._exp_reply = 63 - cell_reg
                 await self._await_reply(data=self._ogt_command(63 - cell_reg, 2))
                 if self._response.reg < 0:
                     self._log.debug("cell count: %i", cell_reg)

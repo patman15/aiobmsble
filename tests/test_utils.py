@@ -1,0 +1,191 @@
+"""Test the BLE Battery Management System base class functions."""
+
+from types import ModuleType
+
+import pytest
+
+from aiobmsble import MatcherPattern
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.utils import (
+    _advertisement_matches,
+    bms_cls,
+    bms_identify,
+    load_bms_plugins,
+)
+from tests.advertisement_data import ADVERTISEMENTS
+from tests.bluetooth import AdvertisementData, generate_advertisement_data
+
+
+@pytest.fixture(
+    name="plugin",
+    params=sorted(
+        load_bms_plugins(), key=lambda plugin: getattr(plugin, "__name__", "")
+    ),
+    ids=lambda param: param.__name__.split(".")[-1],
+)
+def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
+    """Return module of a BMS."""
+    return request.param
+
+
+def get_advertisement_by_type(name: str) -> AdvertisementData | None:
+    """Return advertisement for a specific BMS type."""
+    for ad_data, ad_name in ADVERTISEMENTS:
+        if ad_name == name:
+            return ad_data
+    return None
+
+
+def test_bms_identify(plugin: ModuleType) -> None:
+    """Test that each BMS is correctly detected by a pattern.
+
+    This also ensures that each BMS has at least one advertisement.
+    """
+    bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1]
+    adv: AdvertisementData | None = (
+        get_advertisement_by_type(bms_type)
+        if bms_type != "dummy_bms"  # generate advertisement for dummy
+        else generate_advertisement_data(local_name="dummy")
+    )
+    assert adv is not None, f"Missing advertisement for {bms_type}"
+    bms_class: type[BaseBMS] | None = bms_identify(adv)
+    assert bms_class == plugin.BMS
+
+
+def test_bms_cls(plugin: ModuleType) -> None:
+    """Test that a BMS class is correctly returned from its name."""
+    # strip _bms to get only type
+    bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1][:-4]
+    bms_class: type[BaseBMS] | None = bms_cls(bms_type)
+    assert bms_class == plugin.BMS
+
+
+def test_bms_cls_none() -> None:
+    """Test that a BMS class is correctly returned from its name."""
+    # strip _bms to get only type
+    bms_type: str = "unvailable_bms"
+    bms_class: type[BaseBMS] | None = bms_cls(bms_type)
+    assert bms_class is None
+
+
+def test_bms_identify_fail() -> None:
+    """Test if bms_identify raises if matching BMS for advertisement does not exist."""
+    assert bms_identify(generate_advertisement_data()) is None
+
+
+@pytest.mark.parametrize(
+    ("matcher", "adv_data", "expected"),
+    [
+        (  # Match service_uuid
+            {"service_uuid": "1234"},
+            generate_advertisement_data(service_uuids=["1234"]),
+            True,
+        ),
+        (  # Do not match service_uuid
+            {"service_uuid": "abcd"},
+            generate_advertisement_data(service_uuids=["1234"]),
+            False,
+        ),
+        (  # Match service_data_uuid
+            {"service_data_uuid": "abcd"},
+            generate_advertisement_data(service_data={"abcd": b"\x01\x02"}),
+            True,
+        ),
+        (  # Do not Match service_data_uuid
+            {"service_data_uuid": "efgh"},
+            generate_advertisement_data(service_data={"abcd": b"\x01\x02"}),
+            False,
+        ),
+        (  # Match manufacturer_id
+            {"manufacturer_id": 123},
+            generate_advertisement_data(manufacturer_data={123: b"\x01\x02"}),
+            True,
+        ),
+        (  # Do not match manufacturer_id
+            {"manufacturer_id": 456},
+            generate_advertisement_data(manufacturer_data={123: b"\x01\x02"}),
+            False,
+        ),
+        (  # Match manufacturer_data_start
+            {"manufacturer_id": 123, "manufacturer_data_start": b"\x01"},
+            generate_advertisement_data(manufacturer_data={123: b"\x01\x02"}),
+            True,
+        ),
+        (  # Do not match manufacturer_data_start
+            {"manufacturer_id": 123, "manufacturer_data_start": b"\x02"},
+            generate_advertisement_data(manufacturer_data={123: b"\x01\x02"}),
+            False,
+        ),
+        (  # Match local_name with wildcard
+            {"local_name": "Test*"},
+            generate_advertisement_data(local_name="TestDevice"),
+            True,
+        ),
+        (  # Do not match local_name with wildcard
+            {"local_name": "Foo*"},
+            generate_advertisement_data(local_name="BarDevice"),
+            False,
+        ),
+        (  # Multiple criteria: all must match
+            {
+                "service_uuid": "1234",
+                "manufacturer_id": 123,
+                "local_name": "Dev*",
+            },
+            generate_advertisement_data(
+                service_uuids=["1234"],
+                manufacturer_data={123: b"\x01"},
+                local_name="Device",
+            ),
+            True,
+        ),
+        (
+            {
+                "service_uuid": "1234",
+                "manufacturer_id": 999,
+                "local_name": "Dev*",
+            },
+            generate_advertisement_data(
+                service_uuids=["1234"],
+                manufacturer_data={123: b"\x01"},
+                local_name="Device",
+            ),
+            False,
+        ),
+        (  # Empty matcher always matches
+            {},
+            generate_advertisement_data(),
+            True,
+        ),
+    ],
+    ids=[
+        "service_uuid-match",
+        "service_uuid-no-match",
+        "service_data_uuid-match",
+        "service_data_uuid-no-match",
+        "manufacturer_id-match",
+        "manufacturer_id-no-match",
+        "manufacturer_data_start-match",
+        "manufacturer_data_start-no-match",
+        "local_name-wildcard-match",
+        "local_name-wildcard-no-match",
+        "multiple-criteria-all-match",
+        "multiple-criteria-one-no-match",
+        "empty-matcher-always-match",
+    ],
+)
+def test_advertisement_matches(
+    matcher: MatcherPattern, adv_data: AdvertisementData, expected: bool
+):
+    """Tests whether the advertisement_matches function returns the expected result for given matcher and advertisement data.
+
+    Args:
+        matcher: The matcher object or criteria used to evaluate the advertisement data.
+        adv_data: The advertisement data to be checked against the matcher.
+        expected: The expected boolean result indicating if the advertisement matches the criteria.
+
+    Asserts:
+        That advertisement_matches(matcher, adv_data) returns the value specified by expected.
+
+    """
+    assert _advertisement_matches(matcher, adv_data) is expected

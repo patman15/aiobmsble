@@ -1,4 +1,4 @@
-"""Test helpers for bluetooth copied from HA 2024.11.0.
+"""Test helpers for bluetooth copied from HA 2025.8.3.
 
 Source: /tests/components/bluetooth/__init__.py
 """
@@ -6,6 +6,7 @@ Source: /tests/components/bluetooth/__init__.py
 from typing import Any
 
 from bleak.backends.device import BLEDevice
+from bleak.backends.scanner import AdvertisementData
 
 ADVERTISEMENT_DATA_DEFAULTS = {
     "local_name": "",
@@ -17,29 +18,19 @@ ADVERTISEMENT_DATA_DEFAULTS = {
     "tx_power": -127,
 }
 
-BLE_DEVICE_DEFAULTS = {
-    "name": None,
-    "rssi": -127,
-    "details": None,
-}
+
+def generate_advertisement_data(**kwargs: Any) -> AdvertisementData:
+    """Generate advertisement data with defaults."""
+    new = kwargs.copy()
+    for key, value in ADVERTISEMENT_DATA_DEFAULTS.items():
+        new.setdefault(key, value)
+    return AdvertisementData(**new)
+
 
 def generate_ble_device(
-    address: str | None = None,
-    name: str | None = None,
+    address: str = "11:22:33:44:55:66",
+    name: str | None = "MockBLEDevice",
     details: Any | None = None,
-    rssi: int | None = None,
-    **kwargs: Any,
 ) -> BLEDevice:
     """Generate a BLEDevice with defaults."""
-    new = kwargs.copy()
-    if address is not None:
-        new["address"] = address
-    if name is not None:
-        new["name"] = name
-    if details is not None:
-        new["details"] = details
-    if rssi is not None:
-        new["rssi"] = rssi
-    for key, value in BLE_DEVICE_DEFAULTS.items():
-        new.setdefault(key, value)
-    return BLEDevice(**new)
+    return BLEDevice(address, name, details)

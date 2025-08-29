@@ -6,14 +6,13 @@ from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
-from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble.basebms import BMSsample
 from aiobmsble.bms.ogt_bms import BMS
 from tests.bluetooth import generate_ble_device
-from tests.conftest import MockBleakClient, MockRespChar
+from tests.conftest import DefGATTChar, MockBleakClient
 
 base_result: BMSsample = {
     "voltage": 45.681,
@@ -28,7 +27,7 @@ base_result: BMSsample = {
 
 
 # all names result in same encryption key for easier testing
-@pytest.fixture(params=["SmartBat-A12345", "SmartBat-B12294"])
+@pytest.fixture(name="ogt_bms_name", params=["SmartBat-A12345", "SmartBat-B12294"])
 def ogt_bms_fixture(request) -> str:
     """Return OGT SmartBMS names."""
     return request.param
@@ -99,76 +98,28 @@ class MockOGTBleakClient(MockBleakClient):
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
         data: Buffer,
-        response: bool = None,  # noqa: RUF013 # same as upstream
+        response: bool | None = None,
     ) -> None:
         """Issue write command to GATT."""
-        # await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
         value: Final[bytearray] = await self._response(char_specifier, data)
 
         asyncio.get_running_loop().call_soon(
-            self._notify_callback, MockRespChar(None, lambda: 0), value
+            self._notify_callback, DefGATTChar(1, "fff4"), value
         )
 
 
-class MockInvalidBleakClient(MockOGTBleakClient):
-    """Emulate an invalid BleakClient."""
-
-    async def _response(
-        self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
-    ) -> bytearray:
-        if isinstance(char_specifier, str) and normalize_uuid_str(
-            char_specifier
-        ) == normalize_uuid_str("fff6"):
-            reg: Final[int] = int(
-                bytearray((bytearray(data)[x] ^ self.KEY) for x in range(4, 6)).decode(
-                    encoding="ascii"
-                ),
-                16,
-            )
-            if reg == 0x8:
-                return bytearray(b"")
-
-            return bytearray(b"invalid\xf0value")
-
-        return bytearray()
-
-    async def write_gatt_char(
-        self,
-        char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        data: Buffer,
-        response: bool = None,  # noqa: RUF013 # same as upstream
-    ) -> None:
-        """Issue write command to GATT."""
-        # await super().write_gatt_char(char_specifier, data, response)
-        assert self._notify_callback is not None
-        value = await self._response(char_specifier, data)
-
-        # test read timeout on register 8 (valid for A and B type BMS)
-        if bytearray(data)[4:6] != bytearray(b" ("):
-            self._notify_callback(MockRespChar(None, lambda: 0), value)
-
-    async def disconnect(self) -> bool:
-        """Mock disconnect to raise BleakError."""
-        raise BleakError
-
-
-async def test_update(
-    patch_bleak_client, ogt_bms_fixture: str, reconnect_fixture: bool
-) -> None:
+async def test_update(patch_bleak_client, ogt_bms_name, reconnect_fixture) -> None:
     """Test OGT BMS data update."""
 
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", ogt_bms_fixture, None, -73),
-        reconnect_fixture,
-    )
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", ogt_bms_name), reconnect_fixture)
 
-    result = await bms.async_update()
+    result: BMSsample = await bms.async_update()
 
     # verify all sensors are reported
-    if str(ogt_bms_fixture)[9] == "A":
+    if str(ogt_bms_name)[9] == "A":
         assert result == base_result | {
             "current": -1.23,
             "power": -56.188,
@@ -185,7 +136,7 @@ async def test_update(
         }
 
     # query again to check already connected state
-    result: BMSsample = await bms.async_update()
+    result = await bms.async_update()
     assert bms._client.is_connected is not reconnect_fixture
 
     await bms.disconnect()
@@ -205,9 +156,7 @@ async def test_update_16s(monkeypatch, patch_bleak_client) -> None:
     )
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294", None, -73), False
-    )
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"), False)
 
     # verify all sensors are reported
     assert await bms.async_update() == base_result | {
@@ -245,6 +194,7 @@ async def test_update_16s(monkeypatch, patch_bleak_client) -> None:
         (bytearray(b";BT<#RUN S\x1d\x1a"), "invalid_character"),
         (bytearray(b";BT<Ubb\x7f\x10"), "BMS_error"),
         (bytearray(b"invalid\xf0value"), "invalid_value"),
+        (bytearray(b";BT<UQ S\x1d\x1a"), "wrong_reg"),
     ],
     ids=lambda param: param[1],
 )
@@ -258,7 +208,7 @@ async def test_invalid_response(
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
-    patch_bms_timeout("ogt_bms")
+    patch_bms_timeout()
 
     async def patch_resp(
         _self, char_specifier: BleakGATTCharacteristic | int | str | UUID, _data: Buffer
@@ -273,7 +223,7 @@ async def test_invalid_response(
 
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294", None, -73))
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"))
 
     result: BMSsample = {}
     with pytest.raises(TimeoutError):
@@ -288,7 +238,7 @@ async def test_invalid_bms_type(patch_bleak_client) -> None:
 
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294", None, -73))
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"))
 
     result: BMSsample = await bms.async_update()
     assert not result

@@ -1,1 +1,1 @@
-"""Package for aiobmsble tests."""
+"""Tests for aiobmsble package."""

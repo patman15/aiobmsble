@@ -3,9 +3,8 @@
 # Aiobmsble
 Requires Python 3 and uses [asyncio](https://pypi.org/project/asyncio/) and [bleak](https://pypi.org/project/bleak/)
 > [!IMPORTANT]
-> At the moment the library is under development and not all BMS classes have been ported over from the [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/)!
+> At the moment the library is under development and there might be missing functionality compared to the [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/)!
 > Please do not (yet) report missing BMS support or bugs here. Instead please raise an issue at the integration till the library reached at least development status *beta*.
-> Plan is to support all BMSs that are listed [here](https://github.com/patman15/BMS_BLE-HA/edit/main/README.md#supported-devices).
 
 ## Asynchronous Library to Query Battery Management Systems via Bluetooth LE
 This library is intended to query data from battery management systems that use Bluetooth LE. It is developed to support [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/) that was written to make BMS data available to Home Assistant. While the integration depends on Home Assistant, this library can be used stand-alone in any Python environment (with necessary dependencies installed).
@@ -23,6 +22,7 @@ This example can also be found as an [example](/examples/minimal.py) in the resp
 """Example of using the aiobmsble library to find a BLE device by name and print its senosr data."""
 
 import asyncio
+import logging
 from typing import Final
 
 from bleak import BleakScanner
@@ -30,30 +30,35 @@ from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 
 from aiobmsble import BMSsample
-from aiobmsble.bms.ogt_bms import BMS  # use the right BMS class for your device
+from aiobmsble.bms.dummy_bms import BMS  # use the right BMS class for your device
 
 NAME: Final[str] = "BT Device Name"  # Replace with the name of your BLE device
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger: logging.Logger = logging.getLogger(__name__)
+
 
 async def main(dev_name) -> None:
-    """Main function to find a BLE device by name and update its sensor data."""
+    """Find a BLE device by name and update its sensor data."""
 
     device: BLEDevice | None = await BleakScanner.find_device_by_name(dev_name)
     if device is None:
-        print(f"Device '{dev_name}' not found.")
+        logger.error("Device '%s' not found.", dev_name)
         return
 
-    print(f"Found device: {device.name} ({device.address})")
+    logger.info("Found device: %s (%s)", device.name, device.address)
     bms = BMS(ble_device=device, reconnect=True)
     try:
-        print("Updating BMS data...")
+        logger.info("Updating BMS data...")
         data: BMSsample = await bms.async_update()
-        print("BMS data: ", repr(data).replace(", ", ",\n\t"))
+        logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
     except BleakError as ex:
-        print(f"Failed to update BMS: {ex}")
+        logger.error("Failed to update BMS: %s", type(ex).__name__)
 
 
-asyncio.run(main(NAME))
+if __name__ == "__main__":
+    asyncio.run(main(NAME))  # pragma: no cover
 ```
 
 ## Installation

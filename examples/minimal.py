@@ -9,13 +9,13 @@ from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 
 from aiobmsble import BMSsample
-from aiobmsble.bms.ogt_bms import BMS  # use the right BMS class for your device
+from aiobmsble.bms.dummy_bms import BMS  # use the right BMS class for your device
 
 NAME: Final[str] = "BT Device Name"  # Replace with the name of your BLE device
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 async def main(dev_name) -> None:
@@ -33,7 +33,8 @@ async def main(dev_name) -> None:
         data: BMSsample = await bms.async_update()
         logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
     except BleakError as ex:
-        logger.error("Failed to update BMS: %s", ex)
+        logger.error("Failed to update BMS: %s", type(ex).__name__)
 
 
-asyncio.run(main(NAME))
+if __name__ == "__main__":
+    asyncio.run(main(NAME))  # pragma: no cover

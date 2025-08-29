@@ -2,34 +2,46 @@
 
 from abc import ABC, abstractmethod
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, MutableMapping
 import logging
 from statistics import fmean
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
-from bleak_retry_connector import establish_connection
+from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
-from aiobmsble import AdvertisementPattern, BMSsample, BMSvalue
-
-KEY_CELL_VOLTAGE: Final[str] = "cell#"  # [V]
+from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
 
 
 class BaseBMS(ABC):
     """Abstract base class for battery management system."""
 
-    TIMEOUT = 5.0
+    MAX_RETRY: Final[int] = 3  # max number of retries for data requests
+    TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
+    _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
+    _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
 
+    class PrefixAdapter(logging.LoggerAdapter):
+        """Logging adpater to add instance ID to each log message."""
+
+        def process(
+            self, msg: str, kwargs: MutableMapping[str, Any]
+        ) -> tuple[str, MutableMapping[str, Any]]:
+            """Process the logging message."""
+            prefix: str = str(self.extra.get("prefix") if self.extra else "")
+            return (f"{prefix} {msg}", kwargs)
+
     def __init__(
         self,
-        logger_name: str,
         ble_device: BLEDevice,
         reconnect: bool = False,
+        logger_name: str = "",
     ) -> None:
         """Intialize the BMS.
 
@@ -49,9 +61,11 @@ class BaseBMS(ABC):
         self._ble_device: Final[BLEDevice] = ble_device
         self._reconnect: Final[bool] = reconnect
         self.name: Final[str] = self._ble_device.name or "undefined"
-        self._log: Final[logging.Logger] = logging.getLogger(
-            f"{logger_name.replace('.plugins', '')}::{self.name}:"
-            f"{self._ble_device.address[-5:].replace(':','')})"
+        self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
+        logger_name = logger_name or self.__class__.__module__
+        self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
+            logging.getLogger(f"{logger_name}"),
+            {"prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':','')}:"},
         )
 
         self._log.debug(
@@ -67,7 +81,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     @abstractmethod
-    def matcher_dict_list() -> list[AdvertisementPattern]:
+    def matcher_dict_list() -> list[MatcherPattern]:
         """Return a list of Bluetooth advertisement matchers."""
 
     @staticmethod
@@ -126,55 +140,78 @@ class BaseBMS(ABC):
             return (value in values) and (value not in data) and using.issubset(data)
 
         cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
-        design_capacity: Final[int | float] = data.get("design_capacity", 0)
         battery_level: Final[int | float] = data.get("battery_level", 0)
-        voltage: Final[float] = data.get("voltage", 0)
-        cycle_charge: Final[int | float] = data.get("cycle_charge", 0)
         current: Final[float] = data.get("current", 0)
 
         calculations: dict[BMSvalue, tuple[set[BMSvalue], Callable[[], Any]]] = {
             "voltage": ({"cell_voltages"}, lambda: round(sum(cell_voltages), 3)),
             "delta_voltage": (
                 {"cell_voltages"},
-                lambda: round(max(cell_voltages) - min(cell_voltages), 3),
+                lambda: (
+                    round(max(cell_voltages) - min(cell_voltages), 3)
+                    if len(cell_voltages)
+                    else None
+                ),
             ),
             "cycle_charge": (
                 {"design_capacity", "battery_level"},
-                lambda: (design_capacity * battery_level) / 100,
+                lambda: (data.get("design_capacity", 0) * battery_level) / 100,
+            ),
+            "battery_level": (
+                {"design_capacity", "cycle_charge"},
+                lambda: round(
+                    data.get("cycle_charge", 0) / data.get("design_capacity", 0) * 100,
+                    1,
+                ),
             ),
             "cycle_capacity": (
                 {"voltage", "cycle_charge"},
-                lambda: voltage * cycle_charge,
+                lambda: round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3),
             ),
-            "power": ({"voltage", "current"}, lambda: round(voltage * current, 3)),
+            "power": (
+                {"voltage", "current"},
+                lambda: round(data.get("voltage", 0) * current, 3),
+            ),
             "battery_charging": ({"current"}, lambda: current > 0),
             "runtime": (
                 {"current", "cycle_charge"},
                 lambda: (
-                    int(cycle_charge / abs(current) * BaseBMS._HRS_TO_SECS)
+                    int(
+                        data.get("cycle_charge", 0)
+                        / abs(current)
+                        * BaseBMS._HRS_TO_SECS
+                    )
                     if current < 0
                     else None
                 ),
             ),
             "temperature": (
                 {"temp_values"},
-                lambda: round(fmean(data.get("temp_values", [])), 3),
+                lambda: (
+                    round(fmean(data.get("temp_values", [])), 3)
+                    if data.get("temp_values")
+                    else None
+                ),
             ),
         }
 
         for attr, (required, calc_func) in calculations.items():
-            if can_calc(attr, frozenset(required)):
-                data[attr] = calc_func()
+            if (
+                can_calc(attr, frozenset(required))
+                and (value := calc_func()) is not None
+            ):
+                data[attr] = value
 
         # do sanity check on values to set problem state
         data["problem"] = any(
             [
                 data.get("problem", False),
                 data.get("problem_code", False),
-                voltage <= 0,
+                data.get("voltage") is not None and data.get("voltage", 0) <= 0,
                 any(v <= 0 or v > BaseBMS._MAX_CELL_VOLT for v in cell_voltages),
                 data.get("delta_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
-                cycle_charge <= 0,
+                data.get("cycle_charge") is not None
+                and data.get("cycle_charge", 0.0) <= 0.0,
                 battery_level > 100,
             ]
         )
@@ -184,13 +221,15 @@ class BaseBMS(ABC):
 
         self._log.debug("disconnected from BMS")
 
-    async def _init_connection(self) -> None:
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
         # reset any stale data from BMS
         self._data.clear()
         self._data_event.clear()
 
         await self._client.start_notify(
-            self.uuid_rx(), getattr(self, "_notification_handler")
+            char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
         )
 
     async def _connect(self) -> None:
@@ -199,6 +238,13 @@ class BaseBMS(ABC):
         if self._client.is_connected:
             self._log.debug("BMS already connected")
             return
+
+        try:
+            await self._client.disconnect()  # ensure no stale connection exists
+        except (BleakError, TimeoutError) as exc:
+            self._log.debug(
+                "failed to disconnect stale connection (%s)", type(exc).__name__
+            )
 
         self._log.debug("connecting BMS")
         self._client = await establish_connection(
@@ -211,37 +257,98 @@ class BaseBMS(ABC):
 
         try:
             await self._init_connection()
-        except Exception as err:
+        except Exception as exc:
             self._log.info(
-                "failed to initialize BMS connection (%s)", type(err).__name__
+                "failed to initialize BMS connection (%s)", type(exc).__name__
             )
             await self.disconnect()
             raise
 
+    def _wr_response(self, char: int | str) -> bool:
+        char_tx: Final[BleakGATTCharacteristic | None] = (
+            self._client.services.get_characteristic(char)
+        )
+        return bool(char_tx and "write" in getattr(char_tx, "properties", []))
+
+    async def _send_msg(
+        self,
+        data: bytes,
+        max_size: int,
+        char: int | str,
+        attempt: int,
+        inv_wr_mode: bool = False,
+    ) -> None:
+        """Send message to the bms in chunks if needed."""
+        chunk_size: Final[int] = max_size or len(data)
+
+        for i in range(0, len(data), chunk_size):
+            chunk: bytes = data[i : i + chunk_size]
+            self._log.debug(
+                "TX BLE req #%i (%s%s%s): %s",
+                attempt + 1,
+                "!" if inv_wr_mode else "",
+                "W" if self._wr_response(char) else "WNR",
+                "." if self._inv_wr_mode is not None else "",
+                chunk.hex(" "),
+            )
+            await self._client.write_gatt_char(
+                char,
+                chunk,
+                response=(self._wr_response(char) != inv_wr_mode),
+            )
+
     async def _await_reply(
         self,
         data: bytes,
-        char: BleakGATTCharacteristic | int | str | None = None,
+        char: int | str | None = None,
         wait_for_notify: bool = True,
+        max_size: int = 0,
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
-        self._log.debug("TX BLE data: %s", data.hex(" "))
-        self._data_event.clear()  # clear event before requesting new data
-        await self._client.write_gatt_char(char or self.uuid_tx(), data, response=False)
-        if wait_for_notify:
-            await asyncio.wait_for(self._wait_event(), timeout=self.TIMEOUT)
+        for inv_wr_mode in (
+            [False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]
+        ):
+            try:
+                self._data_event.clear()  # clear event before requesting new data
+                for attempt in range(BaseBMS.MAX_RETRY):
+                    await self._send_msg(
+                        data, max_size, char or self.uuid_tx(), attempt, inv_wr_mode
+                    )
+                    if not wait_for_notify:
+                        return  # write without wait for response selected
+                    try:
+                        await asyncio.wait_for(
+                            self._wait_event(),
+                            BaseBMS._RETRY_TIMEOUT
+                            * min(2**attempt, BaseBMS._MAX_TIMEOUT_FACTOR),
+                        )
+                    except TimeoutError:
+                        self._log.debug("TX BLE request timed out.")
+                        continue  # retry sending data
 
-    async def disconnect(self) -> None:
+                    self._inv_wr_mode = inv_wr_mode
+                    return  # leave loop if no exception
+            except BleakError as exc:
+                # reconnect on communication errors
+                self._log.warning(
+                    "TX BLE request error, retrying connection (%s)", type(exc).__name__
+                )
+                await self.disconnect()
+                await self._connect()
+        raise TimeoutError
+
+    async def disconnect(self, reset: bool = False) -> None:
         """Disconnect the BMS, includes stoping notifications."""
 
-        if self._client.is_connected:
-            self._log.debug("disconnecting BMS")
-            try:
-                self._data_event.clear()
-                await self._client.disconnect()
-            except BleakError:
-                self._log.warning("disconnect failed!")
+        self._log.debug("disconnecting BMS (%s)", str(self._client.is_connected))
+        try:
+            self._data_event.clear()
+            if reset:
+                self._inv_wr_mode = None  # reset write mode
+            await self._client.disconnect()
+        except BleakError:
+            self._log.warning("disconnect failed!")
 
     async def _wait_event(self) -> None:
         """Wait for data event and clear it."""
@@ -252,7 +359,7 @@ class BaseBMS(ABC):
     async def _async_update(self) -> BMSsample:
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
-    async def async_update(self, raw: bool = False) -> BMSsample:
+    async def async_update(self) -> BMSsample:
         """Retrieve updated values from the BMS using method of the subclass.
 
         Args:
@@ -266,14 +373,114 @@ class BaseBMS(ABC):
         await self._connect()
 
         data: BMSsample = await self._async_update()
-        if not raw:
-            self._add_missing_values(data, self._calc_values())
+        self._add_missing_values(data, self._calc_values())
 
         if self._reconnect:
             # disconnect after data update to force reconnect next time (slow!)
             await self.disconnect()
 
         return data
+
+    @staticmethod
+    def _decode_data(
+        fields: tuple[BMSdp, ...],
+        data: bytearray | dict[int, bytearray],
+        *,
+        byteorder: Literal["little", "big"] = "big",
+        offset: int = 0,
+    ) -> BMSsample:
+        result: BMSsample = {}
+        for field in fields:
+            if isinstance(data, dict) and field.idx not in data:
+                continue
+            msg: bytearray = data[field.idx] if isinstance(data, dict) else data
+            result[field.key] = field.fct(
+                int.from_bytes(
+                    msg[offset + field.pos : offset + field.pos + field.size],
+                    byteorder=byteorder,
+                    signed=field.signed,
+                )
+            )
+        return result
+
+    @staticmethod
+    def _cell_voltages(
+        data: bytearray,
+        *,
+        cells: int,
+        start: int,
+        size: int = 2,
+        byteorder: Literal["little", "big"] = "big",
+        divider: int = 1000,
+    ) -> list[float]:
+        """Return cell voltages from BMS message.
+
+        Args:
+            data: Raw data from BMS
+            cells: Number of cells to read
+            start: Start position in data array
+            size: Number of bytes per cell value (defaults 2)
+            byteorder: Byte order ("big"/"little" endian)
+            divider: Value to divide raw value by, defaults to 1000 (mv to V)
+
+        Returns:
+            list[float]: List of cell voltages in volts
+
+        """
+        return [
+            value / divider
+            for idx in range(cells)
+            if (len(data) >= start + (idx + 1) * size)
+            and (
+                value := int.from_bytes(
+                    data[start + idx * size : start + (idx + 1) * size],
+                    byteorder=byteorder,
+                    signed=False,
+                )
+            )
+        ]
+
+    @staticmethod
+    def _temp_values(
+        data: bytearray,
+        *,
+        values: int,
+        start: int,
+        size: int = 2,
+        byteorder: Literal["little", "big"] = "big",
+        signed: bool = True,
+        offset: float = 0,
+        divider: int = 1,
+    ) -> list[int | float]:
+        """Return temperature values from BMS message.
+
+        Args:
+            data: Raw data from BMS
+            values: Number of values to read
+            start: Start position in data array
+            size: Number of bytes per cell value (defaults 2)
+            byteorder: Byte order ("big"/"little" endian)
+            signed: Indicates whether two's complement is used to represent the integer.
+            offset: The offset read values are shifted by (for Kelvin use 273.15)
+            divider: Value to divide raw value by, defaults to 1000 (mv to V)
+
+        Returns:
+            list[int | float]: List of temperature values
+
+        """
+        return [
+            value / divider if divider != 1 else value
+            for idx in range(values)
+            if (len(data) >= start + (idx + 1) * size)
+            and (
+                value := int.from_bytes(
+                    data[start + idx * size : start + (idx + 1) * size],
+                    byteorder=byteorder,
+                    signed=signed,
+                )
+                - offset
+            )
+        ]
 
 
 def crc_modbus(data: bytearray) -> int:
@@ -284,6 +491,11 @@ def crc_modbus(data: bytearray) -> int:
         for _ in range(8):
             crc = (crc >> 1) ^ 0xA001 if crc % 2 else (crc >> 1)
     return crc & 0xFFFF
+
+
+def lrc_modbus(data: bytearray) -> int:
+    """Calculate MODBUS LRC."""
+    return ((sum(data) ^ 0xFFFF) + 1) & 0xFFFF
 
 
 def crc_xmodem(data: bytearray) -> int:
@@ -308,6 +520,10 @@ def crc8(data: bytearray) -> int:
     return crc & 0xFF
 
 
-def crc_sum(frame: bytearray) -> int:
-    """Calculate frame CRC."""
-    return sum(frame) & 0xFF
+def crc_sum(frame: bytearray, size: int = 1) -> int:
+    """Calculate the checksum of a frame using a specified size.
+
+    size : int, optional
+        The size of the checksum in bytes (default is 1).
+    """
+    return sum(frame) & ((1 << (8 * size)) - 1)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiobmsble"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.12"
 description = "Asynchronous Python library to query battery management systems via Bluetooth Low Energy."
 readme = "README.md"
@@ -27,20 +27,22 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 dependencies = [
-  "bleak~=0.22.3",
-  "bleak-retry-connector~=3.8.1",
+  "bleak~=1.1.0",
+  "bleak-retry-connector~=4.0.1",
   "asyncio",
   "logging",
   "statistics",
   "typing"
 ]
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "mypy", "ruff"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "mypy", "ruff"]
 
 
 [project.urls]
 Homepage = "https://github.com/patman15/aiobmsble/"
-Documentation = "https://github.com/patman15/aiobmsble/"
+Documentation = "https://github.com/patman15/aiobmsble/README"
+"Source Code" = "https://github.com/patman15/aiobmsble/"
+"Bug Reports" = "https://github.com/patman15/aiobmsble/issues"
 
 [project.scripts]
 aiobmsble = "aiobmsble.__main__:main"
@@ -49,7 +51,11 @@ aiobmsble = "aiobmsble.__main__:main"
 packages = ["aiobmsble"]
 
 [tool.pytest.ini_options]
-minversion = "8.0"
+minversion = "8.4"
+addopts="-n auto --cov=aiobmsble --cov=examples --cov-branch --cov-report=term-missing --cov-fail-under=100"
+pythonpath = [
+    "aiobmsble",
+]
 testpaths = [
     "tests",
 ]
@@ -147,7 +153,6 @@ select = [
     "S317", # suspicious-xml-sax-usage
     "S318", # suspicious-xml-mini-dom-usage
     "S319", # suspicious-xml-pull-dom-usage
-    "S320", # suspicious-xmle-tree-usage
     "S601", # paramiko-call
     "S602", # subprocess-popen-with-shell-equals-true
     "S604", # call-with-shell-equals-true
@@ -235,3 +240,4 @@ split-on-trailing-comma = false
 
 [tool.ruff.lint.mccabe]
 max-complexity = 25
+
