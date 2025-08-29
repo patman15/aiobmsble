@@ -56,6 +56,7 @@ class BMS(BaseBMS):
                 "121?0*",  # Eleksol, Ultimatron
                 "12200*",
                 "12300*",
+                "SBL-*",  # SBL
                 "LT40AH",  # LionTron
                 "PKT*",  # Perfektium
                 "gokwh*",
@@ -65,6 +66,7 @@ class BMS(BaseBMS):
                 "xiaoxiang*",  # xiaoxiang BMS
                 "AL12-*",  # Aolithium
                 "BS20*",  # BasenGreen
+                "BT  LP*",  # LANPWR
             )
         ] + [
             MatcherPattern(
@@ -72,8 +74,8 @@ class BMS(BaseBMS):
                 manufacturer_id=m_id,
                 connectable=True,
             )
-            for m_id in (0x007B, 0x0211, 0x3E70, 0xC1A4)
-            # SBL, Liontron, LISMART1240LX/LISMART1255LX,
+            for m_id in (0x0211, 0x3E70, 0xC1A4)
+            # Liontron, LISMART1240LX/LISMART1255LX,
             # LionTron XL19110253 / EPOCH batteries 12.8V 460Ah - 12460A-H
         ]
 
