@@ -11,7 +11,7 @@ name: Upload Python Test-Package
 on:
   workflow_dispatch:
     inputs:
-      release_name:
+      release_tag:
         description: 'Name of the release (e.g., 1.2.3)'
         required: true
 
