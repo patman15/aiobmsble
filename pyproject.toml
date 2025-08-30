@@ -47,9 +47,6 @@ Documentation = "https://github.com/patman15/aiobmsble/README"
 [project.scripts]
 aiobmsble = "aiobmsble.__main__:main"
 
-[tool.setuptools]
-packages = ["aiobmsble"]
-
 [tool.pytest.ini_options]
 minversion = "8.4"
 addopts="-n auto --cov=aiobmsble --cov=examples --cov-branch --cov-report=term-missing --cov-fail-under=100"
