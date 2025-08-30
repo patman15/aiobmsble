@@ -2,37 +2,23 @@
 
 from types import ModuleType
 
-import pytest
-
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.utils import bms_supported, load_bms_plugins
 from tests.advertisement_data import ADVERTISEMENTS
 from tests.advertisement_ignore import ADVERTISEMENTS_IGNORE
 
 
-@pytest.fixture(
-    name="plugin",
-    params=sorted(
-        load_bms_plugins(), key=lambda plugin: getattr(plugin, "__name__", "")
-    ),
-    ids=lambda param: param.__name__.rsplit(".", 1)[-1],
-)
-def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
-    """Return module of a BMS."""
-    return request.param
-
-
-def test_device_info(plugin: ModuleType) -> None:
+def test_device_info(plugin_fixture: ModuleType) -> None:
     """Test that the BMS returns valid device information."""
-    bms_class: type[BaseBMS] = plugin.BMS
+    bms_class: type[BaseBMS] = plugin_fixture.BMS
     result: dict[str, str] = bms_class.device_info()
     assert "manufacturer" in result
     assert "model" in result
 
 
-def test_matcher_dict(plugin: ModuleType) -> None:
+def test_matcher_dict(plugin_fixture: ModuleType) -> None:
     """Test that the BMS returns BT matcher."""
-    bms_class: type[BaseBMS] = plugin.BMS
+    bms_class: type[BaseBMS] = plugin_fixture.BMS
     assert len(bms_class.matcher_dict_list())
 
 

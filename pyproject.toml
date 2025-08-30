@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiobmsble"
-version = "0.2.0"
+version = "0.2.1"
 requires-python = ">=3.12"
 description = "Asynchronous Python library to query battery management systems via Bluetooth Low Energy."
 readme = "README.md"
@@ -28,15 +28,15 @@ classifiers = [
 ]
 dependencies = [
   "bleak~=1.1.0",
-  "bleak-retry-connector~=4.0.1",
+  "bleak-retry-connector~=4.0.2",
   "asyncio",
   "logging",
   "statistics",
   "typing"
 ]
-[project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "mypy", "ruff"]
 
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff"]
 
 [project.urls]
 Homepage = "https://github.com/patman15/aiobmsble/"
@@ -46,9 +46,6 @@ Documentation = "https://github.com/patman15/aiobmsble/README"
 
 [project.scripts]
 aiobmsble = "aiobmsble.__main__:main"
-
-[tool.setuptools]
-packages = ["aiobmsble"]
 
 [tool.pytest.ini_options]
 minversion = "8.4"
@@ -224,7 +221,6 @@ ignore = [
     "PLE0605"
 ]
 
-
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
 known-first-party = [
@@ -234,7 +230,6 @@ combine-as-imports = true
 split-on-trailing-comma = false
 
 [tool.ruff.lint.per-file-ignores]
-
 # Temporary for BMS_BLE-HA
 "tests/**" = ["SLF"]
 
