@@ -20,7 +20,7 @@ def _advertisement_matches(
     """Determine whether the given advertisement data matches the specified pattern.
 
     Args:
-        matcher (AdvertisementPattern): A dictionary containing the matching criteria.
+        matcher (MatcherPattern): A dictionary containing the matching criteria.
             Possible keys include:
             - "service_uuid" (str): A specific service 128-bit UUID to match.
             - "service_data_uuid" (str): A specific service data UUID to match.

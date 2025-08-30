@@ -28,14 +28,14 @@ classifiers = [
 ]
 dependencies = [
   "bleak~=1.1.0",
-  "bleak-retry-connector~=4.0.1",
+  "bleak-retry-connector>=4.0.0",
   "asyncio",
   "logging",
   "statistics",
   "typing"
 ]
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "mypy", "ruff"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff"]
 
 
 [project.urls]

@@ -2,24 +2,60 @@
 
 from collections.abc import Awaitable, Buffer, Callable, Iterable
 import logging
+from types import ModuleType
 from typing import Any
 from uuid import UUID
 
+from _pytest.config import Notset
 from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.uuids import normalize_uuid_str
+from hypothesis import HealthCheck, settings
 import pytest
 
 from aiobmsble import BMSsample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
-
-from .bluetooth import generate_ble_device
+from aiobmsble.utils import load_bms_plugins
+from tests.bluetooth import generate_ble_device
 
 logging.basicConfig(level=logging.INFO)
 LOGGER: logging.Logger = logging.getLogger(__package__)
+
+
+def pytest_addoption(parser) -> None:
+    """Add custom command-line option for max_examples."""
+    parser.addoption(
+        "--max-examples",
+        action="store",
+        type=int,
+        default=1000,
+        help="Set the maximum number of examples for Hypothesis tests.",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Configure pytest with custom settings."""
+    max_examples: int | Notset = config.getoption("--max-examples")
+    settings.register_profile(
+        "default",
+        max_examples=max_examples,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
+    settings.load_profile("default")
+
+
+@pytest.fixture(
+    params=sorted(
+        load_bms_plugins(), key=lambda plugin: getattr(plugin, "__name__", "")
+    ),
+    ids=lambda param: param.__name__.rsplit(".", 1)[-1],
+)
+def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
+    """Return module of a BMS."""
+    return request.param
 
 
 @pytest.fixture(params=[False, True])

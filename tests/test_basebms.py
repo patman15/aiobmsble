@@ -12,17 +12,8 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import (
-    BaseBMS,
-    BMSdp,
-    BMSsample,
-    MatcherPattern,
-    crc8,
-    crc_modbus,
-    crc_sum,
-    crc_xmodem,
-    lrc_modbus,
-)
+from aiobmsble import BMSdp, BMSsample, MatcherPattern
+from aiobmsble.basebms import BaseBMS, crc8, crc_modbus, crc_sum, crc_xmodem, lrc_modbus
 
 from .bluetooth import generate_ble_device
 from .conftest import MockBleakClient
