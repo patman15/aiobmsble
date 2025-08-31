@@ -6,11 +6,15 @@ import importlib
 import pkgutil
 import re
 from types import ModuleType
+from typing import Final
 
 from bleak.backends.scanner import AdvertisementData
 
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
+import aiobmsble.bms
+
+_MODULE_POSTFIX: Final[str] = "_bms"
 
 
 def _advertisement_matches(
@@ -78,8 +82,8 @@ def load_bms_plugins() -> set[ModuleType]:
     """
     return {
         importlib.import_module(f"aiobmsble.bms.{module_name}")
-        for _, module_name, _ in pkgutil.iter_modules(["aiobmsble/bms"])
-        if module_name.endswith("_bms")
+        for _, module_name, _ in pkgutil.iter_modules(aiobmsble.bms.__path__)
+        if module_name.endswith(_MODULE_POSTFIX)
     }
 
 
@@ -87,14 +91,16 @@ def bms_cls(name: str) -> type[BaseBMS] | None:
     """Return the BMS class that is defined by the name argument.
 
     Args:
-        name (str): The name of the BMS type
+        name (str): The name of the BMS type (filename of the module)
 
     Returns:
         type[BaseBMS] | None: If the BMS class defined by name is found, None otherwise.
 
     """
+    if not name.endswith(_MODULE_POSTFIX):
+        return None
     try:
-        bms_module: ModuleType = importlib.import_module(f"aiobmsble.bms.{name}_bms")
+        bms_module: ModuleType = importlib.import_module(f"aiobmsble.bms.{name}")
     except ModuleNotFoundError:
         return None
     return bms_module.BMS

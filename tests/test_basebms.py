@@ -14,6 +14,7 @@ import pytest
 
 from aiobmsble import BMSdp, BMSsample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc8, crc_modbus, crc_sum, crc_xmodem, lrc_modbus
+from aiobmsble.bms.dummy_bms import BMS as DummyBMS
 
 from .bluetooth import generate_ble_device
 from .conftest import MockBleakClient
@@ -313,6 +314,12 @@ async def test_wr_mode_reset(
     assert bms._inv_wr_mode is False
     await bms.disconnect(True)
     assert bms._inv_wr_mode is None
+
+
+def test_get_bms_module() -> None:
+    """Check that basebms and dummy_bms return correct module name."""
+    assert BaseBMS.get_bms_module() == "aiobmsble.basebms"
+    assert DummyBMS.get_bms_module() == "aiobmsble.bms.dummy_bms"
 
 
 async def test_no_notify(

@@ -79,6 +79,11 @@ class BaseBMS(ABC):
         self._data: bytearray = bytearray()
         self._data_event: Final[asyncio.Event] = asyncio.Event()
 
+    @classmethod
+    def get_bms_module(cls) -> str:
+        """Return BMS module name, e.g. aiobmsble.bms.dummy_bms."""
+        return cls.__module__
+
     @staticmethod
     @abstractmethod
     def matcher_dict_list() -> list[MatcherPattern]:
