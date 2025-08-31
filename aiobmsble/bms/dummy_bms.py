@@ -1,4 +1,8 @@
-"""Module to support Dummy BMS."""
+"""Module to support Dummy BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice

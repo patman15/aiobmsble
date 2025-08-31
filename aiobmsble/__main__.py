@@ -1,4 +1,8 @@
-"""Example function for package usage."""
+"""Example script for aiobmsble package usage.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 import argparse
 import asyncio

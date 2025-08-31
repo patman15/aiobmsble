@@ -1,4 +1,8 @@
-"""Package for battery management systems (BMS) via Bluetooth LE."""
+"""Package for battery management systems (BMS) via Bluetooth LE (aiobmsble).
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from collections.abc import Callable
 from enum import IntEnum

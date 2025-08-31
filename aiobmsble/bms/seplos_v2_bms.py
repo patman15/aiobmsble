@@ -1,4 +1,8 @@
-"""Module to support Seplos v2 BMS."""
+"""Module to support Seplos v2 BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from typing import Final
 

@@ -1,4 +1,8 @@
-"""Module to support ECO-WORTHY BMS."""
+"""Module to support ECO-WORTHY BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 import asyncio
 from typing import Final

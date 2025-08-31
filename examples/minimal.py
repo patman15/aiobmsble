@@ -1,4 +1,8 @@
-"""Example of using the aiobmsble library to find a BLE device by name and print its senosr data."""
+"""Example of using the aiobmsble library to find a BLE device by name and print its sensor data.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 import asyncio
 import logging

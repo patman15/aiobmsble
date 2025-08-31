@@ -1,4 +1,8 @@
-"""Module to support Seplos V3 Smart BMS."""
+"""Module to support Seplos V3 Smart BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from collections.abc import Callable
 from typing import Any, Final

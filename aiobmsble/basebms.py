@@ -1,4 +1,8 @@
-"""Base class defintion for battery management systems (BMS)."""
+"""Base class defintion for battery management systems (BMS).
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from abc import ABC, abstractmethod
 import asyncio

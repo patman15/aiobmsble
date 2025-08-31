@@ -1,4 +1,8 @@
-"""Utilitiy/Support functions for aiobmsble."""
+"""Utilitiy/Support functions for aiobmsble.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from fnmatch import translate
 from functools import lru_cache

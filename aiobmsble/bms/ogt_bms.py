@@ -1,4 +1,8 @@
-"""Module to support Offgridtec Smart Pro BMS."""
+"""Module to support Offgridtec Smart Pro BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from collections.abc import Callable
 from string import digits, hexdigits
