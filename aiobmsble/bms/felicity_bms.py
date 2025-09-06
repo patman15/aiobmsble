@@ -1,4 +1,8 @@
-"""Module to support Felicity BMS."""
+"""Module to support Felicity BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from collections.abc import Callable
 from json import JSONDecodeError, loads

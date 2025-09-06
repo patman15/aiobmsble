@@ -1,4 +1,8 @@
-"""Module to support Ective BMS."""
+"""Module to support Ective BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 import asyncio
 from string import hexdigits

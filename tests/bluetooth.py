@@ -1,5 +1,6 @@
 """Test helpers for bluetooth copied from HA 2025.8.3.
 
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
 Source: /tests/components/bluetooth/__init__.py
 """
 

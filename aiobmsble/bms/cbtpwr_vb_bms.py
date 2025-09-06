@@ -1,4 +1,8 @@
-"""Module to support CBT Power VB series BMS."""
+"""Module to support CBT Power VB series BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from string import hexdigits
 from typing import Final

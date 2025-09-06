@@ -1,4 +1,8 @@
-"""Module to support Pro BMS."""
+"""Module to support Pro BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 import asyncio
 from typing import Final

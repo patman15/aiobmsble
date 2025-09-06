@@ -1,4 +1,7 @@
-"""Module to support Renogy BMS."""
+"""Module to support Renogy BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+"""
 
 from typing import Final
 

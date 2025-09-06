@@ -55,15 +55,14 @@ def test_bms_identify(plugin: ModuleType) -> None:
 def test_bms_cls(plugin: ModuleType) -> None:
     """Test that a BMS class is correctly returned from its name."""
     # strip _bms to get only type
-    bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1][:-4]
+    bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1]
     bms_class: type[BaseBMS] | None = bms_cls(bms_type)
     assert bms_class == plugin.BMS
 
 
-def test_bms_cls_none() -> None:
-    """Test that a BMS class is correctly returned from its name."""
-    # strip _bms to get only type
-    bms_type: str = "unvailable_bms"
+@pytest.mark.parametrize("bms_type", ["unavailable_bms", "ignore_me"])
+def test_bms_cls_none(bms_type: str) -> None:
+    """Test that a BMS class is None when name is not correct."""
     bms_class: type[BaseBMS] | None = bms_cls(bms_type)
     assert bms_class is None
 

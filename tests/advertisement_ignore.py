@@ -1,4 +1,8 @@
-"""Test data for BLE Battery Management System integration config flow."""
+"""Test data for BLE Battery Management System integration config flow.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from typing import Final
 

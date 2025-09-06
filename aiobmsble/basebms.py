@@ -1,4 +1,8 @@
-"""Base class defintion for battery management systems (BMS)."""
+"""Base class defintion for battery management systems (BMS).
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from abc import ABC, abstractmethod
 import asyncio
@@ -78,6 +82,11 @@ class BaseBMS(ABC):
         )
         self._data: bytearray = bytearray()
         self._data_event: Final[asyncio.Event] = asyncio.Event()
+
+    @classmethod
+    def get_bms_module(cls) -> str:
+        """Return BMS module name, e.g. aiobmsble.bms.dummy_bms."""
+        return cls.__module__
 
     @staticmethod
     @abstractmethod

@@ -1,4 +1,8 @@
-"""Module to support E&J Technology BMS."""
+"""Module to support E&J Technology BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from enum import IntEnum
 from string import hexdigits

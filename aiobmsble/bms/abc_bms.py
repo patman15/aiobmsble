@@ -1,4 +1,8 @@
-"""Module to support ABC BMS."""
+"""Module to support ABC BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 import contextlib
 from typing import Final
