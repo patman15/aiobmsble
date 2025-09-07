@@ -1,4 +1,4 @@
-[![GitHub Release][releases-shield]][releases]
+[![GitHub Release][releases-shield]](https://pypi.org/p/aiobmsble/)
 [![License][license-shield]](LICENSE)
 
 # Aiobmsble
@@ -85,4 +85,4 @@ pip3 install -e .[dev]
 This gives you the latest library code from the main branch.
 
 [license-shield]: https://img.shields.io/github/license/patman15/aiobmsble?style=for-the-badge&cacheSeconds=86400
-[releases-shield]: https://img.shields.io/pypi/v/aiobmsble?style=for-the-badge&link=https%3A%2F%2Fpypi.org%2Fp%2Faiobmsble%2F
+[releases-shield]: https://img.shields.io/pypi/v/aiobmsble?style=for-the-badge
