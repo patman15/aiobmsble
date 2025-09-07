@@ -117,19 +117,19 @@ class MockANTBleakClient(MockBleakClient):
             self._notify_callback("MockANTBleakClient", notify_data)
 
 
-async def test_update(patch_bms_timeout, patch_bleak_client, reconnect_fixture) -> None:
+async def test_update(patch_bms_timeout, patch_bleak_client, keep_alive_fixture) -> None:
     """Test ANT BMS data update."""
 
     patch_bms_timeout()
     patch_bleak_client(MockANTBleakClient)
 
-    bms = BMS(generate_ble_device(), reconnect_fixture)
+    bms = BMS(generate_ble_device(), keep_alive_fixture)
 
     assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is not reconnect_fixture
+    assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

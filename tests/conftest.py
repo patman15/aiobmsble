@@ -157,7 +157,7 @@ class MockBMS(BaseBMS):
 
     def __init__(
         self, exc: Exception | None = None, ret_value: BMSsample | None = None
-    ) -> None:  # , ble_device, reconnect: bool = False
+    ) -> None:
         """Initialize BMS."""
         super().__init__(generate_ble_device(address="", details={"path": None}), False)
         LOGGER.debug("%s init(), Test except: %s", self.device_id(), str(exc))
@@ -254,9 +254,9 @@ def patch_bleak_client(monkeypatch):
     return _patch
 
 
-@pytest.fixture(params=[False, True], ids=["persist", "reconnect"])
-def reconnect_fixture(request: pytest.FixtureRequest) -> bool:
-    """Return False, True for reconnect test."""
+@pytest.fixture(params=[True, False], ids=["keep_alive", "reconnect"])
+def keep_alive_fixture(request: pytest.FixtureRequest) -> bool:
+    """Return True, False for keep_alive test."""
     return request.param
 
 

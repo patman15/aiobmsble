@@ -112,10 +112,10 @@ class WMTestBMS(MinTestBMS):
         self,
         char_tx_properties: list[str],
         ble_device: BLEDevice,
-        reconnect: bool = False,
+        keep_alive: bool = True,
     ) -> None:
         """Initialize BMS."""
-        super().__init__(ble_device, reconnect)
+        super().__init__(ble_device, keep_alive)
         self._char_tx_properties: list[str] = char_tx_properties
 
     def _wr_response(self, char: int | str) -> bool:
@@ -328,7 +328,7 @@ async def test_no_notify(
     """Test BMS update without waiting for notification event."""
     patch_bleak_client(MockBleakClient)
 
-    bms: MinTestBMS = MinTestBMS(generate_ble_device(), reconnect=True)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
     with caplog.at_level(DEBUG):
         result: BMSsample = await bms.async_update()
     assert "MockBleakClient write_gatt_char afe2, data: b'mock_command'" in caplog.text
@@ -349,7 +349,7 @@ async def test_disconnect_fail(
     monkeypatch.setattr(MockBleakClient, "disconnect", _raise_bleak_error)
     patch_bleak_client(MockBleakClient)
 
-    bms: MinTestBMS = MinTestBMS(generate_ble_device(), reconnect=True)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
     with caplog.at_level(DEBUG):
         result: BMSsample = await bms.async_update()
     assert result == {"problem_code": 21}
@@ -373,6 +373,18 @@ async def test_init_connect_fail(
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     with caplog.at_level(DEBUG), pytest.raises(ValueError, match="MockValueError"):
         await bms.async_update()
+
+
+async def test_context_mgr_fail(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that context manager enforces `keep_alive=True`."""
+
+    patch_bleak_client(MockBleakClient)
+
+    with pytest.raises(ValueError, match="usage of context manager*"):
+        async with MinTestBMS(generate_ble_device(), keep_alive=False) as bms:
+            await bms.async_update()
 
 
 def test_crc_calculations() -> None:

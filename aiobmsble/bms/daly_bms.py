@@ -39,9 +39,9 @@ class BMS(BaseBMS):
         BMSdp("problem_code", 116, 8, False, lambda x: x % 2**64),
     )
 
-    def __init__(self, ble_device: BLEDevice, reconnect: bool = False) -> None:
+    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Intialize private BMS members."""
-        super().__init__(ble_device, reconnect)
+        super().__init__(ble_device, keep_alive)
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
