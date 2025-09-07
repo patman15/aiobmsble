@@ -19,7 +19,11 @@ from the command line after [installation](#installation). In case you need the 
 ### From a Script
 This example can also be found as an [example](/examples/minimal.py) in the respective [folder](/main/examples).
 ```python
-"""Example of using the aiobmsble library to find a BLE device by name and print its senosr data."""
+"""Example of using the aiobmsble library to find a BLE device by name and print its sensor data.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 import asyncio
 import logging
@@ -30,9 +34,9 @@ from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 
 from aiobmsble import BMSsample
-from aiobmsble.bms.dummy_bms import BMS  # use the right BMS class for your device
+from aiobmsble.bms.dummy_bms import BMS  # TODO: use the right BMS class for your device
 
-NAME: Final[str] = "BT Device Name"  # Replace with the name of your BLE device
+NAME: Final[str] = "BT Device Name"  # TODO: replace with the name of your BLE device
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -48,11 +52,11 @@ async def main(dev_name) -> None:
         return
 
     logger.info("Found device: %s (%s)", device.name, device.address)
-    bms = BMS(ble_device=device, reconnect=True)
     try:
-        logger.info("Updating BMS data...")
-        data: BMSsample = await bms.async_update()
-        logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
+        async with BMS(ble_device=device) as bms:
+            logger.info("Updating BMS data...")
+            data: BMSsample = await bms.async_update()
+            logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
     except BleakError as ex:
         logger.error("Failed to update BMS: %s", type(ex).__name__)
 

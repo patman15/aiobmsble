@@ -239,26 +239,26 @@ async def test_update(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     protocol_type,
-    reconnect_fixture,
+    keep_alive_fixture,
 ) -> None:
     """Test TDT BMS data update."""
 
     monkeypatch.setattr(MockTDTBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockTDTBleakClient)
 
-    bms = BMS(generate_ble_device(), reconnect_fixture)
+    bms = BMS(generate_ble_device(), keep_alive_fixture)
 
     assert await bms.async_update() == ref_value()[protocol_type]
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is not reconnect_fixture
+    assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
 
 async def test_update_0x1e_head(
-    monkeypatch, patch_bms_timeout, patch_bleak_client, reconnect_fixture
+    monkeypatch, patch_bms_timeout, patch_bleak_client, keep_alive_fixture
 ) -> None:
     """Test TDT BMS data update."""
 
@@ -280,13 +280,13 @@ async def test_update_0x1e_head(
     monkeypatch.setattr(MockTDTBleakClient, "RESP", resp_0x1e)
     patch_bleak_client(MockTDTBleakClient)
 
-    bms = BMS(generate_ble_device(), reconnect_fixture)
+    bms = BMS(generate_ble_device(), keep_alive_fixture)
 
     assert await bms.async_update() == ref_value()["4S4Tv0.0"]
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is not reconnect_fixture
+    assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

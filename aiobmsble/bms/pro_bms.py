@@ -52,9 +52,9 @@ class BMS(BaseBMS):
         BMSdp("power", 32, 4, False, lambda x: x / 100),
     )
 
-    def __init__(self, ble_device: BLEDevice, reconnect: bool = False) -> None:
+    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, reconnect)
+        super().__init__(ble_device, keep_alive)
         self._valid_reply: int = BMS._RT_DATA
 
     @staticmethod

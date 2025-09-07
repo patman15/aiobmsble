@@ -51,7 +51,7 @@ async def detect_bms() -> None:
 
         if bms_cls := bms_identify(advertisement):
             logger.info("Found matching BMS type: %s", bms_cls.device_id())
-            bms: BaseBMS = bms_cls(ble_device=ble_dev, reconnect=True)
+            bms: BaseBMS = bms_cls(ble_device=ble_dev)
 
             try:
                 logger.info("Updating BMS data...")
@@ -59,6 +59,8 @@ async def detect_bms() -> None:
                 logger.info("BMS data: %s", repr(data).replace(", '", ",\n\t'"))
             except (BleakError, TimeoutError) as exc:
                 logger.error("Failed to update BMS: %s", type(exc).__name__)
+            finally:
+                await bms.disconnect()
 
     logger.info("done.")
 

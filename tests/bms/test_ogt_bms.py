@@ -109,12 +109,14 @@ class MockOGTBleakClient(MockBleakClient):
         )
 
 
-async def test_update(patch_bleak_client, ogt_bms_name, reconnect_fixture) -> None:
+async def test_update(patch_bleak_client, ogt_bms_name, keep_alive_fixture) -> None:
     """Test OGT BMS data update."""
 
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", ogt_bms_name), reconnect_fixture)
+    bms = BMS(
+        generate_ble_device("cc:cc:cc:cc:cc:cc", ogt_bms_name), keep_alive_fixture
+    )
 
     result: BMSsample = await bms.async_update()
 
@@ -137,7 +139,7 @@ async def test_update(patch_bleak_client, ogt_bms_name, reconnect_fixture) -> No
 
     # query again to check already connected state
     result = await bms.async_update()
-    assert bms._client.is_connected is not reconnect_fixture
+    assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
@@ -238,7 +240,7 @@ async def test_invalid_bms_type(patch_bleak_client) -> None:
 
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"))
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"), keep_alive=True)
 
     result: BMSsample = await bms.async_update()
     assert not result

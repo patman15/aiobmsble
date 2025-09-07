@@ -110,20 +110,20 @@ class MockEctiveBleakClient(MockBleakClient):
 
 
 async def test_update(
-    monkeypatch, patch_bleak_client, protocol_type, reconnect_fixture
+    monkeypatch, patch_bleak_client, protocol_type, keep_alive_fixture
 ) -> None:
     """Test Ective BMS data update."""
 
     monkeypatch.setattr(MockEctiveBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockEctiveBleakClient)
 
-    bms = BMS(generate_ble_device(), reconnect_fixture)
+    bms = BMS(generate_ble_device(), keep_alive_fixture)
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client.is_connected is not reconnect_fixture
+    assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

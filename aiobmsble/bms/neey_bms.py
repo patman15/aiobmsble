@@ -34,9 +34,9 @@ class BMS(BaseBMS):
         ("balance_current", 217, "<f", lambda x: round(x, 3)),
     ]
 
-    def __init__(self, ble_device: BLEDevice, reconnect: bool = False) -> None:
+    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Intialize private BMS members."""
-        super().__init__(ble_device, reconnect)
+        super().__init__(ble_device, keep_alive)
         self._data_final: bytearray = bytearray()
         self._bms_info: dict[str, str] = {}
         self._exp_len: int = BMS._MIN_FRAME

@@ -32,9 +32,9 @@ class BMS(BaseBMS):
         BMSdp("problem_code", 20, 2, False, lambda x: x),
     )  # general protocol v4
 
-    def __init__(self, ble_device: BLEDevice, reconnect: bool = False) -> None:
+    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Intialize private BMS members."""
-        super().__init__(ble_device, reconnect)
+        super().__init__(ble_device, keep_alive)
         self._valid_reply: int = 0x00
         self._data_final: bytearray = bytearray()
 

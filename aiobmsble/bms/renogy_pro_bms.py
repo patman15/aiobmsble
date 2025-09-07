@@ -24,9 +24,9 @@ class BMS(RenogyBMS):
         BMSdp("cycles", 15, 2, False, lambda x: x),
     )
 
-    def __init__(self, ble_device: BLEDevice, reconnect: bool = False) -> None:
+    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Intialize private BMS members."""
-        super().__init__(ble_device, reconnect)
+        super().__init__(ble_device, keep_alive)
         self._char_write_handle: int = -1
 
     @staticmethod

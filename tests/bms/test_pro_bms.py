@@ -19,7 +19,7 @@ from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
 # Actual recorded packets from device logs
-RECORDED_PACKETS = {
+RECORDED_PACKETS: dict[str, bytearray] = {
     # Initialization response packet
     "init_response": bytearray.fromhex("55aa080380aa01040000002c52"),
     # Data packets with various states
@@ -194,11 +194,11 @@ async def test_async_update_incomplete_data(
 async def test_async_update_already_streaming(patch_bleak_client) -> None:
     """Test async update when already streaming (second update)."""
     device = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
-    mock_client = MockProBMSBleakClient(device)
+    mock_client: MockProBMSBleakClient = MockProBMSBleakClient(device)
     mock_client.set_test_packet(RECORDED_PACKETS["data_charging"])
     patch_bleak_client(lambda *args, **kwargs: mock_client)
 
-    bms = BMS(device)
+    bms = BMS(device, keep_alive=True)
 
     # First update to initialize
     await bms.async_update()

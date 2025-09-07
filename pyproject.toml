@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiobmsble"
-version = "0.2.3"
+version = "0.3.0"
 requires-python = ">=3.12"
 description = "Asynchronous Python library to query battery management systems via Bluetooth Low Energy."
 readme = "README.md"
@@ -181,7 +181,7 @@ ignore = [
     "PLR0913", # Too many arguments to function call ({c_args} > {max_args})
 #    "PLR0915", # Too many statements ({statements} > {max_statements})
     "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
-    "PLW1641", # __eq__ without __hash__
+#    "PLW1641", # __eq__ without __hash__
 #    "PLW2901", # Outer {outer_kind} variable {name} overwritten by inner {inner_kind} target
 #    "PT011",   # pytest.raises({exception}) is too broad, set the `match` parameter or use a more specific exception
     "PT018",   # Assertion should be broken down into multiple parts
@@ -189,7 +189,7 @@ ignore = [
 #    "RUF002",  # Docstring contains ambiguous unicode character.
 #    "RUF003",  # Comment contains ambiguous unicode character.
 #    "RUF015",  # Prefer next(...) over single element slice
-    "SIM102",  # Use a single if statement instead of nested if statements
+#    "SIM102",  # Use a single if statement instead of nested if statements
 #    "SIM103",  # Return the condition {condition} directly
 #    "SIM108",  # Use ternary operator {contents} instead of if-else-block
 #    "SIM115",  # Use context handler for opening files

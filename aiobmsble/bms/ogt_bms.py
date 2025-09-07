@@ -30,9 +30,9 @@ class BMS(BaseBMS):
         reg: int
         value: int
 
-    def __init__(self, ble_device: BLEDevice, reconnect: bool = False) -> None:
+    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Intialize private BMS members."""
-        super().__init__(ble_device, reconnect)
+        super().__init__(ble_device, keep_alive)
         self._type: str = (
             self.name[9]
             if len(self.name) >= 10 and set(self.name[10:]).issubset(digits)

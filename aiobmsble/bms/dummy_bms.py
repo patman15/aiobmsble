@@ -19,9 +19,9 @@ class BMS(BaseBMS):
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
 
-    def __init__(self, ble_device: BLEDevice, reconnect: bool = False) -> None:
+    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
-        super().__init__(ble_device, reconnect)
+        super().__init__(ble_device, keep_alive)
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
