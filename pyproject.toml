@@ -27,12 +27,8 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 dependencies = [
-  "bleak~=1.1.0",
+  "bleak>=1.0.1",
   "bleak-retry-connector>=4.0.2",
-  "asyncio",
-  "logging",
-  "statistics",
-  "typing"
 ]
 
 [project.optional-dependencies]
@@ -189,7 +185,7 @@ ignore = [
 #    "RUF002",  # Docstring contains ambiguous unicode character.
 #    "RUF003",  # Comment contains ambiguous unicode character.
 #    "RUF015",  # Prefer next(...) over single element slice
-#    "SIM102",  # Use a single if statement instead of nested if statements
+    "SIM102",  # Use a single if statement instead of nested if statements
 #    "SIM103",  # Return the condition {condition} directly
 #    "SIM108",  # Use ternary operator {contents} instead of if-else-block
 #    "SIM115",  # Use context handler for opening files
