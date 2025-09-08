@@ -12,7 +12,10 @@ In order to identify all devices that are reachable and supported by the library
 ```bash
 aiobmsble
 ```
-from the command line after [installation](#installation). In case you need the code as reference, please see [\_\_main\_\_.py](/aiobmsble/__main__.py).
+from the command line after [installation](#installation). 
+
+### From your Python code
+In case you need a reference to include the code into your library, please see [\_\_main\_\_.py](/aiobmsble/__main__.py).
 
 ### From a Script
 This example can also be found as an [example](/examples/minimal.py) in the respective [folder](/main/examples).
