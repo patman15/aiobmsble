@@ -84,7 +84,7 @@ class BMS(BaseBMS):
         self._log.debug("replace with command to UUID %s", BMS.uuid_tx())
         # await self._await_reply(b"<some_command>")
 
-        # # TODO: parse data from self._data here
+        # TODO: parse data from self._data here
 
         return {
             "voltage": 12,
