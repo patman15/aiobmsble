@@ -3,9 +3,6 @@
 
 # Aiobmsble
 Requires Python 3 and uses [asyncio](https://pypi.org/project/asyncio/) and [bleak](https://pypi.org/project/bleak/)
-> [!IMPORTANT]
-> At the moment the library is under development and there might be missing functionality compared to the [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/)!
-> Please do not (yet) report missing BMS support or bugs here. Instead please raise an issue at the integration till the library reached at least development status *beta*.
 
 ## Asynchronous Library to Query Battery Management Systems via Bluetooth LE
 This library is intended to query data from battery management systems that use Bluetooth LE. It is developed to support [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/) that was written to make BMS data available to Home Assistant. While the integration depends on Home Assistant, this library can be used stand-alone in any Python environment (with necessary dependencies installed).
