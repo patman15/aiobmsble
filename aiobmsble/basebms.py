@@ -196,6 +196,10 @@ class BaseBMS(ABC):
                 {"voltage", "cycle_charge"},
                 lambda: round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3),
             ),
+            "cycles": (
+                {"design_capacity", "total_charge"},
+                lambda: data.get("total_charge", 0) // data.get("design_capacity", 0),
+            ),
             "power": (
                 {"voltage", "current"},
                 lambda: round(data.get("voltage", 0) * current, 3),
@@ -497,7 +501,7 @@ class BaseBMS(ABC):
 
         """
         return [
-            value / divider if divider != 1 else value
+            (value - offset) / divider
             for idx in range(values)
             if (len(data) >= start + (idx + 1) * size)
             and (
@@ -506,7 +510,7 @@ class BaseBMS(ABC):
                     byteorder=byteorder,
                     signed=signed,
                 )
-                - offset
+                or offset == 0
             )
         ]
 

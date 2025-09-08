@@ -19,6 +19,7 @@ type BMSvalue = Literal[
     "cycles",
     "cycle_capacity",
     "cycle_charge",
+    "total_charge",
     "delta_voltage",
     "problem",
     "runtime",
@@ -69,6 +70,7 @@ class BMSsample(TypedDict, total=False):
     cell_count: int  # [#]
     cell_voltages: list[float]  # [V]
     cycle_charge: int | float  # [Ah]
+    total_charge: int  # [Ah], overall discharged
     design_capacity: int  # [Ah]
     pack_count: int  # [#]
     temp_sensors: int  # [#]
