@@ -146,20 +146,20 @@ class MockECOWBleakClient(MockBleakClient):
 
 
 async def test_update(
-    monkeypatch, patch_bleak_client, protocol_type, reconnect_fixture
+    monkeypatch, patch_bleak_client, protocol_type, keep_alive_fixture
 ) -> None:
     """Test ECO-WORTHY BMS data update."""
 
     monkeypatch.setattr(MockECOWBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockECOWBleakClient)
 
-    bms = BMS(generate_ble_device("e2:e7:79:8f:4c:66"), reconnect_fixture)
+    bms = BMS(generate_ble_device("e2:e7:79:8f:4c:66"), keep_alive_fixture)
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is not reconnect_fixture
+    assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

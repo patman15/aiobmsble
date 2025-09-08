@@ -9,7 +9,8 @@ import asyncio
 from collections.abc import Callable, MutableMapping
 import logging
 from statistics import fmean
-from typing import Any, Final, Literal
+from types import TracebackType
+from typing import Any, Final, Literal, Self
 
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -44,26 +45,28 @@ class BaseBMS(ABC):
     def __init__(
         self,
         ble_device: BLEDevice,
-        reconnect: bool = False,
+        keep_alive: bool = True,
         logger_name: str = "",
     ) -> None:
         """Intialize the BMS.
 
-        notification_handler: the callback function used for notifications from 'uuid_rx()'
+        `_notification_handler`: the callback function used for notifications from `uuid_rx()`
             characteristic. Not defined as abstract in this base class, as it can be both,
             a normal or async function
 
         Args:
-            logger_name (str): name of the logger for the BMS instance (usually file name)
             ble_device (BLEDevice): the Bleak device to connect to
-            reconnect (bool): if true, the connection will be closed after each update
+            keep_alive (bool): if true, the connection will be kept active after each update.
+                Make sure to call `disconnect()` when done using the BMS class or better use
+                `async with` context manager (requires `keep_alive=True`).
+            logger_name (str): name of the logger for the BMS instance, default: module name
 
         """
         assert (
             getattr(self, "_notification_handler", None) is not None
         ), "BMS class must define _notification_handler method"
         self._ble_device: Final[BLEDevice] = ble_device
-        self._reconnect: Final[bool] = reconnect
+        self._keep_alive: Final[bool] = keep_alive
         self.name: Final[str] = self._ble_device.name or "undefined"
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
@@ -82,6 +85,22 @@ class BaseBMS(ABC):
         )
         self._data: bytearray = bytearray()
         self._data_event: Final[asyncio.Event] = asyncio.Event()
+
+    async def __aenter__(self) -> Self:
+        """Asynchronous context manager to implement `async with` functionality."""
+        if not self._keep_alive:
+            raise ValueError("usage of context manager requires `keep_alive=True`.")
+        await self._connect()
+        return self
+
+    async def __aexit__(
+        self,
+        typ: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        """Asynchronous context manager exit functionality."""
+        await self.disconnect()
 
     @classmethod
     def get_bms_module(cls) -> str:
@@ -384,7 +403,7 @@ class BaseBMS(ABC):
         data: BMSsample = await self._async_update()
         self._add_missing_values(data, self._calc_values())
 
-        if self._reconnect:
+        if not self._keep_alive:
             # disconnect after data update to force reconnect next time (slow!)
             await self.disconnect()
 

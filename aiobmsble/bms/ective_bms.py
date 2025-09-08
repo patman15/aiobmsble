@@ -33,9 +33,9 @@ class BMS(BaseBMS):
         BMSdp("problem_code", 37, 2, False, lambda x: x),
     )
 
-    def __init__(self, ble_device: BLEDevice, reconnect: bool = False) -> None:
+    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
-        super().__init__(ble_device, reconnect)
+        super().__init__(ble_device, keep_alive)
         self._data_final: bytearray = bytearray()
 
     @staticmethod
