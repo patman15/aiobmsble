@@ -198,6 +198,14 @@ def test_calc_battery_level() -> None:
     assert bms_data == ref | {"battery_level": 42.8, "problem": False}
 
 
+def test_calc_cycles() -> None:
+    """Check if missing cycle is correctly calculated."""
+    bms_data: BMSsample = {"total_charge": 1234567, "design_capacity": 256}
+    ref: BMSsample = bms_data.copy()
+    BaseBMS._add_missing_values(bms_data, frozenset({"cycles"}))
+    assert bms_data == ref | {"cycles": 4822, "problem": False}
+
+
 @pytest.mark.parametrize(
     ("problem_sample"),
     [
