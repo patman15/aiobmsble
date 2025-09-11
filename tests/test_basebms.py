@@ -507,6 +507,32 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
         (bytearray([0x00, 0x7D]), 0, 0, 2, "big", True, 0, 1, []),
         # Divider = 1, offset = 7
         (bytearray([0x00, 0x14]), 1, 0, 2, "big", True, 7, 1, [13]),
+        # no offset, div = 10
+        (
+            bytearray(b"\x65\x64\x00\x40"),
+            4,
+            0,
+            1,
+            "big",
+            True,
+            0,
+            10,
+            [10.1, 10.0, 0.0, 6.4],
+        ),
+        # offset -40, div = 10
+        (
+            bytearray(b"\x65\x64\x00\x40"),
+            4,
+            0,
+            1,
+            "big",
+            True,
+            40,
+            10,
+            [6.1, 6.0, 2.4],
+        ),
+        # offset -25, div = 1
+        (bytearray(b"\x65\x64\x00\x40"), 4, 0, 1, "big", True, 25, 1, [76, 75, 39]),
     ],
     ids=[
         "two_signed_big_endian",
@@ -516,6 +542,9 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
         "not_enough_data",
         "zero_values",
         "divider1_offset10",
+        "no offset",
+        "offset-40",
+        "div-1",
     ],
 )
 def test_temp_values(
