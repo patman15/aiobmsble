@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff~=0.12.1"]
 
 [project.urls]
 Homepage = "https://github.com/patman15/aiobmsble/"
