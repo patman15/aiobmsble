@@ -7,6 +7,8 @@
  3. Populate the file with class called `BMS` derived from `BaseBMS`(see basebms.py). A dummy implementation without the actual functionality to query the BMS can befound below in section [Dummy BMS Example](#dummy-bms-example).
  4. Make sure that the dictionary returned by `async_update()` has the keys listed in `BMSsample` class before the comment for *detailed information*.
  5. Test and commit the changes to the branch and create a pull request to the main repository.
+ 6. Please check if you follow the [architecture guidelines](#architecture-guidelines)
+ 7. If you like, add yourself to the `pyproject.toml` `author` array.
 
 > [!NOTE]
 > In order to keep maintainability of this integration, pull requests are required to pass checks for the [coding style](#coding-style-guidelines), Python linting, and 100% [branch test coverage](https://coverage.readthedocs.io/en/latest/branch.html#branch).
