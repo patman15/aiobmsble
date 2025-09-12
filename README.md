@@ -1,10 +1,8 @@
+[![GitHub Release][releases-shield]](https://pypi.org/p/aiobmsble/)
 [![License][license-shield]](LICENSE)
 
 # Aiobmsble
 Requires Python 3 and uses [asyncio](https://pypi.org/project/asyncio/) and [bleak](https://pypi.org/project/bleak/)
-> [!IMPORTANT]
-> At the moment the library is under development and there might be missing functionality compared to the [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/)!
-> Please do not (yet) report missing BMS support or bugs here. Instead please raise an issue at the integration till the library reached at least development status *beta*.
 
 ## Asynchronous Library to Query Battery Management Systems via Bluetooth LE
 This library is intended to query data from battery management systems that use Bluetooth LE. It is developed to support [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/) that was written to make BMS data available to Home Assistant. While the integration depends on Home Assistant, this library can be used stand-alone in any Python environment (with necessary dependencies installed).
@@ -14,7 +12,10 @@ In order to identify all devices that are reachable and supported by the library
 ```bash
 aiobmsble
 ```
-from the command line after [installation](#installation). In case you need the code as reference, please see [\_\_main\_\_.py](/aiobmsble/__main__.py).
+from the command line after [installation](#installation). 
+
+### From your Python code
+In case you need a reference to include the code into your library, please see [\_\_main\_\_.py](/aiobmsble/__main__.py).
 
 ### From a Script
 This example can also be found as an [example](/examples/minimal.py) in the respective [folder](/main/examples).
@@ -87,4 +88,5 @@ pip3 install -e .[dev]
 ```
 This gives you the latest library code from the main branch.
 
-[license-shield]: https://img.shields.io/github/license/patman15/aiobmsble.svg?style=for-the-badge&cacheSeconds=86400
+[license-shield]: https://img.shields.io/github/license/patman15/aiobmsble?style=for-the-badge&cacheSeconds=86400
+[releases-shield]: https://img.shields.io/pypi/v/aiobmsble?style=for-the-badge
