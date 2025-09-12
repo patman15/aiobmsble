@@ -379,8 +379,8 @@ class BaseBMS(ABC):
             if reset:
                 self._inv_wr_mode = None  # reset write mode
             await self._client.disconnect()
-        except BleakError:
-            self._log.warning("disconnect failed!")
+        except (BleakError, TimeoutError) as exc:
+            self._log.error("disconnect failed! (%s)", type(exc).__name__)
 
     async def _wait_event(self) -> None:
         """Wait for data event and clear it."""
