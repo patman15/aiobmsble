@@ -7,6 +7,10 @@ Requires Python 3 and uses [asyncio](https://pypi.org/project/asyncio/) and [ble
 ## Asynchronous Library to Query Battery Management Systems via Bluetooth LE
 This library is intended to query data from battery management systems that use Bluetooth LE. It is developed to support [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/) that was written to make BMS data available to Home Assistant. While the integration depends on Home Assistant, this library can be used stand-alone in any Python environment (with necessary dependencies installed).
 
+* [Usage](#usage)
+* [Installation](#installation)
+* [Troubleshooting](#troubleshooting)
+
 ## Usage
 In order to identify all devices that are reachable and supported by the library, simply run
 ```bash
@@ -87,6 +91,16 @@ cd aiobmsble
 pip3 install -e .[dev]
 ```
 This gives you the latest library code from the main branch.
+
+## Troubleshooting
+In case you have problems with the library, please enable debug logging. You can also run `aiobmsble -v` from the command line in order to query all known BMS that are reachable.
+
+### In case you have troubles you'd like to have help with 
+
+- please record a debug log using `aiobmsble -v -l debug.log`,
+- [open an issue](https://github.com/patman15/aiobmsble/issues/new?assignees=&labels=question&projects=&template=support.yml) with a good description of what your question/issue is and attach the log, or
+- [open a bug](https://github.com/patman15/aiobmsble/issues/new?assignees=&labels=Bug&projects=&template=bug.yml) if you think the behaviour you see is misbehaviour of the library, including a good description of what happened, your expectations,
+- and put the `debug.log` **as attachement** to the issue.
 
 [license-shield]: https://img.shields.io/github/license/patman15/aiobmsble?style=for-the-badge&cacheSeconds=86400
 [releases-shield]: https://img.shields.io/pypi/v/aiobmsble?style=for-the-badge
