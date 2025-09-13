@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff~=0.12.1"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff>=0.12.1,<0.14.0"]
 
 [project.urls]
 Homepage = "https://github.com/patman15/aiobmsble/"
@@ -56,9 +56,6 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 # ruff settings from HA 2025.9.0
-[tool.ruff]
-required-version = "~=0.12.1"
-
 [tool.ruff.lint]
 select = [
     "A001",   # Variable {name} is shadowing a Python builtin
