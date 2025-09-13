@@ -4,8 +4,8 @@ from types import ModuleType
 
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.utils import bms_supported, load_bms_plugins
-from tests.advertisement_data import ADVERTISEMENTS
-from tests.advertisement_ignore import ADVERTISEMENTS_IGNORE
+from aiobmsble.testdata.advertisement_data import ADVERTISEMENTS
+from aiobmsble.testdata.advertisement_ignore import ADVERTISEMENTS_IGNORE
 
 
 def test_device_info(plugin_fixture: ModuleType) -> None:

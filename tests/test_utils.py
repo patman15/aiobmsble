@@ -12,7 +12,7 @@ from aiobmsble.utils import (
     bms_identify,
     load_bms_plugins,
 )
-from tests.advertisement_data import ADVERTISEMENTS
+from aiobmsble.testdata.advertisement_data import ADVERTISEMENTS
 from tests.bluetooth import AdvertisementData, generate_advertisement_data
 
 
