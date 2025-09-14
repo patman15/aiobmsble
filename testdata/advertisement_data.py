@@ -175,7 +175,7 @@ ADVERTISEMENTS: Final[list[tuple[AdvertisementData, str]]] = [
     (  # source advmon (https://github.com/patman15/BMS_BLE-HA/issues/350)
         generate_advertisement_data(
             local_name="LT-24100B-A00249",
-            manufacturer_data={22618: "\xc8\x47\x80\x0b\xb6\x54"},
+            manufacturer_data={22618: b"\xc8\x47\x80\x0b\xb6\x54"},
             rssi=-55,
         ),
         "ej_bms",
@@ -779,7 +779,7 @@ ADVERTISEMENTS: Final[list[tuple[AdvertisementData, str]]] = [
     (  # proxy LOG (https://github.com/patman15/BMS_BLE-HA/issues/85)
         generate_advertisement_data(  # Bulltron battery
             local_name="DL-FB4C2E0000000",  # MAC address (Bouffalo Lab)
-            manufacturer_data={771: " \x00\xb4\xc2\xe0\x00\x00\x00\x44\x4c\x00"},
+            manufacturer_data={771: b"\x00\xb4\xc2\xe0\x00\x00\x00\x44\x4c\x00"},
             service_uuids=[],
             rssi=-81,
         ),
@@ -956,7 +956,7 @@ ADVERTISEMENTS: Final[list[tuple[AdvertisementData, str]]] = [
         generate_advertisement_data(
             local_name="L-51030GBNGC2-A00263",
             rssi=-66,
-            manufacturer_data={22618: "\xc8\x47\x80\x14\xec\x68"},
+            manufacturer_data={22618: b"\xc8\x47\x80\x14\xec\x68"},
             service_uuids=["0000ffe0-0000-1000-8000-00805f9b34fb"],
         ),
         "redodo_bms",
@@ -991,7 +991,7 @@ ADVERTISEMENTS: Final[list[tuple[AdvertisementData, str]]] = [
     (  # source advmon (https://github.com/patman15/BMS_BLE-HA/issues/463)
         generate_advertisement_data(  # LANPWR 12V 100Ah LiFePO4
             local_name="BT  LP07841",
-            manufacturer_data={45653: "\x60\x37\xc2\xa5"},  # MAC wrong
+            manufacturer_data={45653: b"\x60\x37\xc2\xa5"},  # MAC wrong
             rssi=-68,
             service_uuids=["0000ff00-0000-1000-8000-00805f9b34fb"],
         ),
@@ -1013,8 +1013,7 @@ ADVERTISEMENTS: Final[list[tuple[AdvertisementData, str]]] = [
         generate_advertisement_data(  # LiTime LFP 24V / 100Ah
             local_name="LT-24100B-A00473",
             rssi=-48,
-            manufacturer_data={
-                22618: "\xc8\x47\x80\x0f\xad\x8b"},  # MAC correct
+            manufacturer_data={22618: b"\xc8\x47\x80\x0f\xad\x8b"},  # MAC correct
             service_uuids=["0000ffe0-0000-1000-8000-00805f9b34fb"],
         ),
         "redodo_bms",
