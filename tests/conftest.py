@@ -1,4 +1,7 @@
-"""Common fixtures for the BLE Battery Management System integration tests."""
+"""Common fixtures for the aiobmsble library tests.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+"""
 
 from collections.abc import Awaitable, Buffer, Callable, Iterable
 import logging
@@ -23,6 +26,8 @@ from tests.bluetooth import generate_ble_device
 
 logging.basicConfig(level=logging.INFO)
 LOGGER: logging.Logger = logging.getLogger(__package__)
+
+pytest_plugins: list[str] = ["aiobmsble.test_data"]
 
 
 def pytest_addoption(parser) -> None:

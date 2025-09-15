@@ -22,7 +22,7 @@ ADVERTISEMENT_DATA_DEFAULTS = {
 
 def generate_advertisement_data(**kwargs: Any) -> AdvertisementData:
     """Generate advertisement data with defaults."""
-    new = kwargs.copy()
+    new: dict[str, Any] = kwargs.copy()
     for key, value in ADVERTISEMENT_DATA_DEFAULTS.items():
         new.setdefault(key, value)
     return AdvertisementData(**new)

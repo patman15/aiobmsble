@@ -81,6 +81,20 @@ if __name__ == "__main__":
     asyncio.run(main(NAME))  # pragma: no cover
 ```
 
+### Testing
+For integrations tests (using pytest) the library provides advertisement data that can be used to verify detection of BMSs. To use it, include the following line into your `conftest.py`:
+```python
+pytest_plugins: list[str] = ["aiobmsble.test_data"]
+```
+
+For your tests you can then use
+```python
+def test_advertisements(bms_advertisements) -> None:
+    """Run some tests with the advertisements"""
+    for advertisement, bms_type, _comments in bms_advertisements:
+        ...
+```
+
 ## Installation
 Install python and pip if you have not already, then run:
 ```bash

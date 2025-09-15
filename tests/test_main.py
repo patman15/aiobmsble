@@ -18,7 +18,7 @@ from .bluetooth import generate_advertisement_data
 
 
 async def mock_discover(
-    timeout: float = 5.0, *, return_adv: bool = False, **kwargs
+    timeout: float = 5.0, *, return_adv: bool = False, **_kwargs
 ) -> dict[str, tuple[BLEDevice, AdvertisementData]]:
     """Mock BleakScanner to avoid actual BLE scanning."""
     mock_mac_unknown: Final[str] = "00:00:00:00:00:00"
