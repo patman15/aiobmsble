@@ -1,4 +1,4 @@
-"""Test the BLE Battery Management System via fuzzing."""
+"""Test aiobmsble library via fuzzing."""
 
 from asyncio import iscoroutinefunction
 from collections.abc import Callable

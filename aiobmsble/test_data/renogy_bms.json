@@ -1,0 +1,19 @@
+[
+  {
+    "advertisement": {
+      "local_name": "BT-TH-66EDFC11",
+      "manufacturer_data": {
+        "39008": "66edfc11"
+      },
+      "service_uuids": [
+        "0000ffd0-0000-1000-8000-00805f9b34fb"
+      ],
+      "rssi": -65
+    },
+    "type": "renogy_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/247)",
+      "MAC address correct"
+    ]
+  }
+]
