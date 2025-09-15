@@ -1,6 +1,6 @@
 ---
 name: "Support"
-description: "Ask a question, get help with the integration"
+description: "Ask a question, get help with the library"
 labels: "question"
 body:
 - type: markdown
@@ -10,7 +10,7 @@ body:
   attributes:
     label: Checklist
     options:
-      - label: I need support with using the integration.
+      - label: I need support with using the library.
         required: true
       - label: My issue is not a [feature request](https://github.com/patman15/aiobmsble/issues/new?assignees=&labels=Feature%2BRequest&projects=&template=feature_request.yml)
         required: true
