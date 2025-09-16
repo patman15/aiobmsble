@@ -82,16 +82,14 @@ if __name__ == "__main__":
 ```
 
 ### Testing
-For integrations tests (using pytest) the library provides advertisement data that can be used to verify detection of BMSs. To use it, include the following line into your `conftest.py`:
-```python
-pytest_plugins: list[str] = ["aiobmsble.test_data"]
-```
+For integrations tests (using pytest) the library provides advertisement data that can be used to verify detection of BMSs. For your tests you can use
 
-For your tests you can then use
 ```python
-def test_advertisements(bms_advertisements) -> None:
+from aiobmsble.test_data import bms_advertisements
+
+def test_advertisements() -> None:
     """Run some tests with the advertisements"""
-    for advertisement, bms_type, _comments in bms_advertisements:
+    for advertisement, bms_type, _comments in bms_advertisements():
         ...
 ```
 

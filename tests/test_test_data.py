@@ -2,15 +2,17 @@
 
 from bleak.backends.scanner import AdvertisementData
 
-from aiobmsble.test_data import BmsAdvList, _json_dict_to_advdata
+from aiobmsble.test_data import (
+    _json_dict_to_advdata,
+    bms_advertisements,
+    ignore_advertisements,
+)
 
 
-def test_test_data_availability(
-    bms_advertisements: BmsAdvList, ignore_advertisements: BmsAdvList
-) -> None:
+def test_test_data_availability() -> None:
     """That fixtures work, safety measure to avoid package corruption."""
-    assert len(bms_advertisements) > 0
-    assert len(ignore_advertisements) > 0
+    assert len(bms_advertisements()) > 0
+    assert len(ignore_advertisements()) > 0
 
 
 def test_json_dict_to_advdata() -> None:
