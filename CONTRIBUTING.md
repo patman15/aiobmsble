@@ -22,9 +22,11 @@ In short, when you submit code changes, your submissions are understood to be un
 
 ## Coding Style Guidelines
 
-In general I use guidelines very close to the ones that Home Assistant uses for core integrations. Thus, the code shall pass
-- `ruff check .`
-- `mypy .`
+In general I use guidelines very close to the ones that Home Assistant uses for core integrations. 
+- The code shall pass the automated linting checks:
+  - `ruff check .`
+  - `mypy .`
+- Keep names and any comments in English language.
 
 ## Architecture Guidelines
 - This library is about Bluetooth Low Energy (BLE) battery management systems, no other devices are included to keep the interface clean.
