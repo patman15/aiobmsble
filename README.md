@@ -11,6 +11,7 @@ This library is intended to query data from battery management systems that use 
 * [Usage](#usage)
 * [Installation](#installation)
 * [Troubleshooting](#troubleshooting)
+* [Thanks to](#thanks-to)
 
 ## Features
 - Support for autodetecting compatible BLE BMSs
