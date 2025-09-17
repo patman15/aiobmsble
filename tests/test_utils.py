@@ -7,6 +7,7 @@ import pytest
 
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.test_data import bms_advertisements
 from aiobmsble.utils import (
     _advertisement_matches,
     bms_cls,
@@ -36,14 +37,14 @@ def get_advertisement_by_type(advertisements, name: str) -> AdvertisementData | 
     return None
 
 
-def test_bms_identify(bms_advertisements, plugin: ModuleType) -> None:
+def test_bms_identify(plugin: ModuleType) -> None:
     """Test that each BMS is correctly detected by a pattern.
 
     This also ensures that each BMS has at least one advertisement.
     """
     bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1]
     adv: AdvertisementData | None = (
-        get_advertisement_by_type(bms_advertisements, bms_type)
+        get_advertisement_by_type(bms_advertisements(), bms_type)
         if bms_type != "dummy_bms"  # generate advertisement for dummy
         else generate_advertisement_data(local_name="dummy")
     )

@@ -5,7 +5,6 @@ import json
 from typing import Any
 
 from bleak.backends.scanner import AdvertisementData
-import pytest
 
 from tests.bluetooth import generate_advertisement_data
 
@@ -29,11 +28,15 @@ def _json_dict_to_advdata(json_dict: dict[str, Any]) -> AdvertisementData:
     return generate_advertisement_data(**json_dict)
 
 
-@pytest.fixture
 def bms_advertisements() -> BmsAdvList:
     """Provide all available BMS advertisements from test data directory.
 
     Load all *_bms.json files from the packaged test data directory.
+
+    Returns:
+        BmsAdvList: List of tuples containing advertisement, bms type,
+        and a list of comments, i.e. list[tuple[AdvertisementData, str, list[str]]]
+
     """
     all_data: BmsAdvList = []
 
@@ -62,11 +65,15 @@ def bms_advertisements() -> BmsAdvList:
     return all_data
 
 
-@pytest.fixture
 def ignore_advertisements() -> BmsAdvList:
     """Provide a list of advertisements that shall not be identified as a valid BMS.
 
     Load ignore.json files from the packaged test data directory.
+
+    Returns:
+        BmsAdvList: List of tuples containing advertisement, reason why not to detect,
+        and a list of comments, i.e. list[tuple[AdvertisementData, str, list[str]]]
+
     """
     data: BmsAdvList = []
 

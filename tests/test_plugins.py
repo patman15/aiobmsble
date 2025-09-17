@@ -3,6 +3,7 @@
 from types import ModuleType
 
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.test_data import bms_advertisements, ignore_advertisements
 from aiobmsble.utils import bms_supported, load_bms_plugins
 
 
@@ -20,9 +21,9 @@ def test_matcher_dict(plugin_fixture: ModuleType) -> None:
     assert len(bms_class.matcher_dict_list())
 
 
-def test_advertisements_unique(bms_advertisements) -> None:
+def test_advertisements_unique() -> None:
     """Check that each advertisement only matches one, the right BMS."""
-    for adv, bms_real, _comments in bms_advertisements:
+    for adv, bms_real, _comments in bms_advertisements():
         for bms_under_test in load_bms_plugins():
             supported: bool = bms_supported(bms_under_test.BMS, adv)
             assert supported == (
@@ -30,9 +31,9 @@ def test_advertisements_unique(bms_advertisements) -> None:
             ), f"{adv} {"incorrectly matches"if supported else "does not match"} {bms_under_test}!"
 
 
-def test_advertisements_ignore(ignore_advertisements) -> None:
+def test_advertisements_ignore() -> None:
     """Check that each advertisement only matches one, the right BMS."""
-    for adv, reason, _comments in ignore_advertisements:
+    for adv, reason, _comments in ignore_advertisements():
         for bms_under_test in load_bms_plugins():
             supported: bool = bms_supported(bms_under_test.BMS, adv)
             assert (
