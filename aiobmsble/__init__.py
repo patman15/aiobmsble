@@ -14,6 +14,8 @@ type BMSvalue = Literal[
     "battery_level",
     "current",
     "power",
+    "capacity",
+    "energy", 
     "temperature",
     "voltage",
     "cycles",
@@ -58,6 +60,8 @@ class BMSsample(TypedDict, total=False):
     battery_level: int | float  # [%]
     current: float  # [A] (positive: charging)
     power: float  # [W] (positive: charging)
+    capacity: float
+    energy: float   # 
     temperature: int | float  # [°C]
     voltage: float  # [V]
     cycle_capacity: int | float  # [Wh]
