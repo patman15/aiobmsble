@@ -12,6 +12,7 @@ This library is intended to query data from battery management systems that use 
 * [Installation](#installation)
 * [Troubleshooting](#troubleshooting)
 * [Thanks to](#thanks-to)
+* [References](#references)
 
 ## Features
 - Support for autodetecting compatible BLE BMSs
@@ -130,6 +131,16 @@ In case you have problems with the library, please enable debug logging. You can
 > [@gkathan](https://github.com/patman15/BMS_BLE-HA/issues/2), [@downset](https://github.com/patman15/BMS_BLE-HA/issues/19), [@gerritb](https://github.com/patman15/BMS_BLE-HA/issues/22), [@Goaheadz](https://github.com/patman15/BMS_BLE-HA/issues/24), [@alros100, @majonessyltetoy](https://github.com/patman15/BMS_BLE-HA/issues/52), [@snipah, @Gruni22](https://github.com/patman15/BMS_BLE-HA/issues/59), [@azisto](https://github.com/patman15/BMS_BLE-HA/issues/78), [@BikeAtor, @Karatzie](https://github.com/patman15/BMS_BLE-HA/issues/57), [@PG248](https://github.com/patman15/BMS_BLE-HA/issues/85), [@SkeLLLa,@romanshypovskyi](https://github.com/patman15/BMS_BLE-HA/issues/90), [@riogrande75, @ebagnoli, @andreas-bulling](https://github.com/patman15/BMS_BLE-HA/issues/101), [@goblinmaks, @andreitoma-github](https://github.com/patman15/BMS_BLE-HA/issues/102), [@hacsler](https://github.com/patman15/BMS_BLE-HA/issues/103), [@ViPeR5000](https://github.com/patman15/BMS_BLE-HA/pull/182), [@edelstahlratte](https://github.com/patman15/BMS_BLE-HA/issues/161), [@nezra](https://github.com/patman15/BMS_BLE-HA/issues/164), [@Fandu21](https://github.com/patman15/BMS_BLE-HA/issues/194), [@rubenclark74](https://github.com/patman15/BMS_BLE-HA/issues/186), [@geierwally1978](https://github.com/patman15/BMS_BLE-HA/issues/240), [@Tulexcorp](https://github.com/patman15/BMS_BLE-HA/issues/271), [@oliviercommelarbre](https://github.com/patman15/BMS_BLE-HA/issues/279), [@shaf](https://github.com/patman15/BMS_BLE-HA/issues/286), [@gavrilov](https://github.com/patman15/BMS_BLE-HA/issues/247), [@SOLAR-RAIDER](https://github.com/patman15/BMS_BLE-HA/issues/291), [@prodisz](https://github.com/patman15/BMS_BLE-HA/issues/303), [@thecodingmax](https://github.com/patman15/BMS_BLE-HA/issues/390), [@daubman](https://github.com/patman15/BMS_BLE-HA/pull/413), [@krahabb](https://github.com/patman15/BMS_BLE-HA/pull/468)
 
 for helping with making the library better.
+
+## References
+- ANT BMS: [esphome-ant-bms](https://github.com/syssi/esphome-ant-bms/)
+- Daly BMS: [esp32-smart-bms-simulation](https://github.com/roccotsi2/esp32-smart-bms-simulation)
+- Jikong BMS: [esphome-jk-bms](https://github.com/syssi/esphome-jk-bms)
+- JBD BMS: [esphome-jbd-bms](https://github.com/syssi/esphome-jbd-bms)
+- D-powercore BMS: [Strom BMS monitor](https://github.com/majonessyltetoy/strom)
+- Pro BMS: [@daubman](https://github.com/patman15/BMS_BLE-HA/docs/pro_bms.md)
+- Redodo BMS: [LiTime BMS bluetooth](https://github.com/calledit/LiTime_BMS_bluetooth)
+- TianPower BMS: [esphome-tianpower-bms](https://github.com/syssi/esphome-tianpower-bms)
 
 [license-shield]: https://img.shields.io/github/license/patman15/aiobmsble?style=for-the-badge&cacheSeconds=86400
 [releases-shield]: https://img.shields.io/pypi/v/aiobmsble?style=for-the-badge
