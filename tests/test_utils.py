@@ -1,19 +1,20 @@
-"""Test the BLE Battery Management System base class functions."""
+"""Test the aiobmsble library utility functions."""
 
 from types import ModuleType
 
+from bleak.backends.scanner import AdvertisementData
 import pytest
 
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.test_data import bms_advertisements
 from aiobmsble.utils import (
     _advertisement_matches,
     bms_cls,
     bms_identify,
     load_bms_plugins,
 )
-from tests.advertisement_data import ADVERTISEMENTS
-from tests.bluetooth import AdvertisementData, generate_advertisement_data
+from tests.bluetooth import generate_advertisement_data
 
 
 @pytest.fixture(
@@ -28,9 +29,9 @@ def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
     return request.param
 
 
-def get_advertisement_by_type(name: str) -> AdvertisementData | None:
+def get_advertisement_by_type(advertisements, name: str) -> AdvertisementData | None:
     """Return advertisement for a specific BMS type."""
-    for ad_data, ad_name in ADVERTISEMENTS:
+    for ad_data, ad_name, _ in advertisements:
         if ad_name == name:
             return ad_data
     return None
@@ -43,7 +44,7 @@ def test_bms_identify(plugin: ModuleType) -> None:
     """
     bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1]
     adv: AdvertisementData | None = (
-        get_advertisement_by_type(bms_type)
+        get_advertisement_by_type(bms_advertisements(), bms_type)
         if bms_type != "dummy_bms"  # generate advertisement for dummy
         else generate_advertisement_data(local_name="dummy")
     )

@@ -1,11 +1,10 @@
-"""Test the BLE Battery Management System base class functions."""
+"""Test the aiobmsble library base class functions."""
 
 from types import ModuleType
 
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.test_data import bms_advertisements, ignore_advertisements
 from aiobmsble.utils import bms_supported, load_bms_plugins
-from tests.advertisement_data import ADVERTISEMENTS
-from tests.advertisement_ignore import ADVERTISEMENTS_IGNORE
 
 
 def test_device_info(plugin_fixture: ModuleType) -> None:
@@ -24,7 +23,7 @@ def test_matcher_dict(plugin_fixture: ModuleType) -> None:
 
 def test_advertisements_unique() -> None:
     """Check that each advertisement only matches one, the right BMS."""
-    for adv, bms_real in ADVERTISEMENTS:
+    for adv, bms_real, _comments in bms_advertisements():
         for bms_under_test in load_bms_plugins():
             supported: bool = bms_supported(bms_under_test.BMS, adv)
             assert supported == (
@@ -34,7 +33,7 @@ def test_advertisements_unique() -> None:
 
 def test_advertisements_ignore() -> None:
     """Check that each advertisement only matches one, the right BMS."""
-    for adv, reason in ADVERTISEMENTS_IGNORE:
+    for adv, reason, _comments in ignore_advertisements():
         for bms_under_test in load_bms_plugins():
             supported: bool = bms_supported(bms_under_test.BMS, adv)
             assert (

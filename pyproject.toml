@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiobmsble"
-version = "0.3.0"
+version = "0.4.1"
 requires-python = ">=3.12"
 description = "Asynchronous Python library to query battery management systems via Bluetooth Low Energy."
 readme = "README.md"
@@ -22,7 +22,7 @@ keywords = [
 classifiers = [
   "Programming Language :: Python :: 3",
   "Operating System :: OS Independent",
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Topic :: Software Development :: Libraries :: Python Modules"
 ]
@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff~=0.12.1"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff>=0.12.1,<0.14.0"]
 
 [project.urls]
 Homepage = "https://github.com/patman15/aiobmsble/"
@@ -42,6 +42,9 @@ Documentation = "https://github.com/patman15/aiobmsble/README"
 
 [project.scripts]
 aiobmsble = "aiobmsble.__main__:main"
+
+[tool.setuptools.package-data]
+"aiobmsble.test_data" = ["*.json"]
 
 [tool.pytest.ini_options]
 minversion = "8.4"
@@ -56,9 +59,6 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 # ruff settings from HA 2025.9.0
-[tool.ruff]
-required-version = "~=0.12.1"
-
 [tool.ruff.lint]
 select = [
     "A001",   # Variable {name} is shadowing a Python builtin

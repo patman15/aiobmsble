@@ -1,0 +1,37 @@
+---
+name: "Feature request"
+description: "Suggest an idea for this project / add a new BMS"
+labels: "enhancement"
+body:
+- type: markdown
+  attributes:
+    value: Before you open a new feature request, search through the [existing feature requests](https://github.com/patman15/aiobmsble/issues?q=state%3Aopen%20is%3Aissue%20label%3Aenhancement%20OR%20label%3A%22new%20device%22) to see if others have had the same idea. Please select a proper title, i.e., **do not** use `No supported devices found via Bluetooth`. Instead, please put the type of the BMS and/or battery into the title, e.g. `<my_battery_type> not detected`.
+- type: checkboxes
+  attributes:
+    label: Checklist
+    options:
+      - label: I have filled out the template to the best of my ability.
+        required: true
+      - label: I have understood that this library is only about battery management systems with Bluetooth Low Energy support.
+        required: true        
+      - label: This only contains 1 feature request (if you have multiple feature requests, open one feature request for each feature request).
+        required: true
+      - label: This issue is not a duplicate of any [previous enhancement requests](https://github.com/patman15/aiobmsble/issues?q=is%3Aissue%20label%3Aenhancement%20OR%20label%3A%22new%20device%22).
+        required: true
+      - label: I have tried the [latest version of aiobmsble](https://pypi.org/project/aiobmsble/).
+        required: true
+
+- type: textarea
+  attributes:
+    label: "Please describe the enhancement you would like to have."
+    description: "A clear and concise description of what you want to add or how a behaviour should be modified."
+  validations:
+    required: true
+
+- type: textarea
+  attributes:
+    label: "Additional context"
+    description: "Add any other context (documentation) or screenshots about the feature request here. For new BMS types, please provide the advertisement data of the device. (Go to the [advertisement monitor](https://my.home-assistant.io/redirect/bluetooth_advertisement_monitor/), click the device in question, and provide the information via **`copy to clipboard`**). Optionally, the [service explorer script](https://github.com/hbldh/bleak/blob/develop/examples/service_explorer.py) can help as well. To speed up the integration please see if you are able to capture the Bluetooth traffic on [Android](https://www.caichinger.com/blog/2020/11/08/capture_bluetooth_traffic_from_android/) or [iOS](https://novelbits.io/debugging-sniffing-secure-ble-ios/) while using the vendor app with the battery."
+    placeholder: "For new BMS, please provide any links to documentation, the BT protocol, link to an Android app, other open source implementations, or the like."
+  validations:
+    required: false
