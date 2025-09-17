@@ -20,7 +20,7 @@ This library is intended to query data from battery management systems that use 
 - 100% test coverage plus fuzz tests for BLE data
 
 ### Supported Devices
-The [list of supported devices](https://github.com/patman15/BMS_BLE-HA/blob/feature-aiobmsble/README.md#supported-devices) is maintained in the repository of the related [Home Assistant integration](https://github.com/patman15/BMS_BLE-HA).
+The [list of supported devices](https://github.com/patman15/BMS_BLE-HA?tab=readme-ov-file#supported-devices) is maintained in the repository of the related [Home Assistant integration](https://github.com/patman15/BMS_BLE-HA).
 
 ## Usage
 In order to identify all devices that are reachable and supported by the library, simply run
