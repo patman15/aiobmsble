@@ -17,31 +17,56 @@ class BMS(BaseBMS):
 
     INFO_LEN: Final[int] = 36  # typical CW20 frame size
 
+    # Data fields mapping: byte positions → decoded values
     _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 4, 3, False, lambda x: x / 10.0),       # bytes 5–7, 0.1 V
-        BMSdp("current", 7, 3, False, lambda x: x / 1000.0),     # bytes 8–10, 0.001 A
-        BMSdp("capacity", 10, 3, False, lambda x: x / 1000.0),   # bytes 11–13, 0.001 Ah
-        BMSdp("energy", 13, 4, False, lambda x: x / 100.0),      # bytes 14–17, 0.01 kWh
-        BMSdp("temperature", 24, 2, False, lambda x: x),         # bytes 25–26, °C
+        BMSdp("voltage", 4, 3, False, lambda x: x / 10.0),       # 0.1 V
+        BMSdp("current", 7, 3, True, lambda x: x / 1000.0),      # 0.001 A
+        BMSdp("capacity", 10, 3, False, lambda x: x / 1000.0),   # 0.001 Ah
+        BMSdp("energy", 13, 4, False, lambda x: x / 100.0),      # 0.01 kWh
+        BMSdp("temperature", 24, 2, False, lambda x: x),         # °C
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize CW20 members."""
-        super().__init__(ble_device, keep_alive)
+        # Important: do not create BleakClient if details=None
         self._data_final: bytearray = bytearray()
+        super().__init__(ble_device, keep_alive)
 
     # --------------------
     # Device identification
     # --------------------
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition for CW20."""
+        """Provide BluetoothMatcher definition for CW20.
+
+        Some firmwares advertise as `CW20_BLE`, others as `ATORCH-CW20`.
+        Some devices expose service UUID `FFE0`, others `FFF0`.
+        """
         return [
+            # Variant 1: CW20_BLE with FFE0
             MatcherPattern(
                 local_name="CW20_BLE",
-                service_uuid=BMS.uuid_services()[0],
+                service_uuid=normalize_uuid_str("ffe0"),
                 connectable=True,
-            )
+            ),
+            # Variant 2: ATORCH-CW20 with FFE0
+            MatcherPattern(
+                local_name="ATORCH-CW20",
+                service_uuid=normalize_uuid_str("ffe0"),
+                connectable=True,
+            ),
+            # Variant 3: CW20_BLE with FFF0
+            MatcherPattern(
+                local_name="CW20_BLE",
+                service_uuid=normalize_uuid_str("fff0"),
+                connectable=True,
+            ),
+            # Variant 4: ATORCH-CW20 with FFF0
+            MatcherPattern(
+                local_name="ATORCH-CW20",
+                service_uuid=normalize_uuid_str("fff0"),
+                connectable=True,
+            ),
         ]
 
     @staticmethod
@@ -52,12 +77,12 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by CW20."""
-        return [normalize_uuid_str("ffe0")]
+        return [normalize_uuid_str("ffe0"), normalize_uuid_str("fff0")]
 
     @staticmethod
     def uuid_rx() -> str:
         """UUID of characteristic that provides notifications."""
-        return "ffe1"
+        return normalize_uuid_str("ffe1")
 
     @staticmethod
     def uuid_tx() -> str:
@@ -92,10 +117,10 @@ class BMS(BaseBMS):
         if not self._data_final:
             return data
 
-        # Decode основні поля
+        # Decode basic fields
         data = BMS._decode_data(BMS._FIELDS, self._data_final)
 
-        # Додатково рахуємо power = V * A
+        # Add calculated power (V * A)
         if "voltage" in data and "current" in data:
             data["power"] = round(data["voltage"] * data["current"], 2)
 

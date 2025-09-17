@@ -1,0 +1,15 @@
+[
+  {
+    "_comments": ["source LOG (CW20 sample)"],
+    "type": "cw20_bms",
+    "advertisement": {
+      "local_name": "ATORCH-CW20",
+      "service_uuids": ["0000fff0-0000-1000-8000-00805f9b34fb"],
+      "tx_power": -127,
+      "rssi": -70,
+      "manufacturer_data": {},
+      "service_data": {},
+      "platform_data": []
+    }
+  }
+]
