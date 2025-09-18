@@ -49,6 +49,11 @@ class BMSmode(IntEnum):
     ABSORPTION = 0x01
     FLOAT = 0x02
 
+class BMSswitches(TypedDict, total=False):
+    """Dictionary representing BMS switches."""
+
+    charge_mosfet: bool
+    discharge_mosfet: bool
 
 class BMSsample(TypedDict, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
@@ -73,6 +78,7 @@ class BMSsample(TypedDict, total=False):
     total_charge: int  # [Ah], overall discharged
     design_capacity: int  # [Ah]
     pack_count: int  # [#]
+    switches: BMSswitches  # BMS switches, e.g. (dis)charge MOSFET
     temp_sensors: int  # [#]
     temp_values: list[int | float]  # [°C]
     problem_code: int  # BMS specific code, 0 no problem
