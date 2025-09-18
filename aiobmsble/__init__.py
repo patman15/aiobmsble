@@ -54,6 +54,8 @@ class BMSswitches(TypedDict, total=False):
 
     charge_mosfet: bool
     discharge_mosfet: bool
+    balancer: bool
+    dry_contacts: list[bool]
 
 class BMSsample(TypedDict, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
