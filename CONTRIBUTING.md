@@ -4,7 +4,7 @@
 
  1. Fork the repository and create a branch with the name of the new BMS to add.
  2. Add a new file to the `bms` folder called, e.g. `my_bms.py`
- 3. Populate the file with class called `BMS` derived from `BaseBMS`(see basebms.py). A dummy implementation without the actual functionality to query the BMS can be found below in section [Dummy BMS Example](#dummy-bms-example).
+ 3. Populate the file with class called `BMS` derived from `BaseBMS` (see basebms.py). A dummy implementation without the actual functionality to query the BMS can be found below in section [Dummy BMS Example](#dummy-bms-example).
  4. Make sure that the dictionary returned by `async_update()` has the keys listed in `BMSsample` class before the comment for *detailed information*.
  5. Test and commit the changes to the branch and create a pull request to the main repository.
  6. Please check if you follow the [architecture guidelines](#architecture-guidelines)
@@ -29,7 +29,7 @@ In general I use guidelines very close to the ones that Home Assistant uses for 
 - Keep names and any comments in English language.
 
 ## Architecture Guidelines
-- This library is about Bluetooth Low Energy (BLE) battery management systems, no other devices are included to keep the interface clean.
+- This library is about Bluetooth Low Energy (BLE) [battery management systems](#how-to-qualify-as-a-bms), no other devices are included to keep the interface clean.
 - The BT pattern matcher shall be unique to allow auto-detecting devices.
 - Frame parsing shall check the validity of a frame according to the protocol type, e.g. CRC, length, allowed type
 - All plugin classes shall inherit from `BaseBMS` and use the functions from there before overriding or replacing.
@@ -38,4 +38,16 @@ In general I use guidelines very close to the ones that Home Assistant uses for 
 - Tests shall use recorded frames from a real device to allow for adding new parsed values at a later point in time.
 
 to be extended ...
+
+### How to qualify as a BMS
+- It shall be used together with a storage element, e.g. battery
+- It shall provide the following information
+  - overall `voltage`
+  - `current` including direction
+  - information about the fill level, i.e.
+    - `SoC` or
+    - `remaining capacity` and `design_capacity`
+    - or equivalent to calculate stored energy and `SoC`
+
+see the [`BMSsample`](https://github.com/patman15/aiobmsble/blob/main/aiobmsble/__init__.py) for more (optional) values and a description.
 
