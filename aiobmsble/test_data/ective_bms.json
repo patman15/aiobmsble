@@ -104,13 +104,14 @@
   {
     "advertisement": {
       "local_name": "23-01-05-034",
-      "address": "10:ED:FA:00:00:00",
       "rssi": -52,
       "service_uuids": [
         "0000af30-0000-1000-8000-00805f9b34fb"
-      ],
-      "raw": "020106030330af"
+      ]
     },
-    "type": "ective_bms"
+    "type": "ective_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/30)"
+    ]
   }
 ]
