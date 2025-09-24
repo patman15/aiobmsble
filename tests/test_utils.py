@@ -37,7 +37,7 @@ def get_advertisement_by_type(advertisements, name: str) -> AdvertisementData | 
     return None
 
 
-def test_bms_identify(plugin: ModuleType) -> None:
+async def test_bms_identify(plugin: ModuleType) -> None:
     """Test that each BMS is correctly detected by a pattern.
 
     This also ensures that each BMS has at least one advertisement.
@@ -49,28 +49,28 @@ def test_bms_identify(plugin: ModuleType) -> None:
         else generate_advertisement_data(local_name="dummy")
     )
     assert adv is not None, f"Missing advertisement for {bms_type}"
-    bms_class: type[BaseBMS] | None = bms_identify(adv)
+    bms_class: type[BaseBMS] | None = await bms_identify(adv)
     assert bms_class == plugin.BMS
 
 
-def test_bms_cls(plugin: ModuleType) -> None:
+async def test_bms_cls(plugin: ModuleType) -> None:
     """Test that a BMS class is correctly returned from its name."""
     # strip _bms to get only type
     bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1]
-    bms_class: type[BaseBMS] | None = bms_cls(bms_type)
+    bms_class: type[BaseBMS] | None = await bms_cls(bms_type)
     assert bms_class == plugin.BMS
 
 
 @pytest.mark.parametrize("bms_type", ["unavailable_bms", "ignore_me"])
-def test_bms_cls_none(bms_type: str) -> None:
+async def test_bms_cls_none(bms_type: str) -> None:
     """Test that a BMS class is None when name is not correct."""
-    bms_class: type[BaseBMS] | None = bms_cls(bms_type)
+    bms_class: type[BaseBMS] | None = await bms_cls(bms_type)
     assert bms_class is None
 
 
-def test_bms_identify_fail() -> None:
+async def test_bms_identify_fail() -> None:
     """Test if bms_identify raises if matching BMS for advertisement does not exist."""
-    assert bms_identify(generate_advertisement_data()) is None
+    assert await bms_identify(generate_advertisement_data()) is None
 
 
 @pytest.mark.parametrize(
