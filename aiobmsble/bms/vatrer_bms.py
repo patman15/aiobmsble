@@ -17,21 +17,31 @@ class BMS(BaseBMS):
     """Vatrer BMS implementation."""
 
     _HEAD: Final[bytes] = b"\x02\x03"  # beginning of frame
+    _FRAME_LEN: Final[int] = 5  # head + len + CRC
+    _MAX_CELLS: Final[int] = 0x1F
+    _MAX_TEMP: Final[int] = 6
     _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 3, 2, False, lambda x: x / 100),
-        # BMSdp("current", 82, 2, False, lambda x: (x - 30000) / 10),
-        # BMSdp("battery_level", 84, 2, False, lambda x: x / 10),
-        # BMSdp("cycle_charge", 96, 2, False, lambda x: x / 10),
-        # BMSdp("cell_count", 98, 2, False, lambda x: min(x, BMS.MAX_CELLS)),
-        # BMSdp("temp_sensors", 100, 2, False, lambda x: min(x, BMS.MAX_TEMP)),
-        # BMSdp("cycles", 102, 2, False, lambda x: x),
-        # BMSdp("delta_voltage", 112, 2, False, lambda x: x / 1000),
+        BMSdp("voltage", 3, 2, False, lambda x: x / 100, 0x28),
+        BMSdp("current", 5, 4, True, lambda x: x / 100, 0x28),
+        BMSdp("battery_level", 9, 2, False, idx=0x28),
+        BMSdp("cycle_charge", 11, 2, False, lambda x: x / 100, 0x28),
+        BMSdp("cell_count", 3, 2, False, lambda x: min(x, BMS._MAX_CELLS), 0x3E),
+        BMSdp("temp_sensors", 3, 2, False, lambda x: min(x, BMS._MAX_TEMP), 0x24),
+        BMSdp("cycles", 15, 2, False, lambda x: x, 0x28),
+        BMSdp("delta_voltage", 29, 2, False, lambda x: x / 1000, 0x28),
         # BMSdp("problem_code", 116, 8, False, lambda x: x % 2**64),
+    )
+    _RESPS: Final[set[int]] = {field.idx for field in _FIELDS}
+    _CMDS: Final[tuple[tuple[int, int], ...]] = (
+        (0x0, 0x14),
+        (0x34, 0x12),
+        (0x15, 0x1F),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
+        self._data_final: dict[int, bytearray] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -67,7 +77,7 @@ class BMS(BaseBMS):
     @staticmethod
     def _calc_values() -> frozenset[BMSvalue]:
         return frozenset(
-            {"power", "battery_charging"}
+            {"power", "battery_charging", "temperature"}
         )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
@@ -80,11 +90,21 @@ class BMS(BaseBMS):
             self._log.debug("incorrect SOF")
             return
 
-        if (crc := crc_modbus(data[:-2])) != int.from_bytes(data[-2:],byteorder="little"):
-            self._log.debug("invalid checksum 0x%X != 0x%X", data[-2:], crc)
+        if len(data) < BMS._FRAME_LEN or len(data) != data[2] + BMS._FRAME_LEN:
+            self._log.debug("incorrect frame length")
             return
 
-        self._data = data.copy()
+        if (crc := crc_modbus(data[:-2])) != int.from_bytes(
+            data[-2:], byteorder="little"
+        ):
+            self._log.debug(
+                "invalid checksum 0x%X != 0x%X",
+                int.from_bytes(data[-2:], "little"),
+                crc,
+            )
+            return
+
+        self._data_final[data[2]] = data.copy()
         self._data_event.set()
 
     @staticmethod
@@ -100,7 +120,18 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSsample:
         """Update battery status information."""
-        await self._await_reply(BMS._cmd(0x0, 0x14))
-        result = BMS._decode_data(BMS._FIELDS, self._data)
+        for addr, length in BMS._CMDS:
+            await self._await_reply(BMS._cmd(addr, length))
+        if not BMS._RESPS.issubset(set(self._data_final.keys())):
+            self._log.debug("Incomplete data set %s", self._data_final.keys())
+            raise TimeoutError("BMS data incomplete.")
+
+        result = BMS._decode_data(BMS._FIELDS, self._data_final)
+        result["cell_voltages"] = BMS._cell_voltages(
+            self._data_final[0x3E], cells=result["cell_count"], start=5
+        )
+        result["temp_values"] = BMS._temp_values(
+            self._data_final[0x24], values=result["temp_sensors"] + 2, start=5
+        )  # MOS sensor is last (pos 6 of 4)
 
         return result
