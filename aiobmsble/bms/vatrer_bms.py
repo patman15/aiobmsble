@@ -77,7 +77,7 @@ class BMS(BaseBMS):
     @staticmethod
     def _calc_values() -> frozenset[BMSvalue]:
         return frozenset(
-            {"power", "battery_charging", "temperature"}
+            {"power", "battery_charging", "temperature", "runtime", "cycle_capacity"}
         )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
