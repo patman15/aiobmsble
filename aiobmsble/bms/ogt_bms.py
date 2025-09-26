@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSinfo, BMSsample, BMSvalue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -98,7 +98,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
+    def device_info() -> BMSinfo:
         """Return a dictionary of device information."""
         return {"manufacturer": "Offgridtec", "model": "LiFePo4 Smart Pro"}
 

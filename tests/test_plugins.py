@@ -2,6 +2,7 @@
 
 from types import ModuleType
 
+from aiobmsble import BMSinfo
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.test_data import bms_advertisements, ignore_advertisements
 from aiobmsble.utils import bms_supported, load_bms_plugins
@@ -10,7 +11,7 @@ from aiobmsble.utils import bms_supported, load_bms_plugins
 def test_device_info(plugin_fixture: ModuleType) -> None:
     """Test that the BMS returns valid device information."""
     bms_class: type[BaseBMS] = plugin_fixture.BMS
-    result: dict[str, str] = bms_class.device_info()
+    result: BMSinfo = bms_class.device_info()
     assert "manufacturer" in result
     assert "model" in result
 

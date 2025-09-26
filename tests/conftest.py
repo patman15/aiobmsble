@@ -19,7 +19,7 @@ from bleak.uuids import normalize_uuid_str
 from hypothesis import HealthCheck, settings
 import pytest
 
-from aiobmsble import BMSsample, MatcherPattern
+from aiobmsble import BMSinfo, BMSsample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.utils import load_bms_plugins
 from tests.bluetooth import generate_ble_device
@@ -184,7 +184,7 @@ class MockBMS(BaseBMS):
         return [{"local_name": "mock", "connectable": True}]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
+    def device_info() -> BMSinfo:
         """Return device information for the battery management system."""
         return {"manufacturer": "Mock Manufacturer", "model": "mock model"}
 

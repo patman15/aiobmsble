@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSdp, BMSinfo, BMSsample, BMSvalue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -59,7 +59,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
+    def device_info() -> BMSinfo:
         """Return device information for the battery management system."""
         return {"manufacturer": "CBT Power", "model": "Smart BMS"}
 

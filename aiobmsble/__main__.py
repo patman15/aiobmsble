@@ -50,8 +50,8 @@ async def detect_bms() -> None:
         )
 
         if bms_cls := bms_identify(advertisement):
-            logger.info("Found matching BMS type: %s", bms_cls.device_id())
             bms: BaseBMS = bms_cls(ble_device=ble_dev)
+            logger.info("Found matching BMS type: %s", bms.device_id())
 
             try:
                 logger.info("Updating BMS data...")

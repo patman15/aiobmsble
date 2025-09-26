@@ -12,7 +12,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSdp, BMSsample, MatcherPattern
+from aiobmsble import BMSdp, BMSinfo, BMSsample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc8, crc_modbus, crc_sum, crc_xmodem, lrc_modbus
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
 
@@ -73,7 +73,7 @@ class MinTestBMS(BaseBMS):
         return [{"local_name": "Test", "connectable": True}]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
+    def device_info() -> BMSinfo:
         """Return device information for the battery management system."""
         return {"manufacturer": "Test Manufacturer", "model": "minimal BMS for test"}
 

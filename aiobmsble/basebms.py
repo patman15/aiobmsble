@@ -18,7 +18,7 @@ from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSdp, BMSinfo, BMSsample, BMSvalue, MatcherPattern
 
 
 class BaseBMS(ABC):
@@ -114,16 +114,16 @@ class BaseBMS(ABC):
 
     @staticmethod
     @abstractmethod
-    def device_info() -> dict[str, str]:
+    def device_info() -> BMSinfo:
         """Return a dictionary of device information.
 
-        keys: manufacturer, model
+        keys: manufacturer, model,  model_id, name, serial_number, sw_version, hw_version
         """
 
-    @classmethod
-    def device_id(cls) -> str:
+    def device_id(self) -> str:
         """Return device information as string."""
-        return " ".join(cls.device_info().values())
+        info: Final[BMSinfo] = self.device_info()
+        return f"{info['manufacturer']} {info['model']}"
 
     @staticmethod
     @abstractmethod

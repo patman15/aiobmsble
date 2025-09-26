@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from enum import IntEnum
-from typing import Any, Literal, NamedTuple, TypedDict
+from typing import Any, Literal, NamedTuple, ReadOnly, TypedDict
 
 type BMSvalue = Literal[
     "battery_charging",
@@ -94,12 +94,24 @@ class BMSdp(NamedTuple):
     idx: int = -1  # array index containing the message to be parsed
 
 
+class BMSinfo(TypedDict, total=False):
+    """Human readable information about the BMS device."""
+
+    manufacturer: str
+    model: str
+    model_id: str | None
+    name: str
+    serial_number: str | None
+    sw_version: str | None
+    hw_version: str | None
+
+
 class MatcherPattern(TypedDict, total=False):
     """Optional patterns that can match Bleak advertisement data."""
 
-    local_name: str  # name pattern that supports Unix shell-style wildcards
-    service_uuid: str  # 128-bit UUID that the device must advertise
-    service_data_uuid: str  # service data for the service UUID
-    manufacturer_id: int  # required manufacturer ID
-    manufacturer_data_start: list[int]  # required starting bytes of manufacturer data
-    connectable: bool  # True if active connections to the device are required
+    local_name: ReadOnly[str]  # name pattern that supports Unix shell-style wildcards
+    service_uuid: ReadOnly[str]  # 128-bit UUID that the device must advertise
+    service_data_uuid: ReadOnly[str]  # service data for the service UUID
+    manufacturer_id: ReadOnly[int]  # required manufacturer ID
+    manufacturer_data_start: ReadOnly[list[int]]  # start bytes of manufacturer data
+    connectable: ReadOnly[bool]  # True if active connections to the device are required
