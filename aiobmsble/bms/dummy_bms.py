@@ -15,6 +15,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Dummy BMS implementation."""
 
+    INFO = {"manufacturer": "Dummy Manufacturer", "model": "dummy model"}  # TODO
     # _HEAD: Final[bytes] = b"\x55"  # beginning of frame
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
@@ -27,11 +28,6 @@ class BMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [{"local_name": "dummy", "connectable": True}]  # TODO
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Dummy Manufacturer", "model": "dummy model"}  # TODO
 
     @staticmethod
     def uuid_services() -> list[str]:

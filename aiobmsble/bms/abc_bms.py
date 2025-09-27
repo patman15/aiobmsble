@@ -18,6 +18,7 @@ from aiobmsble.basebms import BaseBMS, crc8
 class BMS(BaseBMS):
     """ABC BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Chunguang Song", "model": "ABC BMS"}
     _HEAD_CMD: Final[int] = 0xEE
     _HEAD_RESP: Final[bytes] = b"\xcc"
     _INFO_LEN: Final[int] = 0x14
@@ -64,11 +65,6 @@ class BMS(BaseBMS):
             }
             for pattern in ("ABC-*", "SOK-*")  # "NB-*", "Hoover",
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Chunguang Song", "model": "ABC BMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:

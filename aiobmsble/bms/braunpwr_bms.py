@@ -17,6 +17,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Braun Power BMS class implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Braun Power", "model": "Smart BMS"}
     _HEAD: Final[bytes] = b"\x7b"  # header for responses
     _TAIL: Final[int] = 0x7D  # tail for command
     _MIN_LEN: Final[int] = 4  # minimum frame size
@@ -56,11 +57,6 @@ class BMS(BaseBMS):
             )
             for pattern in ("HSKS-*", "BL-*")
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Braun Power", "model": "Smart BMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:

@@ -17,6 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 class BMS(BaseBMS):
     """Redodo BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Redodo", "model": "Bluetooth battery"}
     _HEAD_LEN: Final[int] = 3
     _MAX_CELLS: Final[int] = 16
     _MAX_TEMP: Final[int] = 3
@@ -62,11 +63,6 @@ class BMS(BaseBMS):
                 "LT-51*",
             )
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Redodo", "model": "Bluetooth battery"}
 
     @staticmethod
     def uuid_services() -> list[str]:

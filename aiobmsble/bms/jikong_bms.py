@@ -18,6 +18,7 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 class BMS(BaseBMS):
     """Jikong Smart BMS class implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Jikong", "model": "Smart BMS"}
     HEAD_RSP: Final = bytes([0x55, 0xAA, 0xEB, 0x90])  # header for responses
     HEAD_CMD: Final = bytes([0xAA, 0x55, 0x90, 0xEB])  # header for commands (endiness!)
     _READY_MSG: Final = HEAD_CMD + bytes([0xC8, 0x01, 0x01] + [0x00] * 12 + [0x44])
@@ -56,11 +57,6 @@ class BMS(BaseBMS):
                 "manufacturer_id": 0x0B65,
             },
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Jikong", "model": "Smart BMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:
@@ -176,7 +172,9 @@ class BMS(BaseBMS):
         if char_notify_handle == -1 or self._char_write_handle == -1:
             self._log.debug("failed to detect characteristics.")
             await self._client.disconnect()
-            raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
+            raise ConnectionError(
+                f"Failed to detect characteristics from {self._info["name"]}."
+            )
         self._log.debug(
             "using characteristics handle #%i (notify), #%i (write).",
             char_notify_handle,

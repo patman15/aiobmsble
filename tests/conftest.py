@@ -160,12 +160,14 @@ class MockBleakClient(BleakClient):
 class MockBMS(BaseBMS):
     """Mock Battery Management System."""
 
+    INFO: BMSinfo = {"manufacturer": "Mock Manufacturer", "model": "mock model"}
+
     def __init__(
         self, exc: Exception | None = None, ret_value: BMSsample | None = None
     ) -> None:
         """Initialize BMS."""
         super().__init__(generate_ble_device(address="", details={"path": None}), False)
-        LOGGER.debug("%s init(), Test except: %s", self.device_id(), str(exc))
+        LOGGER.debug("%s init(), Test except: %s", self.bms_id(), str(exc))
         self._exception: Exception | None = exc
         self._ret_value: BMSsample = (
             ret_value
@@ -182,11 +184,6 @@ class MockBMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [{"local_name": "mock", "connectable": True}]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Mock Manufacturer", "model": "mock model"}
 
     @staticmethod
     def uuid_services() -> list[str]:

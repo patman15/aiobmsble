@@ -19,6 +19,7 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 class BMS(BaseBMS):
     """Neey Smart BMS class implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Neey", "model": "Balancer"}
     _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
     _HEAD_RSP: Final = bytes([0x55, 0xAA, 0x11, 0x01])  # start, dev addr, read cmd
     _HEAD_CMD: Final = bytes(
@@ -53,11 +54,6 @@ class BMS(BaseBMS):
             }
             for pattern in ("EK-*", "GW-*")
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Neey", "model": "Balancer"}
 
     @staticmethod
     def uuid_services() -> list[str]:

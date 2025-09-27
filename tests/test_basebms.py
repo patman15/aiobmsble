@@ -67,15 +67,15 @@ class MockWriteModeBleakClient(MockBleakClient):
 class MinTestBMS(BaseBMS):
     """Minimal Test BMS implementation."""
 
+    INFO: BMSinfo = {
+        "manufacturer": "Test Manufacturer",
+        "model": "minimal BMS for test",
+    }
+
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [{"local_name": "Test", "connectable": True}]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Test Manufacturer", "model": "minimal BMS for test"}
 
     @staticmethod
     def uuid_services() -> list[str]:

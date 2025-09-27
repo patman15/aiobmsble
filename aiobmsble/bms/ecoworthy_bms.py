@@ -18,6 +18,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """ECO-WORTHY BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "ECO-WORTHY", "model": "BW02"}
     _HEAD: Final[tuple] = (b"\xa1", b"\xa2")
     _CELL_POS: Final[int] = 14
     _TEMP_POS: Final[int] = 80
@@ -62,11 +63,6 @@ class BMS(BaseBMS):
             )
             for pattern in ("DCHOUSE*", "ECO-WORTHY*")
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "ECO-WORTHY", "model": "BW02"}
 
     @staticmethod
     def uuid_services() -> list[str]:

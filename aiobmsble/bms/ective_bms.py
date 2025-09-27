@@ -19,6 +19,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Ective BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Ective", "model": "Smart BMS"}
     _HEAD_RSP: Final[tuple[bytes, ...]] = (b"\x5e", b"\x83")  # header for responses
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
@@ -49,11 +50,6 @@ class BMS(BaseBMS):
             }
             for m_id in (0, 0xFFFF)
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Ective", "model": "Smart BMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:

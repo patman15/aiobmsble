@@ -17,6 +17,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """RoyPow BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "RoyPow", "model": "SmartBMS"}
     _HEAD: Final[bytes] = b"\xea\xd1\x01"
     _TAIL: Final[int] = 0xF5
     _BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module
@@ -64,11 +65,6 @@ class BMS(BaseBMS):
             }
             for manufacturer_id in (0x01A8, 0x0B31, 0x8AFB)
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "RoyPow", "model": "SmartBMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:

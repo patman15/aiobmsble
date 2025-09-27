@@ -17,6 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 class BMS(BaseBMS):
     """CBT Power Smart BMS class implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "CBT Power", "model": "Smart BMS"}
     HEAD: Final[bytes] = bytes([0xAA, 0x55])
     TAIL_RX: Final[bytes] = bytes([0x0D, 0x0A])
     TAIL_TX: Final[bytes] = bytes([0x0A, 0x0D])
@@ -57,11 +58,6 @@ class BMS(BaseBMS):
                 "connectable": True,
             },
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "CBT Power", "model": "Smart BMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:

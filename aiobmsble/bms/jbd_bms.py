@@ -17,6 +17,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """JBD Smart BMS class implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Jiabaida", "model": "Smart BMS"}
     HEAD_RSP: Final[bytes] = bytes([0xDD])  # header for responses
     HEAD_CMD: Final[bytes] = bytes([0xDD, 0xA5])  # read header for commands
     TAIL: Final[int] = 0x77  # tail for command
@@ -82,11 +83,6 @@ class BMS(BaseBMS):
             # Liontron, LISMART1240LX/LISMART1255LX,
             # LionTron XL19110253 / EPOCH batteries 12.8V 460Ah - 12460A-H
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Jiabaida", "model": "Smart BMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:

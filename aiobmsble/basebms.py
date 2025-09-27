@@ -24,6 +24,7 @@ from aiobmsble import BMSdp, BMSinfo, BMSsample, BMSvalue, MatcherPattern
 class BaseBMS(ABC):
     """Abstract base class for battery management system."""
 
+    INFO: BMSinfo  # static default info about the BMS, mandatory keys "manufacturer", "model"
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
@@ -56,6 +57,7 @@ class BaseBMS(ABC):
 
         Args:
             ble_device (BLEDevice): the Bleak device to connect to
+            bms_info (dict[Literal["manufacturer", "model"], str]): default BMS identification
             keep_alive (bool): if true, the connection will be kept active after each update.
                 Make sure to call `disconnect()` when done using the BMS class or better use
                 `async with` context manager (requires `keep_alive=True`).
@@ -67,16 +69,20 @@ class BaseBMS(ABC):
         ), "BMS class must define _notification_handler method"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
-        self.name: Final[str] = self._ble_device.name or "undefined"
+        self._info: BMSinfo = type(self).INFO | {
+            "name": self._ble_device.name or "undefined"
+        }
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
         self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
-            {"prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':','')}:"},
+            {
+                "prefix": f"{self._info["name"]}|{self._ble_device.address[-5:].replace(':','')}:"
+            },
         )
 
         self._log.debug(
-            "initializing %s, BT address: %s", self.device_id(), ble_device.address
+            "initializing %s, BT address: %s", self.bms_id(), ble_device.address
         )
         self._client: BleakClient = BleakClient(
             self._ble_device,
@@ -112,18 +118,17 @@ class BaseBMS(ABC):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Return a list of Bluetooth advertisement matchers."""
 
-    @staticmethod
-    @abstractmethod
-    def device_info() -> BMSinfo:
+    def device_info(self) -> BMSinfo:
         """Return a dictionary of device information.
 
-        keys: manufacturer, model,  model_id, name, serial_number, sw_version, hw_version
+        keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
         """
+        return self._info
 
-    def device_id(self) -> str:
-        """Return device information as string."""
-        info: Final[BMSinfo] = self.device_info()
-        return f"{info['manufacturer']} {info['model']}"
+    @classmethod
+    def bms_id(cls) -> str:
+        """Return static BMS information as string."""
+        return f"{cls.INFO['manufacturer']} {cls.INFO['model']}"
 
     @staticmethod
     @abstractmethod

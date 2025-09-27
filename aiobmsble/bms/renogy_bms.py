@@ -16,11 +16,12 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """Renogy battery class implementation."""
 
-    HEAD: bytes = b"\x30\x03"  # SOP, read fct (x03)
+    INFO: BMSinfo = {"manufacturer": "Renogy", "model": "Bluetooth battery"}
+    _HEAD: bytes = b"\x30\x03"  # SOP, read fct (x03)
     _CRC_POS: Final[int] = -2
     _TEMP_POS: Final[int] = 37
     _CELL_POS: Final[int] = 3
-    FIELDS: tuple[BMSdp, ...] = (
+    _FIELDS: tuple[BMSdp, ...] = (
         BMSdp("voltage", 5, 2, False, lambda x: x / 10),
         BMSdp("current", 3, 2, True, lambda x: x / 100),
         BMSdp("design_capacity", 11, 4, False, lambda x: x // 1000),
@@ -42,11 +43,6 @@ class BMS(BaseBMS):
                 "connectable": True,
             },
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Renogy", "model": "Bluetooth battery"}
 
     @staticmethod
     def uuid_services() -> list[str]:
@@ -83,7 +79,7 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
-        if not data.startswith(BMS.HEAD) or len(data) < 3:
+        if not data.startswith(BMS._HEAD) or len(data) < 3:
             self._log.debug("incorrect SOF")
             return
 
@@ -112,7 +108,7 @@ class BMS(BaseBMS):
     def _cmd(addr: int, words: int) -> bytes:
         """Assemble a Renogy BMS command (MODBUS)."""
         frame: bytearray = (
-            bytearray(BMS.HEAD)
+            bytearray(BMS._HEAD)
             + int.to_bytes(addr, 2, byteorder="big")
             + int.to_bytes(words, 2, byteorder="big")
         )
@@ -124,7 +120,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         await self._await_reply(self._cmd(0x13B2, 0x7))
-        result: BMSsample = BMS._decode_data(type(self).FIELDS, self._data)
+        result: BMSsample = BMS._decode_data(type(self)._FIELDS, self._data)
 
         await self._await_reply(self._cmd(0x1388, 0x22))
         result["cell_count"] = BMS._read_int16(self._data, BMS._CELL_POS)

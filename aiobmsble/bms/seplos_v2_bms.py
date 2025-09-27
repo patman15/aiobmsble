@@ -17,6 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_xmodem
 class BMS(BaseBMS):
     """Seplos v2 BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Seplos", "model": "Smart BMS V2"}
     _HEAD: Final[bytes] = b"\x7e"
     _TAIL: Final[bytes] = b"\x0d"
     _CMD_VER: Final[int] = 0x10  # TX protocol version
@@ -54,11 +55,6 @@ class BMS(BaseBMS):
             }
             for pattern in ("BP0?", "BP1?", "BP2?")
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Seplos", "model": "Smart BMS V2"}
 
     @staticmethod
     def uuid_services() -> list[str]:

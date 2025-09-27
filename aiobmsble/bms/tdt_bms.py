@@ -17,6 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """TDT BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "TDT", "model": "Smart BMS"}
     _UUID_CFG: Final[str] = "fffa"
     _HEAD: Final[int] = 0x7E
     _CMD_HEADS: list[int] = [0x7E, 0x1E]  # alternative command head
@@ -52,11 +53,6 @@ class BMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [{"manufacturer_id": 54976, "connectable": True}]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "TDT", "model": "Smart BMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:

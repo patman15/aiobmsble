@@ -17,6 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """ANT BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "ANT", "model": "Smart BMS"}
     _HEAD: Final[bytes] = b"\x7e\xa1"
     _TAIL: Final[bytes] = b"\xaa\x55"
     _MIN_LEN: Final[int] = 10  # frame length without data
@@ -64,11 +65,6 @@ class BMS(BaseBMS):
                 "connectable": True,
             }
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "ANT", "model": "Smart BMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:

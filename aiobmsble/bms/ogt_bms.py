@@ -19,6 +19,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Offgridtec LiFePO4 Smart Pro type A and type B BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Offgridtec", "model": "LiFePo4 Smart Pro"}
     _IDX_NAME: Final = 0
     _IDX_LEN: Final = 1
     _IDX_FCT: Final = 2
@@ -34,20 +35,24 @@ class BMS(BaseBMS):
         """Intialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._type: str = (
-            self.name[9]
-            if len(self.name) >= 10 and set(self.name[10:]).issubset(digits)
+            self._info["name"][9]
+            if len(self._info["name"]) >= 10
+            and set(self._info["name"][10:]).issubset(digits)
             else "?"
         )
         self._key: int = (
-            sum(BMS._CRYPT_SEQ[int(c, 16)] for c in (f"{int(self.name[10:]):0>4X}"))
+            sum(
+                BMS._CRYPT_SEQ[int(c, 16)]
+                for c in (f"{int(self._info["name"][10:]):0>4X}")
+            )
             if self._type in "AB"
             else 0
         ) + (5 if (self._type == "A") else 8)
         self._log.info(
             "%s type: %c, ID: %s, key: 0x%X",
-            self.device_id(),
+            self.bms_id(),
             self._type,
-            self.name[10:],
+            self._info["name"][10:],
             self._key,
         )
         self._exp_reply: int = 0x0
@@ -96,11 +101,6 @@ class BMS(BaseBMS):
                 "connectable": True,
             }
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return a dictionary of device information."""
-        return {"manufacturer": "Offgridtec", "model": "LiFePo4 Smart Pro"}
 
     @staticmethod
     def uuid_services() -> list[str]:

@@ -18,6 +18,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """Seplos V3 Smart BMS class implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Seplos", "model": "Smart BMS V3"}
     CMD_READ: Final[list[int]] = [0x01, 0x04]
     HEAD_LEN: Final[int] = 3
     CRC_LEN: Final[int] = 2
@@ -75,11 +76,6 @@ class BMS(BaseBMS):
             }
             for pattern in {f"SP{num}?B*" for num in range(10)} | {"CSY*"} | {"SP1??B*"}
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Seplos", "model": "Smart BMS V3"}
 
     # setup UUIDs
     #    serv 0000fff0-0000-1000-8000-00805f9b34fb

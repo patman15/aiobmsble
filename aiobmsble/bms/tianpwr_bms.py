@@ -17,6 +17,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """TianPwr BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "TianPwr", "model": "SmartBMS"}
     _HEAD: Final[bytes] = b"\x55"
     _TAIL: Final[bytes] = b"\xaa"
     _RDCMD: Final[bytes] = b"\x04"
@@ -46,11 +47,6 @@ class BMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [{"local_name": "TP_*", "connectable": True}]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "TianPwr", "model": "SmartBMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:

@@ -32,6 +32,7 @@ class Cmd(IntEnum):
 class BMS(BaseBMS):
     """D-powercore Smart BMS class implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "D-powercore", "model": "Smart BMS"}
     _PAGE_LEN: Final[int] = 20
     _MAX_CELLS: Final[int] = 32
     _FIELDS: Final[tuple[BMSdp, ...]] = (
@@ -72,11 +73,6 @@ class BMS(BaseBMS):
             }
             for pattern in ("DXB-*", "TBA-*")
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "D-powercore", "model": "Smart BMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:
@@ -176,14 +172,14 @@ class BMS(BaseBMS):
         await super()._init_connection()
 
         # unlock BMS if not TBA version
-        if self.name.startswith("TBA-"):
+        if self._info["name"].startswith("TBA-"):
             return
 
-        if not all(c in hexdigits for c in self.name[-4:]):
+        if not all(c in hexdigits for c in self._info["name"][-4:]):
             self._log.debug("unable to unlock BMS")
             return
 
-        pwd = int(self.name[-4:], 16)
+        pwd = int(self._info["name"][-4:], 16)
         await self._await_reply(
             BMS._cmd(
                 Cmd.UNLOCK,

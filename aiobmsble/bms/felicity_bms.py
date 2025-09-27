@@ -19,6 +19,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Felicity BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Felicity Solar", "model": "LiFePo4 battery"}
     _HEAD: Final[bytes] = b"{"
     _TAIL: Final[bytes] = b"}"
     _CMD_PRE: Final[bytes] = b"wifilocalMonitor:"  # CMD prefix
@@ -47,11 +48,6 @@ class BMS(BaseBMS):
         return [
             {"local_name": pattern, "connectable": True} for pattern in ("F07*", "F10*")
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Felicity Solar", "model": "LiFePo4 battery"}
 
     @staticmethod
     def uuid_services() -> list[str]:

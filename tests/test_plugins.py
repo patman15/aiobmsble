@@ -2,18 +2,25 @@
 
 from types import ModuleType
 
-from aiobmsble import BMSinfo
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.test_data import bms_advertisements, ignore_advertisements
 from aiobmsble.utils import bms_supported, load_bms_plugins
+from tests.bluetooth import generate_ble_device
+
+
+def test_bms_id(plugin_fixture: ModuleType) -> None:
+    """Test that the BMS returns default information."""
+    bms_class: type[BaseBMS] = plugin_fixture.BMS
+    for key in ("manufacturer", "model"):
+        assert key in bms_class.INFO
+        assert bms_class.INFO[key].strip()
+    assert len(bms_class.bms_id().strip())
 
 
 def test_device_info(plugin_fixture: ModuleType) -> None:
-    """Test that the BMS returns valid device information."""
-    bms_class: type[BaseBMS] = plugin_fixture.BMS
-    result: BMSinfo = bms_class.device_info()
-    assert "manufacturer" in result
-    assert "model" in result
+    """Test that the BMS returns initialized dynamic device information."""
+    bms: BaseBMS = plugin_fixture.BMS(generate_ble_device())
+    assert {"manufacturer", "model"}.issubset(bms.device_info())
 
 
 def test_matcher_dict(plugin_fixture: ModuleType) -> None:

@@ -18,6 +18,7 @@ from aiobmsble.basebms import BaseBMS, lrc_modbus
 class BMS(BaseBMS):
     """CBT Power VB series battery class implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Creabest", "model": "VB series"}
     _HEAD: Final[bytes] = b"\x7e"
     _TAIL: Final[bytes] = b"\x0d"
     _CMD_VER: Final[int] = 0x11  # TX protocol version
@@ -50,11 +51,6 @@ class BMS(BaseBMS):
                 "connectable": True,
             },
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Creabest", "model": "VB series"}
 
     @staticmethod
     def uuid_services() -> list[str]:

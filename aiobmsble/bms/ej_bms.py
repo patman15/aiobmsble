@@ -25,6 +25,7 @@ class Cmd(IntEnum):
 class BMS(BaseBMS):
     """E&J Technology BMS implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "E&J Technology", "model": "Smart BMS"}
     _BT_MODULE_MSG: Final[bytes] = bytes([0x41, 0x54, 0x0D, 0x0A])  # BLE module message
     _IGNORE_CRC: Final[str] = "libattU"
     _HEAD: Final[bytes] = b"\x3a"
@@ -82,11 +83,6 @@ class BMS(BaseBMS):
                 }
             ]
         )
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "E&J Technology", "model": "Smart BMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:
@@ -166,7 +162,7 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        if not self.name.startswith(BMS._IGNORE_CRC) and (
+        if not self._info["name"].startswith(BMS._IGNORE_CRC) and (
             crc := BMS._crc(self._data[1:-3])
         ) != int(self._data[-3:-1], 16):
             # libattU firmware uses no CRC, so we ignore it

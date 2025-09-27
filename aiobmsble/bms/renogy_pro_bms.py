@@ -15,8 +15,9 @@ from aiobmsble.bms.renogy_bms import BMS as RenogyBMS
 class BMS(RenogyBMS):
     """Renogy Pro battery class implementation."""
 
-    HEAD: bytes = b"\xff\x03"  # SOP, read fct (x03)
-    FIELDS: tuple[BMSdp, ...] = (
+    INFO: BMSinfo = {"manufacturer": "Renogy", "model": "Bluetooth battery pro"}
+    _HEAD: bytes = b"\xff\x03"  # SOP, read fct (x03)
+    _FIELDS: tuple[BMSdp, ...] = (
         BMSdp("voltage", 5, 2, False, lambda x: x / 10),
         BMSdp("current", 3, 2, True, lambda x: x / 10),
         BMSdp("design_capacity", 11, 4, False, lambda x: x // 1000),
@@ -39,11 +40,6 @@ class BMS(RenogyBMS):
                 "connectable": True,
             },
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Renogy", "model": "Bluetooth battery pro"}
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -86,7 +82,9 @@ class BMS(RenogyBMS):
         if char_notify_handle == -1 or self._char_write_handle == -1:
             self._log.debug("failed to detect characteristics.")
             await self._client.disconnect()
-            raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
+            raise ConnectionError(
+                f"Failed to detect characteristics from {self._info["name"]}."
+            )
         self._log.debug(
             "using characteristics handle #%i (notify), #%i (write).",
             char_notify_handle,

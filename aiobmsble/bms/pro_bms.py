@@ -18,6 +18,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Pro BMS Smart Shunt class implementation."""
 
+    INFO: BMSinfo = {"manufacturer": "Pro BMS", "model": "Smart Shunt"}
     _HEAD: Final[bytes] = bytes([0x55, 0xAA])
     _MIN_LEN: Final[int] = 5
     _INIT_RESP: Final[int] = 0x03
@@ -67,11 +68,6 @@ class BMS(BaseBMS):
                 connectable=True,
             )
         ]
-
-    @staticmethod
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Pro BMS", "model": "Smart Shunt"}
 
     @staticmethod
     def uuid_services() -> list[str]:

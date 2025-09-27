@@ -26,6 +26,7 @@ class BMS(BaseBMS):
 
         STATUS = 0x00
 
+    INFO: BMSinfo = {"manufacturer": "ANT", "model": "legacy smart BMS"}
     _RX_HEADER: Final[bytes] = b"\xaa\x55\xaa"
     _RX_HEADER_RSP_STAT: Final[bytes] = b"\xaa\x55\xaa\xff"
 
@@ -60,12 +61,6 @@ class BMS(BaseBMS):
                 "connectable": True,
             }
         ]
-
-    @staticmethod
-    @override
-    def device_info() -> BMSinfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "ANT", "model": "Smart BMS"}
 
     @staticmethod
     @override
