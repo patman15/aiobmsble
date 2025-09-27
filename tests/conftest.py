@@ -19,7 +19,7 @@ from bleak.uuids import normalize_uuid_str
 from hypothesis import HealthCheck, settings
 import pytest
 
-from aiobmsble import BMSinfo, BMSsample, MatcherPattern
+from aiobmsble import BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.utils import load_bms_plugins
 from tests.bluetooth import generate_ble_device
@@ -160,16 +160,16 @@ class MockBleakClient(BleakClient):
 class MockBMS(BaseBMS):
     """Mock Battery Management System."""
 
-    INFO: BMSinfo = {"manufacturer": "Mock Manufacturer", "model": "mock model"}
+    INFO: BMSInfo = {"manufacturer": "Mock Manufacturer", "model": "mock model"}
 
     def __init__(
-        self, exc: Exception | None = None, ret_value: BMSsample | None = None
+        self, exc: Exception | None = None, ret_value: BMSSample | None = None
     ) -> None:
         """Initialize BMS."""
         super().__init__(generate_ble_device(address="", details={"path": None}), False)
         LOGGER.debug("%s init(), Test except: %s", self.bms_id(), str(exc))
         self._exception: Exception | None = exc
-        self._ret_value: BMSsample = (
+        self._ret_value: BMSSample = (
             ret_value
             if ret_value is not None
             else {
@@ -205,7 +205,7 @@ class MockBMS(BaseBMS):
     ) -> None:
         """Retrieve BMS data update."""
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._connect()
 
@@ -216,7 +216,7 @@ class MockBMS(BaseBMS):
 
 
 @pytest.fixture(params=[-13, 0, 21], ids=["neg_current", "zero_current", "pos_current"])
-def bms_data_fixture(request) -> BMSsample:
+def bms_data_fixture(request) -> BMSSample:
     """Return a fake BMS data dictionary."""
 
     return {

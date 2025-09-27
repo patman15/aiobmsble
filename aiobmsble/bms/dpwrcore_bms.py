@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSinfo, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -32,15 +32,15 @@ class Cmd(IntEnum):
 class BMS(BaseBMS):
     """D-powercore Smart BMS class implementation."""
 
-    INFO: BMSinfo = {"manufacturer": "D-powercore", "model": "Smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "D-powercore", "default_model": "Smart BMS"}
     _PAGE_LEN: Final[int] = 20
     _MAX_CELLS: Final[int] = 32
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 6, 2, False, lambda x: x / 10, Cmd.LEGINFO1),
-        BMSdp("current", 8, 2, True, lambda x: x, Cmd.LEGINFO1),
-        BMSdp("battery_level", 14, 1, False, lambda x: x, Cmd.LEGINFO1),
-        BMSdp("cycle_charge", 12, 2, False, lambda x: x / 1000, Cmd.LEGINFO1),
-        BMSdp(
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 6, 2, False, lambda x: x / 10, Cmd.LEGINFO1),
+        BMSDp("current", 8, 2, True, lambda x: x, Cmd.LEGINFO1),
+        BMSDp("battery_level", 14, 1, False, lambda x: x, Cmd.LEGINFO1),
+        BMSDp("cycle_charge", 12, 2, False, lambda x: x / 1000, Cmd.LEGINFO1),
+        BMSDp(
             "temperature",
             12,
             2,
@@ -48,11 +48,11 @@ class BMS(BaseBMS):
             lambda x: round(x * 0.1 - 273.15, 1),
             Cmd.LEGINFO2,
         ),
-        BMSdp(
+        BMSDp(
             "cell_count", 6, 1, False, lambda x: min(x, BMS._MAX_CELLS), Cmd.CELLVOLT
         ),
-        BMSdp("cycles", 8, 2, False, lambda x: x, Cmd.LEGINFO2),
-        BMSdp("problem_code", 15, 1, False, lambda x: x & 0xFF, Cmd.LEGINFO1),
+        BMSDp("cycles", 8, 2, False, lambda x: x, Cmd.LEGINFO2),
+        BMSDp("problem_code", 15, 1, False, lambda x: x & 0xFF, Cmd.LEGINFO1),
     )
     _CMDS: Final[set[Cmd]] = {Cmd(field.idx) for field in _FIELDS}
 
@@ -89,8 +89,12 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff3"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        raise NotImplementedError
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "battery_charging",
@@ -188,7 +192,7 @@ class BMS(BaseBMS):
             wait_for_notify=False,
         )
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         for request in BMS._CMDS:
             await self._await_reply(self._cmd(request, b""))
@@ -196,7 +200,7 @@ class BMS(BaseBMS):
         if not BMS._CMDS.issubset(set(self._data_final.keys())):
             raise ValueError("incomplete response set")
 
-        result: BMSsample = BMS._decode_data(BMS._FIELDS, self._data_final)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
         result["cell_voltages"] = BMS._cell_voltages(
             self._data_final[Cmd.CELLVOLT],
             cells=result.get("cell_count", 0),

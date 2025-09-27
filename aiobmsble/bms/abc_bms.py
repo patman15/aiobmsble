@@ -11,14 +11,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSinfo, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc8
 
 
 class BMS(BaseBMS):
     """ABC BMS implementation."""
 
-    INFO: BMSinfo = {"manufacturer": "Chunguang Song", "model": "ABC BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "Chunguang Song", "default_model": "ABC BMS"}
     _HEAD_CMD: Final[int] = 0xEE
     _HEAD_RESP: Final[bytes] = b"\xcc"
     _INFO_LEN: Final[int] = 0x14
@@ -29,15 +29,15 @@ class BMS(BaseBMS):
         0xC3: {0xF5, 0xF6, 0xF7, 0xF8, 0xFA},
         0xC4: {0xF9},
     }
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("temp_sensors", 4, 1, False, lambda x: x, 0xF2),
-        BMSdp("voltage", 2, 3, False, lambda x: x / 1000, 0xF0),
-        BMSdp("current", 5, 3, True, lambda x: x / 1000, 0xF0),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("temp_sensors", 4, 1, False, lambda x: x, 0xF2),
+        BMSDp("voltage", 2, 3, False, lambda x: x / 1000, 0xF0),
+        BMSDp("current", 5, 3, True, lambda x: x / 1000, 0xF0),
         # ("design_capacity", 8, 3, False, lambda x: x / 1000, 0xF0),
-        BMSdp("battery_level", 16, 1, False, lambda x: x, 0xF0),
-        BMSdp("cycle_charge", 11, 3, False, lambda x: x / 1000, 0xF0),
-        BMSdp("cycles", 14, 2, False, lambda x: x, 0xF0),
-        BMSdp(  # only first bit per byte is used
+        BMSDp("battery_level", 16, 1, False, lambda x: x, 0xF0),
+        BMSDp("cycle_charge", 11, 3, False, lambda x: x / 1000, 0xF0),
+        BMSDp("cycles", 14, 2, False, lambda x: x, 0xF0),
+        BMSDp(  # only first bit per byte is used
             "problem_code",
             2,
             16,
@@ -81,8 +81,12 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe2"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        raise NotImplementedError
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "battery_charging",
@@ -130,7 +134,7 @@ class BMS(BaseBMS):
         frame.append(crc8(frame))
         return bytes(frame)
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         self._data_final.clear()
         for cmd in (0xC1, 0xC2, 0xC4):
@@ -144,7 +148,7 @@ class BMS(BaseBMS):
             self._log.debug("Incomplete data set %s", self._data_final.keys())
             raise TimeoutError("BMS data incomplete.")
 
-        result: BMSsample = BMS._decode_data(
+        result: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._data_final, byteorder="little"
         )
         return result | {

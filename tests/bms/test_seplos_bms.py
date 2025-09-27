@@ -3,19 +3,19 @@
 from collections.abc import Buffer
 from uuid import UUID
 
+import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
-import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
 BT_FRAME_SIZE = 27  # ATT maximum is 512, minimal 27
 CHAR_UUID = "fff1"
-REF_VALUE: BMSsample = {
+REF_VALUE: BMSSample = {
     "voltage": 52.34,
     "current": -6.7,
     "battery_level": 47.9,
@@ -289,7 +289,7 @@ async def test_wrong_crc(patch_bleak_client, patch_bms_timeout) -> None:
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -307,7 +307,7 @@ async def test_error_response(patch_bleak_client, patch_bms_timeout) -> None:
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -336,7 +336,7 @@ async def test_invalid_message(patch_bleak_client, patch_bms_timeout) -> None:
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 

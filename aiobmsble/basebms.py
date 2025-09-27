@@ -7,6 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from functools import lru_cache
 import logging
 from statistics import fmean
 from types import TracebackType
@@ -15,16 +16,17 @@ from typing import Any, Final, Literal, Self
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.exc import BleakError
+from bleak.exc import BleakError, BleakCharacteristicNotFoundError
+from bleak.uuids import normalize_uuid_16
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
-from aiobmsble import BMSdp, BMSinfo, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 
 
 class BaseBMS(ABC):
     """Abstract base class for battery management system."""
 
-    INFO: BMSinfo  # static default info about the BMS, mandatory keys "manufacturer", "model"
+    INFO: BMSInfo  # static default info about the BMS, set "default_" keys here
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
@@ -69,9 +71,7 @@ class BaseBMS(ABC):
         ), "BMS class must define _notification_handler method"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
-        self._info: BMSinfo = type(self).INFO | {
-            "name": self._ble_device.name or "undefined"
-        }
+        self._info: BMSInfo = {"name": self._ble_device.name or "undefined"}
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
         self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
@@ -118,17 +118,10 @@ class BaseBMS(ABC):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Return a list of Bluetooth advertisement matchers."""
 
-    def device_info(self) -> BMSinfo:
-        """Return a dictionary of device information.
-
-        keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
-        """
-        return self._info
-
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
-        return f"{cls.INFO['manufacturer']} {cls.INFO['model']}"
+        return f"{cls.INFO['default_manufacturer']} {cls.INFO['default_model']}"
 
     @staticmethod
     @abstractmethod
@@ -145,8 +138,63 @@ class BaseBMS(ABC):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
 
+    @lru_cache
+    async def device_info(self) -> BMSInfo:
+        """Return a dictionary of device information.
+
+        keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
+        """
+        disconnect: Final[bool] = not self._client.is_connected
+
+        await self._connect()
+        dev_info: Final[BMSInfo] = await self._fetch_device_info()
+        if disconnect:
+            await self.disconnect()
+
+        self._log.debug("BMS info %s", type(self).INFO | dev_info)
+
+        return type(self).INFO | dev_info
+
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        if not self._client.services.get_service(normalize_uuid_16(0x180A)):
+            return BMSInfo()
+
+        characteristics: Final[
+            tuple[
+                tuple[
+                    int,
+                    Literal[
+                        "model",
+                        "serial_number",
+                        "sw_version",
+                        "hw_version",
+                        "manufacturer",
+                    ],
+                ],
+                ...,
+            ]
+        ] = (
+            (0x2A24, "model"),
+            (0x2A25, "serial_number"),
+            (0x2A26, "sw_version"),
+            (0x2A27, "hw_version"),
+            (0x2A28, "sw_version"),  # overwrite FW with SW version
+            (0x2A29, "manufacturer"),
+        )
+
+        info: BMSInfo = BMSInfo()
+        for char, key in characteristics:
+            try:
+                if value := await self._client.read_gatt_char(char):
+                    info[key] = value.decode(errors="ignore").rstrip("\x00").rstrip()
+            except BleakCharacteristicNotFoundError:
+                pass
+
+        return info
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         """Return values that the BMS cannot provide and need to be calculated.
 
         See _add_missing_values() function for the required input to actually do so.
@@ -154,7 +202,7 @@ class BaseBMS(ABC):
         return frozenset()
 
     @staticmethod
-    def _add_missing_values(data: BMSsample, values: frozenset[BMSvalue]) -> None:
+    def _add_missing_values(data: BMSSample, values: frozenset[BMSValue]) -> None:
         """Calculate missing BMS values from existing ones.
 
         Args:
@@ -168,7 +216,7 @@ class BaseBMS(ABC):
         if not values or not data:
             return
 
-        def can_calc(value: BMSvalue, using: frozenset[BMSvalue]) -> bool:
+        def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
             """Check value to add does not exist, is requested, and needed data is available."""
             return (value in values) and (value not in data) and using.issubset(data)
 
@@ -176,7 +224,7 @@ class BaseBMS(ABC):
         battery_level: Final[int | float] = data.get("battery_level", 0)
         current: Final[float] = data.get("current", 0)
 
-        calculations: dict[BMSvalue, tuple[set[BMSvalue], Callable[[], Any]]] = {
+        calculations: dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]] = {
             "voltage": ({"cell_voltages"}, lambda: round(sum(cell_voltages), 3)),
             "delta_voltage": (
                 {"cell_voltages"},
@@ -393,10 +441,10 @@ class BaseBMS(ABC):
         self._data_event.clear()
 
     @abstractmethod
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
-    async def async_update(self) -> BMSsample:
+    async def async_update(self) -> BMSSample:
         """Retrieve updated values from the BMS using method of the subclass.
 
         Args:
@@ -404,12 +452,12 @@ class BaseBMS(ABC):
                 any calculations or missing values added
 
         Returns:
-            BMSsample: dictionary with BMS values
+            BMSSample: dictionary with BMS values
 
         """
         await self._connect()
 
-        data: BMSsample = await self._async_update()
+        data: BMSSample = await self._async_update()
         self._add_missing_values(data, self._calc_values())
 
         if not self._keep_alive:
@@ -420,13 +468,13 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSdp, ...],
+        fields: tuple[BMSDp, ...],
         data: bytearray | dict[int, bytearray],
         *,
         byteorder: Literal["little", "big"] = "big",
         offset: int = 0,
-    ) -> BMSsample:
-        result: BMSsample = {}
+    ) -> BMSSample:
+        result: BMSSample = {}
         for field in fields:
             if isinstance(data, dict) and field.idx not in data:
                 continue

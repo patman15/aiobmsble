@@ -6,9 +6,9 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from enum import IntEnum
-from typing import Any, Literal, NamedTuple, ReadOnly, TypedDict
+from typing import Any, Literal, NamedTuple, NotRequired, ReadOnly, TypedDict
 
-type BMSvalue = Literal[
+type BMSValue = Literal[
     "battery_charging",
     "battery_mode",
     "battery_level",
@@ -41,7 +41,7 @@ type BMSpackvalue = Literal[
 ]
 
 
-class BMSmode(IntEnum):
+class BMSMode(IntEnum):
     """Enumeration of BMS modes."""
 
     UNKNOWN = -1
@@ -50,11 +50,11 @@ class BMSmode(IntEnum):
     FLOAT = 0x02
 
 
-class BMSsample(TypedDict, total=False):
+class BMSSample(TypedDict, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
 
     battery_charging: bool  # True: battery charging
-    battery_mode: BMSmode  # BMS charging mode
+    battery_mode: BMSMode  # BMS charging mode
     battery_level: int | float  # [%]
     current: float  # [A] (positive: charging)
     power: float  # [W] (positive: charging)
@@ -83,10 +83,10 @@ class BMSsample(TypedDict, total=False):
     pack_cycles: list[int]  # [#]
 
 
-class BMSdp(NamedTuple):
+class BMSDp(NamedTuple):
     """Representation of one BMS data point."""
 
-    key: BMSvalue  # the key of the value to be parsed
+    key: BMSValue  # the key of the value to be parsed
     pos: int  # position within the message
     size: int  # size in bytes
     signed: bool  # signed value
@@ -94,16 +94,27 @@ class BMSdp(NamedTuple):
     idx: int = -1  # array index containing the message to be parsed
 
 
-class BMSinfo(TypedDict, total=False):
+class BMSDefInfo(TypedDict):
+    """Human readable default information about the BMS."""
+
+    manufacturer: ReadOnly[str]
+    model: ReadOnly[str]
+    name: NotRequired[str]
+
+
+class BMSInfo(TypedDict, total=False):
     """Human readable information about the BMS device."""
 
+    default_manufacturer: ReadOnly[str]
+    default_model: ReadOnly[str]
+    default_name: ReadOnly[str]
     manufacturer: str
     model: str
-    model_id: str | None
+    model_id: str
     name: str
-    serial_number: str | None
-    sw_version: str | None
-    hw_version: str | None
+    serial_number: str
+    sw_version: str
+    hw_version: str
 
 
 class MatcherPattern(TypedDict, total=False):

@@ -4,10 +4,10 @@ from collections.abc import Awaitable, Callable
 from typing import Final
 from uuid import UUID
 
-from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
+from bleak.backends.characteristic import BleakGATTCharacteristic
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.ective_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -31,7 +31,7 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
     ),
 }
 
-_RESULT_DEFS: Final[dict[int, BMSsample]] = {
+_RESULT_DEFS: Final[dict[int, BMSSample]] = {
     0x5E: {
         "voltage": 13.7,
         "current": -12.808,
@@ -205,7 +205,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -261,7 +261,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result == {
         "voltage": 13.7,
         "current": -13.0,

@@ -9,24 +9,24 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSinfo, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
     """Renogy battery class implementation."""
 
-    INFO: BMSinfo = {"manufacturer": "Renogy", "model": "Bluetooth battery"}
+    INFO: BMSInfo = {"default_manufacturer": "Renogy", "default_model": "Bluetooth battery"}
     _HEAD: bytes = b"\x30\x03"  # SOP, read fct (x03)
     _CRC_POS: Final[int] = -2
     _TEMP_POS: Final[int] = 37
     _CELL_POS: Final[int] = 3
-    _FIELDS: tuple[BMSdp, ...] = (
-        BMSdp("voltage", 5, 2, False, lambda x: x / 10),
-        BMSdp("current", 3, 2, True, lambda x: x / 100),
-        BMSdp("design_capacity", 11, 4, False, lambda x: x // 1000),
-        BMSdp("cycle_charge", 7, 4, False, lambda x: x / 1000),
-        BMSdp("cycles", 15, 2, False, lambda x: x),
+    _FIELDS: tuple[BMSDp, ...] = (
+        BMSDp("voltage", 5, 2, False, lambda x: x / 10),
+        BMSDp("current", 3, 2, True, lambda x: x / 100),
+        BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
+        BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000),
+        BMSDp("cycles", 15, 2, False, lambda x: x),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -59,8 +59,12 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffd1"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        raise NotImplementedError
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "power",
@@ -116,11 +120,11 @@ class BMS(BaseBMS):
         frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
         return bytes(frame)
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
         await self._await_reply(self._cmd(0x13B2, 0x7))
-        result: BMSsample = BMS._decode_data(type(self)._FIELDS, self._data)
+        result: BMSSample = BMS._decode_data(type(self)._FIELDS, self._data)
 
         await self._await_reply(self._cmd(0x1388, 0x22))
         result["cell_count"] = BMS._read_int16(self._data, BMS._CELL_POS)

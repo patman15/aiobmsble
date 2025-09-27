@@ -12,14 +12,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSinfo, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Offgridtec LiFePO4 Smart Pro type A and type B BMS implementation."""
 
-    INFO: BMSinfo = {"manufacturer": "Offgridtec", "model": "LiFePo4 Smart Pro"}
+    INFO: BMSInfo = {"default_manufacturer": "Offgridtec", "default_model": "LiFePo4 Smart Pro"}
     _IDX_NAME: Final = 0
     _IDX_LEN: Final = 1
     _IDX_FCT: Final = 2
@@ -57,7 +57,7 @@ class BMS(BaseBMS):
         )
         self._exp_reply: int = 0x0
         self._response: BMS._Response = BMS._Response(False, 0, 0)
-        self._REGISTERS: dict[int, tuple[BMSvalue, int, Callable[[int], Any]]]
+        self._REGISTERS: dict[int, tuple[BMSValue, int, Callable[[int], Any]]]
         if self._type == "A":
             self._REGISTERS = {
                 # SOC (State of Charge)
@@ -117,8 +117,12 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff6"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        raise NotImplementedError
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {"cycle_capacity", "power", "battery_charging", "delta_voltage"}
         )
@@ -177,9 +181,9 @@ class BMS(BaseBMS):
 
         return bytes(ord(cmd[i]) ^ self._key for i in range(len(cmd)))
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        result: BMSsample = {}
+        result: BMSSample = {}
 
         for reg in list(self._REGISTERS):
             self._exp_reply = reg

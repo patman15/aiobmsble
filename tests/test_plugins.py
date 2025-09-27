@@ -1,5 +1,6 @@
 """Test the aiobmsble library base class functions."""
 
+from collections.abc import Callable
 from types import ModuleType
 
 from aiobmsble.basebms import BaseBMS
@@ -11,16 +12,19 @@ from tests.bluetooth import generate_ble_device
 def test_bms_id(plugin_fixture: ModuleType) -> None:
     """Test that the BMS returns default information."""
     bms_class: type[BaseBMS] = plugin_fixture.BMS
-    for key in ("manufacturer", "model"):
+    for key in ("default_manufacturer", "default_model"):
         assert key in bms_class.INFO
         assert bms_class.INFO[key].strip()
     assert len(bms_class.bms_id().strip())
 
 
-def test_device_info(plugin_fixture: ModuleType) -> None:
+async def test_device_info(
+    plugin_fixture: ModuleType, patch_bleak_client: Callable[..., None]
+) -> None:
     """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client()
     bms: BaseBMS = plugin_fixture.BMS(generate_ble_device())
-    assert {"manufacturer", "model"}.issubset(bms.device_info())
+    assert {"default_manufacturer", "default_model"}.issubset(await bms.device_info())
 
 
 def test_matcher_dict(plugin_fixture: ModuleType) -> None:

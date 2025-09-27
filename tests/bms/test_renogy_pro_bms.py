@@ -4,12 +4,12 @@ from collections.abc import Buffer
 from typing import Final
 from uuid import UUID
 
+import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.uuids import normalize_uuid_str
-import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.renogy_pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
@@ -17,7 +17,7 @@ from tests.conftest import DefGATTChar, MockBleakClient
 BT_FRAME_SIZE = 512  # ATT max is 512 bytes
 
 
-def ref_value() -> BMSsample:
+def ref_value() -> BMSSample:
     """Return reference value for mock Renogy Pro BMS."""
     return {
         "battery_charging": False,
@@ -161,7 +161,7 @@ async def test_invalid_device(patch_bleak_client) -> None:
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
 
     with pytest.raises(
         ConnectionError, match=r"^Failed to detect characteristics from.*"

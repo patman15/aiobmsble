@@ -4,10 +4,10 @@ from collections.abc import Buffer
 from typing import Final
 from uuid import UUID
 
-from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
+from bleak.backends.characteristic import BleakGATTCharacteristic
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.ant_leg_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -15,7 +15,7 @@ from tests.conftest import MockBleakClient
 BT_ADDRESS = "aa:bb:cc:a2:34:56"
 BT_FRAME_SIZE: Final[int] = 19  # ANT BMS frame size
 
-_RESULT_DEFS: Final[BMSsample] = {
+_RESULT_DEFS: Final[BMSSample] = {
     "voltage": 54.2,
     "current": -0.0,
     "battery_level": 100,
@@ -52,7 +52,7 @@ _RESULT_DEFS: Final[BMSsample] = {
     "runtime": 169081843,
 }
 
-_RESULT_DEFS_CAP: Final[BMSsample] = {
+_RESULT_DEFS_CAP: Final[BMSSample] = {
     "voltage": 48.8,
     "current": -8.0,
     "battery_level": 41,
@@ -208,7 +208,7 @@ async def test_update_empty_battery(
 
     bms = BMS(generate_ble_device(BT_ADDRESS, "MockBLEdevice"))
 
-    _expected: BMSsample = _RESULT_DEFS.copy()
+    _expected: BMSSample = _RESULT_DEFS.copy()
     _expected["battery_level"] = 0
     _expected.pop("design_capacity")
     _expected.pop("cycles")
@@ -260,7 +260,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device(BT_ADDRESS, "MockBLEdevice"))
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 

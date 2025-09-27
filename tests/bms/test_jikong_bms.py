@@ -6,14 +6,14 @@ from copy import deepcopy
 from typing import Final
 from uuid import UUID
 
+import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
-import pytest
 
-from aiobmsble.basebms import BMSsample
-from aiobmsble.bms.jikong_bms import BMS, BMSmode, crc_sum
+from aiobmsble.basebms import BMSSample
+from aiobmsble.bms.jikong_bms import BMS, BMSMode, crc_sum
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
 
@@ -180,7 +180,7 @@ _PROTO_DEFS: Final[dict[str, dict[str, bytearray]]] = {
     },
 }
 
-_RESULT_DEFS: Final[dict[str, BMSsample]] = {
+_RESULT_DEFS: Final[dict[str, BMSSample]] = {
     "JK02_24S": {
         "cell_count": 16,
         "delta_voltage": 0.005,
@@ -240,7 +240,7 @@ _RESULT_DEFS: Final[dict[str, BMSsample]] = {
     "JK02_32S_v15": {
         "cell_count": 16,
         "delta_voltage": 0.016,
-        "battery_mode": BMSmode.FLOAT,
+        "battery_mode": BMSMode.FLOAT,
         "voltage": 53.224,
         "current": 31.881,
         "battery_level": 25,
@@ -277,7 +277,7 @@ _RESULT_DEFS: Final[dict[str, BMSsample]] = {
     "JK02_32S_v19": {
         "cell_count": 16,
         "delta_voltage": 0.016,
-        "battery_mode": BMSmode.FLOAT,
+        "battery_mode": BMSMode.FLOAT,
         "voltage": 53.224,
         "current": 31.881,
         "battery_level": 25,
@@ -538,7 +538,7 @@ async def test_hide_temp_sensors(
     bms = BMS(generate_ble_device())
 
     # modify result dict to match removed temp#1, temp#2
-    ref_result: BMSsample = deepcopy(_RESULT_DEFS[protocol_type])
+    ref_result: BMSSample = deepcopy(_RESULT_DEFS[protocol_type])
     if protocol_type == "JK02_24S":
         ref_result |= {"temp_sensors": 3, "temperature": 18.1}
     elif protocol_type == "JK02_32S":
@@ -599,7 +599,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
     assert not result
@@ -625,7 +625,7 @@ async def test_invalid_frame_type(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
     assert not result
@@ -656,7 +656,7 @@ async def test_invalid_device(patch_bleak_client) -> None:
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
 
     with pytest.raises(
         ConnectionError, match=r"^Failed to detect characteristics from.*"
@@ -690,7 +690,7 @@ async def test_non_stale_data(
     bms = BMS(generate_ble_device())
 
     # run an update which provides half a valid message and then disconnects
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
     assert not result

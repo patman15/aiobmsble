@@ -8,21 +8,24 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSinfo, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, MatcherPattern
 from aiobmsble.bms.renogy_bms import BMS as RenogyBMS
 
 
 class BMS(RenogyBMS):
     """Renogy Pro battery class implementation."""
 
-    INFO: BMSinfo = {"manufacturer": "Renogy", "model": "Bluetooth battery pro"}
+    INFO: BMSInfo = {
+        "default_manufacturer": "Renogy",
+        "default_model": "BT battery pro",
+    }
     _HEAD: bytes = b"\xff\x03"  # SOP, read fct (x03)
-    _FIELDS: tuple[BMSdp, ...] = (
-        BMSdp("voltage", 5, 2, False, lambda x: x / 10),
-        BMSdp("current", 3, 2, True, lambda x: x / 10),
-        BMSdp("design_capacity", 11, 4, False, lambda x: x // 1000),
-        BMSdp("cycle_charge", 7, 4, False, lambda x: x / 1000),
-        BMSdp("cycles", 15, 2, False, lambda x: x),
+    _FIELDS: tuple[BMSDp, ...] = (
+        BMSDp("voltage", 5, 2, False, lambda x: x / 10),
+        BMSDp("current", 3, 2, True, lambda x: x / 10),
+        BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
+        BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000),
+        BMSDp("cycles", 15, 2, False, lambda x: x),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:

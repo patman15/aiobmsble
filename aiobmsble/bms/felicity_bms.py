@@ -12,21 +12,21 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSinfo, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Felicity BMS implementation."""
 
-    INFO: BMSinfo = {"manufacturer": "Felicity Solar", "model": "LiFePo4 battery"}
+    INFO: BMSInfo = {"default_manufacturer": "Felicity Solar", "default_model": "LiFePo4 battery"}
     _HEAD: Final[bytes] = b"{"
     _TAIL: Final[bytes] = b"}"
     _CMD_PRE: Final[bytes] = b"wifilocalMonitor:"  # CMD prefix
     _CMD_BI: Final[bytes] = b"get dev basice infor"
     _CMD_DT: Final[bytes] = b"get Date"
     _CMD_RT: Final[bytes] = b"get dev real infor"
-    _FIELDS: Final[list[tuple[BMSvalue, str, Callable[[list], Any]]]] = [
+    _FIELDS: Final[list[tuple[BMSValue, str, Callable[[list], Any]]]] = [
         ("voltage", "Batt", lambda x: x[0][0] / 1000),
         ("current", "Batt", lambda x: x[1][0] / 10),
         (
@@ -64,8 +64,12 @@ class BMS(BaseBMS):
         """Return 128-bit UUID of characteristic that provides write property."""
         return "49535258-184d-4bd9-bc61-20c647249616"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        raise NotImplementedError
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "battery_charging",
@@ -106,8 +110,8 @@ class BMS(BaseBMS):
         self._data_event.set()
 
     @staticmethod
-    def _conv_data(data: dict) -> BMSsample:
-        result: BMSsample = {}
+    def _conv_data(data: dict) -> BMSSample:
+        result: BMSSample = {}
         for key, itm, func in BMS._FIELDS:
             result[key] = func(data.get(itm, []))
         return result
@@ -122,7 +126,7 @@ class BMS(BaseBMS):
             (value / 10) for value in data.get("BtemList", [])[0] if value != 0x7FFF
         ]
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
         await self._await_reply(BMS._CMD_PRE + BMS._CMD_RT)

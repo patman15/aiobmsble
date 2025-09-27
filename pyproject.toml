@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff>=0.12.1,<0.14.0"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff>=0.12.1,<0.14.0", "pylint-per-file-ignores"]
 
 [project.urls]
 Homepage = "https://github.com/patman15/aiobmsble/"
@@ -236,3 +236,13 @@ split-on-trailing-comma = false
 [tool.ruff.lint.mccabe]
 max-complexity = 25
 
+[tool.pylint.MAIN]
+py-version = "3.13"
+load-plugins = [
+    "pylint_per_file_ignores",
+]
+
+[tool.pylint."MESSAGES CONTROL"]
+per-file-ignores = [
+    "/tests/:protected-access",
+]

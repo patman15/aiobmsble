@@ -2,18 +2,14 @@
 
 from types import ModuleType
 
-from bleak.backends.scanner import AdvertisementData
 import pytest
+from bleak.backends.scanner import AdvertisementData
 
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.test_data import bms_advertisements
-from aiobmsble.utils import (
-    _advertisement_matches,
-    bms_cls,
-    bms_identify,
-    load_bms_plugins,
-)
+from aiobmsble.utils import (_advertisement_matches, bms_cls, bms_identify,
+                             load_bms_plugins)
 from tests.bluetooth import generate_advertisement_data
 
 

@@ -8,14 +8,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSinfo, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Dummy BMS implementation."""
 
-    INFO = {"manufacturer": "Dummy Manufacturer", "model": "dummy model"}  # TODO
+    INFO: BMSInfo = {
+        "default_manufacturer": "Dummy Manufacturer",
+        "default_model": "dummy model",
+    }  # TODO
     # _HEAD: Final[bytes] = b"\x55"  # beginning of frame
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
@@ -44,8 +47,12 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "0000"  # TODO: change TX characteristic UUID here!
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        raise NotImplementedError  # TODO: implement code, return empty, or delete to query service 0x180A
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {"power", "battery_charging"}
         )  # calculate further values from BMS provided set ones
@@ -75,7 +82,7 @@ class BMS(BaseBMS):
         # self._data = data.copy()
         # self._data_event.set()
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         self._log.debug("replace with command to UUID %s", BMS.uuid_tx())
         # await self._await_reply(b"<some_command>")

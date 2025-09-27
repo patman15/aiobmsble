@@ -4,11 +4,11 @@ from collections.abc import Buffer
 from typing import Final
 from uuid import UUID
 
+import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
-import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.renogy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -16,7 +16,7 @@ from tests.conftest import MockBleakClient
 BT_FRAME_SIZE = 512  # ATT max is 512 bytes
 
 
-def ref_value() -> BMSsample:
+def ref_value() -> BMSSample:
     """Return reference value for mock Renogy BMS."""
     return {
         "battery_charging": False,
@@ -154,7 +154,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -180,7 +180,7 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result == ref_value() | {
         "problem": True,
         "problem_code": 0xFFFFFFFFFFFFFFFFFFFFFFFFFFF1,

@@ -11,14 +11,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSinfo, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Pro BMS Smart Shunt class implementation."""
 
-    INFO: BMSinfo = {"manufacturer": "Pro BMS", "model": "Smart Shunt"}
+    INFO: BMSInfo = {"default_manufacturer": "Pro BMS", "default_model": "Smart Shunt"}
     _HEAD: Final[bytes] = bytes([0x55, 0xAA])
     _MIN_LEN: Final[int] = 5
     _INIT_RESP: Final[int] = 0x03
@@ -31,26 +31,26 @@ class BMS(BaseBMS):
     # command that triggers data streaming (Function 0x43)
     _CMD_TRIGGER_DATA: Final[bytes] = bytes.fromhex("55aa0901015580430000120084")
 
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 8, 2, False, lambda x: x / 100),
-        BMSdp(
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 8, 2, False, lambda x: x / 100),
+        BMSDp(
             "current",
             12,
             4,
             False,
             lambda x: ((x & 0xFFFF) / 1000) * (-1 if (x >> 24) & 0x80 else 1),
         ),
-        BMSdp("problem_code", 15, 4, False, lambda x: x & 0x7F),
-        BMSdp(
+        BMSDp("problem_code", 15, 4, False, lambda x: x & 0x7F),
+        BMSDp(
             "temperature",
             16,
             3,
             False,
             lambda x: ((x & 0xFFFF) / 10) * (-1 if x >> 16 else 1),
         ),
-        BMSdp("cycle_charge", 20, 4, False, lambda x: x / 100),
-        BMSdp("battery_level", 24, 1, False, lambda x: x),
-        BMSdp("power", 32, 4, False, lambda x: x / 100),
+        BMSDp("cycle_charge", 20, 4, False, lambda x: x / 100),
+        BMSDp("battery_level", 24, 1, False, lambda x: x),
+        BMSDp("power", 32, 4, False, lambda x: x / 100),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -84,8 +84,12 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff3"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        raise NotImplementedError
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset({"battery_charging", "cycle_capacity", "runtime"})
 
     def _notification_handler(
@@ -126,7 +130,7 @@ class BMS(BaseBMS):
 
         self._valid_reply = BMS._RT_DATA
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
         self._data_event.clear()  # Clear the event to ensure fresh data on each update
@@ -137,7 +141,7 @@ class BMS(BaseBMS):
             await self.disconnect()
             raise
 
-        result: BMSsample = BMS._decode_data(
+        result: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._data, byteorder="little"
         )
         result["power"] *= -1 if result["current"] < 0 else 1

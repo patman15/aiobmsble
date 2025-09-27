@@ -4,12 +4,12 @@ from collections.abc import Buffer
 from typing import Final
 from uuid import UUID
 
+import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.exc import BleakDeviceNotFoundError
 from bleak.uuids import normalize_uuid_str
-import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.tdt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -326,7 +326,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -453,7 +453,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device(), False)
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result.get("problem", False)  # we expect a problem
     assert result.get("problem_code", 0) == (
         0x1 if problem_response[1].startswith("first_bit") else 0x8000

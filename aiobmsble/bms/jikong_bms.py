@@ -11,29 +11,37 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSinfo, BMSmode, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import (
+    BMSDefInfo,
+    BMSDp,
+    BMSInfo,
+    BMSMode,
+    BMSSample,
+    BMSValue,
+    MatcherPattern,
+)
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class BMS(BaseBMS):
     """Jikong Smart BMS class implementation."""
 
-    INFO: BMSinfo = {"manufacturer": "Jikong", "model": "Smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "Jikong", "default_model": "Smart BMS"}
     HEAD_RSP: Final = bytes([0x55, 0xAA, 0xEB, 0x90])  # header for responses
     HEAD_CMD: Final = bytes([0xAA, 0x55, 0x90, 0xEB])  # header for commands (endiness!)
     _READY_MSG: Final = HEAD_CMD + bytes([0xC8, 0x01, 0x01] + [0x00] * 12 + [0x44])
     _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
     TYPE_POS: Final[int] = 4  # frame type is right after the header
     INFO_LEN: Final[int] = 300
-    _FIELDS: Final[tuple[BMSdp, ...]] = (  # Protocol: JK02_32S; JK02_24S has offset -32
-        BMSdp("voltage", 150, 4, False, lambda x: x / 1000),
-        BMSdp("current", 158, 4, True, lambda x: x / 1000),
-        BMSdp("battery_level", 173, 1, False, lambda x: x),
-        BMSdp("cycle_charge", 174, 4, False, lambda x: x / 1000),
-        BMSdp("cycles", 182, 4, False, lambda x: x),
-        BMSdp("balance_current", 170, 2, True, lambda x: x / 1000),
-        BMSdp("temp_sensors", 214, 2, True, lambda x: x),
-        BMSdp("problem_code", 166, 4, False, lambda x: x),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (  # Protocol: JK02_32S; JK02_24S has offset -32
+        BMSDp("voltage", 150, 4, False, lambda x: x / 1000),
+        BMSDp("current", 158, 4, True, lambda x: x / 1000),
+        BMSDp("battery_level", 173, 1, False, lambda x: x),
+        BMSDp("cycle_charge", 174, 4, False, lambda x: x / 1000),
+        BMSDp("cycles", 182, 4, False, lambda x: x),
+        BMSDp("balance_current", 170, 2, True, lambda x: x / 1000),
+        BMSDp("temp_sensors", 214, 2, True, lambda x: x),
+        BMSDp("problem_code", 166, 4, False, lambda x: x),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -73,8 +81,12 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        raise NotImplementedError
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "power",
@@ -243,10 +255,10 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _conv_data(data: bytearray, offs: int, sw_majv: int) -> BMSsample:
+    def _conv_data(data: bytearray, offs: int, sw_majv: int) -> BMSSample:
         """Return BMS data from status message."""
 
-        result: BMSsample = BMS._decode_data(
+        result: BMSSample = BMS._decode_data(
             BMS._FIELDS, data, byteorder="little", offset=offs
         )
         result["cell_count"] = int.from_bytes(
@@ -262,14 +274,14 @@ class BMS(BaseBMS):
 
         if sw_majv >= 15:
             result["battery_mode"] = (
-                BMSmode(data[280 + offs])
-                if data[280 + offs] in BMSmode
-                else BMSmode.UNKNOWN
+                BMSMode(data[280 + offs])
+                if data[280 + offs] in BMSMode
+                else BMSMode.UNKNOWN
             )
 
         return result
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         if not self._data_event.is_set() or self._data_final[4] != 0x02:
             # request cell info (only if data is not constantly published)
@@ -278,7 +290,7 @@ class BMS(BaseBMS):
                 data=BMS._cmd(b"\x96"), char=self._char_write_handle
             )
 
-        data: BMSsample = self._conv_data(
+        data: BMSSample = self._conv_data(
             self._data_final,
             self._prot_offset,
             int(self._bms_info.get("sw_version", "")[:2]),

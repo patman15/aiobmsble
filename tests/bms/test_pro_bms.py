@@ -10,10 +10,10 @@ import asyncio
 import contextlib
 import logging
 
-from bleak.backends.device import BLEDevice
 import pytest
+from bleak.backends.device import BLEDevice
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -182,7 +182,7 @@ async def test_async_update_incomplete_data(
 
     bms = BMS(device)
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         await bms.async_update()  # Should return empty dict for incomplete data
     assert not result
@@ -243,7 +243,7 @@ async def test_async_update_no_data_after_init(
 
     bms = BMS(device)
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -280,7 +280,7 @@ async def test_invalid_response(
     bms = BMS(generate_ble_device())
 
     logging.getLogger(__name__)
-    result: BMSsample = {}
+    result: BMSSample = {}
     with caplog.at_level(logging.DEBUG), pytest.raises(TimeoutError):
         result = await bms.async_update()
     assert not result

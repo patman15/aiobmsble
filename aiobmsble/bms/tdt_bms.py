@@ -10,14 +10,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSinfo, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
     """TDT BMS implementation."""
 
-    INFO: BMSinfo = {"manufacturer": "TDT", "model": "Smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "TDT", "default_model": "Smart BMS"}
     _UUID_CFG: Final[str] = "fffa"
     _HEAD: Final[int] = 0x7E
     _CMD_HEADS: list[int] = [0x7E, 0x1E]  # alternative command head
@@ -26,9 +26,9 @@ class BMS(BaseBMS):
     _RSP_VER: Final[frozenset[int]] = frozenset({0x00, 0x04})
     _CELL_POS: Final[int] = 0x8
     _INFO_LEN: Final[int] = 10  # minimal frame length
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 2, 2, False, lambda x: x / 100, 0x8C),
-        BMSdp(
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 2, 2, False, lambda x: x / 100, 0x8C),
+        BMSDp(
             "current",
             0,
             2,
@@ -36,9 +36,9 @@ class BMS(BaseBMS):
             lambda x: (x & 0x3FFF) / 10 * (-1 if x >> 15 else 1),
             0x8C,
         ),
-        BMSdp("cycle_charge", 4, 2, False, lambda x: x / 10, 0x8C),
-        BMSdp("battery_level", 13, 1, False, lambda x: x, 0x8C),
-        BMSdp("cycles", 8, 2, False, lambda x: x, 0x8C),
+        BMSDp("cycle_charge", 4, 2, False, lambda x: x / 10, 0x8C),
+        BMSDp("battery_level", 13, 1, False, lambda x: x, 0x8C),
+        BMSDp("cycles", 8, 2, False, lambda x: x, 0x8C),
     )  # problem code is not included in the list, but extra
     _CMDS: Final[list[int]] = [*list({field.idx for field in _FIELDS}), 0x8D]
 
@@ -69,8 +69,12 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        raise NotImplementedError
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "battery_charging",
@@ -153,7 +157,7 @@ class BMS(BaseBMS):
 
         return bytes(frame)
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
         for head in self._cmd_heads:
@@ -167,7 +171,7 @@ class BMS(BaseBMS):
         else:
             raise TimeoutError
 
-        result: BMSsample = {"cell_count": self._data_final[0x8C][BMS._CELL_POS]}
+        result: BMSSample = {"cell_count": self._data_final[0x8C][BMS._CELL_POS]}
         result["temp_sensors"] = self._data_final[0x8C][
             BMS._CELL_POS + result["cell_count"] * 2 + 1
         ]
