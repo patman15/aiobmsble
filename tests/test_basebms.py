@@ -8,6 +8,7 @@ from uuid import UUID
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
+from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
@@ -136,6 +137,57 @@ class WMTestBMS(MinTestBMS):
         return {"problem_code": int.from_bytes(self._data, "big", signed=False)}
 
 
+@pytest.mark.parametrize(
+    ("bt_patch", "result_patch"),
+    [
+        ({"2a28": b"mock_SW_version"}, {"sw_version": "mock_SW_version"}),
+        ({"2a28": b""}, {"sw_version": "mock_FW_version"}),
+        ({}, {"sw_version": "mock_FW_version"}),
+    ],
+    ids=["defaults", "no_SW_ver", "empty_SW_ver"],
+)
+async def test_device_info(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    bt_patch,
+    result_patch,
+) -> None:
+    """Verify that device_info reads BLE characteristic 180A and provides default values."""
+    defaults = MockBleakClient.BT_INFO.copy()
+    del defaults["2a28"]
+    monkeypatch.setattr(MockBleakClient, "BT_INFO", defaults | bt_patch)
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    assert (
+        await bms.device_info()
+        == {
+            "default_manufacturer": "Test Manufacturer",
+            "default_model": "minimal BMS for test",
+            "model": "mock_model",
+            "serial_number": "mock_serial_number",
+            "hw_version": "mock_HW_version",
+            "manufacturer": "mock_manufacturer",
+        }
+        | result_patch
+    )
+
+
+async def test_device_info_fail(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client: Callable[..., None]
+) -> None:
+    monkeypatch.setattr(
+        BleakGATTServiceCollection, "get_service", lambda obj, char: None
+    )
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms.async_update()  # run update to have connection open
+    assert await bms.device_info() == {
+        "default_manufacturer": "Test Manufacturer",
+        "default_model": "minimal BMS for test",
+    }
+    assert bms._client.is_connected
+
+
 def test_calc_missing_values(bms_data_fixture: BMSSample) -> None:
     """Check if missing data is correctly calculated."""
     bms_data: BMSSample = bms_data_fixture
@@ -151,7 +203,7 @@ def test_calc_missing_values(bms_data_fixture: BMSSample) -> None:
                 "runtime",
                 "delta_voltage",
                 "temperature",
-                "voltage",  # check that not overwritten
+                "voltage",  # check value is not overwritten
             }
         ),
     )

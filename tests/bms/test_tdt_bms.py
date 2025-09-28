@@ -230,9 +230,15 @@ class MockTDTBleakClient(MockBleakClient):
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
         **kwargs,
     ) -> bytearray:
-        """Mock write GATT characteristics."""
-        await super().read_gatt_char(char_specifier, kwargs=kwargs)
-        return bytearray(int.to_bytes(self._char_fffa, 1, "big"))
+        """Mock read GATT characteristics."""
+
+        if (
+            isinstance(char_specifier, str)
+            and normalize_uuid_str(char_specifier)[4:8] == "fffa"
+        ):
+            return bytearray(int.to_bytes(self._char_fffa, 1, "big"))
+
+        return await super().read_gatt_char(char_specifier, kwargs=kwargs)
 
 
 async def test_update(

@@ -16,7 +16,7 @@ from typing import Any, Final, Literal, Self
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.exc import BleakError, BleakCharacteristicNotFoundError
+from bleak.exc import BleakCharacteristicNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_16
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
@@ -157,13 +157,13 @@ class BaseBMS(ABC):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        if not self._client.services.get_service(normalize_uuid_16(0x180A)):
+        if not self._client.services.get_service("180a"):
             return BMSInfo()
 
         characteristics: Final[
             tuple[
                 tuple[
-                    int,
+                    str,
                     Literal[
                         "model",
                         "serial_number",
@@ -175,12 +175,12 @@ class BaseBMS(ABC):
                 ...,
             ]
         ] = (
-            (0x2A24, "model"),
-            (0x2A25, "serial_number"),
-            (0x2A26, "sw_version"),
-            (0x2A27, "hw_version"),
-            (0x2A28, "sw_version"),  # overwrite FW with SW version
-            (0x2A29, "manufacturer"),
+            ("2a24", "model"),
+            ("2a25", "serial_number"),
+            ("2a26", "sw_version"),
+            ("2a27", "hw_version"),
+            ("2a28", "sw_version"),  # overwrite FW with SW version
+            ("2a29", "manufacturer"),
         )
 
         info: BMSInfo = BMSInfo()
