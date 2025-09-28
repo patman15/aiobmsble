@@ -119,7 +119,9 @@ class MockANTBleakClient(MockBleakClient):
             self._notify_callback("MockANTBleakClient", notify_data)
 
 
-async def test_update(patch_bms_timeout, patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(
+    patch_bms_timeout, patch_bleak_client, keep_alive_fixture
+) -> None:
     """Test ANT BMS data update."""
 
     patch_bms_timeout()
@@ -134,6 +136,18 @@ async def test_update(patch_bms_timeout, patch_bleak_client, keep_alive_fixture)
     assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
+
+
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockANTBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "ANT",
+        "default_model": "Smart BMS",
+        "hw_version": "24BH",
+        "sw_version": "24BHUB00-211026A",
+    }
 
 
 @pytest.fixture(

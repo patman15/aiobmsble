@@ -52,7 +52,7 @@ class BMS(BaseBMS):
         super().__init__(ble_device, keep_alive)
         self._data_final: bytearray = bytearray()
         self._valid_reply: int = BMS._CMD_STAT | 0x10  # valid reply mask
-        self._exp_len: int = BMS._MIN_LEN
+        self._exp_len: int = 0
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -104,7 +104,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize RX/TX characteristics and protocol state."""
         await super()._init_connection(char_notify)
-        self._exp_len = BMS._MIN_LEN
+        self._exp_len = 0
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -124,7 +124,7 @@ class BMS(BaseBMS):
             "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
         )
 
-        if len(self._data) < self._exp_len:
+        if len(self._data) < self._exp_len or len(self._data) < BMS._MIN_LEN:
             return
 
         if self._data[2] != self._valid_reply:
