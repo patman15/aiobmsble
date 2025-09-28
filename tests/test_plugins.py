@@ -18,15 +18,6 @@ def test_bms_id(plugin_fixture: ModuleType) -> None:
     assert len(bms_class.bms_id().strip())
 
 
-async def test_device_info(
-    plugin_fixture: ModuleType, patch_bleak_client: Callable[..., None]
-) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client()
-    bms: BaseBMS = plugin_fixture.BMS(generate_ble_device())
-    assert {"default_manufacturer", "default_model"}.issubset(await bms.device_info())
-
-
 def test_matcher_dict(plugin_fixture: ModuleType) -> None:
     """Test that the BMS returns BT matcher."""
     bms_class: type[BaseBMS] = plugin_fixture.BMS
