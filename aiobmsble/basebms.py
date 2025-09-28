@@ -188,7 +188,7 @@ class BaseBMS(ABC):
         for char, key in characteristics:
             try:
                 if value := await self._client.read_gatt_char(char):
-                    info[key] = value.decode(errors="ignore").rstrip("\x00").rstrip()
+                    info[key] = barr2str(value)
                 self._log.debug("BT device %s: '%s'", key, info[key])
             except BleakCharacteristicNotFoundError:
                 pass
@@ -570,6 +570,15 @@ class BaseBMS(ABC):
                 or (offset == 0)
             )
         ]
+
+
+def barr2str(barr: bytearray) -> str:
+    """Decode a bytearray to string, stopping at the first non-printable character."""
+    s = barr.decode("utf-8", errors="ignore")
+    for i, c in enumerate(s):
+        if not c.isprintable():
+            return s[:i]
+    return s
 
 
 def crc_modbus(data: bytearray) -> int:
