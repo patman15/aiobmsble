@@ -21,7 +21,7 @@ class BMS(BaseBMS):
     _CRC_POS: Final[int] = -2
     _TEMP_POS: Final[int] = 37
     _CELL_POS: Final[int] = 3
-    _FIELDS: tuple[BMSDp, ...] = (
+    FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),
         BMSDp("current", 3, 2, True, lambda x: x / 100),
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
@@ -124,7 +124,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         await self._await_reply(self._cmd(0x13B2, 0x7))
-        result: BMSSample = BMS._decode_data(type(self)._FIELDS, self._data)
+        result: BMSSample = BMS._decode_data(type(self).FIELDS, self._data)
 
         await self._await_reply(self._cmd(0x1388, 0x22))
         result["cell_count"] = BMS._read_int16(self._data, BMS._CELL_POS)

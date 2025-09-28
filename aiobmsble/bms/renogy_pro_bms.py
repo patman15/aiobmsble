@@ -20,7 +20,7 @@ class BMS(RenogyBMS):
         "default_model": "BT battery pro",
     }
     _HEAD: bytes = b"\xff\x03"  # SOP, read fct (x03)
-    _FIELDS: tuple[BMSDp, ...] = (
+    FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),
         BMSDp("current", 3, 2, True, lambda x: x / 10),
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
