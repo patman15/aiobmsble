@@ -236,13 +236,13 @@ split-on-trailing-comma = false
 [tool.ruff.lint.mccabe]
 max-complexity = 25
 
-[tool.pylint.MAIN]
-py-version = "3.13"
+[tool.pylint.main]
 load-plugins = [
-    "pylint_per_file_ignores",
+    "pylint_per_file_ignores"
 ]
 
-[tool.pylint."MESSAGES CONTROL"]
+[tool.pylint."messages control"]
 per-file-ignores = [
-    "/tests/:protected-access",
+    "tests/**:protected-access"
 ]
+
