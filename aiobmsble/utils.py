@@ -4,19 +4,19 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from fnmatch import translate
+from functools import lru_cache
 import importlib
 import pkgutil
 import re
-from fnmatch import translate
-from functools import lru_cache
 from types import ModuleType
 from typing import Final
 
 from bleak.backends.scanner import AdvertisementData
 
-import aiobmsble.bms
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
+import aiobmsble.bms
 
 _MODULE_POSTFIX: Final[str] = "_bms"
 

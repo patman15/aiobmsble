@@ -1,7 +1,7 @@
 """Test advertisements for aiobmsble package."""
 
-import json
 from importlib import resources
+import json
 from typing import Any
 
 from bleak.backends.scanner import AdvertisementData

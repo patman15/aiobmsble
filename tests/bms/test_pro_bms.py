@@ -10,8 +10,8 @@ import asyncio
 import contextlib
 import logging
 
-import pytest
 from bleak.backends.device import BLEDevice
+import pytest
 
 from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.pro_bms import BMS

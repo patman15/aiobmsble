@@ -3,9 +3,9 @@
 from collections.abc import Buffer
 from uuid import UUID
 
-import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
+import pytest
 
 from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.ej_bms import BMS

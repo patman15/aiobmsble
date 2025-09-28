@@ -4,10 +4,10 @@ from collections.abc import Buffer
 from typing import Final
 from uuid import UUID
 
-import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.exc import BleakDeviceNotFoundError
 from bleak.uuids import normalize_uuid_str
+import pytest
 
 from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.tdt_bms import BMS

@@ -5,11 +5,10 @@ from collections.abc import Callable
 from types import ModuleType
 from typing import Final
 
-import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.service import BleakGATTService
-from hypothesis import given
-from hypothesis import strategies as st
+from hypothesis import given, strategies as st
+import pytest
 
 from aiobmsble.basebms import BaseBMS
 from tests.bluetooth import generate_ble_device

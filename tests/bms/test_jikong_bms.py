@@ -6,11 +6,11 @@ from copy import deepcopy
 from typing import Final
 from uuid import UUID
 
-import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
+import pytest
 
 from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.jikong_bms import BMS, BMSMode, crc_sum

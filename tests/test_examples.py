@@ -3,9 +3,9 @@
 from collections.abc import Callable
 from typing import NoReturn
 
-import pytest
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
+import pytest
 
 import examples.minimal
 from tests.bluetooth import generate_ble_device

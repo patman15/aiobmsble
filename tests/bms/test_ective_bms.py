@@ -4,8 +4,8 @@ from collections.abc import Awaitable, Callable
 from typing import Final
 from uuid import UUID
 
-import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
+import pytest
 
 from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.ective_bms import BMS

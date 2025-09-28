@@ -1,13 +1,13 @@
 """Test the ECO-WORTHY implementation."""
 
 import asyncio
-import contextlib
 from collections.abc import Awaitable, Callable
+import contextlib
 from typing import Final
 from uuid import UUID
 
-import pytest
 from bleak.backends.characteristic import BleakGATTCharacteristic
+import pytest
 
 from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.ecoworthy_bms import BMS

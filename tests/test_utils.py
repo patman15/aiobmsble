@@ -2,14 +2,18 @@
 
 from types import ModuleType
 
-import pytest
 from bleak.backends.scanner import AdvertisementData
+import pytest
 
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.test_data import bms_advertisements
-from aiobmsble.utils import (_advertisement_matches, bms_cls, bms_identify,
-                             load_bms_plugins)
+from aiobmsble.utils import (
+    _advertisement_matches,
+    bms_cls,
+    bms_identify,
+    load_bms_plugins,
+)
 from tests.bluetooth import generate_advertisement_data
 
 
@@ -173,7 +177,7 @@ def test_bms_identify_fail() -> None:
 def test_advertisement_matches(
     matcher: MatcherPattern, adv_data: AdvertisementData, expected: bool
 ):
-    """Tests whether the advertisement_matches function returns the expected result for given matcher and advertisement data.
+    """Test _advertisement_matches() returns the expected result for a given matcher/advertisement.
 
     Args:
         matcher: The matcher object or criteria used to evaluate the advertisement data.
