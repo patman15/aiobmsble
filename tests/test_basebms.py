@@ -141,10 +141,9 @@ class WMTestBMS(MinTestBMS):
     ("bt_patch", "result_patch"),
     [
         ({"2a28": b"mock_SW_version"}, {"sw_version": "mock_SW_version"}),
-        ({"2a28": b""}, {"sw_version": "mock_FW_version"}),
-        ({}, {"sw_version": "mock_FW_version"}),
+        ({}, {}),
     ],
-    ids=["defaults", "no_SW_ver", "empty_SW_ver"],
+    ids=["defaults", "no_SW_ver"],
 )
 async def test_device_info(
     monkeypatch: pytest.MonkeyPatch,
@@ -163,6 +162,7 @@ async def test_device_info(
         == {
             "default_manufacturer": "Test Manufacturer",
             "default_model": "minimal BMS for test",
+            "fw_version": "mock_FW_version",
             "model": "mock_model",
             "serial_number": "mock_serial_number",
             "hw_version": "mock_HW_version",

@@ -1,4 +1,4 @@
-"""Module to support Daly Smart BMS.
+"""Module to support Daly smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -11,16 +11,17 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 
 
 class BMS(BaseBMS):
-    """Daly Smart BMS class implementation."""
+    """Daly smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Daly", "default_model": "Smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "Daly", "default_model": "smart BMS"}
     HEAD_READ: Final[bytes] = b"\xd2\x03"
     CMD_INFO: Final[bytes] = b"\x00\x00\x00\x3e\xd7\xb9"
     MOS_INFO: Final[bytes] = b"\x00\x3e\x00\x09\xf7\xa3"
+    VER_INFO: Final[bytes] = b"\x00\xa9\x00\x20\x87\x91"
     HEAD_LEN: Final[int] = 3
     CRC_LEN: Final[int] = 2
     MAX_CELLS: Final[int] = 32
@@ -78,7 +79,12 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        raise NotImplementedError
+        await self._await_reply(BMS.HEAD_READ + BMS.VER_INFO)
+        return {
+            "sw_version": barr2str(self._data[3:19]),
+            "hw_version": barr2str(self._data[19:35]),
+            # "manuf.date": barr2str(self._data[35:51]),
+        }
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
@@ -116,7 +122,7 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        self._data = data
+        self._data = data.copy()
         self._data_event.set()
 
     async def _async_update(self) -> BMSSample:

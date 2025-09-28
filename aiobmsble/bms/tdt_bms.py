@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """TDT BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "TDT", "default_model": "Smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "TDT", "default_model": "smart BMS"}
     _UUID_CFG: Final[str] = "fffa"
     _HEAD: Final[int] = 0x7E
     _CMD_HEADS: list[int] = [0x7E, 0x1E]  # alternative command head
@@ -69,9 +69,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch the device information via BLE."""
-        raise NotImplementedError
+    # async def _fetch_device_info(self) -> BMSInfo: use default
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

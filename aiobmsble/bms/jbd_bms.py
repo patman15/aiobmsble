@@ -1,4 +1,4 @@
-"""Module to support JBD Smart BMS.
+"""Module to support JBD smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -15,9 +15,9 @@ from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
-    """JBD Smart BMS class implementation."""
+    """JBD smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Jiabaida", "default_model": "Smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "Jiabaida", "default_model": "smart BMS"}
     HEAD_RSP: Final[bytes] = bytes([0xDD])  # header for responses
     HEAD_CMD: Final[bytes] = bytes([0xDD, 0xA5])  # read header for commands
     TAIL: Final[int] = 0x77  # tail for command
@@ -99,9 +99,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ff02"
 
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch the device information via BLE."""
-        raise NotImplementedError
+    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

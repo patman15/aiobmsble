@@ -176,7 +176,6 @@ class MockOversizedBleakClient(MockNeeyBleakClient):
         return super()._response(char_specifier, data) + bytearray(6)
 
 
-@pytest.mark.asyncio
 async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> None:
     """Test Neey BMS data update."""
 
@@ -193,6 +192,20 @@ async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> No
     assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
+
+
+async def test_device_info(monkeypatch, patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", _PROTO_DEFS)
+    patch_bleak_client(MockNeeyBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "Neey",
+        "default_model": "Balancer",
+        "model": "GW-24S4EB",
+        "sw_version": "ZH-1.2.3",
+        "hw_version": "HW-2.8.0",
+    }
 
 
 async def test_stream_update(

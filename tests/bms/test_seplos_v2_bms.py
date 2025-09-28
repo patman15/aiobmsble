@@ -147,6 +147,16 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     await bms.disconnect()
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockSeplosv2BleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "Seplos",
+        "default_model": "smart BMS V2",
+        "sw_version": "16.6",
+        "model": "B1101-SP76",
+    }
 
 async def test_short_message(monkeypatch, patch_bleak_client) -> None:
     """Test Seplos V2 BMS data update with short message (missing values)."""

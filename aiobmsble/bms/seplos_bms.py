@@ -1,4 +1,4 @@
-"""Module to support Seplos V3 Smart BMS.
+"""Module to support Seplos V3 smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -16,9 +16,9 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
-    """Seplos V3 Smart BMS class implementation."""
+    """Seplos V3 smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Seplos", "default_model": "Smart BMS V3"}
+    INFO: BMSInfo = {"default_manufacturer": "Seplos", "default_model": "smart BMS V3"}
     CMD_READ: Final[list[int]] = [0x01, 0x04]
     HEAD_LEN: Final[int] = 3
     CRC_LEN: Final[int] = 2
@@ -96,9 +96,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch the device information via BLE."""
-        raise NotImplementedError
+    # async def _fetch_device_info(self) -> BMSInfo: use default, VIA msg useless
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

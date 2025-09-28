@@ -81,7 +81,7 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        raise NotImplementedError
+        return BMSInfo()  # no device information available
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

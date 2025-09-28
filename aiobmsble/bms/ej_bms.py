@@ -25,7 +25,7 @@ class Cmd(IntEnum):
 class BMS(BaseBMS):
     """E&J Technology BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "E&J Technology", "default_model": "Smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "E&J Technology", "default_model": "smart BMS"}
     _BT_MODULE_MSG: Final[bytes] = bytes([0x41, 0x54, 0x0D, 0x0A])  # BLE module message
     _IGNORE_CRC: Final[str] = "libattU"
     _HEAD: Final[bytes] = b"\x3a"
@@ -101,7 +101,7 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        raise NotImplementedError
+        return BMSInfo()  # no device information available
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

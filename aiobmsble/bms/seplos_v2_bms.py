@@ -11,13 +11,13 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_xmodem
+from aiobmsble.basebms import BaseBMS, barr2str, crc_xmodem
 
 
 class BMS(BaseBMS):
     """Seplos v2 BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Seplos", "default_model": "Smart BMS V2"}
+    INFO: BMSInfo = {"default_manufacturer": "Seplos", "default_model": "smart BMS V2"}
     _HEAD: Final[bytes] = b"\x7e"
     _TAIL: Final[bytes] = b"\x0d"
     _CMD_VER: Final[int] = 0x10  # TX protocol version
@@ -73,7 +73,13 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        raise NotImplementedError
+        self._exp_reply = {0x51}
+        await self._await_reply(BMS._cmd(0x51))
+        _dat = self._data_final[0x51]
+        return {
+            "model": barr2str(_dat[26:36]),
+            "sw_version": f"{int(_dat[37])}.{int(_dat[38])}",
+        }
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

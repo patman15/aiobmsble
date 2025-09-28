@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """RoyPow BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "RoyPow", "default_model": "SmartBMS"}
+    INFO: BMSInfo = {"default_manufacturer": "RoyPow", "default_model": "smart BMS"}
     _HEAD: Final[bytes] = b"\xea\xd1\x01"
     _TAIL: Final[int] = 0xF5
     _BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module
@@ -81,9 +81,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch the device information via BLE."""
-        raise NotImplementedError
+    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

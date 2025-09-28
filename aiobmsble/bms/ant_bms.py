@@ -11,13 +11,13 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 
 
 class BMS(BaseBMS):
     """ANT BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "ANT", "default_model": "Smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "ANT", "default_model": "smart BMS"}
     _HEAD: Final[bytes] = b"\x7e\xa1"
     _TAIL: Final[bytes] = b"\xaa\x55"
     _MIN_LEN: Final[int] = 10  # frame length without data
@@ -84,13 +84,10 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
 
-        def dec(data: bytearray) -> str:
-            return data.decode(errors="ignore").strip("\x00")
-
         await self._await_reply(BMS._cmd(BMS._CMD_DEV, 0x026C, 0x20))
         return BMSInfo(
-            hw_version=dec(self._data_final[6:22]),
-            sw_version=dec(self._data_final[22:38]),
+            hw_version=barr2str(self._data_final[6:22]),
+            sw_version=barr2str(self._data_final[22:38]),
         )
 
     @staticmethod

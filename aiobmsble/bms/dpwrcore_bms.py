@@ -1,4 +1,4 @@
-"""Module to support D-powercore Smart BMS.
+"""Module to support D-powercore smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -30,9 +30,9 @@ class Cmd(IntEnum):
 
 
 class BMS(BaseBMS):
-    """D-powercore Smart BMS class implementation."""
+    """D-powercore smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "D-powercore", "default_model": "Smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "D-powercore", "default_model": "smart BMS"}
     _PAGE_LEN: Final[int] = 20
     _MAX_CELLS: Final[int] = 32
     _FIELDS: Final[tuple[BMSDp, ...]] = (
@@ -89,9 +89,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff3"
 
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch the device information via BLE."""
-        raise NotImplementedError
+    # async def _fetch_device_info(self) -> BMSInfo: use default
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

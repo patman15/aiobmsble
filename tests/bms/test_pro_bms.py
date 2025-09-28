@@ -168,6 +168,22 @@ async def test_async_update_with_protection(patch_bleak_client):
     await bms.disconnect()
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockProBMSBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "Pro BMS",
+        "default_model": "Smart Shunt",
+        "fw_version": "mock_FW_version",
+        "hw_version": "mock_HW_version",
+        "sw_version": "mock_SW_version",
+        "manufacturer": "mock_manufacturer",
+        "model": "mock_model",
+        "serial_number": "mock_serial_number",
+    }
+
+
 @pytest.mark.asyncio
 async def test_async_update_incomplete_data(
     patch_bleak_client, patch_bms_timeout

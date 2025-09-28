@@ -12,7 +12,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc8
+from aiobmsble.basebms import BaseBMS, barr2str, crc8
 
 
 class BMS(BaseBMS):
@@ -20,7 +20,7 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {
         "default_manufacturer": "Chunguang Song",
-        "default_model": "ABC BMS",
+        "default_model": "ABC-BMS",
     }
     _HEAD_CMD: Final[int] = 0xEE
     _HEAD_RESP: Final[bytes] = b"\xcc"
@@ -66,7 +66,7 @@ class BMS(BaseBMS):
                 "service_uuid": normalize_uuid_str("fff0"),
                 "connectable": True,
             }
-            for pattern in ("ABC-*", "SOK-*")  # "NB-*", "Hoover",
+            for pattern in ("ABC-*", "SOK-*", "NB-*", "Hoover")
         ]
 
     @staticmethod
@@ -84,7 +84,13 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe2"
 
-    # Device info via default implementation
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        info: BMSInfo = await super()._fetch_device_info()
+        self._exp_reply = BMS._EXP_REPLY[0xC0]
+        await self._await_reply(BMS._cmd(bytes([0xC0])))
+        info |= {"model": barr2str(self._data_final[0xF1][2:-1])}
+        return info
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

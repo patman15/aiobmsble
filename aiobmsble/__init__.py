@@ -108,6 +108,7 @@ class BMSInfo(TypedDict, total=False):
     default_manufacturer: ReadOnly[str]
     default_model: ReadOnly[str]
     default_name: ReadOnly[str]
+    fw_version: str
     manufacturer: str
     model: str
     model_id: str

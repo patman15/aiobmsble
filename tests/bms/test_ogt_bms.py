@@ -29,7 +29,7 @@ base_result: BMSSample = {
 # all names result in same encryption key for easier testing
 @pytest.fixture(name="ogt_bms_name", params=["SmartBat-A12345", "SmartBat-B12294"])
 def ogt_bms_fixture(request) -> str:
-    """Return OGT SmartBMS names."""
+    """Return OGT smart BMS names."""
     return request.param
 
 
@@ -187,6 +187,17 @@ async def test_update_16s(monkeypatch, patch_bleak_client) -> None:
     }
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockOGTBleakClient)
+    bms = BMS(generate_ble_device(name="SmartBat-B15051"))
+    assert await bms.device_info() == {
+        "default_manufacturer": "Offgridtec",
+        "default_model": "LiFePo4 Smart Pro",
+        "serial_number": "15051",
+    }
+
+
 @pytest.fixture(
     name="wrong_response",
     params=[
@@ -240,7 +251,9 @@ async def test_invalid_bms_type(patch_bleak_client) -> None:
 
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"), keep_alive=True)
+    bms = BMS(
+        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"), keep_alive=True
+    )
 
     result: BMSSample = await bms.async_update()
     assert not result

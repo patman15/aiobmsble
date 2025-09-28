@@ -23,7 +23,7 @@ class MockABCBleakClient(MockBleakClient):
         ),
         0xF1: bytearray(
             b"\xcc\xf1\x53\x4f\x4b\x2d\x42\x4d\x53\x0d\x00\x00\x00\x00\x00\x00\x00\x00\x00\x40"
-        ),
+        ),  # SOK-BMS
         0xF2: bytearray(
             b"\xcc\xf2\x01\x01\x01\x14\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x7f"
         ),
@@ -133,11 +133,12 @@ async def test_device_info(patch_bleak_client) -> None:
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
         "default_manufacturer": "Chunguang Song",
-        "default_model": "ABC BMS",
+        "default_model": "ABC-BMS",
+        "fw_version": "mock_FW_version",
         "hw_version": "mock_HW_version",
         "sw_version": "mock_SW_version",
         "manufacturer": "mock_manufacturer",
-        "model": "mock_model",
+        "model": "SOK-BMS",
         "serial_number": "mock_serial_number",
     }
 

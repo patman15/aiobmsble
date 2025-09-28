@@ -144,7 +144,7 @@ async def test_device_info(patch_bleak_client) -> None:
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
         "default_manufacturer": "ANT",
-        "default_model": "Smart BMS",
+        "default_model": "smart BMS",
         "hw_version": "24BH",
         "sw_version": "24BHUB00-211026A",
     }

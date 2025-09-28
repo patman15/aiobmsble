@@ -280,6 +280,22 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
     await bms.disconnect()
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockSeplosBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "Seplos",
+        "default_model": "smart BMS V3",
+        "fw_version": "mock_FW_version",
+        "hw_version": "mock_HW_version",
+        "sw_version": "mock_SW_version",
+        "manufacturer": "mock_manufacturer",
+        "model": "mock_model",
+        "serial_number": "mock_serial_number",
+    }
+
+
 async def test_wrong_crc(patch_bleak_client, patch_bms_timeout) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 

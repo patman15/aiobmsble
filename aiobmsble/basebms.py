@@ -168,6 +168,7 @@ class BaseBMS(ABC):
                     Literal[
                         "model",
                         "serial_number",
+                        "fw_version",
                         "sw_version",
                         "hw_version",
                         "manufacturer",
@@ -178,7 +179,7 @@ class BaseBMS(ABC):
         ] = (
             ("2a24", "model"),
             ("2a25", "serial_number"),
-            ("2a26", "sw_version"),
+            ("2a26", "fw_version"),
             ("2a27", "hw_version"),
             ("2a28", "sw_version"),  # overwrite FW with SW version
             ("2a29", "manufacturer"),
@@ -577,8 +578,8 @@ def barr2str(barr: bytearray) -> str:
     s = barr.decode("utf-8", errors="ignore")
     for i, c in enumerate(s):
         if not c.isprintable():
-            return s[:i]
-    return s
+            return s[:i].strip()
+    return s.strip()
 
 
 def crc_modbus(data: bytearray) -> int:

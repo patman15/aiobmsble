@@ -1,4 +1,4 @@
-"""Module to support Neey Smart BMS.
+"""Module to support Neey smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -13,11 +13,11 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_sum
+from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
 
 
 class BMS(BaseBMS):
-    """Neey Smart BMS class implementation."""
+    """Neey smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Neey", "default_model": "Balancer"}
     _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
@@ -72,7 +72,14 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        raise NotImplementedError
+        self._valid_reply = 0x01
+        await self._await_reply(self._cmd(b"\x01"))
+        self._valid_reply = 0x02
+        return {
+            "model": barr2str(self._data_final[8:24]),
+            "hw_version": barr2str(self._data_final[24:32]),
+            "sw_version": barr2str(self._data_final[32:40]),
+        }
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
@@ -137,13 +144,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize RX/TX characteristics and protocol state."""
         await super()._init_connection(char_notify)
-
-        # query device info frame (0x03) and wait for BMS ready (0xC8)
-        self._valid_reply = 0x01
-        await self._await_reply(self._cmd(b"\x01"))
-        self._bms_info = BMS._dec_devinfo(self._data_final or bytearray())
-        self._log.debug("device information: %s", self._bms_info)
-
+        await self._fetch_device_info()
         self._valid_reply = 0x02  # cell information
 
     @staticmethod
@@ -156,17 +157,6 @@ class BMS(BaseBMS):
         ) + bytearray(11 - len(value))
         frame += bytes([crc_sum(frame), BMS._TAIL])
         return bytes(frame)
-
-    @staticmethod
-    def _dec_devinfo(data: bytearray) -> dict[str, str]:
-        fields: Final[dict[str, int]] = {
-            "hw_version": 24,
-            "sw_version": 32,
-        }
-        return {
-            key: data[idx : idx + 8].decode(errors="replace").strip("\x00")
-            for key, idx in fields.items()
-        }
 
     @staticmethod
     def _cell_voltages(

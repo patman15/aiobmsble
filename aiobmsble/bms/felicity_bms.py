@@ -19,7 +19,10 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Felicity BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Felicity Solar", "default_model": "LiFePo4 battery"}
+    INFO: BMSInfo = {
+        "default_manufacturer": "Felicity Solar",
+        "default_model": "LiFePo4 battery",
+    }
     _HEAD: Final[bytes] = b"{"
     _TAIL: Final[bytes] = b"}"
     _CMD_PRE: Final[bytes] = b"wifilocalMonitor:"  # CMD prefix
@@ -66,7 +69,13 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        raise NotImplementedError
+        await self._await_reply(BMS._CMD_PRE + BMS._CMD_BI)
+        return {
+            "fw_version": self._data_final.get("M1SwVer", []),
+            "sw_version": self._data_final.get("version", []),
+            "model_id": self._data_final.get("Type", []),
+            "serial_number": self._data_final.get("DevSN", []),
+        }
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

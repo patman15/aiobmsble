@@ -10,13 +10,16 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 
 
 class BMS(BaseBMS):
     """Renogy battery class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Renogy", "default_model": "Bluetooth battery"}
+    INFO: BMSInfo = {
+        "default_manufacturer": "Renogy",
+        "default_model": "Bluetooth battery",
+    }
     _HEAD: bytes = b"\x30\x03"  # SOP, read fct (x03)
     _CRC_POS: Final[int] = -2
     _TEMP_POS: Final[int] = 37
@@ -61,7 +64,12 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        raise NotImplementedError
+        await self._await_reply(self._cmd(0x13F0, 0x1C))
+        return {
+            "serial_number": barr2str(self._data[15:31]),
+            "name": barr2str(self._data[39:55]),
+            "sw_version": barr2str(self._data[55:59]),
+        }
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

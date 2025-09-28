@@ -160,6 +160,14 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     await bms.disconnect()
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockEJBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "E&J Technology",
+        "default_model": "smart BMS",
+    }
 
 async def test_update_single_frame(patch_bleak_client, keep_alive_fixture) -> None:
     """Test E&J technology BMS data update."""

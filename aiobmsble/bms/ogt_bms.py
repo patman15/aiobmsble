@@ -19,7 +19,10 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Offgridtec LiFePO4 Smart Pro type A and type B BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Offgridtec", "default_model": "LiFePo4 Smart Pro"}
+    INFO: BMSInfo = {
+        "default_manufacturer": "Offgridtec",
+        "default_model": "LiFePo4 Smart Pro",
+    }
     _IDX_NAME: Final = 0
     _IDX_LEN: Final = 1
     _IDX_FCT: Final = 2
@@ -117,9 +120,9 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff6"
 
-    async def _fetch_device_info(self) -> BMSInfo:
+    async def _fetch_device_info(self) -> BMSInfo:  # char "180a" contains garbage
         """Fetch the device information via BLE."""
-        raise NotImplementedError
+        return {"serial_number": self._info["name"][10:]}
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

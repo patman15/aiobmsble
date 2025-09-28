@@ -11,13 +11,13 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS
+from aiobmsble.basebms import BaseBMS, barr2str
 
 
 class BMS(BaseBMS):
     """TianPwr BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "TianPwr", "default_model": "SmartBMS"}
+    INFO: BMSInfo = {"default_manufacturer": "TianPwr", "default_model": "smart BMS"}
     _HEAD: Final[bytes] = b"\x55"
     _TAIL: Final[bytes] = b"\xaa"
     _RDCMD: Final[bytes] = b"\x04"
@@ -65,7 +65,12 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        raise NotImplementedError
+        for cmd in (0x81, 0x82):
+            await self._await_reply(BMS._cmd(cmd))
+        return {
+            "sw_version": barr2str(self._data_final[0x81][3:-1]),
+            "hw_version": barr2str(self._data_final[0x82][3:-1]),
+        }
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

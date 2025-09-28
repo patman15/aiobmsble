@@ -1,4 +1,4 @@
-"""Module to support CBT Power Smart BMS.
+"""Module to support CBT Power smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -15,9 +15,9 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class BMS(BaseBMS):
-    """CBT Power Smart BMS class implementation."""
+    """CBT Power smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "CBT Power", "default_model": "Smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "CBT Power", "default_model": "smart BMS"}
     HEAD: Final[bytes] = bytes([0xAA, 0x55])
     TAIL_RX: Final[bytes] = bytes([0x0D, 0x0A])
     TAIL_TX: Final[bytes] = bytes([0x0A, 0x0D])
@@ -74,9 +74,7 @@ class BMS(BaseBMS):
         """Return characteristic that provides write property."""
         return "ffe9"
 
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch the device information via BLE."""
-        raise NotImplementedError
+    # async def _fetch_device_info(self) -> BMSInfo: use default
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

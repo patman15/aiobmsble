@@ -11,13 +11,16 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS
+from aiobmsble.basebms import BaseBMS, barr2str
 
 
 class BMS(BaseBMS):
     """Braun Power BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Braun Power", "default_model": "Smart BMS"}
+    INFO: BMSInfo = {
+        "default_manufacturer": "Braun Power",
+        "default_model": "smart BMS",
+    }
     _HEAD: Final[bytes] = b"\x7b"  # header for responses
     _TAIL: Final[int] = 0x7D  # tail for command
     _MIN_LEN: Final[int] = 4  # minimum frame size
@@ -75,7 +78,13 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        raise NotImplementedError
+        for cmd in BMS._INIT_CMDS:
+            self._exp_reply = (cmd,)
+            await self._await_reply(BMS._cmd(cmd))
+        return {
+            "sw_version": '.'.join(str(x) for x in self._data_final[0xF4][3:6]),
+            "hw_version": barr2str(self._data_final[0x74][3:-1]),
+        }
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
@@ -145,9 +154,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Connect to the BMS and setup notification if not connected."""
         await super()._init_connection()
-        for cmd in BMS._INIT_CMDS:
-            self._exp_reply = (cmd,)
-            await self._await_reply(BMS._cmd(cmd))
+        await self._fetch_device_info()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

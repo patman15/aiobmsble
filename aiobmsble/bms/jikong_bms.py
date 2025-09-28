@@ -1,4 +1,4 @@
-"""Module to support Jikong Smart BMS.
+"""Module to support Jikong smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -12,13 +12,13 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_sum
+from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
 
 
 class BMS(BaseBMS):
-    """Jikong Smart BMS class implementation."""
+    """Jikong smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Jikong", "default_model": "Smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "Jikong", "default_model": "smart BMS"}
     HEAD_RSP: Final = bytes([0x55, 0xAA, 0xEB, 0x90])  # header for responses
     HEAD_CMD: Final = bytes([0xAA, 0x55, 0x90, 0xEB])  # header for commands (endiness!)
     _READY_MSG: Final = HEAD_CMD + bytes([0xC8, 0x01, 0x01] + [0x00] * 12 + [0x44])
@@ -41,9 +41,8 @@ class BMS(BaseBMS):
         super().__init__(ble_device, keep_alive)
         self._data_final: bytearray = bytearray()
         self._char_write_handle: int = -1
-        self._bms_info: dict[str, str] = {}
-        self._prot_offset: int = 0
         self._sw_version: int = 0
+        self._prot_offset: int = 0
         self._valid_reply: int = 0x02
         self._bms_ready: bool = False
 
@@ -75,7 +74,15 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        raise NotImplementedError
+        self._valid_reply = 0x03
+        await self._await_reply(self._cmd(b"\x97"), char=self._char_write_handle)
+        return {
+            "model": barr2str(self._data_final[6:22]),
+            "hw_version": barr2str(self._data_final[22:30]),
+            "sw_version": barr2str(self._data_final[30:38]),
+            "name": barr2str(self._data_final[46:62]),
+            "serial_number": barr2str(self._data_final[86:94]),
+        }
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
@@ -187,14 +194,11 @@ class BMS(BaseBMS):
 
         await super()._init_connection()
 
-        # query device info frame (0x03) and wait for BMS ready (0xC8)
-        self._valid_reply = 0x03
-        await self._await_reply(self._cmd(b"\x97"), char=self._char_write_handle)
-        self._bms_info = BMS._dec_devinfo(self._data_final or bytearray())
-        self._log.debug("device information: %s", self._bms_info)
-        self._prot_offset = (
-            -32 if int(self._bms_info.get("sw_version", "")[:2]) < 11 else 0
-        )
+        # wait for BMS ready (0xC8)
+        _bms_info: BMSInfo = await self._fetch_device_info()
+        self._sw_version = int(_bms_info.get("sw_version", "0")[:2])
+        self._log.debug("device information: %s", _bms_info)
+        self._prot_offset = -32 if self._sw_version < 11 else 0
         if not self._bms_ready:
             self._valid_reply = 0xC8  # BMS ready confirmation
             await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
@@ -211,22 +215,10 @@ class BMS(BaseBMS):
         frame.append(crc_sum(frame))
         return bytes(frame)
 
-    @staticmethod
-    def _dec_devinfo(data: bytearray) -> dict[str, str]:
-        fields: Final[dict[str, int]] = {
-            "hw_version": 22,
-            "sw_version": 30,
-        }
-        return {
-            key: data[idx : idx + 8].decode(errors="replace").strip("\x00")
-            for key, idx in fields.items()
-        }
-
     def _temp_pos(self) -> list[tuple[int, int]]:
-        sw_majv: Final[int] = int(self._bms_info.get("sw_version", "")[:2])
-        if sw_majv >= 14:
+        if self._sw_version >= 14:
             return [(0, 144), (1, 162), (2, 164), (3, 254), (4, 256), (5, 258)]
-        if sw_majv >= 11:
+        if self._sw_version >= 11:
             return [(0, 144), (1, 162), (2, 164), (3, 254)]
         return [(0, 130), (1, 132), (2, 134)]
 
@@ -283,9 +275,7 @@ class BMS(BaseBMS):
             )
 
         data: BMSSample = self._conv_data(
-            self._data_final,
-            self._prot_offset,
-            int(self._bms_info.get("sw_version", "")[:2]),
+            self._data_final, self._prot_offset, self._sw_version
         )
         data["temp_values"] = BMS._temp_sensors(
             self._data_final, self._temp_pos(), data.get("temp_sensors", 0)

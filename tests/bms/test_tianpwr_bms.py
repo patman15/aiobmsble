@@ -145,6 +145,18 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockTianPwrBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "TianPwr",
+        "default_model": "smart BMS",
+        "hw_version": "TP-LT55",
+        "sw_version": "0.1.10",
+    }
+
+
 @pytest.fixture(
     name="wrong_response",
     params=[

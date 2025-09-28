@@ -49,7 +49,7 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        raise NotImplementedError  # TODO: implement code, return empty, or delete to query service 0x180A
+        raise NotImplementedError  # TODO: implement code or delete to query service 0x180A
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
