@@ -158,6 +158,7 @@ class BaseBMS(ABC):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         if not self._client.services.get_service("180a"):
+            self._log.debug("No BT device information available.")
             return BMSInfo()
 
         characteristics: Final[
@@ -188,6 +189,7 @@ class BaseBMS(ABC):
             try:
                 if value := await self._client.read_gatt_char(char):
                     info[key] = value.decode(errors="ignore").rstrip("\x00").rstrip()
+                self._log.debug("BT device %s: '%s'", key, info[key])
             except BleakCharacteristicNotFoundError:
                 pass
 
