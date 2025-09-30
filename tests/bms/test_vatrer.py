@@ -6,7 +6,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.vatrer_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -97,6 +97,22 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
     await bms.disconnect()
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockVatrerBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "Vatrer",
+        "default_model": "smart BMS",
+        "fw_version": "mock_FW_version",
+        "hw_version": "mock_HW_version",
+        "sw_version": "mock_SW_version",
+        "manufacturer": "mock_manufacturer",
+        "model": "mock_model",
+        "serial_number": "mock_serial_number",
+    }
+
+
 @pytest.fixture(
     name="wrong_response",
     params=[
@@ -131,7 +147,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 

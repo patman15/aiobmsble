@@ -9,8 +9,8 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSsample, BMSvalue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, BMSdp, crc_modbus
+from aiobmsble import BMSSample, BMSValue, MatcherPattern
+from aiobmsble.basebms import BaseBMS, BMSDp, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -20,16 +20,16 @@ class BMS(BaseBMS):
     _FRAME_LEN: Final[int] = 5  # head + len + CRC
     _MAX_CELLS: Final[int] = 0x1F
     _MAX_TEMP: Final[int] = 6
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 3, 2, False, lambda x: x / 100, 0x28),
-        BMSdp("current", 5, 4, True, lambda x: x / 100, 0x28),
-        BMSdp("battery_level", 9, 2, False, idx=0x28),
-        BMSdp("cycle_charge", 11, 2, False, lambda x: x / 100, 0x28),
-        BMSdp("cell_count", 3, 2, False, lambda x: min(x, BMS._MAX_CELLS), 0x3E),
-        BMSdp("temp_sensors", 3, 2, False, lambda x: min(x, BMS._MAX_TEMP), 0x24),
-        BMSdp("cycles", 15, 2, False, lambda x: x, 0x28),
-        BMSdp("delta_voltage", 29, 2, False, lambda x: x / 1000, 0x28),
-        # BMSdp("problem_code", 116, 8, False, lambda x: x % 2**64),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 3, 2, False, lambda x: x / 100, 0x28),
+        BMSDp("current", 5, 4, True, lambda x: x / 100, 0x28),
+        BMSDp("battery_level", 9, 2, False, idx=0x28),
+        BMSDp("cycle_charge", 11, 2, False, lambda x: x / 100, 0x28),
+        BMSDp("cell_count", 3, 2, False, lambda x: min(x, BMS._MAX_CELLS), 0x3E),
+        BMSDp("temp_sensors", 3, 2, False, lambda x: min(x, BMS._MAX_TEMP), 0x24),
+        BMSDp("cycles", 15, 2, False, lambda x: x, 0x28),
+        BMSDp("delta_voltage", 29, 2, False, lambda x: x / 1000, 0x28),
+        # BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS}
     _CMDS: Final[tuple[tuple[int, int], ...]] = (
@@ -54,10 +54,7 @@ class BMS(BaseBMS):
             }
         ]
 
-    @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Vatrer", "model": "Smart BMS"}
+    # async def _fetch_device_info(self) -> BMSInfo: use default
 
     @staticmethod
     def uuid_services() -> list[str]:
@@ -75,7 +72,7 @@ class BMS(BaseBMS):
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {"power", "battery_charging", "temperature", "runtime", "cycle_capacity"}
         )  # calculate further values from BMS provided set ones
@@ -118,7 +115,7 @@ class BMS(BaseBMS):
         frame.extend(crc_modbus(frame).to_bytes(2, "little"))
         return bytes(frame)
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         for addr, length in BMS._CMDS:
             await self._await_reply(BMS._cmd(addr, length))
