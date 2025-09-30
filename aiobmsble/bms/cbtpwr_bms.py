@@ -1,4 +1,4 @@
-"""Module to support CBT Power Smart BMS.
+"""Module to support CBT Power smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -10,13 +10,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class BMS(BaseBMS):
-    """CBT Power Smart BMS class implementation."""
+    """CBT Power smart BMS class implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "CBT Power", "default_model": "smart BMS"}
     HEAD: Final[bytes] = bytes([0xAA, 0x55])
     TAIL_RX: Final[bytes] = bytes([0x0D, 0x0A])
     TAIL_TX: Final[bytes] = bytes([0x0A, 0x0D])
@@ -25,15 +26,15 @@ class BMS(BaseBMS):
     LEN_POS: Final[int] = 3
     CMD_POS: Final[int] = 2
     CELL_VOLTAGE_CMDS: Final[list[int]] = [0x5, 0x6, 0x7, 0x8]
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 4, 4, False, lambda x: x / 1000, 0x0B),
-        BMSdp("current", 8, 4, True, lambda x: x / 1000, 0x0B),
-        BMSdp("temperature", 4, 2, True, lambda x: x, 0x09),
-        BMSdp("battery_level", 4, 1, False, lambda x: x, 0x0A),
-        BMSdp("design_capacity", 4, 2, False, lambda x: x, 0x15),
-        BMSdp("cycles", 6, 2, False, lambda x: x, 0x15),
-        BMSdp("runtime", 14, 2, False, lambda x: x * BMS._HRS_TO_SECS / 100, 0x0C),
-        BMSdp("problem_code", 4, 4, False, lambda x: x, 0x21),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 4, 4, False, lambda x: x / 1000, 0x0B),
+        BMSDp("current", 8, 4, True, lambda x: x / 1000, 0x0B),
+        BMSDp("temperature", 4, 2, True, lambda x: x, 0x09),
+        BMSDp("battery_level", 4, 1, False, lambda x: x, 0x0A),
+        BMSDp("design_capacity", 4, 2, False, lambda x: x, 0x15),
+        BMSDp("cycles", 6, 2, False, lambda x: x, 0x15),
+        BMSDp("runtime", 14, 2, False, lambda x: x * BMS._HRS_TO_SECS / 100, 0x0C),
+        BMSDp("problem_code", 4, 4, False, lambda x: x, 0x21),
     )
     _CMDS: Final[list[int]] = list({field.idx for field in _FIELDS})
 
@@ -59,11 +60,6 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "CBT Power", "model": "Smart BMS"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of services required by BMS."""
         return [normalize_uuid_str("ffe5"), normalize_uuid_str("ffe0")]
@@ -78,8 +74,10 @@ class BMS(BaseBMS):
         """Return characteristic that provides write property."""
         return "ffe9"
 
+    # async def _fetch_device_info(self) -> BMSInfo: use default
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "power",
@@ -128,7 +126,7 @@ class BMS(BaseBMS):
         frame.extend(BMS.TAIL_TX)
         return bytes(frame)
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         resp_cache: dict[int, bytearray] = {}  # avoid multiple queries
         for cmd in BMS._CMDS:
@@ -158,7 +156,7 @@ class BMS(BaseBMS):
             if len(voltages) % 5 or len(cells) == 0:
                 break
 
-        data: BMSsample = BMS._decode_data(BMS._FIELDS, resp_cache, byteorder="little")
+        data: BMSSample = BMS._decode_data(BMS._FIELDS, resp_cache, byteorder="little")
 
         # get cycle charge from design capacity and SoC
         if data.get("design_capacity") and data.get("battery_level"):

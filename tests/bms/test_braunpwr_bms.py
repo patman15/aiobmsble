@@ -8,13 +8,13 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.braunpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
 
-def ref_value() -> BMSsample:
+def ref_value() -> BMSSample:
     """Return reference value for mock CBT power BMS."""
     return {
         "voltage": 53.31,
@@ -132,6 +132,16 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     await bms.disconnect()
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockBraunPWRBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "Braun Power",
+        "default_model": "smart BMS",
+        "hw_version": "KS_BLE_WIFI_Ver1.0.0_20240313",
+        "sw_version": "2.3.1",
+    }
 
 @pytest.fixture(
     name="wrong_response",
@@ -181,7 +191,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -233,7 +243,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result.get("problem", False)  # expect a problem report
     assert result.get("problem_code", 0) == problem_response[1]
 

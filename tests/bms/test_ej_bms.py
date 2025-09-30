@@ -7,7 +7,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.ej_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -72,7 +72,7 @@ class MockEJsfBleakClient(MockEJBleakClient):
         return bytearray()
 
     @staticmethod
-    def values() -> BMSsample:
+    def values() -> BMSSample:
         """Return correct data sample values for single frame protocol sample."""
         return {
             "voltage": 13.118,
@@ -160,6 +160,14 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     await bms.disconnect()
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockEJBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "E&J Technology",
+        "default_model": "smart BMS",
+    }
 
 async def test_update_single_frame(patch_bleak_client, keep_alive_fixture) -> None:
     """Test E&J technology BMS data update."""
@@ -234,7 +242,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -280,7 +288,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result.get("problem", False)  # we expect a problem
     assert result.get("problem_code", 0) == (
         0x4 if problem_response[1] == "first_bit" else 0x800

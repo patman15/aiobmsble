@@ -1,4 +1,4 @@
-"""Module to support Daly Smart BMS.
+"""Module to support Daly smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -10,16 +10,18 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 
 
 class BMS(BaseBMS):
-    """Daly Smart BMS class implementation."""
+    """Daly smart BMS class implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "Daly", "default_model": "smart BMS"}
     HEAD_READ: Final[bytes] = b"\xd2\x03"
     CMD_INFO: Final[bytes] = b"\x00\x00\x00\x3e\xd7\xb9"
     MOS_INFO: Final[bytes] = b"\x00\x3e\x00\x09\xf7\xa3"
+    VER_INFO: Final[bytes] = b"\x00\xa9\x00\x20\x87\x91"
     HEAD_LEN: Final[int] = 3
     CRC_LEN: Final[int] = 2
     MAX_CELLS: Final[int] = 32
@@ -27,16 +29,16 @@ class BMS(BaseBMS):
     INFO_LEN: Final[int] = 84 + HEAD_LEN + CRC_LEN + MAX_CELLS + MAX_TEMP
     MOS_TEMP_POS: Final[int] = HEAD_LEN + 8
     MOS_NOT_AVAILABLE: Final[tuple[str]] = ("DL-FB4C2E0",)
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 80, 2, False, lambda x: x / 10),
-        BMSdp("current", 82, 2, False, lambda x: (x - 30000) / 10),
-        BMSdp("battery_level", 84, 2, False, lambda x: x / 10),
-        BMSdp("cycle_charge", 96, 2, False, lambda x: x / 10),
-        BMSdp("cell_count", 98, 2, False, lambda x: min(x, BMS.MAX_CELLS)),
-        BMSdp("temp_sensors", 100, 2, False, lambda x: min(x, BMS.MAX_TEMP)),
-        BMSdp("cycles", 102, 2, False, lambda x: x),
-        BMSdp("delta_voltage", 112, 2, False, lambda x: x / 1000),
-        BMSdp("problem_code", 116, 8, False, lambda x: x % 2**64),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 80, 2, False, lambda x: x / 10),
+        BMSDp("current", 82, 2, False, lambda x: (x - 30000) / 10),
+        BMSDp("battery_level", 84, 2, False, lambda x: x / 10),
+        BMSDp("cycle_charge", 96, 2, False, lambda x: x / 10),
+        BMSDp("cell_count", 98, 2, False, lambda x: min(x, BMS.MAX_CELLS)),
+        BMSDp("temp_sensors", 100, 2, False, lambda x: min(x, BMS.MAX_TEMP)),
+        BMSDp("cycles", 102, 2, False, lambda x: x),
+        BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
+        BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -61,11 +63,6 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Daly", "model": "Smart BMS"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("fff0")]
@@ -80,8 +77,17 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        await self._await_reply(BMS.HEAD_READ + BMS.VER_INFO)
+        return {
+            "sw_version": barr2str(self._data[3:19]),
+            "hw_version": barr2str(self._data[19:35]),
+            # "manuf.date": barr2str(self._data[35:51]),
+        }
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "cycle_capacity",
@@ -116,14 +122,14 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        self._data = data
+        self._data = data.copy()
         self._data_event.set()
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        result: BMSsample = {}
+        result: BMSSample = {}
         if (  # do not query devices that do not support MOS temperature, e.g. Bulltron
-            not self.name or not self.name.startswith(BMS.MOS_NOT_AVAILABLE)
+            not self._info["name"].startswith(BMS.MOS_NOT_AVAILABLE)
         ):
             try:
                 # request MOS temperature (possible outcome: response, empty response, no response)

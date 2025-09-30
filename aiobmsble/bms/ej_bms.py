@@ -11,7 +11,7 @@ from typing import Final, Literal
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -25,22 +25,23 @@ class Cmd(IntEnum):
 class BMS(BaseBMS):
     """E&J Technology BMS implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "E&J Technology", "default_model": "smart BMS"}
     _BT_MODULE_MSG: Final[bytes] = bytes([0x41, 0x54, 0x0D, 0x0A])  # BLE module message
     _IGNORE_CRC: Final[str] = "libattU"
     _HEAD: Final[bytes] = b"\x3a"
     _TAIL: Final[bytes] = b"\x7e"
     _MAX_CELLS: Final[int] = 16
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp(
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp(
             "current", 89, 8, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
         ),
-        BMSdp("battery_level", 123, 2, False, lambda x: x, Cmd.RT),
-        BMSdp("cycle_charge", 15, 4, False, lambda x: x / 10, Cmd.CAP),
-        BMSdp(
+        BMSDp("battery_level", 123, 2, False, lambda x: x, Cmd.RT),
+        BMSDp("cycle_charge", 15, 4, False, lambda x: x / 10, Cmd.CAP),
+        BMSDp(
             "temperature", 97, 2, False, lambda x: x - 40, Cmd.RT
         ),  # only 1st sensor relevant
-        BMSdp("cycles", 115, 4, False, lambda x: x, Cmd.RT),
-        BMSdp(
+        BMSDp("cycles", 115, 4, False, lambda x: x, Cmd.RT),
+        BMSDp(
             "problem_code", 105, 4, False, lambda x: x & 0x0FFC, Cmd.RT
         ),  # mask status bits
     )
@@ -84,11 +85,6 @@ class BMS(BaseBMS):
         )
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "E&J Technology", "model": "Smart BMS"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
@@ -103,8 +99,12 @@ class BMS(BaseBMS):
         """Return 128-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        return BMSInfo()  # no device information available
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "battery_charging",
@@ -166,7 +166,7 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        if not self.name.startswith(BMS._IGNORE_CRC) and (
+        if not self._info["name"].startswith(BMS._IGNORE_CRC) and (
             crc := BMS._crc(self._data[1:-3])
         ) != int(self._data[-3:-1], 16):
             # libattU firmware uses no CRC, so we ignore it
@@ -208,15 +208,15 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _conv_data(data: dict[int, bytearray]) -> BMSsample:
-        result: BMSsample = {}
+    def _conv_data(data: dict[int, bytearray]) -> BMSSample:
+        result: BMSSample = {}
         for field in BMS._FIELDS:
             result[field.key] = field.fct(
                 int(data[field.idx][field.pos : field.pos + field.size], 16)
             )
         return result
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         raw_data: dict[int, bytearray] = {}
 

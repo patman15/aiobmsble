@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample, BMSvalue
+from aiobmsble.basebms import BMSSample, BMSValue
 from aiobmsble.bms.roypow_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -19,7 +19,7 @@ BT_FRAME_SIZE = 20
 BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module
 
 
-def ref_value() -> BMSsample:
+def ref_value() -> BMSSample:
     """Return reference value for mock Seplos BMS."""
     return {
         "temp_sensors": 4,
@@ -116,6 +116,22 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
+
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockRoyPowBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "RoyPow",
+        "default_model": "smart BMS",
+        "fw_version": "mock_FW_version",
+        "hw_version": "mock_HW_version",
+        "sw_version": "mock_SW_version",
+        "manufacturer": "mock_manufacturer",
+        "model": "mock_model",
+        "serial_number": "mock_serial_number",
+    }
+
 async def test_update_dischrg(monkeypatch, patch_bleak_client) -> None:
     """Test RoyPow BMS data update."""
 
@@ -195,7 +211,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -226,8 +242,8 @@ async def test_missing_message(
     bms = BMS(generate_ble_device())
 
     # remove values from reference that are in 0x4 response (and dependent)
-    ref: BMSsample = ref_value()
-    key: BMSvalue
+    ref: BMSSample = ref_value()
+    key: BMSValue
     for key in (
         "battery_level",
         "cycle_capacity",
@@ -281,7 +297,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result == ref_value() | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 23),

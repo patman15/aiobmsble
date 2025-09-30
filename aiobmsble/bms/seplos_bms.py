@@ -1,4 +1,4 @@
-"""Module to support Seplos V3 Smart BMS.
+"""Module to support Seplos V3 smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -11,13 +11,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSpackvalue, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSpackvalue, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
-    """Seplos V3 Smart BMS class implementation."""
+    """Seplos V3 smart BMS class implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "Seplos", "default_model": "smart BMS V3"}
     CMD_READ: Final[list[int]] = [0x01, 0x04]
     HEAD_LEN: Final[int] = 3
     CRC_LEN: Final[int] = 2
@@ -37,15 +38,15 @@ class BMS(BaseBMS):
         "PIA": (0x4, 0x1000, PIA_LEN),
         "PIB": (0x4, 0x1100, PIB_LEN),
     }
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("temperature", 20, 2, True, lambda x: x / 10, EIB_LEN),  # avg. ctemp
-        BMSdp("voltage", 0, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
-        BMSdp("current", 4, 4, True, lambda x: BMS._swap32(x, True) / 10, EIA_LEN),
-        BMSdp("cycle_charge", 8, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
-        BMSdp("pack_count", 44, 2, False, lambda x: x, EIA_LEN),
-        BMSdp("cycles", 46, 2, False, lambda x: x, EIA_LEN),
-        BMSdp("battery_level", 48, 2, False, lambda x: x / 10, EIA_LEN),
-        BMSdp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("temperature", 20, 2, True, lambda x: x / 10, EIB_LEN),  # avg. ctemp
+        BMSDp("voltage", 0, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
+        BMSDp("current", 4, 4, True, lambda x: BMS._swap32(x, True) / 10, EIA_LEN),
+        BMSDp("cycle_charge", 8, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
+        BMSDp("pack_count", 44, 2, False, lambda x: x, EIA_LEN),
+        BMSDp("cycles", 46, 2, False, lambda x: x, EIA_LEN),
+        BMSDp("battery_level", 48, 2, False, lambda x: x / 10, EIA_LEN),
+        BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
     )  # Protocol Seplos V3
     _PFIELDS: Final[list[tuple[BMSpackvalue, int, bool, Callable[[int], Any]]]] = [
         ("pack_voltages", 0, False, lambda x: x / 100),
@@ -76,11 +77,6 @@ class BMS(BaseBMS):
             for pattern in {f"SP{num}?B*" for num in range(10)} | {"CSY*"} | {"SP1??B*"}
         ]
 
-    @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Seplos", "model": "Smart BMS V3"}
-
     # setup UUIDs
     #    serv 0000fff0-0000-1000-8000-00805f9b34fb
     # 	 char 0000fff1-0000-1000-8000-00805f9b34fb (#16): ['read', 'notify']
@@ -100,8 +96,10 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
+    # async def _fetch_device_info(self) -> BMSInfo: use default, VIA msg useless
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset({"power", "battery_charging", "cycle_capacity", "runtime"})
 
     def _notification_handler(
@@ -194,12 +192,12 @@ class BMS(BaseBMS):
         frame += int.to_bytes(crc_modbus(frame), 2, byteorder="little")
         return bytes(frame)
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         for block in BMS.QUERY.values():
             await self._await_reply(BMS._cmd(0x0, *block))
 
-        data: BMSsample = BMS._decode_data(
+        data: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._data_final, offset=BMS.HEAD_LEN
         )
 

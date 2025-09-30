@@ -1,4 +1,4 @@
-"""Module to support JBD Smart BMS.
+"""Module to support JBD smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -10,26 +10,27 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
-    """JBD Smart BMS class implementation."""
+    """JBD smart BMS class implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "Jiabaida", "default_model": "smart BMS"}
     HEAD_RSP: Final[bytes] = bytes([0xDD])  # header for responses
     HEAD_CMD: Final[bytes] = bytes([0xDD, 0xA5])  # read header for commands
     TAIL: Final[int] = 0x77  # tail for command
     INFO_LEN: Final[int] = 7  # minimum frame size
     BASIC_INFO: Final[int] = 23  # basic info data length
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("temp_sensors", 26, 1, False, lambda x: x),  # count is not limited
-        BMSdp("voltage", 4, 2, False, lambda x: x / 100),
-        BMSdp("current", 6, 2, True, lambda x: x / 100),
-        BMSdp("battery_level", 23, 1, False, lambda x: x),
-        BMSdp("cycle_charge", 8, 2, False, lambda x: x / 100),
-        BMSdp("cycles", 12, 2, False, lambda x: x),
-        BMSdp("problem_code", 20, 2, False, lambda x: x),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("temp_sensors", 26, 1, False, lambda x: x),  # count is not limited
+        BMSDp("voltage", 4, 2, False, lambda x: x / 100),
+        BMSDp("current", 6, 2, True, lambda x: x / 100),
+        BMSDp("battery_level", 23, 1, False, lambda x: x),
+        BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),
+        BMSDp("cycles", 12, 2, False, lambda x: x),
+        BMSDp("problem_code", 20, 2, False, lambda x: x),
     )  # general protocol v4
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -84,11 +85,6 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Jiabaida", "model": "Smart BMS"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("ff00")]
@@ -103,8 +99,10 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ff02"
 
+    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "power",
@@ -185,9 +183,9 @@ class BMS(BaseBMS):
         await self._await_reply(msg)
         self._valid_reply = 0x00
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        data: BMSsample = {}
+        data: BMSSample = {}
         await self._await_cmd_resp(0x03)
         data = BMS._decode_data(BMS._FIELDS, self._data_final)
         data["temp_values"] = BMS._temp_values(

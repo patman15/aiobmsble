@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.neey_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -47,7 +47,7 @@ _PROTO_DEFS: Final[dict[str, bytearray]] = {
     ),
 }
 
-_RESULT_DEFS: Final[BMSsample] = {
+_RESULT_DEFS: Final[BMSSample] = {
     "delta_voltage": 0.008,
     "temperature": 50.24,
     "voltage": 52.313,
@@ -176,7 +176,6 @@ class MockOversizedBleakClient(MockNeeyBleakClient):
         return super()._response(char_specifier, data) + bytearray(6)
 
 
-@pytest.mark.asyncio
 async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> None:
     """Test Neey BMS data update."""
 
@@ -193,6 +192,20 @@ async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> No
     assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
+
+
+async def test_device_info(monkeypatch, patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", _PROTO_DEFS)
+    patch_bleak_client(MockNeeyBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "Neey",
+        "default_model": "Balancer",
+        "model": "GW-24S4EB",
+        "sw_version": "ZH-1.2.3",
+        "hw_version": "HW-2.8.0",
+    }
 
 
 async def test_stream_update(
@@ -244,7 +257,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -288,7 +301,7 @@ async def test_non_stale_data(
     bms = BMS(generate_ble_device())
 
     # run an update which provides half a valid message and then disconnects
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
     assert not result

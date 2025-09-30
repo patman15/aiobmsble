@@ -6,7 +6,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 from collections.abc import Awaitable, Buffer, Callable, Iterable
 import logging
 from types import ModuleType
-from typing import Any
+from typing import Any, Final
 from uuid import UUID
 
 from _pytest.config import Notset
@@ -15,11 +15,12 @@ from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
+from bleak.exc import BleakCharacteristicNotFoundError
 from bleak.uuids import normalize_uuid_str
 from hypothesis import HealthCheck, settings
 import pytest
 
-from aiobmsble import BMSsample, MatcherPattern
+from aiobmsble import BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.utils import load_bms_plugins
 from tests.bluetooth import generate_ble_device
@@ -72,6 +73,15 @@ def bool_fixture(request) -> bool:
 class MockBleakClient(BleakClient):
     """Mock bleak client."""
 
+    BT_INFO: Final[dict[str, bytes]] = {
+        "2a24": b"mock_model",
+        "2a25": b"mock_serial_number",
+        "2a26": b"mock_FW_version",
+        "2a27": b"mock_HW_version",
+        "2a28": b"mock_SW_version",
+        "2a29": b"mock_manufacturer",
+    }
+
     def __init__(
         self,
         address_or_ble_device: BLEDevice,
@@ -105,7 +115,9 @@ class MockBleakClient(BleakClient):
     @property
     def services(self) -> BleakGATTServiceCollection:
         """Mock GATT services."""
-        return BleakGATTServiceCollection()
+        _services: BleakGATTServiceCollection = BleakGATTServiceCollection()
+        _services.add_service(BleakGATTService(None, 0, normalize_uuid_str("180a")))
+        return _services
 
     async def connect(self, **_kwargs) -> None:
         """Mock connect."""
@@ -143,9 +155,17 @@ class MockBleakClient(BleakClient):
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
         **kwargs,
     ) -> bytearray:
-        """Mock write GATT characteristics."""
+        """Mock read GATT characteristics."""
+
         LOGGER.debug("MockBleakClient read_gatt_char %s", char_specifier)
         assert self._connected, "read_gatt_char called, but client not connected."
+
+        if isinstance(char_specifier, str):
+            char_specifier = normalize_uuid_str(char_specifier)[4:8]
+            if char_specifier not in MockBleakClient.BT_INFO:
+                raise BleakCharacteristicNotFoundError(char_specifier)
+            return bytearray(MockBleakClient.BT_INFO[char_specifier])
+
         return bytearray()
 
     async def disconnect(self) -> None:
@@ -160,14 +180,16 @@ class MockBleakClient(BleakClient):
 class MockBMS(BaseBMS):
     """Mock Battery Management System."""
 
+    INFO: BMSInfo = {"manufacturer": "Mock Manufacturer", "model": "mock model"}
+
     def __init__(
-        self, exc: Exception | None = None, ret_value: BMSsample | None = None
+        self, exc: Exception | None = None, ret_value: BMSSample | None = None
     ) -> None:
         """Initialize BMS."""
         super().__init__(generate_ble_device(address="", details={"path": None}), False)
-        LOGGER.debug("%s init(), Test except: %s", self.device_id(), str(exc))
+        LOGGER.debug("%s init(), Test except: %s", self.bms_id(), str(exc))
         self._exception: Exception | None = exc
-        self._ret_value: BMSsample = (
+        self._ret_value: BMSSample = (
             ret_value
             if ret_value is not None
             else {
@@ -182,11 +204,6 @@ class MockBMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [{"local_name": "mock", "connectable": True}]
-
-    @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Mock Manufacturer", "model": "mock model"}
 
     @staticmethod
     def uuid_services() -> list[str]:
@@ -208,7 +225,7 @@ class MockBMS(BaseBMS):
     ) -> None:
         """Retrieve BMS data update."""
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._connect()
 
@@ -219,7 +236,7 @@ class MockBMS(BaseBMS):
 
 
 @pytest.fixture(params=[-13, 0, 21], ids=["neg_current", "zero_current", "pos_current"])
-def bms_data_fixture(request) -> BMSsample:
+def bms_data_fixture(request) -> BMSSample:
     """Return a fake BMS data dictionary."""
 
     return {
