@@ -49,7 +49,7 @@ async def detect_bms() -> None:
             repr(advertisement).replace(", ", ",\n\t"),
         )
 
-        if bms_cls := bms_identify(advertisement):
+        if bms_cls := await bms_identify(advertisement):
             bms: BaseBMS = bms_cls(ble_device=ble_dev)
             logger.info("Found matching BMS type: %s", bms.bms_id())
 

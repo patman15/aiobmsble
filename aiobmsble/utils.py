@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import asyncio
 from fnmatch import translate
 from functools import lru_cache
 import importlib
@@ -91,7 +92,7 @@ def load_bms_plugins() -> set[ModuleType]:
     }
 
 
-def bms_cls(name: str) -> type[BaseBMS] | None:
+async def bms_cls(name: str) -> type[BaseBMS] | None:
     """Return the BMS class that is defined by the name argument.
 
     Args:
@@ -103,14 +104,17 @@ def bms_cls(name: str) -> type[BaseBMS] | None:
     """
     if not name.endswith(_MODULE_POSTFIX):
         return None
+    loop = asyncio.get_running_loop()
     try:
-        bms_module: ModuleType = importlib.import_module(f"aiobmsble.bms.{name}")
+        bms_module: ModuleType = await loop.run_in_executor(
+            None, importlib.import_module, f"aiobmsble.bms.{name}"
+        )
     except ModuleNotFoundError:
         return None
     return bms_module.BMS
 
 
-def bms_matching(
+async def bms_matching(
     adv_data: AdvertisementData, mac_addr: str | None = None
 ) -> list[type[BaseBMS]]:
     """Return the BMS classes that match the given advertisement data.
@@ -127,13 +131,16 @@ def bms_matching(
         list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwhise.
 
     """
-    for bms_module in load_bms_plugins():
+    loop = asyncio.get_running_loop()
+    bms_plugins = await loop.run_in_executor(None, load_bms_plugins)
+
+    for bms_module in bms_plugins:
         if bms_supported(bms_module.BMS, adv_data, mac_addr):
             return [bms_module.BMS]
     return []
 
 
-def bms_identify(
+async def bms_identify(
     adv_data: AdvertisementData, mac_addr: str | None = None
 ) -> type[BaseBMS] | None:
     """Return the BMS classes that best matches the given advertisement data.
@@ -147,7 +154,7 @@ def bms_identify(
 
     """
 
-    matching_bms: list[type[BaseBMS]] = bms_matching(adv_data, mac_addr)
+    matching_bms: list[type[BaseBMS]] = await bms_matching(adv_data, mac_addr)
     return matching_bms[0] if matching_bms else None
 
 
