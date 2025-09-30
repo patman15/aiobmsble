@@ -1,12 +1,10 @@
 """Test the aiobmsble library base class functions."""
 
-from collections.abc import Callable
 from types import ModuleType
 
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.test_data import bms_advertisements, ignore_advertisements
 from aiobmsble.utils import bms_supported, load_bms_plugins
-from tests.bluetooth import generate_ble_device
 
 
 def test_bms_id(plugin_fixture: ModuleType) -> None:
