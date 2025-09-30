@@ -32,7 +32,7 @@ def test_advertisements_unique() -> None:
 
 
 def test_advertisements_ignore() -> None:
-    """Check that each advertisement only matches one, the right BMS."""
+    """Check that each advertisement to be ignored is actually ignored."""
     for adv, reason, _comments in ignore_advertisements():
         for bms_under_test in load_bms_plugins():
             supported: bool = bms_supported(bms_under_test.BMS, adv)
