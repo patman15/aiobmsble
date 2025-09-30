@@ -8,13 +8,13 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.seplos_v2_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
 BT_FRAME_SIZE = 20
-REF_VALUE: BMSsample = {
+REF_VALUE: BMSSample = {
     "cell_count": 16,
     "temp_sensors": 6,
     "voltage": 53.0,
@@ -147,6 +147,16 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     await bms.disconnect()
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockSeplosv2BleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "Seplos",
+        "default_model": "smart BMS V2",
+        "sw_version": "16.6",
+        "model": "B1101-SP76",
+    }
 
 async def test_short_message(monkeypatch, patch_bleak_client) -> None:
     """Test Seplos V2 BMS data update with short message (missing values)."""
@@ -166,7 +176,7 @@ async def test_short_message(monkeypatch, patch_bleak_client) -> None:
 
     bms = BMS(generate_ble_device(), False)
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(ValueError, match="message too short to decode data"):
         result = await bms.async_update()
 
@@ -213,7 +223,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 

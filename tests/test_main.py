@@ -11,7 +11,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 import pytest
 
-from aiobmsble import BMSsample
+from aiobmsble import BMSSample
 import aiobmsble.__main__ as main_mod
 
 from .bluetooth import generate_advertisement_data
@@ -83,7 +83,7 @@ async def test_bms_fail(
 ) -> None:
     """Check that an error message is given if BMS update query fails (TimeoutError)."""
 
-    async def mock_async_update(self) -> BMSsample:
+    async def mock_async_update(self) -> BMSSample:
         raise TimeoutError
 
     monkeypatch.setattr("aiobmsble.__main__.BleakScanner.discover", mock_discover)

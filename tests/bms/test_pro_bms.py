@@ -13,7 +13,7 @@ import logging
 from bleak.backends.device import BLEDevice
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -168,6 +168,22 @@ async def test_async_update_with_protection(patch_bleak_client):
     await bms.disconnect()
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockProBMSBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "Pro BMS",
+        "default_model": "Smart Shunt",
+        "fw_version": "mock_FW_version",
+        "hw_version": "mock_HW_version",
+        "sw_version": "mock_SW_version",
+        "manufacturer": "mock_manufacturer",
+        "model": "mock_model",
+        "serial_number": "mock_serial_number",
+    }
+
+
 @pytest.mark.asyncio
 async def test_async_update_incomplete_data(
     patch_bleak_client, patch_bms_timeout
@@ -182,7 +198,7 @@ async def test_async_update_incomplete_data(
 
     bms = BMS(device)
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         await bms.async_update()  # Should return empty dict for incomplete data
     assert not result
@@ -243,7 +259,7 @@ async def test_async_update_no_data_after_init(
 
     bms = BMS(device)
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -280,7 +296,7 @@ async def test_invalid_response(
     bms = BMS(generate_ble_device())
 
     logging.getLogger(__name__)
-    result: BMSsample = {}
+    result: BMSSample = {}
     with caplog.at_level(logging.DEBUG), pytest.raises(TimeoutError):
         result = await bms.async_update()
     assert not result

@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.renogy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -16,7 +16,7 @@ from tests.conftest import MockBleakClient
 BT_FRAME_SIZE = 512  # ATT max is 512 bytes
 
 
-def ref_value() -> BMSsample:
+def ref_value() -> BMSSample:
     """Return reference value for mock Renogy BMS."""
     return {
         "battery_charging": False,
@@ -53,7 +53,7 @@ class MockRenogyBleakClient(MockBleakClient):
             b"\xaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x25\x74"
         ),  # cell count (4/16), cell [0.1 V] (3.5, 3.3, 3.3, 3.3), temp count (2/16), temp [0.1°C] (17,17)
-        b"\x30\x03\x13\xf0\x00\x1c\x44\x95": bytearray(  # system ID, name, firmware
+        b"\x30\x03\x13\xf0\x00\x1c\x44\x95": bytearray(  # Serial, name, sw-version
             b"\x30\x03\x38\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\xc8\x32\x30\x32\x31\x30\x35"
             b"\x32\x36\x00\x00\x00\x00\x00\x00\x00\x00\x20\x20\x20\x20\x20\x20\x20\x20\x52\x42\x54"
             b"\x31\x30\x30\x4c\x46\x50\x31\x32\x2d\x42\x54\x20\x20\x30\x31\x30\x30\x55\x2f"
@@ -66,7 +66,7 @@ class MockRenogyBleakClient(MockBleakClient):
         ),  # alarm flags
         b"\x30\x03\x14\x02\x00\x08\xe4\x1d": bytearray(
             b"\x30\x03\x10\x52\x42\x54\x31\x30\x30\x4c\x46\x50\x31\x32\x2d\x42\x54\x20\x20\x58\xbb"
-        ),  # 0RBT100LFP12-BT
+        ),  # RBT100LFP12-BT
     }
 
     def _response(
@@ -113,6 +113,19 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockRenogyBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "Renogy",
+        "default_model": "Bluetooth battery",
+        "serial_number": "20210526",
+        "name": "RBT100LFP12-BT",
+        "sw_version": "0100",
+    }
+
+
 @pytest.fixture(
     name="wrong_response",
     params=[
@@ -154,7 +167,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -180,7 +193,7 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result == ref_value() | {
         "problem": True,
         "problem_code": 0xFFFFFFFFFFFFFFFFFFFFFFFFFFF1,

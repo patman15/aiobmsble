@@ -1,6 +1,7 @@
 """Test the Daly BMS implementation."""
 
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -8,13 +9,13 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.daly_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
 
-def ref_value() -> BMSsample:
+def ref_value() -> BMSSample:
     """Return reference value for mock Daly BMS."""
     return {
         "voltage": 14.0,
@@ -37,10 +38,32 @@ def ref_value() -> BMSsample:
 class MockDalyBleakClient(MockBleakClient):
     """Emulate a Daly BMS BleakClient."""
 
-    HEAD_READ = b"\xd2\x03"
-    CMD_INFO = b"\x00\x00\x00\x3e\xd7\xb9"
-    MOS_INFO = b"\x00\x3e\x00\x09\xf7\xa3"
+    HEAD_READ: Final[bytes] = b"\xd2\x03"
+    CMD_INFO: Final[bytes] = b"\x00\x00\x00\x3e\xd7\xb9"
+    MOS_INFO: Final[bytes] = b"\x00\x3e\x00\x09\xf7\xa3"
+    VER_INFO: Final[bytes] = b"\x00\xa9\x00\x20\x87\x91"
     MOS_AVAIL: bool = True
+    RESP: Final[dict[bytes, bytearray]] = {
+        CMD_INFO: bytearray(
+            b"\xd2\x03\x7c\x10\x1f\x10\x29\x10\x33\x10\x3d\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x3c\x00\x3d\x00\x3e\x00\x3f\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x8c\x75\x4e\x03\x84\x10\x3d\x10\x1f\x00\x00\x00\x00\x00\x00\x0d"
+            b"\x80\x00\x04\x00\x04\x00\x39\x00\x01\x00\x00\x00\x01\x10\x2e\x01\x41\x00\x2a\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\xa0\xdf"
+        ),  # {'voltage': 14.0, 'current': 3.0, 'battery_level': 90.0, 'cycles': 57, 'cycle_charge': 345.6, 'numTemp': 4, 'temperature': 21.5, 'cycle_capacity': 4838.400000000001, 'power': 42.0, 'battery_charging': True, 'runtime': none!, 'delta_voltage': 0.321}
+        MOS_INFO: bytearray(
+            b"\xd2\x03\x12\x00\x00\x00\x00\x75\x30\x00\x00\x00\x4e\xff\xff\xff\xff\xff\xff\xff"
+            b"\xff\x0b\x4e"
+        ),
+        VER_INFO: bytearray(
+            b"\xd2\x03\x40\x54\x30\x30\x4b\x5f\x33\x32\x31\x30\x34\x32\x5f\x31\x31\x00\x00\x48"
+            b"\x32\x2e\x30\x5f\x31\x30\x33\x52\x5f\x33\x30\x39\x46\x39\x46\x32\x30\x32\x34\x30"
+            b"\x32\x32\x39\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x55\x41"
+        ),
+    }
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
@@ -48,29 +71,11 @@ class MockDalyBleakClient(MockBleakClient):
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("fff2")
-            and data == (self.HEAD_READ + self.CMD_INFO)
+            and bytes(data)[0:2] == self.HEAD_READ
         ):
-            return bytearray(
-                b"\xd2\x03\x7c\x10\x1f\x10\x29\x10\x33\x10\x3d\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-                b"\x00\x00\x00\x00\x00\x00\x00\x00\x3c\x00\x3d\x00\x3e\x00\x3f\x00\x00\x00\x00\x00"
-                b"\x00\x00\x00\x00\x8c\x75\x4e\x03\x84\x10\x3d\x10\x1f\x00\x00\x00\x00\x00\x00\x0d"
-                b"\x80\x00\x04\x00\x04\x00\x39\x00\x01\x00\x00\x00\x01\x10\x2e\x01\x41\x00\x2a\x00"
-                b"\x00\x00\x00\x00\x00\x00\x00\xa0\xdf"
-            )  # {'voltage': 14.0, 'current': 3.0, 'battery_level': 90.0, 'cycles': 57, 'cycle_charge': 345.6, 'numTemp': 4, 'temperature': 21.5, 'cycle_capacity': 4838.400000000001, 'power': 42.0, 'battery_charging': True, 'runtime': none!, 'delta_voltage': 0.321}
-
-        if (
-            isinstance(char_specifier, str)
-            and normalize_uuid_str(char_specifier) == normalize_uuid_str("fff2")
-            and data == (self.HEAD_READ + self.MOS_INFO)
-        ):
-            if not self.MOS_AVAIL:
+            if bytes(data)[2:] == self.MOS_INFO and not self.MOS_AVAIL:
                 raise TimeoutError
-            return bytearray(
-                b"\xd2\x03\x12\x00\x00\x00\x00\x75\x30\x00\x00\x00\x4e\xff\xff\xff\xff\xff\xff\xff"
-                b"\xff\x0b\x4e"
-            )
+            return MockDalyBleakClient.RESP.get(bytes(data)[2:], bytearray())
 
         return bytearray()
 
@@ -121,10 +126,7 @@ async def test_update(
 
     patch_bleak_client(MockDalyBleakClient)
 
-    bms = BMS(
-        generate_ble_device(),
-        keep_alive_fixture
-    )
+    bms = BMS(generate_ble_device(), keep_alive_fixture)
 
     assert await bms.async_update() == ref_value() | (
         {
@@ -143,6 +145,17 @@ async def test_update(
     assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
+
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockDalyBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "Daly",
+        "default_model": "smart BMS",
+        "hw_version": "H2.0_103R_309F9F",
+        "sw_version": "T00K_321042_11",
+    }
 
 
 async def test_mos_excl(patch_bleak_client) -> None:
@@ -215,7 +228,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -272,7 +285,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result.get("problem", False)  # we expect a problem
     assert result.get("problem_code", 0) == (
         1 << (0 if problem_response[1] == "first_bit" else 63)

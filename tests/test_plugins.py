@@ -7,12 +7,13 @@ from aiobmsble.test_data import bms_advertisements, ignore_advertisements
 from aiobmsble.utils import bms_supported, load_bms_plugins
 
 
-def test_device_info(plugin_fixture: ModuleType) -> None:
-    """Test that the BMS returns valid device information."""
+def test_bms_id(plugin_fixture: ModuleType) -> None:
+    """Test that the BMS returns default information."""
     bms_class: type[BaseBMS] = plugin_fixture.BMS
-    result: dict[str, str] = bms_class.device_info()
-    assert "manufacturer" in result
-    assert "model" in result
+    for key in ("default_manufacturer", "default_model"):
+        assert key in bms_class.INFO
+        assert bms_class.INFO[key].strip()
+    assert len(bms_class.bms_id().strip())
 
 
 def test_matcher_dict(plugin_fixture: ModuleType) -> None:

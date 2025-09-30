@@ -8,7 +8,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.dpwrcore_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -205,7 +205,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name))
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -222,7 +222,7 @@ async def test_wrong_crc(patch_bleak_client, patch_bms_timeout, dev_name) -> Non
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name))
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -291,7 +291,7 @@ async def test_incomplete_msgs(monkeypatch, patch_bleak_client, dev_name) -> Non
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), False)
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(ValueError, match="incomplete response set"):
         result = await bms.async_update()
 

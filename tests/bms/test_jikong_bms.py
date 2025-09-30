@@ -12,8 +12,8 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
-from aiobmsble.bms.jikong_bms import BMS, BMSmode, crc_sum
+from aiobmsble.basebms import BMSInfo, BMSSample
+from aiobmsble.bms.jikong_bms import BMS, BMSMode, crc_sum
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
 
@@ -117,7 +117,7 @@ _PROTO_DEFS: Final[dict[str, dict[str, bytearray]]] = {
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10\x0e\x00\x00\x0a\x50\x01\x1e\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xfe\x9f\xe9\xff\x0f\x00\x00"
             b"\x00\x00\x00\x00\x00\xf1"
-        ),  # TODO: values
+        ),
         "ack": bytearray(
             b"\xaa\x55\x90\xeb\xc8\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x44\x41"
             b"\x54\x0d\x0a"
@@ -158,7 +158,7 @@ _PROTO_DEFS: Final[dict[str, dict[str, bytearray]]] = {
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xfe\x9f\xe9\xfe\x1b\x00\x00"
             b"\x00\x00\x00\x00\x00\xc5\xaa\x55\x90\xeb\xc8\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x44\x41\x54\x0d\x0a"
-        ),  # Vendor_ID: JK_B2A16S20P, SN: 50321489000643, HW: V19.XA, SW: V19.05, power-on: 11, Version: 4.28.0
+        ),  # Vendor_ID: JK_B2A16S20P, SN: 50321489000643, HW: V19.XA, SW: V19.05, power-on: 11
         "ack": bytearray(),  # ACKnowledge is contained at end of dev msg, with AT cmd
         "cell": bytearray(  # copy from v15
             b"\x55\xaa\xeb\x90\x02\xac\x05\x0d\xfe\x0c\xfe\x0c\x01\x0d\x01\x0d\xfd\x0c\xfb\x0c\x01"
@@ -180,7 +180,7 @@ _PROTO_DEFS: Final[dict[str, dict[str, bytearray]]] = {
     },
 }
 
-_RESULT_DEFS: Final[dict[str, BMSsample]] = {
+_RESULT_DEFS: Final[dict[str, BMSSample]] = {
     "JK02_24S": {
         "cell_count": 16,
         "delta_voltage": 0.005,
@@ -240,7 +240,7 @@ _RESULT_DEFS: Final[dict[str, BMSsample]] = {
     "JK02_32S_v15": {
         "cell_count": 16,
         "delta_voltage": 0.016,
-        "battery_mode": BMSmode.FLOAT,
+        "battery_mode": BMSMode.FLOAT,
         "voltage": 53.224,
         "current": 31.881,
         "battery_level": 25,
@@ -277,7 +277,7 @@ _RESULT_DEFS: Final[dict[str, BMSsample]] = {
     "JK02_32S_v19": {
         "cell_count": 16,
         "delta_voltage": 0.016,
-        "battery_mode": BMSmode.FLOAT,
+        "battery_mode": BMSMode.FLOAT,
         "voltage": 53.224,
         "current": 31.881,
         "battery_level": 25,
@@ -310,6 +310,37 @@ _RESULT_DEFS: Final[dict[str, BMSsample]] = {
         "battery_charging": True,
         "temperature": 16.367,
         "problem": False,
+    },
+}
+
+_DEV_DEFS: Final[dict[str, BMSInfo]] = {
+    "JK02_24S": {
+        "model": "JK-B2A20S20P",
+        "hw_version": "10.XG",
+        "sw_version": "10.08",
+        "name": "JK-BMS-A",
+        "serial_number": "20328160",
+    },
+    "JK02_32S": {
+        "model": "JK_B2A8S20P",
+        "hw_version": "11.XA",
+        "sw_version": "11.48",
+        "name": "12v420a",
+        "serial_number": "404092C2",
+    },
+    "JK02_32S_v15": {
+        "model": "JK_PB2A16S20P",
+        "hw_version": "15A",
+        "sw_version": "15.38",
+        "name": "41018492555",
+        "serial_number": "41018492",
+    },
+    "JK02_32S_v19": {
+        "model": "JK_PB2A16S20P",
+        "hw_version": "19A",
+        "sw_version": "19.05",
+        "name": "Baterie 1",
+        "serial_number": "50321484",
     },
 }
 
@@ -493,7 +524,6 @@ class MockOversizedBleakClient(MockJikongBleakClient):
         return bytearray()
 
 
-@pytest.mark.asyncio
 async def test_update(
     monkeypatch, patch_bleak_client, protocol_type, keep_alive_fixture
 ) -> None:
@@ -512,6 +542,18 @@ async def test_update(
     assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
+
+
+async def test_device_info(monkeypatch, patch_bleak_client, protocol_type) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    monkeypatch.setattr(MockJikongBleakClient, "_FRAME", _PROTO_DEFS[protocol_type])
+    patch_bleak_client(MockJikongBleakClient)
+    bms = BMS(generate_ble_device())
+    assert (
+        await bms.device_info()
+        == {"default_manufacturer": "Jikong", "default_model": "smart BMS"}
+        | _DEV_DEFS[protocol_type]
+    )
 
 
 async def test_hide_temp_sensors(
@@ -538,7 +580,7 @@ async def test_hide_temp_sensors(
     bms = BMS(generate_ble_device())
 
     # modify result dict to match removed temp#1, temp#2
-    ref_result: BMSsample = deepcopy(_RESULT_DEFS[protocol_type])
+    ref_result: BMSSample = deepcopy(_RESULT_DEFS[protocol_type])
     if protocol_type == "JK02_24S":
         ref_result |= {"temp_sensors": 3, "temperature": 18.1}
     elif protocol_type == "JK02_32S":
@@ -567,10 +609,7 @@ async def test_stream_update(
         "aiobmsble.basebms.asyncio.Event.is_set", lambda _: True
     )
 
-    bms = BMS(
-        generate_ble_device(),
-        keep_alive_fixture
-    )
+    bms = BMS(generate_ble_device(), keep_alive_fixture)
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
@@ -599,7 +638,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
     assert not result
@@ -625,7 +664,7 @@ async def test_invalid_frame_type(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
     assert not result
@@ -656,7 +695,7 @@ async def test_invalid_device(patch_bleak_client) -> None:
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
 
     with pytest.raises(
         ConnectionError, match=r"^Failed to detect characteristics from.*"
@@ -690,7 +729,7 @@ async def test_non_stale_data(
     bms = BMS(generate_ble_device())
 
     # run an update which provides half a valid message and then disconnects
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
     assert not result

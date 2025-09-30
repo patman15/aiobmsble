@@ -10,23 +10,24 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class BMS(BaseBMS):
     """Redodo BMS implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "Redodo", "default_model": "Bluetooth battery"}
     _HEAD_LEN: Final[int] = 3
     _MAX_CELLS: Final[int] = 16
     _MAX_TEMP: Final[int] = 3
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 12, 2, False, lambda x: x / 1000),
-        BMSdp("current", 48, 4, True, lambda x: x / 1000),
-        BMSdp("battery_level", 90, 2, False, lambda x: x),
-        BMSdp("cycle_charge", 62, 2, False, lambda x: x / 100),
-        BMSdp("cycles", 96, 4, False, lambda x: x),
-        BMSdp("problem_code", 76, 4, False, lambda x: x),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 12, 2, False, lambda x: x / 1000),
+        BMSDp("current", 48, 4, True, lambda x: x / 1000),
+        BMSDp("battery_level", 90, 2, False, lambda x: x),
+        BMSDp("cycle_charge", 62, 2, False, lambda x: x / 100),
+        BMSDp("cycles", 96, 4, False, lambda x: x),
+        BMSDp("problem_code", 76, 4, False, lambda x: x),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -64,11 +65,6 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Redodo", "model": "Bluetooth battery"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("ffe0")]
@@ -83,8 +79,10 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe2"
 
+    # async def _fetch_device_info(self) -> BMSInfo: use default
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "battery_charging",
@@ -117,11 +115,11 @@ class BMS(BaseBMS):
         self._data = data
         self._data_event.set()
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_reply(b"\x00\x00\x04\x01\x13\x55\xaa\x17")
 
-        result: BMSsample = BMS._decode_data(
+        result: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._data, byteorder="little"
         )
         result["cell_voltages"] = BMS._cell_voltages(

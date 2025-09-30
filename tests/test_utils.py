@@ -177,7 +177,7 @@ async def test_bms_identify_fail() -> None:
 def test_advertisement_matches(
     matcher: MatcherPattern, adv_data: AdvertisementData, expected: bool
 ):
-    """Tests whether the advertisement_matches function returns the expected result for given matcher and advertisement data.
+    """Test _advertisement_matches() returns the expected result for a given matcher/advertisement.
 
     Args:
         matcher: The matcher object or criteria used to evaluate the advertisement data.

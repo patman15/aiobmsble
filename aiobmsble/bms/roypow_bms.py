@@ -10,21 +10,22 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """RoyPow BMS implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "RoyPow", "default_model": "smart BMS"}
     _HEAD: Final[bytes] = b"\xea\xd1\x01"
     _TAIL: Final[int] = 0xF5
     _BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module
     _MIN_LEN: Final[int] = len(_HEAD) + 1
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("battery_level", 7, 1, False, lambda x: x, 0x4),
-        BMSdp("voltage", 47, 2, False, lambda x: x / 100, 0x4),
-        BMSdp(
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("battery_level", 7, 1, False, lambda x: x, 0x4),
+        BMSDp("voltage", 47, 2, False, lambda x: x / 100, 0x4),
+        BMSDp(
             "current",
             6,
             3,
@@ -32,8 +33,8 @@ class BMS(BaseBMS):
             lambda x: (x & 0xFFFF) * (-1 if (x >> 16) & 0x1 else 1) / 100,
             0x3,
         ),
-        BMSdp("problem_code", 9, 3, False, lambda x: x, 0x3),
-        BMSdp(
+        BMSDp("problem_code", 9, 3, False, lambda x: x, 0x3),
+        BMSDp(
             "cycle_charge",
             24,
             4,
@@ -41,9 +42,9 @@ class BMS(BaseBMS):
             lambda x: ((x & 0xFFFF0000) | (x & 0xFF00) >> 8 | (x & 0xFF) << 8) / 1000,
             0x4,
         ),
-        BMSdp("runtime", 30, 2, False, lambda x: x * 60, 0x4),
-        BMSdp("temp_sensors", 13, 1, False, lambda x: x, 0x3),
-        BMSdp("cycles", 9, 2, False, lambda x: x, 0x4),
+        BMSDp("runtime", 30, 2, False, lambda x: x * 60, 0x4),
+        BMSDp("temp_sensors", 13, 1, False, lambda x: x, 0x3),
+        BMSDp("cycles", 9, 2, False, lambda x: x, 0x4),
     )
     _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS})
 
@@ -66,11 +67,6 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "RoyPow", "model": "SmartBMS"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("ffe0")]
@@ -85,8 +81,10 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
+    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "battery_charging",
@@ -159,7 +157,7 @@ class BMS(BaseBMS):
         data: Final[bytearray] = bytearray([len(cmd) + 2, *cmd])
         return bytes([*BMS._HEAD, *data, BMS._crc(data), BMS._TAIL])
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
         self._data.clear()
@@ -167,7 +165,7 @@ class BMS(BaseBMS):
         for cmd in range(2, 5):
             await self._await_reply(BMS._cmd(bytes([0xFF, cmd])))
 
-        result: BMSsample = BMS._decode_data(BMS._FIELDS, self._data_final)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
 
         # remove remaining runtime if battery is charging
         if result.get("runtime") == 0xFFFF * 60:

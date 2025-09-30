@@ -10,13 +10,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 
 
 class BMS(BaseBMS):
     """ANT BMS implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "ANT", "default_model": "smart BMS"}
     _HEAD: Final[bytes] = b"\x7e\xa1"
     _TAIL: Final[bytes] = b"\xaa\x55"
     _MIN_LEN: Final[int] = 10  # frame length without data
@@ -27,12 +28,12 @@ class BMS(BaseBMS):
     _CELL_COUNT: Final[int] = 9
     _CELL_POS: Final[int] = 34
     _MAX_CELLS: Final[int] = 32
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 38, 2, False, lambda x: x / 100),
-        BMSdp("current", 40, 2, True, lambda x: x / 10),
-        BMSdp("design_capacity", 50, 4, False, lambda x: x // 1e6),
-        BMSdp("battery_level", 42, 2, False, lambda x: x),
-        BMSdp(
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 38, 2, False, lambda x: x / 100),
+        BMSDp("current", 40, 2, True, lambda x: x / 10),
+        BMSDp("design_capacity", 50, 4, False, lambda x: x // 1e6),
+        BMSDp("battery_level", 42, 2, False, lambda x: x),
+        BMSDp(
             "problem_code",
             46,
             2,
@@ -40,10 +41,10 @@ class BMS(BaseBMS):
             lambda x: ((x & 0xF00) if (x >> 8) not in (0x1, 0x4, 0xB, 0xF) else 0)
             | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB, 0xC, 0xF) else 0),
         ),
-        BMSdp("cycle_charge", 54, 4, False, lambda x: x / 1e6),
-        BMSdp("total_charge", 58, 4, False, lambda x: x // 1000),
-        BMSdp("delta_voltage", 82, 2, False, lambda x: x / 1000),
-        BMSdp("power", 62, 4, True, lambda x: x / 1),
+        BMSDp("cycle_charge", 54, 4, False, lambda x: x / 1e6),
+        BMSDp("total_charge", 58, 4, False, lambda x: x // 1000),
+        BMSDp("delta_voltage", 82, 2, False, lambda x: x / 1000),
+        BMSDp("power", 62, 4, True, lambda x: x / 1),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -51,7 +52,7 @@ class BMS(BaseBMS):
         super().__init__(ble_device, keep_alive)
         self._data_final: bytearray = bytearray()
         self._valid_reply: int = BMS._CMD_STAT | 0x10  # valid reply mask
-        self._exp_len: int = BMS._MIN_LEN
+        self._exp_len: int = 0
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -64,11 +65,6 @@ class BMS(BaseBMS):
                 "connectable": True,
             }
         ]
-
-    @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "ANT", "model": "Smart BMS"}
 
     @staticmethod
     def uuid_services() -> list[str]:
@@ -85,8 +81,17 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+
+        await self._await_reply(BMS._cmd(BMS._CMD_DEV, 0x026C, 0x20))
+        return BMSInfo(
+            hw_version=barr2str(self._data_final[6:22]),
+            sw_version=barr2str(self._data_final[22:38]),
+        )
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {"cycle_capacity", "cycles", "temperature"}
         )  # calculate further values from BMS provided set ones
@@ -96,10 +101,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize RX/TX characteristics and protocol state."""
         await super()._init_connection(char_notify)
-        self._exp_len = BMS._MIN_LEN
-        self._valid_reply = BMS._CMD_DEV | 0x10
-        await self._await_reply(BMS._cmd(BMS._CMD_DEV, 0x026C, 0x20))  # TODO: parse
-        self._valid_reply = BMS._CMD_STAT | 0x10
+        self._exp_len = 0
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -119,7 +121,7 @@ class BMS(BaseBMS):
             "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
         )
 
-        if len(self._data) < self._exp_len:
+        if len(self._data) < self._exp_len or len(self._data) < BMS._MIN_LEN:
             return
 
         if self._data[2] != self._valid_reply:
@@ -170,11 +172,23 @@ class BMS(BaseBMS):
             for idx in range(offs, offs + sensors * 2, 2)
         ]
 
-    async def _async_update(self) -> BMSsample:
+    async def _await_reply(
+        self,
+        data: bytes,
+        char: int | str | None = None,
+        wait_for_notify: bool = True,
+        max_size: int = 0,
+    ) -> None:
+        """Send data to the BMS and wait for valid reply notification."""
+
+        self._valid_reply = data[2] | 0x10  # expected reply type
+        await super()._await_reply(data, char, wait_for_notify, max_size)
+
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_reply(BMS._cmd(BMS._CMD_STAT, 0, 0xBE))
 
-        result: BMSsample = {}
+        result: BMSSample = {}
         result["battery_charging"] = self._data_final[7] == 0x2
         result["cell_count"] = min(self._data_final[BMS._CELL_COUNT], BMS._MAX_CELLS)
         result["cell_voltages"] = BMS._cell_voltages(

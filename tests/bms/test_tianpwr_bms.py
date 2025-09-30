@@ -8,13 +8,13 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample, BMSvalue
+from aiobmsble.basebms import BMSSample, BMSValue
 from aiobmsble.bms.tianpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
 
-def ref_value() -> BMSsample:
+def ref_value() -> BMSSample:
     """Return reference value for mock Seplos BMS."""
     return {
         "temp_sensors": 4,
@@ -145,6 +145,18 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockTianPwrBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "default_manufacturer": "TianPwr",
+        "default_model": "smart BMS",
+        "hw_version": "TP-LT55",
+        "sw_version": "0.1.10",
+    }
+
+
 @pytest.fixture(
     name="wrong_response",
     params=[
@@ -178,7 +190,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -208,8 +220,8 @@ async def test_missing_message(
     bms = BMS(generate_ble_device())
 
     # remove values from reference that are in 0x84 response (and dependent)
-    ref: BMSsample = ref_value()
-    key: BMSvalue
+    ref: BMSSample = ref_value()
+    key: BMSValue
     for key in (
         "battery_level",
         "battery_charging",
@@ -263,7 +275,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result == ref_value() | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 63),
