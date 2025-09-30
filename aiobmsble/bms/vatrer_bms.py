@@ -10,12 +10,13 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
 from aiobmsble import BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, BMSDp, crc_modbus
+from aiobmsble.basebms import BaseBMS, BMSDp, BMSInfo, crc_modbus
 
 
 class BMS(BaseBMS):
     """Vatrer BMS implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "Vatrer", "default_model": "smart BMS"}
     _HEAD: Final[bytes] = b"\x02\x03"  # beginning of frame
     _FRAME_LEN: Final[int] = 5  # head + len + CRC
     _MAX_CELLS: Final[int] = 0x1F
