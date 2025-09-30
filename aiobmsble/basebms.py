@@ -17,7 +17,6 @@ from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakCharacteristicNotFoundError, BleakError
-from bleak.uuids import normalize_uuid_16
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
@@ -190,7 +189,7 @@ class BaseBMS(ABC):
             try:
                 if value := await self._client.read_gatt_char(char):
                     info[key] = barr2str(value)
-                self._log.debug("BT device %s: '%s'", key, info[key])
+                    self._log.debug("BT device %s: '%s'", key, info[key])
             except BleakCharacteristicNotFoundError:
                 pass
 

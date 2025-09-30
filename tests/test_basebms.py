@@ -141,9 +141,10 @@ class WMTestBMS(MinTestBMS):
     ("bt_patch", "result_patch"),
     [
         ({"2a28": b"mock_SW_version"}, {"sw_version": "mock_SW_version"}),
+        ({"2a28": b""}, {}),
         ({}, {}),
     ],
-    ids=["defaults", "no_SW_ver"],
+    ids=["defaults", "empty", "no_char"],
 )
 async def test_device_info(
     monkeypatch: pytest.MonkeyPatch,
@@ -175,6 +176,7 @@ async def test_device_info(
 async def test_device_info_fail(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client: Callable[..., None]
 ) -> None:
+    """Test only BMS default information is returned if characteristic 0x180a does not exit."""
     monkeypatch.setattr(
         BleakGATTServiceCollection, "get_service", lambda obj, char: None
     )
