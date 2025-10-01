@@ -1,4 +1,4 @@
-"""Test the E&J technology BMS implementation."""
+"""Test the Vatrer BMS implementation."""
 
 from collections.abc import Buffer
 from uuid import UUID
@@ -10,6 +10,45 @@ from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.vatrer_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+
+
+def ref_value() -> BMSSample:
+    """Return reference value for mock Vatrer BMS."""
+    return {
+        "voltage": 52.67,
+        "current": -4.96,
+        "battery_level": 40,
+        "cycle_charge": 39.7,
+        "cycle_capacity": 2090.999,
+        "cycles": 27,
+        "delta_voltage": 0.003,
+        "cell_count": 16,
+        "runtime": 28814,
+        "temp_sensors": 4,
+        "temp_values": [18.0, 20.0, 19.0, 20.0, 20.0, 20.0],
+        "temperature": 19.5,
+        "battery_charging": False,
+        "power": -261.243,
+        "problem": False,
+        "cell_voltages": [
+            3.295,
+            3.295,
+            3.296,
+            3.296,
+            3.296,
+            3.296,
+            3.296,
+            3.296,
+            3.296,
+            3.296,
+            3.296,
+            3.296,
+            3.296,
+            3.296,
+            3.296,
+            3.293,
+        ],
+    }
 
 
 class MockVatrerBleakClient(MockBleakClient):
@@ -54,41 +93,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     bms = BMS(generate_ble_device(), keep_alive_fixture)
 
-    assert await bms.async_update() == {
-        "voltage": 52.67,
-        "current": -4.96,
-        "battery_level": 40,
-        "cycle_charge": 39.7,
-        "cycle_capacity": 2090.999,
-        "cycles": 27,
-        "delta_voltage": 0.003,
-        "cell_count": 16,
-        "runtime": 28814,
-        "temp_sensors": 4,
-        "temp_values": [18.0, 20.0, 19.0, 20.0, 20.0, 20.0],
-        "temperature": 19.5,
-        "battery_charging": False,
-        "power": -261.243,
-        "problem": False,
-        "cell_voltages": [
-            3.295,
-            3.295,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.293,
-        ],
-    }
+    assert await bms.async_update() == ref_value()
 
     # query again to check already connected state
     await bms.async_update()
@@ -152,4 +157,51 @@ async def test_invalid_response(
         result = await bms.async_update()
 
     assert not result
+    await bms.disconnect()
+
+
+@pytest.fixture(
+    name="problem_response",
+    params=[
+        (
+            bytearray(
+                b"\x02\x03\x24\x00\x04\x00\x12\x00\x14\x00\x13\x00\x14\x00\x14\x00\x14\x80\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x34\x02\x40\x00\x00\x00\x00\xCE\x2B"
+            ),
+            "first_bit",
+        ),
+        (
+            bytearray(
+                b"\x02\x03\x24\x00\x04\x00\x12\x00\x14\x00\x13\x00\x14\x00\x14\x00\x14\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x34\x02\x40\x00\x00\x00\x00\x87\x8F"
+            ),
+            "last_bit",
+        ),
+    ],
+    ids=lambda param: param[1],
+)
+def prb_response(request):
+    """Return faulty response frame."""
+    return request.param
+
+
+async def test_problem_response(
+    monkeypatch, patch_bleak_client, problem_response: tuple[bytearray, str]
+) -> None:
+    """Test data update with BMS returning error flags."""
+
+    monkeypatch.setattr(
+        MockVatrerBleakClient,
+        "RESP",
+        MockVatrerBleakClient.RESP
+        | {b"\x02\x03\x00\x34\x00\x12\x84\x3a": problem_response[0]},
+    )
+
+    patch_bleak_client(MockVatrerBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = await bms.async_update()
+    assert result == ref_value() | {"problem": True}
+
     await bms.disconnect()

@@ -15,7 +15,7 @@ from tests.conftest import MockBleakClient
 
 
 def ref_value() -> BMSSample:
-    """Return reference value for mock Seplos BMS."""
+    """Return reference value for mock Tian Power BMS."""
     return {
         "temp_sensors": 4,
         "voltage": 54.74,

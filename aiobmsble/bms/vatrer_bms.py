@@ -30,7 +30,7 @@ class BMS(BaseBMS):
         BMSDp("temp_sensors", 3, 2, False, lambda x: min(x, BMS._MAX_TEMP), 0x24),
         BMSDp("cycles", 15, 2, False, lambda x: x, 0x28),
         BMSDp("delta_voltage", 29, 2, False, lambda x: x / 1000, 0x28),
-        # BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
+        BMSDp("problem", 17, 15, False, lambda x: (x != 0), 0x24),
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS}
     _CMDS: Final[tuple[tuple[int, int], ...]] = (
