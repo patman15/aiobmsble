@@ -68,6 +68,7 @@ class BMS(BaseBMS):
                 "OGR-*",  # OGRPHY
                 "DWC*",  # Vatrer
                 "DXD*",  # Vatrer
+                "DDC*",  # Vatrer
                 "xiaoxiang*",  # xiaoxiang BMS
                 "AL12-*",  # Aolithium
                 "BS20*",  # BasenGreen
