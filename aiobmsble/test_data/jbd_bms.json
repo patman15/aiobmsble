@@ -436,5 +436,23 @@
       "LANPWR 12V 100Ah LiFePO4",
       "MAC wrong"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "DDCK01602J-003",
+      "manufacturer_data": {
+        "37637": "3337c2a5"
+      },
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb"
+      ],
+      "rssi": -68
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/pull/37)",
+      "zjdy, FW 8.1, name: sp21s001hl21s200a",
+      "MAC wrong"
+    ]
   }
 ]
