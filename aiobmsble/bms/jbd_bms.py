@@ -72,6 +72,7 @@ class BMS(BaseBMS):
                 "AL12-*",  # Aolithium
                 "BS20*",  # BasenGreen
                 "BT  LP*",  # LANPWR
+                "DDCK01602J-003",  # Vatrer 24V 200Ah
             )
         ] + [
             MatcherPattern(
