@@ -446,7 +446,7 @@ class BaseBMS(ABC):
     async def _async_update(self) -> BMSSample:
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
-    async def async_update(self) -> BMSSample:
+    async def async_update(self, raw: bool = False) -> BMSSample:
         """Retrieve updated values from the BMS using method of the subclass.
 
         Args:
@@ -460,7 +460,8 @@ class BaseBMS(ABC):
         await self._connect()
 
         data: BMSSample = await self._async_update()
-        self._add_missing_values(data, self._calc_values())
+        if not raw:
+            self._add_missing_values(data, self._calc_values())
 
         if not self._keep_alive:
             # disconnect after data update to force reconnect next time (slow!)
