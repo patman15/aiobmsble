@@ -49,13 +49,15 @@ class BMSmode(IntEnum):
     ABSORPTION = 0x01
     FLOAT = 0x02
 
+
 class BMSswitches(TypedDict, total=False):
     """Dictionary representing BMS switches."""
 
-    charge_mosfet: bool
-    discharge_mosfet: bool
-    balancer: bool
-    dry_contacts: list[bool]
+    charge_mosfet: bool  # True: enabled
+    discharge_mosfet: bool  # True: enabled
+    balancer: bool  # True: enabled/active
+    dry_contacts: list[bool]  # True: closed/on, False: open/off
+
 
 class BMSsample(TypedDict, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
