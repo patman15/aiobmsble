@@ -20,10 +20,8 @@ from bleak.uuids import normalize_uuid_str
 from hypothesis import HealthCheck, settings
 import pytest
 
-from aiobmsble import BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, BMSValue
+from aiobmsble import BMSSample
 from aiobmsble.utils import load_bms_plugins
-from tests.bluetooth import generate_ble_device
 
 logging.basicConfig(level=logging.INFO)
 LOGGER: logging.Logger = logging.getLogger(__package__)
