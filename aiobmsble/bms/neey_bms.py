@@ -19,7 +19,7 @@ from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
 class BMS(BaseBMS):
     """Neey smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Neey", "default_model": "Balancer"}
+    _INFO: BMSInfo = {"default_manufacturer": "Neey", "default_model": "Balancer"}
     _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
     _HEAD_RSP: Final = bytes([0x55, 0xAA, 0x11, 0x01])  # start, dev addr, read cmd
     _HEAD_CMD: Final = bytes(

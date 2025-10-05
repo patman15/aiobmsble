@@ -202,6 +202,7 @@ async def test_device_info(monkeypatch, patch_bleak_client) -> None:
     assert await bms.device_info() == {
         "default_manufacturer": "Neey",
         "default_model": "Balancer",
+        "default_name": "MockBLEDevice",
         "model": "GW-24S4EB",
         "sw_version": "ZH-1.2.3",
         "hw_version": "HW-2.8.0",

@@ -154,6 +154,7 @@ async def test_device_info(patch_bleak_client) -> None:
     assert await bms.device_info() == {
         "default_manufacturer": "Seplos",
         "default_model": "smart BMS V2",
+        "default_name": "MockBLEDevice",
         "sw_version": "16.6",
         "model": "B1101-SP76",
     }

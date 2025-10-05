@@ -7,7 +7,6 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
-from functools import lru_cache
 import logging
 from statistics import fmean
 from types import TracebackType
@@ -25,7 +24,7 @@ from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 class BaseBMS(ABC):
     """Abstract base class for battery management system."""
 
-    INFO: BMSInfo  # static default info about the BMS, set "default_" keys here
+    _INFO: BMSInfo  # static default info about the BMS, set "default_" keys here
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
@@ -70,13 +69,15 @@ class BaseBMS(ABC):
         ), "BMS class must define _notification_handler method"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
-        self._info: BMSInfo = {"name": self._ble_device.name or "undefined"}
+        self._info: BMSInfo = {
+            "default_name": self._ble_device.name or "undefined"
+        }  # BMS device info cache
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
         self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
             {
-                "prefix": f"{self._info["name"]}|{self._ble_device.address[-5:].replace(':','')}:"
+                "prefix": f"{self._info["default_name"]}|{self._ble_device.address[-5:].replace(':','')}:"
             },
         )
 
@@ -120,7 +121,7 @@ class BaseBMS(ABC):
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
-        return f"{cls.INFO['default_manufacturer']} {cls.INFO['default_model']}"
+        return f"{cls._INFO['default_manufacturer']} {cls._INFO['default_model']}"
 
     @staticmethod
     @abstractmethod
@@ -137,22 +138,31 @@ class BaseBMS(ABC):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
 
-    @lru_cache
+    def def_device_info(self) -> BMSInfo:
+        """Return default device info.
+
+        keys: default_manufacturer, default_model, default_name
+        """
+        return self._INFO
+
     async def device_info(self) -> BMSInfo:
         """Return a dictionary of device information.
 
         keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
         """
-        disconnect: Final[bool] = not self._client.is_connected
+        if len(self._info) > 1:  # querying is expensive, so use cache if available
+            return self._info
 
+        disconnect: Final[bool] = not self._client.is_connected
         await self._connect()
         dev_info: Final[BMSInfo] = await self._fetch_device_info()
         if disconnect:
             await self.disconnect()
 
-        self._log.debug("BMS info %s", type(self).INFO | dev_info)
+        self._info.update(dev_info | self.def_device_info())
+        self._log.debug("BMS info %s", self._info)
 
-        return type(self).INFO | dev_info
+        return self._info
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""

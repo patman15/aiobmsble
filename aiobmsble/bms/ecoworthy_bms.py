@@ -18,7 +18,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """ECO-WORTHY BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "ECO-WORTHY", "default_model": "BW02"}
+    _INFO: BMSInfo = {"default_manufacturer": "ECO-WORTHY", "default_model": "BW02"}
     _HEAD: Final[tuple] = (b"\xa1", b"\xa2")
     _CELL_POS: Final[int] = 14
     _TEMP_POS: Final[int] = 80

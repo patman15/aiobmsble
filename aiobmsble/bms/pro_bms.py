@@ -18,7 +18,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Pro BMS Smart Shunt class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Pro BMS", "default_model": "Smart Shunt"}
+    _INFO: BMSInfo = {"default_manufacturer": "Pro BMS", "default_model": "Smart Shunt"}
     _HEAD: Final[bytes] = bytes([0x55, 0xAA])
     _MIN_LEN: Final[int] = 5
     _INIT_RESP: Final[int] = 0x03

@@ -19,7 +19,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Felicity BMS implementation."""
 
-    INFO: BMSInfo = {
+    _INFO: BMSInfo = {
         "default_manufacturer": "Felicity Solar",
         "default_model": "LiFePo4 battery",
     }

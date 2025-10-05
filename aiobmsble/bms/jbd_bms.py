@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """JBD smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Jiabaida", "default_model": "smart BMS"}
+    _INFO: BMSInfo = {"default_manufacturer": "Jiabaida", "default_model": "smart BMS"}
     HEAD_RSP: Final[bytes] = bytes([0xDD])  # header for responses
     HEAD_CMD: Final[bytes] = bytes([0xDD, 0xA5])  # read header for commands
     TAIL: Final[int] = 0x77  # tail for command

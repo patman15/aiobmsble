@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 class BMS(BaseBMS):
     """Daly smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Daly", "default_model": "smart BMS"}
+    _INFO: BMSInfo = {"default_manufacturer": "Daly", "default_model": "smart BMS"}
     HEAD_READ: Final[bytes] = b"\xd2\x03"
     CMD_INFO: Final[bytes] = b"\x00\x00\x00\x3e\xd7\xb9"
     MOS_INFO: Final[bytes] = b"\x00\x3e\x00\x09\xf7\xa3"
@@ -129,7 +129,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         result: BMSSample = {}
         if (  # do not query devices that do not support MOS temperature, e.g. Bulltron
-            not self._info["name"].startswith(BMS.MOS_NOT_AVAILABLE)
+            not self._info["default_name"].startswith(BMS.MOS_NOT_AVAILABLE)
         ):
             try:
                 # request MOS temperature (possible outcome: response, empty response, no response)
