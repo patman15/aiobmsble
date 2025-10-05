@@ -15,7 +15,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Dummy BMS implementation."""
 
-    INFO: BMSInfo = {
+    _INFO: BMSInfo = {
         "default_manufacturer": "Dummy Manufacturer",
         "default_model": "dummy model",
     }  # TODO

@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from enum import IntEnum
-from typing import Any, Literal, NamedTuple, NotRequired, ReadOnly, TypedDict
+from typing import Any, Literal, NamedTuple, ReadOnly, TypedDict
 
 type BMSValue = Literal[
     "battery_charging",
@@ -92,14 +92,6 @@ class BMSDp(NamedTuple):
     signed: bool  # signed value
     fct: Callable[[int], Any] = lambda x: x  # conversion function (default do nothing)
     idx: int = -1  # array index containing the message to be parsed
-
-
-class BMSDefInfo(TypedDict):
-    """Human readable default information about the BMS."""
-
-    manufacturer: ReadOnly[str]
-    model: ReadOnly[str]
-    name: NotRequired[str]
 
 
 class BMSInfo(TypedDict, total=False):

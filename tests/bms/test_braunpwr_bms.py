@@ -139,6 +139,7 @@ async def test_device_info(patch_bleak_client) -> None:
     assert await bms.device_info() == {
         "default_manufacturer": "Braun Power",
         "default_model": "smart BMS",
+        "default_name": "MockBLEDevice",
         "hw_version": "KS_BLE_WIFI_Ver1.0.0_20240313",
         "sw_version": "2.3.1",
     }

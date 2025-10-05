@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """TDT BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "TDT", "default_model": "smart BMS"}
+    _INFO: BMSInfo = {"default_manufacturer": "TDT", "default_model": "smart BMS"}
     _UUID_CFG: Final[str] = "fffa"
     _HEAD: Final[int] = 0x7E
     _CMD_HEADS: list[int] = [0x7E, 0x1E]  # alternative command head

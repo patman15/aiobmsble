@@ -163,6 +163,7 @@ async def test_update(
 
     await bms.disconnect()
 
+
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockECOWBleakClient)
@@ -170,7 +171,9 @@ async def test_device_info(patch_bleak_client) -> None:
     assert await bms.device_info() == {
         "default_manufacturer": "ECO-WORTHY",
         "default_model": "BW02",
+        "default_name": "MockBLEDevice",
     }
+
 
 @pytest.fixture(
     name="wrong_response",

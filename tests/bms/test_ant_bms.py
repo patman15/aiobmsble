@@ -145,6 +145,7 @@ async def test_device_info(patch_bleak_client) -> None:
     assert await bms.device_info() == {
         "default_manufacturer": "ANT",
         "default_model": "smart BMS",
+        "default_name": "MockBLEDevice",
         "hw_version": "24BH",
         "sw_version": "24BHUB00-211026A",
     }

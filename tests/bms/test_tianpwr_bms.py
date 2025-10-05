@@ -152,6 +152,7 @@ async def test_device_info(patch_bleak_client) -> None:
     assert await bms.device_info() == {
         "default_manufacturer": "TianPwr",
         "default_model": "smart BMS",
+        "default_name": "MockBLEDevice",
         "hw_version": "TP-LT55",
         "sw_version": "0.1.10",
     }

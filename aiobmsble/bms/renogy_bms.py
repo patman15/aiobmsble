@@ -16,7 +16,7 @@ from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 class BMS(BaseBMS):
     """Renogy battery class implementation."""
 
-    INFO: BMSInfo = {
+    _INFO: BMSInfo = {
         "default_manufacturer": "Renogy",
         "default_model": "Bluetooth battery",
     }

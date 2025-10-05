@@ -551,7 +551,11 @@ async def test_device_info(monkeypatch, patch_bleak_client, protocol_type) -> No
     bms = BMS(generate_ble_device())
     assert (
         await bms.device_info()
-        == {"default_manufacturer": "Jikong", "default_model": "smart BMS"}
+        == {
+            "default_manufacturer": "Jikong",
+            "default_model": "smart BMS",
+            "default_name": "MockBLEDevice",
+        }
         | _DEV_DEFS[protocol_type]
     )
 
