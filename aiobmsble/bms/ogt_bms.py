@@ -19,7 +19,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Offgridtec LiFePO4 Smart Pro type A and type B BMS implementation."""
 
-    _INFO: BMSInfo = {
+    INFO: BMSInfo = {
         "default_manufacturer": "Offgridtec",
         "default_model": "LiFePo4 Smart Pro",
     }

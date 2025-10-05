@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS, barr2str
 class BMS(BaseBMS):
     """Braun Power BMS class implementation."""
 
-    _INFO: BMSInfo = {
+    INFO: BMSInfo = {
         "default_manufacturer": "Braun Power",
         "default_model": "smart BMS",
     }

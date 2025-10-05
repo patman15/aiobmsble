@@ -18,7 +18,7 @@ from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
 class BMS(BaseBMS):
     """Jikong smart BMS class implementation."""
 
-    _INFO: BMSInfo = {"default_manufacturer": "Jikong", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "Jikong", "default_model": "smart BMS"}
     HEAD_RSP: Final = bytes([0x55, 0xAA, 0xEB, 0x90])  # header for responses
     HEAD_CMD: Final = bytes([0xAA, 0x55, 0x90, 0xEB])  # header for commands (endiness!)
     _READY_MSG: Final = HEAD_CMD + bytes([0xC8, 0x01, 0x01] + [0x00] * 12 + [0x44])

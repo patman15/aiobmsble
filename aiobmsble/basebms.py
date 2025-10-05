@@ -24,7 +24,7 @@ from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 class BaseBMS(ABC):
     """Abstract base class for battery management system."""
 
-    _INFO: BMSInfo  # static default info about the BMS, set "default_" keys here
+    INFO: BMSInfo  # static BMS info, set "default_" keys in subclass
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
@@ -121,7 +121,7 @@ class BaseBMS(ABC):
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
-        return f"{cls._INFO['default_manufacturer']} {cls._INFO['default_model']}"
+        return f"{cls.INFO['default_manufacturer']} {cls.INFO['default_model']}"
 
     @staticmethod
     @abstractmethod
@@ -137,13 +137,6 @@ class BaseBMS(ABC):
     @abstractmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-
-    def def_device_info(self) -> BMSInfo:
-        """Return default device info.
-
-        keys: default_manufacturer, default_model, default_name
-        """
-        return self._INFO
 
     async def device_info(self) -> BMSInfo:
         """Return a dictionary of device information.

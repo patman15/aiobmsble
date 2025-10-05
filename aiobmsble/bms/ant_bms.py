@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 class BMS(BaseBMS):
     """ANT BMS implementation."""
 
-    _INFO: BMSInfo = {"default_manufacturer": "ANT", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "ANT", "default_model": "smart BMS"}
     _HEAD: Final[bytes] = b"\x7e\xa1"
     _TAIL: Final[bytes] = b"\xaa\x55"
     _MIN_LEN: Final[int] = 10  # frame length without data

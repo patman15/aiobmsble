@@ -18,7 +18,7 @@ from aiobmsble.basebms import BaseBMS, barr2str, crc8
 class BMS(BaseBMS):
     """ABC BMS implementation."""
 
-    _INFO: BMSInfo = {
+    INFO: BMSInfo = {
         "default_manufacturer": "Chunguang Song",
         "default_model": "ABC-BMS",
     }

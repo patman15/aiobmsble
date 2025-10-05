@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS, barr2str
 class BMS(BaseBMS):
     """TianPwr BMS implementation."""
 
-    _INFO: BMSInfo = {"default_manufacturer": "TianPwr", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "TianPwr", "default_model": "smart BMS"}
     _HEAD: Final[bytes] = b"\x55"
     _TAIL: Final[bytes] = b"\xaa"
     _RDCMD: Final[bytes] = b"\x04"

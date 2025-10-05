@@ -68,7 +68,7 @@ class MockWriteModeBleakClient(MockBleakClient):
 class MinTestBMS(BaseBMS):
     """Minimal Test BMS implementation."""
 
-    _INFO: BMSInfo = {
+    INFO: BMSInfo = {
         "default_manufacturer": "Test Manufacturer",
         "default_model": "minimal BMS for test",
     }
