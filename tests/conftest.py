@@ -20,10 +20,8 @@ from bleak.uuids import normalize_uuid_str
 from hypothesis import HealthCheck, settings
 import pytest
 
-from aiobmsble import BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS
+from aiobmsble import BMSSample
 from aiobmsble.utils import load_bms_plugins
-from tests.bluetooth import generate_ble_device
 
 logging.basicConfig(level=logging.INFO)
 LOGGER: logging.Logger = logging.getLogger(__package__)
@@ -175,64 +173,6 @@ class MockBleakClient(BleakClient):
         self._connected = False
         if self._disconnect_callback is not None:
             self._disconnect_callback(self)
-
-
-class MockBMS(BaseBMS):
-    """Mock Battery Management System."""
-
-    INFO: BMSInfo = {"manufacturer": "Mock Manufacturer", "model": "mock model"}
-
-    def __init__(
-        self, exc: Exception | None = None, ret_value: BMSSample | None = None
-    ) -> None:
-        """Initialize BMS."""
-        super().__init__(generate_ble_device(address="", details={"path": None}), False)
-        LOGGER.debug("%s init(), Test except: %s", self.bms_id(), str(exc))
-        self._exception: Exception | None = exc
-        self._ret_value: BMSSample = (
-            ret_value
-            if ret_value is not None
-            else {
-                "voltage": 13,
-                "current": 1.7,
-                "cycle_charge": 19,
-                "cycles": 23,
-            }
-        )  # set fixed values for dummy battery
-
-    @staticmethod
-    def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
-        return [{"local_name": "mock", "connectable": True}]
-
-    @staticmethod
-    def uuid_services() -> list[str]:
-        """Return list of services required by BMS."""
-        return [normalize_uuid_str("cafe")]
-
-    @staticmethod
-    def uuid_rx() -> str:
-        """Return characteristic that provides notification/read property."""
-        return "feed"
-
-    @staticmethod
-    def uuid_tx() -> str:
-        """Return characteristic that provides write property."""
-        return "cafe"
-
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
-        """Retrieve BMS data update."""
-
-    async def _async_update(self) -> BMSSample:
-        """Update battery status information."""
-        await self._connect()
-
-        if self._exception:
-            raise self._exception
-
-        return self._ret_value
 
 
 @pytest.fixture(params=[-13, 0, 21], ids=["neg_current", "zero_current", "pos_current"])

@@ -13,12 +13,19 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc8, crc_modbus, crc_sum, crc_xmodem, lrc_modbus
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble.basebms import (
+    BaseBMS,
+    barr2str,
+    crc8,
+    crc_modbus,
+    crc_sum,
+    crc_xmodem,
+    lrc_modbus,
+)
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
-
-from .bluetooth import generate_ble_device
-from .conftest import MockBleakClient
+from tests.bluetooth import generate_ble_device
+from tests.conftest import MockBleakClient
 
 
 class MockWriteModeBleakClient(MockBleakClient):
@@ -106,8 +113,27 @@ class MinTestBMS(BaseBMS):
         return {"problem_code": 21}
 
 
+class DataTestBMS(MinTestBMS):
+    """BMS providing simple data to test, e.g. value calculation."""
+
+    @staticmethod
+    def _calc_values() -> frozenset[BMSValue]:
+        return frozenset({"power", "battery_charging"})
+
+    async def _async_update(self) -> BMSSample:
+        """Update battery status information."""
+        await self._await_reply(b"mock_command", wait_for_notify=False)  # do not wait
+        return {
+            "voltage": 13,
+            "current": 1.7,
+            "cycle_charge": 19,
+            "cycles": 23,
+            "problem_code": 21,
+        }
+
+
 class WMTestBMS(MinTestBMS):
-    """Test BMS implementation."""
+    """Write mode mock BMS implementation."""
 
     def __init__(
         self,
@@ -297,6 +323,28 @@ def test_calc_cycles() -> None:
 
 
 @pytest.mark.parametrize(
+    ("raw", "expected"),
+    [(True, {}), (False, {"battery_charging": True, "power": 22.1, "problem": True})],
+    ids=["raw", "ext"],
+)
+async def test_async_update(
+    patch_bleak_client: Callable[..., None], raw: bool, expected: dict
+) -> None:
+    """Check update function of the BMS returns calues."""
+    patch_bleak_client()
+    bms: DataTestBMS = DataTestBMS(generate_ble_device())
+    assert await bms.async_update(raw=raw) == BMSSample(
+        {
+            "voltage": 13,
+            "current": 1.7,
+            "cycle_charge": 19,
+            "cycles": 23,
+            "problem_code": 21,
+        }
+    ) | BMSSample(**expected)
+
+
+@pytest.mark.parametrize(
     ("problem_sample"),
     [
         ({"voltage": -1}, "negative overall voltage"),
@@ -471,6 +519,25 @@ async def test_init_connect_fail(
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     with caplog.at_level(DEBUG), pytest.raises(ValueError, match="MockValueError"):
         await bms.async_update()
+
+
+async def test_context_mgr(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Test that context manager provides data."""
+    patch_bleak_client(MockBleakClient)
+
+    async with DataTestBMS(generate_ble_device(), keep_alive=True) as bms:
+        assert await bms.async_update() == {
+            "voltage": 13,
+            "current": 1.7,
+            "battery_charging": True,
+            "power": 22.1,
+            "cycle_charge": 19,
+            "cycles": 23,
+            "problem": True,
+            "problem_code": 21,
+        }
 
 
 async def test_context_mgr_fail(
@@ -715,3 +782,13 @@ def test_decode_data(fields, data, byteorder, offset, expected) -> None:
         fields, data, byteorder=byteorder, offset=offset
     )
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [(b"", ""), (b"\x00 ", ""), (b"test\x00 ", "test"), (b"test  \t\r ", "test")],
+    ids=["empty", "hex", "text_hex", "test_space"],
+)
+def test_barr2str(data: bytes, expected: str) -> None:
+    """Test bytearray to string conversion function."""
+    assert barr2str(bytearray(data)) == expected
