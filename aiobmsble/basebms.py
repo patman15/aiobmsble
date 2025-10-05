@@ -159,7 +159,7 @@ class BaseBMS(ABC):
         if disconnect:
             await self.disconnect()
 
-        self._info.update(dev_info | self.def_device_info())
+        self._info.update(dev_info)
         self._log.debug("BMS info %s", self._info)
 
         return self._info
