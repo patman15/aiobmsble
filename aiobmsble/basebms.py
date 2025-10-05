@@ -70,14 +70,14 @@ class BaseBMS(ABC):
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
         self._info: BMSInfo = {
-            "default_name": self._ble_device.name or "undefined"
+            "name": self._ble_device.name or "undefined"
         }  # BMS device info cache
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
         self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
             {
-                "prefix": f"{self._info["default_name"]}|{self._ble_device.address[-5:].replace(':','')}:"
+                "prefix": f"{self._info["name"]}|{self._ble_device.address[-5:].replace(':','')}:"
             },
         )
 

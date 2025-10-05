@@ -89,9 +89,7 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockRedodoBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "default_manufacturer": "Redodo",
-        "default_model": "Bluetooth battery",
-        "default_name": "MockBLEDevice",
+        "name": "MockBLEDevice",
         "fw_version": "mock_FW_version",
         "hw_version": "mock_HW_version",
         "sw_version": "mock_SW_version",

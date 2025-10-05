@@ -132,9 +132,7 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockEctiveBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "default_manufacturer": "Ective",
-        "default_model": "smart BMS",
-        "default_name": "MockBLEDevice",
+        "name": "MockBLEDevice",
     }
 
 async def test_tx_notimplemented(patch_bleak_client) -> None:

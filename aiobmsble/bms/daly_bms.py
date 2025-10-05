@@ -129,7 +129,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         result: BMSSample = {}
         if (  # do not query devices that do not support MOS temperature, e.g. Bulltron
-            not self._info["default_name"].startswith(BMS.MOS_NOT_AVAILABLE)
+            not self._info["name"].startswith(BMS.MOS_NOT_AVAILABLE)
         ):
             try:
                 # request MOS temperature (possible outcome: response, empty response, no response)

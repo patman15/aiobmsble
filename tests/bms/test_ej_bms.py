@@ -165,9 +165,7 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockEJBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "default_manufacturer": "E&J Technology",
-        "default_model": "smart BMS",
-        "default_name": "MockBLEDevice",
+        "name": "MockBLEDevice",
     }
 
 async def test_update_single_frame(patch_bleak_client, keep_alive_fixture) -> None:

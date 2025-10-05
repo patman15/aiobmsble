@@ -86,7 +86,7 @@ class BMS(RenogyBMS):
             self._log.debug("failed to detect characteristics.")
             await self._client.disconnect()
             raise ConnectionError(
-                f"Failed to detect characteristics from {self._info["default_name"]}."
+                f"Failed to detect characteristics from {self._info["name"]}."
             )
         self._log.debug(
             "using characteristics handle #%i (notify), #%i (write).",

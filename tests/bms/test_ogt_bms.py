@@ -192,9 +192,7 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockOGTBleakClient)
     bms = BMS(generate_ble_device(name="SmartBat-B15051"))
     assert await bms.device_info() == {
-        "default_manufacturer": "Offgridtec",
-        "default_model": "LiFePo4 Smart Pro",
-        "default_name": "SmartBat-B15051",
+        "name": "SmartBat-B15051",
         "serial_number": "15051",
     }
 

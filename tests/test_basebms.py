@@ -161,9 +161,7 @@ async def test_device_info(
     assert (
         await bms.device_info()
         == {
-            "default_manufacturer": "Test Manufacturer",
-            "default_model": "minimal BMS for test",
-            "default_name": "MockBLEDevice",
+            "name": "MockBLEDevice",
             "fw_version": "mock_FW_version",
             "model": "mock_model",
             "serial_number": "mock_serial_number",
@@ -190,22 +188,16 @@ async def test_device_info_cache(
     monkeypatch.setattr(bms, "_fetch_device_info", _fetch_dev_inf_run_one)
 
     assert await bms.device_info() == {
-        "default_manufacturer": "Test Manufacturer",
-        "default_model": "minimal BMS for test",
-        "default_name": "MockBLEDevice",
+        "name": "MockBLEDevice",
         "model": "cache_test_model",
     }, "device data for run one failed"
 
     # run two, check that new info is not taken, but cache used
     monkeypatch.setattr(bms, "_fetch_device_info", _fetch_dev_inf_run_two)
-    assert (
-        await bms.device_info() == {
-        "default_manufacturer": "Test Manufacturer",
-        "default_model": "minimal BMS for test",
-        "default_name": "MockBLEDevice",
+    assert await bms.device_info() == {
+        "name": "MockBLEDevice",
         "model": "cache_test_model",
-    }
-    ), "run two delivered non-cached result"
+    }, "run two delivered non-cached result"
 
 
 async def test_device_info_fail(
@@ -218,11 +210,7 @@ async def test_device_info_fail(
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     await bms.async_update()  # run update to have connection open
-    assert await bms.device_info() == {
-        "default_manufacturer": "Test Manufacturer",
-        "default_model": "minimal BMS for test",
-        "default_name": "MockBLEDevice",
-    }
+    assert await bms.device_info() == {"name": "MockBLEDevice"}
     assert bms._client.is_connected
 
 
