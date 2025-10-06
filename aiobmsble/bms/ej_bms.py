@@ -166,7 +166,7 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        if not self._info["name"].startswith(BMS._IGNORE_CRC) and (
+        if not self.name.startswith(BMS._IGNORE_CRC) and (
             crc := BMS._crc(self._data[1:-3])
         ) != int(self._data[-3:-1], 16):
             # libattU firmware uses no CRC, so we ignore it

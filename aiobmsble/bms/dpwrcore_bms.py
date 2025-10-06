@@ -174,14 +174,14 @@ class BMS(BaseBMS):
         await super()._init_connection()
 
         # unlock BMS if not TBA version
-        if self._info["name"].startswith("TBA-"):
+        if self.name.startswith("TBA-"):
             return
 
-        if not all(c in hexdigits for c in self._info["name"][-4:]):
+        if not all(c in hexdigits for c in self.name[-4:]):
             self._log.debug("unable to unlock BMS")
             return
 
-        pwd = int(self._info["name"][-4:], 16)
+        pwd = int(self.name[-4:], 16)
         await self._await_reply(
             BMS._cmd(
                 Cmd.UNLOCK,

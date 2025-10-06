@@ -184,7 +184,7 @@ class BMS(BaseBMS):
             self._log.debug("failed to detect characteristics.")
             await self._client.disconnect()
             raise ConnectionError(
-                f"Failed to detect characteristics from {self._info["name"]}."
+                f"Failed to detect characteristics from {self.name}."
             )
         self._log.debug(
             "using characteristics handle #%i (notify), #%i (write).",

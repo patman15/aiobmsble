@@ -69,16 +69,12 @@ class BaseBMS(ABC):
         ), "BMS class must define _notification_handler method"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
-        self._info: BMSInfo = {
-            "name": self._ble_device.name or "undefined"
-        }  # BMS device info cache
+        self.name: Final[str] = self._ble_device.name or "undefined"
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
         self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
-            {
-                "prefix": f"{self._info["name"]}|{self._ble_device.address[-5:].replace(':','')}:"
-            },
+            {"prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':','')}:"},
         )
 
         self._log.debug(
@@ -143,8 +139,6 @@ class BaseBMS(ABC):
 
         keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
         """
-        if len(self._info) > 1:  # querying is expensive, so use cache if available
-            return self._info
 
         disconnect: Final[bool] = not self._client.is_connected
         await self._connect()
@@ -152,10 +146,8 @@ class BaseBMS(ABC):
         if disconnect:
             await self.disconnect()
 
-        self._info.update(dev_info)
-        self._log.debug("BMS info %s", self._info)
-
-        return self._info
+        self._log.debug("BMS info %s", dev_info)
+        return dev_info
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
