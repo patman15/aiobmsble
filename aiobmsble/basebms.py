@@ -164,22 +164,7 @@ class BaseBMS(ABC):
             self._log.debug("No BT device information available.")
             return BMSInfo()
 
-        characteristics: Final[
-            tuple[
-                tuple[
-                    str,
-                    Literal[
-                        "model",
-                        "serial_number",
-                        "fw_version",
-                        "sw_version",
-                        "hw_version",
-                        "manufacturer",
-                    ],
-                ],
-                ...,
-            ]
-        ] = (
+        characteristics: Final[tuple[tuple[str,str],...,]] = (
             ("2a24", "model"),
             ("2a25", "serial_number"),
             ("2a26", "fw_version"),
