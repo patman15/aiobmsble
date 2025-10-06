@@ -66,7 +66,8 @@ class BaseBMS(ABC):
         """
         assert (
             getattr(self, "_notification_handler", None) is not None
-        ), "BMS class must define _notification_handler method"
+        ), "BMS class must define `_notification_handler` method"
+        assert {"default_manufacturer", "default_model"}.issubset(self.INFO), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
         self._info: BMSInfo = {
