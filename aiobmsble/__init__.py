@@ -114,8 +114,9 @@ class MatcherPattern(TypedDict, total=False):
     """Optional patterns that can match Bleak advertisement data."""
 
     local_name: ReadOnly[str]  # name pattern that supports Unix shell-style wildcards
-    service_uuid: ReadOnly[str]  # 128-bit UUID that the device must advertise
-    service_data_uuid: ReadOnly[str]  # service data for the service UUID
-    manufacturer_id: ReadOnly[int]  # required manufacturer ID
     manufacturer_data_start: ReadOnly[list[int]]  # start bytes of manufacturer data
+    manufacturer_id: ReadOnly[int]  # required manufacturer ID
+    oui: ReadOnly[str]  # required OUI used in the MAC address (first 3 bytes)
+    service_data_uuid: ReadOnly[str]  # service data for the service UUID
+    service_uuid: ReadOnly[str]  # 128-bit UUID that the device must advertise
     connectable: ReadOnly[bool]  # True if active connections to the device are required
