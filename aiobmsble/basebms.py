@@ -24,7 +24,7 @@ from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 class BaseBMS(ABC):
     """Abstract base class for battery management system."""
 
-    _INFO: BMSInfo  # static default info about the BMS, set "default_" keys here
+    INFO: BMSInfo  # static BMS info, set "default_" keys in subclass
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
@@ -66,19 +66,18 @@ class BaseBMS(ABC):
         """
         assert (
             getattr(self, "_notification_handler", None) is not None
-        ), "BMS class must define _notification_handler method"
+        ), "BMS class must define `_notification_handler` method"
+        assert {"default_manufacturer", "default_model"}.issubset(
+            self.INFO
+        ), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
-        self._info: BMSInfo = {
-            "default_name": self._ble_device.name or "undefined"
-        }  # BMS device info cache
+        self.name: Final[str] = self._ble_device.name or "undefined"
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
         self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
-            {
-                "prefix": f"{self._info["default_name"]}|{self._ble_device.address[-5:].replace(':','')}:"
-            },
+            {"prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':','')}:"},
         )
 
         self._log.debug(
@@ -121,7 +120,7 @@ class BaseBMS(ABC):
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
-        return f"{cls._INFO['default_manufacturer']} {cls._INFO['default_model']}"
+        return f"{cls.INFO['default_manufacturer']} {cls.INFO['default_model']}"
 
     @staticmethod
     @abstractmethod
@@ -138,20 +137,11 @@ class BaseBMS(ABC):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
 
-    def def_device_info(self) -> BMSInfo:
-        """Return default device info.
-
-        keys: default_manufacturer, default_model, default_name
-        """
-        return self._INFO
-
     async def device_info(self) -> BMSInfo:
         """Return a dictionary of device information.
 
         keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
         """
-        if len(self._info) > 1:  # querying is expensive, so use cache if available
-            return self._info
 
         disconnect: Final[bool] = not self._client.is_connected
         await self._connect()
@@ -159,10 +149,8 @@ class BaseBMS(ABC):
         if disconnect:
             await self.disconnect()
 
-        self._info.update(dev_info | self.def_device_info())
-        self._log.debug("BMS info %s", self._info)
-
-        return self._info
+        self._log.debug("BMS info %s", dev_info)
+        return dev_info
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
@@ -170,22 +158,16 @@ class BaseBMS(ABC):
             self._log.debug("No BT device information available.")
             return BMSInfo()
 
-        characteristics: Final[
-            tuple[
-                tuple[
-                    str,
-                    Literal[
-                        "model",
-                        "serial_number",
-                        "fw_version",
-                        "sw_version",
-                        "hw_version",
-                        "manufacturer",
-                    ],
-                ],
-                ...,
-            ]
-        ] = (
+        type CharacteristicType = Literal[
+            "model",
+            "serial_number",
+            "fw_version",
+            "sw_version",
+            "hw_version",
+            "manufacturer",
+        ]
+
+        characteristics: Final[tuple[tuple[str, CharacteristicType], ...]] = (
             ("2a24", "model"),
             ("2a25", "serial_number"),
             ("2a26", "fw_version"),

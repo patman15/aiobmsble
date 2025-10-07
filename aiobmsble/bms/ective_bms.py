@@ -19,7 +19,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Ective BMS implementation."""
 
-    _INFO: BMSInfo = {"default_manufacturer": "Ective", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "Ective", "default_model": "smart BMS"}
     _HEAD_RSP: Final[tuple[bytes, ...]] = (b"\x5e", b"\x83")  # header for responses
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
@@ -65,10 +65,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
-
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch the device information via BLE."""
-        return BMSInfo()  # no device information available
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

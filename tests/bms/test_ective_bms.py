@@ -127,15 +127,20 @@ async def test_update(
 
     await bms.disconnect()
 
+
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockEctiveBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "default_manufacturer": "Ective",
-        "default_model": "smart BMS",
-        "default_name": "MockBLEDevice",
+        "fw_version": "mock_FW_version",
+        "hw_version": "mock_HW_version",
+        "sw_version": "mock_SW_version",
+        "manufacturer": "mock_manufacturer",
+        "model": "mock_model",
+        "serial_number": "mock_serial_number",
     }
+
 
 async def test_tx_notimplemented(patch_bleak_client) -> None:
     """Test Ective BMS uuid_tx not implemented for coverage."""

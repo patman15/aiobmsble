@@ -169,9 +169,12 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockECOWBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "default_manufacturer": "ECO-WORTHY",
-        "default_model": "BW02",
-        "default_name": "MockBLEDevice",
+        "fw_version": "mock_FW_version",
+        "hw_version": "mock_HW_version",
+        "sw_version": "mock_SW_version",
+        "manufacturer": "mock_manufacturer",
+        "model": "mock_model",
+        "serial_number": "mock_serial_number",
     }
 
 

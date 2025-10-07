@@ -26,7 +26,7 @@ class BMS(BaseBMS):
 
         STATUS = 0x00
 
-    _INFO: BMSInfo = {"default_manufacturer": "ANT", "default_model": "legacy smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "ANT", "default_model": "legacy smart BMS"}
     _RX_HEADER: Final[bytes] = b"\xaa\x55\xaa"
     _RX_HEADER_RSP_STAT: Final[bytes] = b"\xaa\x55\xaa\xff"
 

@@ -25,7 +25,10 @@ class Cmd(IntEnum):
 class BMS(BaseBMS):
     """E&J Technology BMS implementation."""
 
-    _INFO: BMSInfo = {"default_manufacturer": "E&J Technology", "default_model": "smart BMS"}
+    INFO: BMSInfo = {
+        "default_manufacturer": "E&J Technology",
+        "default_model": "smart BMS",
+    }
     _BT_MODULE_MSG: Final[bytes] = bytes([0x41, 0x54, 0x0D, 0x0A])  # BLE module message
     _IGNORE_CRC: Final[str] = "libattU"
     _HEAD: Final[bytes] = b"\x3a"
@@ -99,10 +102,6 @@ class BMS(BaseBMS):
         """Return 128-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch the device information via BLE."""
-        return BMSInfo()  # no device information available
-
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
@@ -166,7 +165,7 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        if not self._info["default_name"].startswith(BMS._IGNORE_CRC) and (
+        if not self.name.startswith(BMS._IGNORE_CRC) and (
             crc := BMS._crc(self._data[1:-3])
         ) != int(self._data[-3:-1], 16):
             # libattU firmware uses no CRC, so we ignore it

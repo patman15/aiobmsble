@@ -75,7 +75,7 @@ class MockWriteModeBleakClient(MockBleakClient):
 class MinTestBMS(BaseBMS):
     """Minimal Test BMS implementation."""
 
-    _INFO: BMSInfo = {
+    INFO: BMSInfo = {
         "default_manufacturer": "Test Manufacturer",
         "default_model": "minimal BMS for test",
     }
@@ -187,9 +187,6 @@ async def test_device_info(
     assert (
         await bms.device_info()
         == {
-            "default_manufacturer": "Test Manufacturer",
-            "default_model": "minimal BMS for test",
-            "default_name": "MockBLEDevice",
             "fw_version": "mock_FW_version",
             "model": "mock_model",
             "serial_number": "mock_serial_number",
@@ -198,40 +195,6 @@ async def test_device_info(
         }
         | result_patch
     )
-
-
-async def test_device_info_cache(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client: Callable[..., None]
-) -> None:
-    """Test only BMS default information is returned if characteristic 0x180a does not exit."""
-
-    async def _fetch_dev_inf_run_one() -> BMSInfo:
-        return {"model": "cache_test_model"}
-
-    async def _fetch_dev_inf_run_two() -> BMSInfo:
-        return {"model": "cache_test_model_failure"}
-
-    patch_bleak_client()
-    bms: MinTestBMS = MinTestBMS(generate_ble_device())
-    monkeypatch.setattr(bms, "_fetch_device_info", _fetch_dev_inf_run_one)
-
-    assert await bms.device_info() == {
-        "default_manufacturer": "Test Manufacturer",
-        "default_model": "minimal BMS for test",
-        "default_name": "MockBLEDevice",
-        "model": "cache_test_model",
-    }, "device data for run one failed"
-
-    # run two, check that new info is not taken, but cache used
-    monkeypatch.setattr(bms, "_fetch_device_info", _fetch_dev_inf_run_two)
-    assert (
-        await bms.device_info() == {
-        "default_manufacturer": "Test Manufacturer",
-        "default_model": "minimal BMS for test",
-        "default_name": "MockBLEDevice",
-        "model": "cache_test_model",
-    }
-    ), "run two delivered non-cached result"
 
 
 async def test_device_info_fail(
@@ -244,11 +207,8 @@ async def test_device_info_fail(
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     await bms.async_update()  # run update to have connection open
-    assert await bms.device_info() == {
-        "default_manufacturer": "Test Manufacturer",
-        "default_model": "minimal BMS for test",
-        "default_name": "MockBLEDevice",
-    }
+    assert not await bms.device_info()  # if characteristic does not exist, no ouput
+    assert bms.name == "MockBLEDevice"  # name is gathered from BLEDevice
     assert bms._client.is_connected
 
 

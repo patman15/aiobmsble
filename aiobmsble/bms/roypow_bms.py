@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """RoyPow BMS implementation."""
 
-    _INFO: BMSInfo = {"default_manufacturer": "RoyPow", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"default_manufacturer": "RoyPow", "default_model": "smart BMS"}
     _HEAD: Final[bytes] = b"\xea\xd1\x01"
     _TAIL: Final[int] = 0xF5
     _BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module

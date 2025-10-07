@@ -18,7 +18,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """Seplos V3 smart BMS class implementation."""
 
-    _INFO: BMSInfo = {"default_manufacturer": "Seplos", "default_model": "smart BMS V3"}
+    INFO: BMSInfo = {"default_manufacturer": "Seplos", "default_model": "smart BMS V3"}
     CMD_READ: Final[list[int]] = [0x01, 0x04]
     HEAD_LEN: Final[int] = 3
     CRC_LEN: Final[int] = 2

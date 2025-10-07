@@ -118,9 +118,6 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockRenogyBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "default_manufacturer": "Renogy",
-        "default_model": "Bluetooth battery",
-        "default_name": "MockBLEDevice",
         "serial_number": "20210526",
         "name": "RBT100LFP12-BT",
         "sw_version": "0100",

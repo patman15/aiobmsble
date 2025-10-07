@@ -18,7 +18,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """ECO-WORTHY BMS implementation."""
 
-    _INFO: BMSInfo = {"default_manufacturer": "ECO-WORTHY", "default_model": "BW02"}
+    INFO: BMSInfo = {"default_manufacturer": "ECO-WORTHY", "default_model": "BW02"}
     _HEAD: Final[tuple] = (b"\xa1", b"\xa2")
     _CELL_POS: Final[int] = 14
     _TEMP_POS: Final[int] = 80
@@ -78,10 +78,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
-
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch the device information via BLE."""
-        return BMSInfo()  # no device information available
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

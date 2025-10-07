@@ -132,9 +132,6 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockABCBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "default_manufacturer": "Chunguang Song",
-        "default_model": "ABC-BMS",
-        "default_name": "MockBLEDevice",
         "fw_version": "mock_FW_version",
         "hw_version": "mock_HW_version",
         "sw_version": "mock_SW_version",

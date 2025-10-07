@@ -19,7 +19,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Offgridtec LiFePO4 Smart Pro type A and type B BMS implementation."""
 
-    _INFO: BMSInfo = {
+    INFO: BMSInfo = {
         "default_manufacturer": "Offgridtec",
         "default_model": "LiFePo4 Smart Pro",
     }
@@ -38,15 +38,15 @@ class BMS(BaseBMS):
         """Intialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._type: str = (
-            self._info["default_name"][9]
-            if len(self._info["default_name"]) >= 10
-            and set(self._info["default_name"][10:]).issubset(digits)
+            self.name[9]
+            if len(self.name) >= 10
+            and set(self.name[10:]).issubset(digits)
             else "?"
         )
         self._key: int = (
             sum(
                 BMS._CRYPT_SEQ[int(c, 16)]
-                for c in (f"{int(self._info["default_name"][10:]):0>4X}")
+                for c in (f"{int(self.name[10:]):0>4X}")
             )
             if self._type in "AB"
             else 0
@@ -55,7 +55,7 @@ class BMS(BaseBMS):
             "%s type: %c, ID: %s, key: 0x%X",
             self.bms_id(),
             self._type,
-            self._info["default_name"][10:],
+            self.name[10:],
             self._key,
         )
         self._exp_reply: int = 0x0
@@ -122,7 +122,7 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:  # char "180a" contains garbage
         """Fetch the device information via BLE."""
-        return {"serial_number": self._info["default_name"][10:]}
+        return {"serial_number": self.name[10:]}
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:

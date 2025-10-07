@@ -549,15 +549,7 @@ async def test_device_info(monkeypatch, patch_bleak_client, protocol_type) -> No
     monkeypatch.setattr(MockJikongBleakClient, "_FRAME", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockJikongBleakClient)
     bms = BMS(generate_ble_device())
-    assert (
-        await bms.device_info()
-        == {
-            "default_manufacturer": "Jikong",
-            "default_model": "smart BMS",
-            "default_name": "MockBLEDevice",
-        }
-        | _DEV_DEFS[protocol_type]
-    )
+    assert await bms.device_info() == _DEV_DEFS[protocol_type]
 
 
 async def test_hide_temp_sensors(
