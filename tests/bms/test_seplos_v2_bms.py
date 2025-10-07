@@ -152,7 +152,6 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockSeplosv2BleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "name": "MockBLEDevice",
         "sw_version": "16.6",
         "model": "B1101-SP76",
     }

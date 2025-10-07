@@ -151,7 +151,6 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockDalyBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "name": "MockBLEDevice",
         "hw_version": "H2.0_103R_309F9F",
         "sw_version": "T00K_321042_11",
     }

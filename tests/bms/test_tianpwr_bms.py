@@ -150,7 +150,6 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockTianPwrBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "name": "MockBLEDevice",
         "hw_version": "TP-LT55",
         "sw_version": "0.1.10",
     }

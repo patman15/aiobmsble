@@ -191,10 +191,8 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockOGTBleakClient)
     bms = BMS(generate_ble_device(name="SmartBat-B15051"))
-    assert await bms.device_info() == {
-        "name": "SmartBat-B15051",
-        "serial_number": "15051",
-    }
+    assert await bms.device_info() == {"serial_number": "15051"}
+    assert bms.name == "SmartBat-B15051"
 
 
 @pytest.fixture(
