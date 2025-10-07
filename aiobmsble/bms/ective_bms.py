@@ -66,10 +66,6 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
 
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch the device information via BLE."""
-        return BMSInfo()  # no device information available
-
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
