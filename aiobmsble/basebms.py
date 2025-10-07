@@ -66,7 +66,10 @@ class BaseBMS(ABC):
         """
         assert (
             getattr(self, "_notification_handler", None) is not None
-        ), "BMS class must define _notification_handler method"
+        ), "BMS class must define `_notification_handler` method"
+        assert {"default_manufacturer", "default_model"}.issubset(
+            self.INFO
+        ), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
         self.name: Final[str] = self._ble_device.name or "undefined"
@@ -155,22 +158,16 @@ class BaseBMS(ABC):
             self._log.debug("No BT device information available.")
             return BMSInfo()
 
-        characteristics: Final[
-            tuple[
-                tuple[
-                    str,
-                    Literal[
-                        "model",
-                        "serial_number",
-                        "fw_version",
-                        "sw_version",
-                        "hw_version",
-                        "manufacturer",
-                    ],
-                ],
-                ...,
-            ]
-        ] = (
+        type CharacteristicType = Literal[
+            "model",
+            "serial_number",
+            "fw_version",
+            "sw_version",
+            "hw_version",
+            "manufacturer",
+        ]
+
+        characteristics: Final[tuple[tuple[str, CharacteristicType], ...]] = (
             ("2a24", "model"),
             ("2a25", "serial_number"),
             ("2a26", "fw_version"),
