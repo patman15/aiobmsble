@@ -18,7 +18,7 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {
         "default_manufacturer": "Dummy Manufacturer",
         "default_model": "dummy model",
-    }  # TODO
+    }  # TODO: fill correct manufacturer/model
     # _HEAD: Final[bytes] = b"\x55"  # beginning of frame
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
@@ -30,7 +30,7 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [{"local_name": "dummy", "connectable": True}]  # TODO
+        return [{"local_name": "dummy", "connectable": True}]  # TODO: define matcher
 
     @staticmethod
     def uuid_services() -> list[str]:

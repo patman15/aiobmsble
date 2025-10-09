@@ -32,7 +32,7 @@ async def scan_devices() -> dict[str, tuple[BLEDevice, AdvertisementData]]:
         await BleakScanner.discover(return_adv=True)
     )
     logger.debug(scan_result)
-    logger.info("%i BT devices in range.", len(scan_result))
+    logger.info("%i BT device(s) in range.", len(scan_result))
     return scan_result
 
 
@@ -49,7 +49,7 @@ async def detect_bms() -> None:
             repr(advertisement).replace(", ", ",\n\t"),
         )
 
-        if bms_cls := await bms_identify(advertisement):
+        if bms_cls := await bms_identify(ble_dev, advertisement):
             bms: BaseBMS = bms_cls(ble_device=ble_dev)
             logger.info("Found matching BMS type: %s", bms.bms_id())
 

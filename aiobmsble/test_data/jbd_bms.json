@@ -1,6 +1,22 @@
 [
   {
     "advertisement": {
+      "local_name": "GJ-25.6V200AH-0006",
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb"
+      ],
+      "platform_data": [
+        "A4:C1:37:00:00:00"
+      ]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source LOG (https://github.com/patman15/BMS_BLE-HA/issues/88",
+      "Accurat battery"
+    ]
+  },
+  {
+    "advertisement": {
       "local_name": "SX100P-B230201",
       "manufacturer_data": {
         "31488": "02ffff7d"
@@ -8,7 +24,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -127
+      "rssi": -127,
+      "platform_data": [
+        "E1:24:50:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -25,7 +44,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -57
+      "rssi": -57,
+      "platform_data": [
+        "A5:C2:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -43,7 +65,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -53
+      "rssi": -53,
+      "platform_data": [
+        "A5:C2:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -60,7 +85,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -53
+      "rssi": -53,
+      "platform_data": [
+        "70:3E:97:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -77,7 +105,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -53
+      "rssi": -53,
+      "platform_data": [
+        "A4:C1:38:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -95,7 +126,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -53
+      "rssi": -53,
+      "platform_data": [
+        "A4:C1:38:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -113,7 +147,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -49
+      "rssi": -49,
+      "platform_data": [
+        "A5:C2:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -132,7 +169,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -31
+      "rssi": -31,
+      "platform_data": [
+        "A5:C2:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -148,7 +188,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -60
+      "rssi": -60,
+      "platform_data": [
+        "A5:C2:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -166,7 +209,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -84
+      "rssi": -84,
+      "platform_data": [
+        "A4:C1:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -184,7 +230,31 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -84
+      "rssi": -84,
+      "platform_data": [
+        "F9:56:0B:00:00:00"
+      ]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/236)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "SBL-12330BLH1-242049",
+      "rssi": -72,
+      "manufacturer_data": {
+        "123": "02ffff7d"
+      },
+      "service_uuids": [
+        "00001800-0000-1000-8000-00805f9b34fb",
+        "00001801-0000-1000-8000-00805f9b34fb",
+        "0000180a-0000-1000-8000-00805f9b34fb",
+        "00002600-0000-1000-8000-00805f9b34fb",
+        "0000ff00-0000-1000-8000-00805f9b34fb"
+      ],
+      "platform_data": ["C2:33:20:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -200,7 +270,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -35
+      "rssi": -35,
+      "platform_data": [
+        "A4:C1:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -217,7 +290,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -46
+      "rssi": -46,
+      "platform_data": [
+        "A4:C1:38:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -234,7 +310,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -72
+      "rssi": -72,
+      "platform_data": [
+        "A5:C2:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -251,7 +330,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -70
+      "rssi": -70,
+      "platform_data": [
+        "AA:C2:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -269,7 +351,10 @@
         "0000ff00-0000-1000-8000-00805f9b34fb",
         "00000001-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -47
+      "rssi": -47,
+      "platform_data": [
+        "38:36:13:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -305,7 +390,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -46
+      "rssi": -46,
+      "platform_data": [
+        "A4:C1:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -323,7 +411,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -43
+      "rssi": -43,
+      "platform_data": [
+        "A4:C1:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -340,7 +431,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -63
+      "rssi": -63,
+      "platform_data": [
+        "A4:C1:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -357,7 +451,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -62
+      "rssi": -62,
+      "platform_data": [
+        "A4:C1:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -374,7 +471,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -94
+      "rssi": -94,
+      "platform_data": [
+        "A4:C1:38:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -399,7 +499,10 @@
         "0000fa00-0000-1000-8000-00805f9b34fb",
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -48
+      "rssi": -48,
+      "platform_data": [
+        "A4:C1:38:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -412,7 +515,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -91
+      "rssi": -91,
+      "platform_data": [
+        "A5:C2:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -428,7 +534,8 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -68
+      "rssi": -68,
+      "platform_data": ["A5:C2:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -446,7 +553,10 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -68
+      "rssi": -68,
+      "platform_data": [
+        "A5:C2:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [

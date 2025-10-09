@@ -50,39 +50,15 @@ class BMS(BaseBMS):
             )
             for pattern in (
                 "JBD-*",
-                "SP0?S*",
-                "SP1?S*",
-                "SP2?S*",
-                "AP2?S*",
-                "GJ-*",  # accurat batteries
-                "SX1*",  # Supervolt v3
-                "DP04S*",  # ECO-WORTHY, DCHOUSE
-                "ECO-LFP*",  # ECO-WORTHY rack (use m_id?)
-                "121?0*",  # Eleksol, Ultimatron
-                "12200*",
-                "12300*",
-                "SBL-*",  # SBL
-                "LT40AH",  # LionTron
-                "PKT*",  # Perfektium
-                "gokwh*",
-                "OGR-*",  # OGRPHY
-                "DWC*",  # Vatrer
-                "DXD*",  # Vatrer
-                "DDC*",  # Vatrer
-                "xiaoxiang*",  # xiaoxiang BMS
-                "AL12-*",  # Aolithium
-                "BS20*",  # BasenGreen
-                "BT  LP*",  # LANPWR
+                "SX1*",  # Supervolt v3*
+                "SBL-*",  # SBL*
+                "OGR-*",  # OGRPHY*
             )
         ] + [
             MatcherPattern(
-                service_uuid=BMS.uuid_services()[0],
-                manufacturer_id=m_id,
-                connectable=True,
+                oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True
             )
-            for m_id in (0x0211, 0x3E70, 0xC1A4)
-            # Liontron, LISMART1240LX/LISMART1255LX,
-            # LionTron XL19110253 / EPOCH batteries 12.8V 460Ah - 12460A-H
+            for oui in ("A4:C1:37", "A4:C1:38", "A5:C2:37", "AA:C2:37", "70:3E:97")
         ]
 
     @staticmethod
