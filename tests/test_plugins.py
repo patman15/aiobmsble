@@ -9,6 +9,7 @@ from netaddr import OUI, NotRegisteredError
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.test_data import bms_advertisements, ignore_advertisements
 from aiobmsble.utils import bms_supported, load_bms_plugins
+from tests.bluetooth import generate_ble_device
 
 
 def test_bms_id(plugin_fixture: ModuleType) -> None:
@@ -59,7 +60,9 @@ def test_advertisements_unique() -> None:
     """Check that each advertisement only matches one, the right BMS."""
     for adv, mac_addr, bms_real, _comments in bms_advertisements():
         for bms_under_test in load_bms_plugins():
-            supported: bool = bms_supported(bms_under_test.BMS, adv, mac_addr)
+            supported: bool = bms_supported(
+                bms_under_test.BMS, generate_ble_device(mac_addr), adv
+            )
             assert supported == (
                 f"aiobmsble.bms.{bms_real}" == bms_under_test.__name__
             ), f"{adv} {"incorrectly matches"if supported else "does not match"} {bms_under_test}!"
@@ -69,7 +72,9 @@ def test_advertisements_ignore() -> None:
     """Check that each advertisement to be ignored is actually ignored."""
     for adv, mac_addr, reason, _comments in ignore_advertisements():
         for bms_under_test in load_bms_plugins():
-            supported: bool = bms_supported(bms_under_test.BMS, adv, mac_addr)
+            supported: bool = bms_supported(
+                bms_under_test.BMS, generate_ble_device(mac_addr), adv
+            )
             assert (
                 not supported
             ), f"{adv} incorrectly matches {bms_under_test}! {reason=}"
