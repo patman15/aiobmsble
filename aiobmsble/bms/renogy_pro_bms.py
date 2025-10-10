@@ -8,20 +8,24 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, MatcherPattern
 from aiobmsble.bms.renogy_bms import BMS as RenogyBMS
 
 
 class BMS(RenogyBMS):
     """Renogy Pro battery class implementation."""
 
-    HEAD: bytes = b"\xff\x03"  # SOP, read fct (x03)
-    FIELDS: tuple[BMSdp, ...] = (
-        BMSdp("voltage", 5, 2, False, lambda x: x / 10),
-        BMSdp("current", 3, 2, True, lambda x: x / 10),
-        BMSdp("design_capacity", 11, 4, False, lambda x: x // 1000),
-        BMSdp("cycle_charge", 7, 4, False, lambda x: x / 1000),
-        BMSdp("cycles", 15, 2, False, lambda x: x),
+    INFO: BMSInfo = {
+        "default_manufacturer": "Renogy",
+        "default_model": "BT battery pro",
+    }
+    _HEAD: bytes = b"\xff\x03"  # SOP, read fct (x03)
+    FIELDS: tuple[BMSDp, ...] = (
+        BMSDp("voltage", 5, 2, False, lambda x: x / 10),
+        BMSDp("current", 3, 2, True, lambda x: x / 10),
+        BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
+        BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000),
+        BMSDp("cycles", 15, 2, False, lambda x: x),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -39,11 +43,6 @@ class BMS(RenogyBMS):
                 "connectable": True,
             },
         ]
-
-    @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Renogy", "model": "Bluetooth battery pro"}
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -86,7 +85,9 @@ class BMS(RenogyBMS):
         if char_notify_handle == -1 or self._char_write_handle == -1:
             self._log.debug("failed to detect characteristics.")
             await self._client.disconnect()
-            raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
+            raise ConnectionError(
+                f"Failed to detect characteristics from {self.name}."
+            )
         self._log.debug(
             "using characteristics handle #%i (notify), #%i (write).",
             char_notify_handle,

@@ -9,12 +9,12 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.ogt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
 
-base_result: BMSsample = {
+base_result: BMSSample = {
     "voltage": 45.681,
     "battery_level": 14,
     "cycles": 99,
@@ -29,7 +29,7 @@ base_result: BMSsample = {
 # all names result in same encryption key for easier testing
 @pytest.fixture(name="ogt_bms_name", params=["SmartBat-A12345", "SmartBat-B12294"])
 def ogt_bms_fixture(request) -> str:
-    """Return OGT SmartBMS names."""
+    """Return OGT smart BMS names."""
     return request.param
 
 
@@ -118,7 +118,7 @@ async def test_update(patch_bleak_client, ogt_bms_name, keep_alive_fixture) -> N
         generate_ble_device("cc:cc:cc:cc:cc:cc", ogt_bms_name), keep_alive_fixture
     )
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
 
     # verify all sensors are reported
     if str(ogt_bms_name)[9] == "A":
@@ -187,6 +187,14 @@ async def test_update_16s(monkeypatch, patch_bleak_client) -> None:
     }
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockOGTBleakClient)
+    bms = BMS(generate_ble_device(name="SmartBat-B15051"))
+    assert await bms.device_info() == {"serial_number": "15051"}
+    assert bms.name == "SmartBat-B15051"
+
+
 @pytest.fixture(
     name="wrong_response",
     params=[
@@ -227,7 +235,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"))
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -240,9 +248,11 @@ async def test_invalid_bms_type(patch_bleak_client) -> None:
 
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"), keep_alive=True)
+    bms = BMS(
+        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"), keep_alive=True
+    )
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert not result
     assert bms._client.is_connected
     await bms.disconnect()

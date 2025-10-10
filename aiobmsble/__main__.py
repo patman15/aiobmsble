@@ -14,7 +14,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.exc import BleakError
 
-from aiobmsble import BMSsample
+from aiobmsble import BMSSample
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.utils import bms_identify
 
@@ -32,7 +32,7 @@ async def scan_devices() -> dict[str, tuple[BLEDevice, AdvertisementData]]:
         await BleakScanner.discover(return_adv=True)
     )
     logger.debug(scan_result)
-    logger.info("%i BT devices in range.", len(scan_result))
+    logger.info("%i BT device(s) in range.", len(scan_result))
     return scan_result
 
 
@@ -49,13 +49,13 @@ async def detect_bms() -> None:
             repr(advertisement).replace(", ", ",\n\t"),
         )
 
-        if bms_cls := bms_identify(advertisement):
-            logger.info("Found matching BMS type: %s", bms_cls.device_id())
+        if bms_cls := await bms_identify(advertisement, ble_dev.address):
             bms: BaseBMS = bms_cls(ble_device=ble_dev)
+            logger.info("Found matching BMS type: %s", bms.bms_id())
 
             try:
                 logger.info("Updating BMS data...")
-                data: BMSsample = await bms.async_update()
+                data: BMSSample = await bms.async_update()
                 logger.info("BMS data: %s", repr(data).replace(", '", ",\n\t'"))
             except (BleakError, TimeoutError) as exc:
                 logger.error("Failed to update BMS: %s", type(exc).__name__)

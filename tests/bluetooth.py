@@ -34,4 +34,4 @@ def generate_ble_device(
     details: Any | None = None,
 ) -> BLEDevice:
     """Generate a BLEDevice with defaults."""
-    return BLEDevice(address, name, details)
+    return BLEDevice(address, name, details or {"path": ""})

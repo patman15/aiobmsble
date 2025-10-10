@@ -1,4 +1,4 @@
-"""Module to support Neey Smart BMS.
+"""Module to support Neey smart BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -12,13 +12,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSsample, BMSvalue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_sum
+from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
 
 
 class BMS(BaseBMS):
-    """Neey Smart BMS class implementation."""
+    """Neey smart BMS class implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "Neey", "default_model": "Balancer"}
     _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
     _HEAD_RSP: Final = bytes([0x55, 0xAA, 0x11, 0x01])  # start, dev addr, read cmd
     _HEAD_CMD: Final = bytes(
@@ -27,7 +28,7 @@ class BMS(BaseBMS):
     _TAIL: Final[int] = 0xFF  # end of message
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _MIN_FRAME: Final[int] = 10  # header length
-    _FIELDS: Final[list[tuple[BMSvalue, int, str, Callable[[int], Any]]]] = [
+    _FIELDS: Final[list[tuple[BMSValue, int, str, Callable[[int], Any]]]] = [
         ("voltage", 201, "<f", lambda x: round(x, 3)),
         ("delta_voltage", 209, "<f", lambda x: round(x, 3)),
         ("problem_code", 216, "B", lambda x: x if x in {1, 3, 7, 8, 9, 10, 11} else 0),
@@ -55,11 +56,6 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Neey", "model": "Balancer"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("ffe0")]
@@ -74,8 +70,19 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        self._valid_reply = 0x01
+        await self._await_reply(self._cmd(b"\x01"))
+        self._valid_reply = 0x02
+        return {
+            "model": barr2str(self._data_final[8:24]),
+            "hw_version": barr2str(self._data_final[24:32]),
+            "sw_version": barr2str(self._data_final[32:40]),
+        }
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset({"temperature"})
 
     def _notification_handler(
@@ -137,13 +144,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize RX/TX characteristics and protocol state."""
         await super()._init_connection(char_notify)
-
-        # query device info frame (0x03) and wait for BMS ready (0xC8)
-        self._valid_reply = 0x01
-        await self._await_reply(self._cmd(b"\x01"))
-        self._bms_info = BMS._dec_devinfo(self._data_final or bytearray())
-        self._log.debug("device information: %s", self._bms_info)
-
+        await self._fetch_device_info()
         self._valid_reply = 0x02  # cell information
 
     @staticmethod
@@ -156,17 +157,6 @@ class BMS(BaseBMS):
         ) + bytearray(11 - len(value))
         frame += bytes([crc_sum(frame), BMS._TAIL])
         return bytes(frame)
-
-    @staticmethod
-    def _dec_devinfo(data: bytearray) -> dict[str, str]:
-        fields: Final[dict[str, int]] = {
-            "hw_version": 24,
-            "sw_version": 32,
-        }
-        return {
-            key: data[idx : idx + 8].decode(errors="replace").strip("\x00")
-            for key, idx in fields.items()
-        }
 
     @staticmethod
     def _cell_voltages(
@@ -193,22 +183,22 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _conv_data(data: bytearray) -> BMSsample:
+    def _conv_data(data: bytearray) -> BMSSample:
         """Return BMS data from status message."""
-        result: BMSsample = {}
+        result: BMSSample = {}
         for key, idx, fmt, func in BMS._FIELDS:
             result[key] = func(unpack_from(fmt, data, idx)[0])
 
         return result
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         if not self._data_event.is_set() or self._data_final[4] != 0x02:
             # request cell info (only if data is not constantly published)
             self._log.debug("requesting cell info")
             await self._await_reply(data=BMS._cmd(b"\x02"))
 
-        data: BMSsample = self._conv_data(self._data_final)
+        data: BMSSample = self._conv_data(self._data_final)
         data["temp_values"] = BMS._temp_sensors(self._data_final, 2)
 
         data["cell_voltages"] = BMS._cell_voltages(

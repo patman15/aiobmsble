@@ -12,25 +12,26 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Ective BMS implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "Ective", "default_model": "smart BMS"}
     _HEAD_RSP: Final[tuple[bytes, ...]] = (b"\x5e", b"\x83")  # header for responses
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 1, 8, False, lambda x: x / 1000),
-        BMSdp("current", 9, 8, True, lambda x: x / 1000),
-        BMSdp("battery_level", 29, 4, False, lambda x: x),
-        BMSdp("cycle_charge", 17, 8, False, lambda x: x / 1000),
-        BMSdp("cycles", 25, 4, False, lambda x: x),
-        BMSdp("temperature", 33, 4, False, lambda x: round(x * 0.1 - 273.15, 1)),
-        BMSdp("problem_code", 37, 2, False, lambda x: x),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 1, 8, False, lambda x: x / 1000),
+        BMSDp("current", 9, 8, True, lambda x: x / 1000),
+        BMSDp("battery_level", 29, 4, False, lambda x: x),
+        BMSDp("cycle_charge", 17, 8, False, lambda x: x / 1000),
+        BMSDp("cycles", 25, 4, False, lambda x: x),
+        BMSDp("temperature", 33, 4, False, lambda x: round(x * 0.1 - 273.15, 1)),
+        BMSDp("problem_code", 37, 2, False, lambda x: x),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -56,11 +57,6 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Ective", "model": "Smart BMS"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("ffe0")]
@@ -76,7 +72,7 @@ class BMS(BaseBMS):
         raise NotImplementedError
 
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "battery_charging",
@@ -167,15 +163,15 @@ class BMS(BaseBMS):
         )
 
     @staticmethod
-    def _conv_data(data: bytearray) -> BMSsample:
-        result: BMSsample = {}
+    def _conv_data(data: bytearray) -> BMSSample:
+        result: BMSSample = {}
         for field in BMS._FIELDS:
             result[field.key] = field.fct(
                 BMS._conv_int(data[field.pos : field.pos + field.size], field.signed)
             )
         return result
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)

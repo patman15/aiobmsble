@@ -4,12 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiobmsble"
-version = "0.4.1"
-requires-python = ">=3.12"
+version = "0.9.0"
+requires-python = ">=3.13"
 description = "Asynchronous Python library to query battery management systems via Bluetooth Low Energy."
 readme = "README.md"
 authors = [
-  {name = "Patrick Loschmidt"},
+  {name = "@patman15"},
+  {name = "@daubman"},
+  {name = "@krahabb"},
 ]
 maintainers = [
   {name = "Patrick Loschmidt"}
@@ -32,7 +34,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff>=0.12.1,<0.14.0"]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", "mypy", "ruff>=0.12.1,<0.14.0", "pylint-per-file-ignores", "netaddr", "types-netaddr"]
 
 [project.urls]
 Homepage = "https://github.com/patman15/aiobmsble/"
@@ -48,7 +50,7 @@ aiobmsble = "aiobmsble.__main__:main"
 
 [tool.pytest.ini_options]
 minversion = "8.4"
-addopts="-n auto --cov=aiobmsble --cov=examples --cov-branch --cov-report=term-missing --cov-fail-under=100"
+addopts="-n auto --cov=aiobmsble --cov=examples --cov-branch --cov-report=term-missing --cov-fail-under=100 --log-level DEBUG"
 pythonpath = [
     "aiobmsble",
 ]
@@ -235,4 +237,14 @@ split-on-trailing-comma = false
 
 [tool.ruff.lint.mccabe]
 max-complexity = 25
+
+[tool.pylint.main]
+load-plugins = [
+    "pylint_per_file_ignores"
+]
+
+[tool.pylint."messages control"]
+per-file-ignores = [
+    "tests/**:protected-access"
+]
 
