@@ -254,7 +254,9 @@
         "00002600-0000-1000-8000-00805f9b34fb",
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "platform_data": ["C2:33:20:00:00:00"]
+      "platform_data": [
+        "C2:33:20:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -535,7 +537,9 @@
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
       "rssi": -68,
-      "platform_data": ["A5:C2:37:00:00:00"]
+      "platform_data": [
+        "A5:C2:37:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -563,6 +567,24 @@
       "source advmon (https://github.com/patman15/aiobmsble/pull/37)",
       "zjdy, FW 8.1, name: sp21s001hl21s200a",
       "MAC wrong"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "LP02555",
+      "rssi": -64,
+      "platform_data": ["A5:C2:37:00:00:00"],
+      "manufacturer_data": {
+        "407": "2e37c2a5"
+      },
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/502)",
+      "LANPWR battery"
     ]
   }
 ]
