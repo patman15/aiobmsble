@@ -13,7 +13,6 @@ import re
 from types import ModuleType
 from typing import Final
 
-from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 
 from aiobmsble import MatcherPattern
@@ -24,7 +23,7 @@ _MODULE_POSTFIX: Final[str] = "_bms"
 
 
 def _advertisement_matches(
-    matcher: MatcherPattern, ble_device: BLEDevice, adv_data: AdvertisementData
+    matcher: MatcherPattern, adv_data: AdvertisementData, mac_addr: str
 ) -> bool:
     """Determine whether the given advertisement data matches the specified pattern.
 
@@ -34,11 +33,12 @@ def _advertisement_matches(
             - "local_name" (str): A pattern supporting Unix shell-style wildcards to match
             - "manufacturer_data_start" (bytes): A byte sequence that the data should start with.
             - "manufacturer_id" (int): A manufacturer ID to match.
-            - "oui" (str): Organizationally Unique Identifier of BD_ADDR (not supported on MAC OS)
+            - "oui" (str): Organizationally Unique Identifier of BD_ADDR (first 3 bytes)
             - "service_data_uuid" (str): A specific service data UUID to match.
             - "service_uuid" (str): A specific service 128-bit UUID to match.
-        ble_device (BLEDevice): Bleak BLE device to check OUI against
+
         adv_data (AdvertisementData): An object containing the advertisement data to be checked.
+        mac_addr (str): Bluetooth device address in the format: "00:11:22:aa:bb:cc"
 
     Returns:
         bool: True if the advertisement data matches the specified pattern, False otherwise.
@@ -54,7 +54,7 @@ def _advertisement_matches(
     ) and service_data_uuid not in adv_data.service_data:
         return False
 
-    if (oui := matcher.get("oui")) and not ble_device.address.startswith(oui[:8]):
+    if (oui := matcher.get("oui")) and not mac_addr.startswith(oui[:8]):
         return False
 
     if (manufacturer_id := matcher.get("manufacturer_id")) is not None:
@@ -119,7 +119,7 @@ async def bms_cls(name: str) -> type[BaseBMS] | None:
 
 
 async def bms_matching(
-    ble_device: BLEDevice, adv_data: AdvertisementData
+    adv_data: AdvertisementData, mac_addr: str
 ) -> list[type[BaseBMS]]:
     """Return the BMS classes that match the given advertisement data.
 
@@ -128,8 +128,8 @@ async def bms_matching(
     their Bluetooth advertisement / OUI (Organizationally Unique Identifier)
 
     Args:
-        ble_device (BLEDevice): Bleak BLE device to check OUI against
         adv_data (AdvertisementData): The advertisement data to match against available BMS plugins.
+        mac_addr (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
     Returns:
         list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwhise.
@@ -139,44 +139,42 @@ async def bms_matching(
     bms_plugins = await loop.run_in_executor(None, load_bms_plugins)
 
     for bms_module in bms_plugins:
-        if bms_supported(bms_module.BMS, ble_device, adv_data):
+        if bms_supported(bms_module.BMS, adv_data, mac_addr):
             return [bms_module.BMS]
     return []
 
 
 async def bms_identify(
-    ble_device: BLEDevice, adv_data: AdvertisementData
+    adv_data: AdvertisementData, mac_addr: str
 ) -> type[BaseBMS] | None:
     """Return the BMS classes that best matches the given advertisement data.
 
     Args:
-        ble_device (BLEDevice): Bleak BLE device to check OUI against
         adv_data (AdvertisementData): The advertisement data to match against available BMS plugins.
+        mac_addr (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
     Returns:
         type[BaseBMS] | None: The identified BMS class if a match is found, None otherwhise
 
     """
 
-    matching_bms: list[type[BaseBMS]] = await bms_matching(ble_device, adv_data)
+    matching_bms: list[type[BaseBMS]] = await bms_matching(adv_data, mac_addr)
     return matching_bms[0] if matching_bms else None
 
 
-def bms_supported(
-    bms: BaseBMS, ble_device: BLEDevice, adv_data: AdvertisementData
-) -> bool:
+def bms_supported(bms: BaseBMS, adv_data: AdvertisementData, mac_addr: str) -> bool:
     """Determine if the given BMS is supported based on advertisement data.
 
     Args:
         bms (BaseBMS): The BMS class to check.
-        ble_device (BLEDevice): Bleak BLE device to check OUI against
         adv_data (AdvertisementData): The advertisement data to match against.
+        mac_addr (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
     Returns:
         bool: True if the BMS is supported, False otherwise.
 
     """
     for matcher in bms.matcher_dict_list():
-        if _advertisement_matches(matcher, ble_device, adv_data):
+        if _advertisement_matches(matcher, adv_data, mac_addr):
             return True
     return False

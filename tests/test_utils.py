@@ -14,7 +14,7 @@ from aiobmsble.utils import (
     bms_identify,
     load_bms_plugins,
 )
-from tests.bluetooth import generate_advertisement_data, generate_ble_device
+from tests.bluetooth import generate_advertisement_data
 
 
 @pytest.fixture(
@@ -54,9 +54,7 @@ async def test_bms_identify(plugin: ModuleType) -> None:
         )
     )
 
-    bms_class: type[BaseBMS] | None = await bms_identify(
-        generate_ble_device(mac_addr), adv
-    )
+    bms_class: type[BaseBMS] | None = await bms_identify(adv, mac_addr)
     assert bms_class == plugin.BMS
 
 
@@ -77,10 +75,7 @@ async def test_bms_cls_none(bms_type: str) -> None:
 
 async def test_bms_identify_fail() -> None:
     """Test if bms_identify returns None if matching BMS for advertisement does not exist."""
-    assert (
-        await bms_identify(generate_ble_device(""), generate_advertisement_data())
-        is None
-    )
+    assert await bms_identify(generate_advertisement_data(), "") is None
 
 
 @pytest.mark.parametrize(
@@ -233,7 +228,4 @@ def test_advertisement_matches(
         That advertisement_matches(matcher, adv_data) returns the value specified by expected.
 
     """
-    assert (
-        _advertisement_matches(matcher, generate_ble_device(mac_addr), adv_data)
-        is expected
-    )
+    assert _advertisement_matches(matcher, adv_data, mac_addr) is expected
