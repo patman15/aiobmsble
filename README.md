@@ -22,6 +22,13 @@ This library is intended to query data from battery management systems that use 
 - Any number of batteries in parallel
 - 100% test coverage plus fuzz tests for BLE data
 
+> [!CAUTION]
+> This library **shall not be used for safety relevant operations**! The correctness or availability of data cannot be guaranteed (see [warranty section of the license](LICENSE)),
+> since the implementation is mostly based on openly available information or non-validated vendor specifications.
+> Further, issues with the Bluetooth connection, e.g. disturbances, can lead to unavailable or incorrect values.
+> 
+> **Do not rely** on the values to control actions that prevent battery damage, overheating (fire), or similar.
+
 ### Supported Devices
 The [list of supported devices](https://github.com/patman15/BMS_BLE-HA?tab=readme-ov-file#supported-devices) is maintained in the repository of the related [Home Assistant integration](https://github.com/patman15/BMS_BLE-HA).
 
