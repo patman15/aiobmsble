@@ -59,7 +59,7 @@ class BMS(BaseBMS):
                 manufacturer_id=m_id,
                 connectable=True,
             )
-            for m_id in (0x102, 0x104, 0x0302, 0x0303)
+            for m_id in (0x102, 0x104, 0x0302, 0x0303, 0x0402)
         ]
 
     @staticmethod

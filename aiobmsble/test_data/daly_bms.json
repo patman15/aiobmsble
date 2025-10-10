@@ -96,5 +96,18 @@
       "Bulltron battery",
       "MAC address (Bouffalo Lab)"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "JHB-D2190701C66E",
+      "rssi": -46,
+      "manufacturer_data": {
+        "1026": "27d2190701c66e4a4842"
+      }
+    },
+    "type": "daly_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/510)"
+    ]
   }
 ]
