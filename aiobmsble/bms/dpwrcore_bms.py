@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from enum import IntEnum
+from functools import cache
 from string import hexdigits
 from typing import Final
 
@@ -32,7 +33,10 @@ class Cmd(IntEnum):
 class BMS(BaseBMS):
     """D-powercore smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "D-powercore", "default_model": "smart BMS"}
+    INFO: BMSInfo = {
+        "default_manufacturer": "D-powercore",
+        "default_model": "smart BMS",
+    }
     _PAGE_LEN: Final[int] = 20
     _MAX_CELLS: Final[int] = 32
     _FIELDS: Final[tuple[BMSDp, ...]] = (
@@ -154,6 +158,7 @@ class BMS(BaseBMS):
         return sum(data) + 8
 
     @staticmethod
+    @cache
     def _cmd(cmd: Cmd, data: bytes) -> bytes:
         frame: bytearray = bytearray([cmd.value, 0x00, 0x00]) + data
         checksum: Final[int] = BMS._crc(frame)

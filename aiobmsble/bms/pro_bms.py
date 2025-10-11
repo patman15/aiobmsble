@@ -19,17 +19,17 @@ class BMS(BaseBMS):
     """Pro BMS Smart Shunt class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Pro BMS", "default_model": "Smart Shunt"}
-    _HEAD: Final[bytes] = bytes([0x55, 0xAA])
+    _HEAD: Final[bytes] = b"\x55\xaa"
     _MIN_LEN: Final[int] = 5
     _INIT_RESP: Final[int] = 0x03
     _RT_DATA: Final[int] = 0x04
 
     # Commands from btsnoop capture
-    _CMD_INIT: Final[bytes] = bytes.fromhex("55aa0a0101558004077f648e682b")
-    _CMD_ACK: Final[bytes] = bytes.fromhex("55aa070101558040000095")
-    _CMD_DATA_STREAM: Final[bytes] = bytes.fromhex("55aa070101558042000097")
+    _CMD_INIT: Final[bytes] = bytes.fromhex("0a0101558004077f648e682b")
+    _CMD_ACK: Final[bytes] = bytes.fromhex("070101558040000095")
+    _CMD_DATA_STREAM: Final[bytes] = bytes.fromhex("070101558042000097")
     # command that triggers data streaming (Function 0x43)
-    _CMD_TRIGGER_DATA: Final[bytes] = bytes.fromhex("55aa0901015580430000120084")
+    _CMD_TRIGGER_DATA: Final[bytes] = bytes.fromhex("0901015580430000120084")
 
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 8, 2, False, lambda x: x / 100),
@@ -118,13 +118,13 @@ class BMS(BaseBMS):
         self._valid_reply = BMS._INIT_RESP
 
         # Step 1: Send initialization command and await response
-        await self._await_reply(BMS._CMD_INIT)
+        await self._await_reply(BMS._HEAD + BMS._CMD_INIT)
 
         # Step 2: Send ACK command
         # Step 3: Send data stream command
         # Step 4: Send trigger data command 0x43 - start RT data stream
         for cmd in (BMS._CMD_ACK, BMS._CMD_DATA_STREAM, BMS._CMD_TRIGGER_DATA):
-            await self._await_reply(cmd, wait_for_notify=False)
+            await self._await_reply(BMS._HEAD + cmd, wait_for_notify=False)
 
         self._valid_reply = BMS._RT_DATA
 

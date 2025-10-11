@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from collections.abc import Callable
+from functools import cache
 from struct import unpack_from
 from typing import Any, Final, Literal
 
@@ -148,6 +149,7 @@ class BMS(BaseBMS):
         self._valid_reply = 0x02  # cell information
 
     @staticmethod
+    @cache
     def _cmd(cmd: bytes, reg: int = 0, value: list[int] | None = None) -> bytes:
         """Assemble a Neey BMS command."""
         value = [] if value is None else value

@@ -10,7 +10,6 @@ import asyncio
 import contextlib
 import logging
 
-from bleak.backends.device import BLEDevice
 import pytest
 
 from aiobmsble.basebms import BMSSample
@@ -69,12 +68,12 @@ class MockProBMSBleakClient(MockBleakClient):
         """Mock write to handle initialization and data requests."""
         await super().write_gatt_char(char_specifier, data, response)
 
-        if data == BMS._CMD_INIT:
+        if data == BMS._HEAD + BMS._CMD_INIT:
             # Send initialization response
             if self._notify_callback:
                 self._notify_callback(None, self._init_packet)
 
-        elif data == BMS._CMD_TRIGGER_DATA:
+        elif data == BMS._HEAD + BMS._CMD_TRIGGER_DATA:
             # Start streaming data packets
             if not self._streaming_task:
                 self._stop_streaming = False
@@ -246,16 +245,14 @@ async def test_async_update_no_data_after_init(
                 self._notify_callback(None, RECORDED_PACKETS["init_response"])
 
             # Store task reference to prevent garbage collection
-            task = asyncio.create_task(send_wrong_packet())  # noqa: F841, RUF006
+            self._streaming_task = asyncio.create_task(send_wrong_packet())
 
     monkeypatch.setattr(MockProBMSBleakClient, "write_gatt_char", mock_write)
 
-    device: BLEDevice = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
-
-    patch_bms_timeout("pro_bms")
+    patch_bms_timeout()
     patch_bleak_client(MockProBMSBleakClient)
 
-    bms = BMS(device)
+    bms = BMS(generate_ble_device(name="Pro BMS"))
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
@@ -267,21 +264,16 @@ async def test_async_update_no_data_after_init(
     ), "BMS should be disconnected if streaming is not working."
 
 
-@pytest.fixture(
-    name="wrong_response",
-    params=[
-        (b"\x55\xaa\x07\x03\x80\xaa\x01\x04\x00\x00\x00\x2c\x52", "wrong_length"),
-        (RECORDED_PACKETS["data_zero_soc"], "unexpected_RT_data"),
-        (b"\x00\xaa\x08\x03\x80\xaa\x01\x04\x00\x00\x00\x2c\x52", "invalid_header"),
-        (b"\x55\xaa\x08\x03", "short_packet"),
+@pytest.mark.parametrize(
+    ("wrong_response"),
+    [
+        b"\x55\xaa\x07\x03\x80\xaa\x01\x04\x00\x00\x00\x2c\x52",
+        RECORDED_PACKETS["data_zero_soc"],
+        b"\x00\xaa\x08\x03\x80\xaa\x01\x04\x00\x00\x00\x2c\x52",
+        b"\x55\xaa\x08\x03",
     ],
-    ids=lambda param: param[1],
+    ids=["wrong_length", "unexpected_RT_data", "invalid_header", "short_packet"],
 )
-def response(request) -> bytearray:
-    """Return faulty response frame."""
-    return request.param[0]
-
-
 async def test_invalid_response(
     monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response, caplog
 ) -> None:
