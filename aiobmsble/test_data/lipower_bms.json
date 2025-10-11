@@ -1,0 +1,18 @@
+[
+  {
+    "advertisement": {
+      "local_name": "23-01-05-034",
+      "rssi": -52,
+      "platform_data": [
+        "10:ED:FA:7D:04:48"
+      ],
+      "service_uuids": [
+        "0000af30-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "lipower_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/30)"
+    ]
+  }
+]
