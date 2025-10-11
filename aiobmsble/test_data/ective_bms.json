@@ -100,18 +100,5 @@
       "renamed",
       "value: MAC address"
     ]
-  },
-  {
-    "advertisement": {
-      "local_name": "23-01-05-034",
-      "rssi": -52,
-      "service_uuids": [
-        "0000af30-0000-1000-8000-00805f9b34fb"
-      ]
-    },
-    "type": "ective_bms",
-    "_comments": [
-      "source advmon (https://github.com/patman15/aiobmsble/issues/30)"
-    ]
   }
 ]
