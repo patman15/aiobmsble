@@ -2,6 +2,7 @@
 
 import contextlib
 from enum import IntEnum
+from functools import cache
 from typing import Final, override
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -132,6 +133,7 @@ class BMS(BaseBMS):
         self._data_event.set()
 
     @staticmethod
+    @cache
     def _cmd(cmd: CMD, adr: ADR, value: int = 0x0000) -> bytes:
         """Assemble a ANT BMS command."""
         _frame = bytearray((cmd, cmd, adr))

@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import contextlib
+from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -135,6 +136,7 @@ class BMS(BaseBMS):
             self._data_event.set()
 
     @staticmethod
+    @cache
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a ABC BMS command."""
         frame = bytearray([BMS._HEAD_CMD, cmd[0], 0x00, 0x00, 0x00])
