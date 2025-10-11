@@ -19,7 +19,7 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"default_manufacturer": "LiPower", "default_model": "battery"}
     _HEAD: Final[bytes] = b"\x22\x03"  # beginning of frame
-    _FRAME_LEN: Final[int] = 21  # length of frame, including SOF and checksum
+    _MIN_LEN: Final[int] = 5  # minimal frame length, including SOF and checksum
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 15, 2, False, lambda x: x / 10),
         BMSDp(
@@ -44,7 +44,7 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [{"service_uuid": BMS.uuid_services()[0], "connectable": True}]
+        return [{"service_uuid": normalize_uuid_str("af30"), "connectable": True}]
 
     @staticmethod
     def uuid_services() -> list[str]:
@@ -73,11 +73,11 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
-        if not data.startswith(BMS._HEAD):
+        if not data.startswith(BMS._HEAD) or len(data) < BMS._MIN_LEN:
             self._log.debug("incorrect SOF")
             return
 
-        if len(data) != 21:
+        if len(data) != data[2] + BMS._MIN_LEN:
             self._log.debug("incorrect frame length")
             return
 
