@@ -30,7 +30,7 @@ classifiers = [
 ]
 dependencies = [
   "bleak>=1.0.1",
-  "bleak-retry-connector>=4.0.2",
+  "bleak-retry-connector>=4.4.3",
 ]
 
 [project.optional-dependencies]

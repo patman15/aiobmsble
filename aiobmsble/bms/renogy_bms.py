@@ -3,6 +3,7 @@
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 """
 
+from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -117,6 +118,7 @@ class BMS(BaseBMS):
         return int.from_bytes(data[pos : pos + 2], byteorder="big", signed=signed)
 
     @staticmethod
+    @cache
     def _cmd(addr: int, words: int) -> bytes:
         """Assemble a Renogy BMS command (MODBUS)."""
         frame: bytearray = (

@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -157,7 +158,8 @@ class BMS(BaseBMS):
         self._exp_len = BMS._MIN_LEN
 
     @staticmethod
-    def _cmd(cmd: int, address: int = 0, data: bytearray = bytearray()) -> bytes:
+    @cache
+    def _cmd(cmd: int, address: int = 0, data: bytes = b"") -> bytes:
         """Assemble a Seplos V2 BMS command."""
         assert cmd in (0x47, 0x51, 0x61, 0x62, 0x04)  # allow only read commands
         frame = bytearray([*BMS._HEAD, BMS._CMD_VER, address, 0x46, cmd])
@@ -170,7 +172,7 @@ class BMS(BaseBMS):
 
         for cmd, data in BMS._CMDS:
             self._exp_reply.add(cmd)
-            await self._await_reply(BMS._cmd(cmd, data=bytearray(data)))
+            await self._await_reply(BMS._cmd(cmd, data=data))
 
         result: BMSSample = {}
         result["cell_count"] = self._data_final[0x61][BMS._CELL_POS]
