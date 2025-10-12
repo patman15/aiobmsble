@@ -573,9 +573,7 @@
     "advertisement": {
       "local_name": "LP02555",
       "rssi": -64,
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ],
+      "platform_data": ["A5:C2:37:00:00:00"],
       "manufacturer_data": {
         "407": "2e37c2a5"
       },
@@ -587,25 +585,6 @@
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/502)",
       "LANPWR battery"
-    ]
-  },
-  {
-    "advertisement": {
-      "local_name": "SPCC13C3BT43000017",
-      "rssi": -82,
-      "manufacturer_data": {
-        "19446": "4037c2a5"
-      },
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ],
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ]
-    },
-    "type": "jbd_bms",
-    "_comments": [
-      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/514)"
     ]
   }
 ]
