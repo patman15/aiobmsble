@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from fnmatch import translate
-from functools import lru_cache
+from functools import cache
 import importlib
 import pkgutil
 import re
@@ -73,7 +73,7 @@ def _advertisement_matches(
     )
 
 
-@lru_cache
+@cache
 def load_bms_plugins() -> set[ModuleType]:
     """Discover and load all available Battery Management System (BMS) plugin modules.
 
