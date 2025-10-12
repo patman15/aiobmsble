@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -183,9 +184,7 @@ class BMS(BaseBMS):
         if char_notify_handle == -1 or self._char_write_handle == -1:
             self._log.debug("failed to detect characteristics.")
             await self._client.disconnect()
-            raise ConnectionError(
-                f"Failed to detect characteristics from {self.name}."
-            )
+            raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
         self._log.debug(
             "using characteristics handle #%i (notify), #%i (write).",
             char_notify_handle,
@@ -205,6 +204,7 @@ class BMS(BaseBMS):
         self._valid_reply = 0x02  # cell information
 
     @staticmethod
+    @cache
     def _cmd(cmd: bytes, value: list[int] | None = None) -> bytes:
         """Assemble a Jikong BMS command."""
         value = [] if value is None else value

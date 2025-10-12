@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -148,6 +149,7 @@ class BMS(BaseBMS):
         return 0x10000 - sum(frame)
 
     @staticmethod
+    @cache
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a JBD BMS command."""
         frame = bytearray([*BMS.HEAD_CMD, cmd[0], 0x00])
