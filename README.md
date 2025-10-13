@@ -143,6 +143,7 @@ for helping with making the library better.
 ## References
 - ANT BMS: [esphome-ant-bms](https://github.com/syssi/esphome-ant-bms/)
 - Daly BMS: [esp32-smart-bms-simulation](https://github.com/roccotsi2/esp32-smart-bms-simulation)
+- EG4 BMS: [dbus-serialbattery](https://github.com/Louisvdw/dbus-serialbattery/issues/400)
 - Jikong BMS: [esphome-jk-bms](https://github.com/syssi/esphome-jk-bms)
 - JBD BMS: [esphome-jbd-bms](https://github.com/syssi/esphome-jbd-bms)
 - D-powercore BMS: [Strom BMS monitor](https://github.com/majonessyltetoy/strom)

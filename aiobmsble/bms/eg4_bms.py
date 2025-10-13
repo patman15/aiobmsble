@@ -25,12 +25,15 @@ class BMS(BaseBMS):
     _INFO_LEN: Final[int] = 113
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 100),
-        BMSDp("current", 5, 2, True, lambda x: x / 1000),
-        BMSDp("battery_level", 49, 2, False, lambda x: x),
-        # BMSDp("cycle_charge", 17, 8, False, lambda x: x / 1000),
-        # BMSDp("cycles", 25, 4, False, lambda x: x),
-        # BMSDp("temperature", 33, 4, False, lambda x: round(x * 0.1 - 273.15, 1)),
-        # BMSDp("problem_code", 37, 2, False, lambda x: x),
+        BMSDp("current", 5, 2, True, lambda x: x / 100),
+        BMSDp("battery_level", 51, 2, False),
+        BMSDp("cycle_charge", 45, 2, False, lambda x: x / 10),
+        BMSDp("cycles", 61, 4, False, lambda x: x),
+        BMSDp("cell_count", 75, 2, False),
+        # BMSDp("design_capacity", 77, 2, False, lambda x: x / 10),
+        BMSDp("temperature", 39, 2, True),
+        BMSDp("problem_code", 55, 6, False, lambda x: x),
+        # BMSDP("balance", 76, 2, False, lambda x: bool(x)),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -66,15 +69,8 @@ class BMS(BaseBMS):
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "cycle_charge",
-                "delta_voltage",
-                "power",
-                "runtime",
-            }
-        )  # calculate further values from BMS provided set ones
+            {"battery_charging", "cycle_capacity", "delta_voltage", "power", "runtime"}
+        )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -108,4 +104,9 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
-        return BMS._decode_data(BMS._FIELDS, self._data)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data)
+        # result["temp_values"] = BMS._temp_values(self._data, values=2, start=69, size=1)
+        result["cell_voltages"] = BMS._cell_voltages(
+            self._data, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
+        )
+        return result
