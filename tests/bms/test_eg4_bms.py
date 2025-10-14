@@ -174,7 +174,7 @@ async def test_problem_response(
 
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
-        "problem_code": (1 if request.node.callspec.id == "first_bit" else 2**48),
+        "problem_code": (1 if request.node.callspec.id == "first_bit" else 2**47),
     }
 
     await bms.disconnect()
