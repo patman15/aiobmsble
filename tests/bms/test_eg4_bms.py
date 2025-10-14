@@ -165,7 +165,7 @@ async def test_invalid_response(
     ids=["last_bit", "first_bit"],
 )
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response
+    monkeypatch, patch_bleak_client, problem_response, request
 ) -> None:
     """Test data update with BMS returning error flags."""
     monkeypatch.setattr(MockEG4BleakClient, "_RESP", bytearray(problem_response))
@@ -173,7 +173,8 @@ async def test_problem_response(
     bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS | {
-        "problem_code": (1 if problem_response[1] == "first_bit" else 2**48),
+        "problem": True,
+        "problem_code": (1 if request.node.callspec.id == "first_bit" else 2**48),
     }
 
     await bms.disconnect()
