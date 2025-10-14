@@ -87,18 +87,18 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
     await bms.disconnect()
 
 
-# async def test_device_info(patch_bleak_client) -> None:
-#     """Test that the BMS returns initialized dynamic device information."""
-#     patch_bleak_client(MockEG4BleakClient)
-#     bms = BMS(generate_ble_device())
-#     assert await bms.device_info() == {
-#         "fw_version": "mock_FW_version",
-#         "hw_version": "mock_HW_version",
-#         "sw_version": "mock_SW_version",
-#         "manufacturer": "mock_manufacturer",
-#         "model": "mock_model",
-#         "serial_number": "mock_serial_number",
-#     }
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockEG4BleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "fw_version": "mock_FW_version",
+        "hw_version": "mock_HW_version",
+        "sw_version": "mock_SW_version",
+        "manufacturer": "mock_manufacturer",
+        "model": "mock_model",
+        "serial_number": "mock_serial_number",
+    }
 
 
 async def test_tx_notimplemented(patch_bleak_client) -> None:
@@ -150,75 +150,30 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-# @pytest.fixture(
-#     name="problem_response",
-#     params=[
-#         (
-#             bytearray(
-#                 b"\x5e\x38\x34\x33\x35\x30\x30\x30\x30\x33\x38\x43\x44\x46\x46\x46\x46"
-#                 b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30"
-#                 b"\x45\x31\x30\x42\x30\x31\x30\x30\x30\x30\x30\x30"
-#                 b"\x35\x45\x30\x44\x37\x31\x30\x44\x36\x35\x30\x44\x35\x45\x30\x44"
-#                 b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-#                 b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-#                 b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-#                 b"\x30\x38\x39\x30"
-#             ),
-#             "first_bit",
-#         ),
-#         (
-#             bytearray(
-#                 b"\x5e\x38\x34\x33\x35\x30\x30\x30\x30\x33\x38\x43\x44\x46\x46\x46\x46"
-#                 b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30"
-#                 b"\x45\x31\x30\x42\x38\x30\x30\x30\x30\x30\x30\x30"
-#                 b"\x35\x45\x30\x44\x37\x31\x30\x44\x36\x35\x30\x44\x35\x45\x30\x44"
-#                 b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-#                 b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-#                 b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-#                 b"\x30\x39\x30\x46"
-#             ),
-#             "last_bit",
-#         ),
-#     ],
-#     ids=lambda param: param[1],
-# )
-# def prb_response(request):
-#     """Return faulty response frame."""
-#     return request.param
+@pytest.mark.parametrize(
+    "problem_response",
+    [
+        b"\x01\x03\x4e\x05\x32\x00\x00\x0c\xfe\x0c\xff\x0c\xff\x0c\xfb\x00\x00\x00\x00\x00\x00\x00"
+        b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x0e\x00"
+        b"\x0e\x0e\x72\x08\x98\x00\x64\x00\x5c\x03\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x05\x55"
+        b"\xd4\xa8\x00\x0e\x0e\x00\x00\x00\x00\x00\x04\x0f\xa0\x00\x00\x4A\x19"
+        b"\x01\x03\x4e\x05\x32\x00\x00\x0c\xfe\x0c\xff\x0c\xff\x0c\xfb\x00\x00\x00\x00\x00\x00\x00"
+        b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x0e\x00"
+        b"\x0e\x0e\x72\x08\x98\x00\x64\x00\x5c\x03\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x05\x55"
+        b"\xd4\xa8\x00\x0e\x0e\x00\x00\x00\x00\x00\x04\x0f\xa0\x00\x00\xf0\xb4"
+    ],
+    ids=["last_bit", "first_bit"],
+)
+async def test_problem_response(
+    monkeypatch, patch_bleak_client, problem_response
+) -> None:
+    """Test data update with BMS returning error flags."""
+    monkeypatch.setattr(MockEG4BleakClient, "_RESP", bytearray(problem_response))
+    patch_bleak_client(MockEG4BleakClient)
+    bms = BMS(generate_ble_device())
 
+    assert await bms.async_update() == _RESULT_DEFS | {
+        "problem_code": (1 if problem_response[1] == "first_bit" else 2**48),
+    }
 
-# async def test_problem_response(
-#     monkeypatch, patch_bleak_client, problem_response
-# ) -> None:
-#     """Test data update with BMS returning error flags."""
-
-#     monkeypatch.setattr(MockEG4BleakClient, "_RESP", bytearray(problem_response[0]))
-
-#     patch_bleak_client(MockEG4BleakClient)
-
-#     bms = BMS(generate_ble_device())
-
-#     result: BMSSample = await bms.async_update()
-#     assert result == {
-#         "voltage": 13.7,
-#         "current": -13.0,
-#         "battery_level": 98,
-#         "cycles": 407,
-#         "cycle_charge": 194.86,
-#         "cell_voltages": [
-#             3.422,
-#             3.441,
-#             3.429,
-#             3.422,
-#         ],
-#         "delta_voltage": 0.019,
-#         "temperature": 31.0,
-#         "cycle_capacity": 2669.582,
-#         "power": -178.1,
-#         "runtime": 53961,
-#         "battery_charging": False,
-#         "problem": True,
-#         "problem_code": (1 if problem_response[1] == "first_bit" else 128),
-#     }
-
-#     await bms.disconnect()
+    await bms.disconnect()
