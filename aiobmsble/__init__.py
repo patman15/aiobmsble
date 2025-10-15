@@ -55,8 +55,8 @@ class BMSswitches(TypedDict, total=False):
 
     charge_mosfet: bool  # True: enabled
     discharge_mosfet: bool  # True: enabled
-    balancer: bool  # True: enabled/active
-    dry_contacts: list[bool]  # True: closed/on, False: open/off
+    balancer: int  # bit mask, 1: enabled/active
+    dry_contacts: int  # bit mask 1: closed/on, 0: open/off
 
 
 class BMSsample(TypedDict, total=False):
