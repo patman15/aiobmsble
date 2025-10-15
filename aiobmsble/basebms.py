@@ -7,10 +7,11 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from itertools import takewhile
 import logging
 from statistics import fmean
 from types import TracebackType
-from typing import Any, Final, Literal, Self
+from typing import Any, Final, Literal, Self, final
 
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -91,6 +92,7 @@ class BaseBMS(ABC):
         self._data: bytearray = bytearray()
         self._data_event: Final[asyncio.Event] = asyncio.Event()
 
+    @final
     async def __aenter__(self) -> Self:
         """Asynchronous context manager to implement `async with` functionality."""
         if not self._keep_alive:
@@ -98,6 +100,7 @@ class BaseBMS(ABC):
         await self._connect()
         return self
 
+    @final
     async def __aexit__(
         self,
         typ: type[BaseException] | None,
@@ -107,6 +110,7 @@ class BaseBMS(ABC):
         """Asynchronous context manager exit functionality."""
         await self.disconnect()
 
+    @final
     @classmethod
     def get_bms_module(cls) -> str:
         """Return BMS module name, e.g. aiobmsble.bms.dummy_bms."""
@@ -117,6 +121,7 @@ class BaseBMS(ABC):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Return a list of Bluetooth advertisement matchers."""
 
+    @final
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
@@ -137,6 +142,7 @@ class BaseBMS(ABC):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
 
+    @final
     async def device_info(self) -> BMSInfo:
         """Return a dictionary of device information.
 
@@ -195,6 +201,7 @@ class BaseBMS(ABC):
         """
         return frozenset()
 
+    @final
     @staticmethod
     def _add_missing_values(data: BMSSample, values: frozenset[BMSValue]) -> None:
         """Calculate missing BMS values from existing ones.
@@ -295,6 +302,7 @@ class BaseBMS(ABC):
             ]
         )
 
+    @final
     def _on_disconnect(self, _client: BleakClient) -> None:
         """Disconnect callback function."""
 
@@ -311,6 +319,7 @@ class BaseBMS(ABC):
             char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
         )
 
+    @final
     async def _connect(self) -> None:
         """Connect to the BMS and setup notification if not connected."""
 
@@ -349,6 +358,7 @@ class BaseBMS(ABC):
         )
         return bool(char_tx and "write" in getattr(char_tx, "properties", []))
 
+    @final
     async def _send_msg(
         self,
         data: bytes,
@@ -417,6 +427,7 @@ class BaseBMS(ABC):
                 await self._connect()
         raise TimeoutError
 
+    @final
     async def disconnect(self, reset: bool = False) -> None:
         """Disconnect the BMS, includes stoping notifications."""
 
@@ -429,6 +440,7 @@ class BaseBMS(ABC):
         except (BleakError, TimeoutError) as exc:
             self._log.error("disconnect failed! (%s)", type(exc).__name__)
 
+    @final
     async def _wait_event(self) -> None:
         """Wait for data event and clear it."""
         await self._data_event.wait()
@@ -438,6 +450,7 @@ class BaseBMS(ABC):
     async def _async_update(self) -> BMSSample:
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
+    @final
     async def async_update(self, raw: bool = False) -> BMSSample:
         """Retrieve updated values from the BMS using method of the subclass.
 
@@ -572,6 +585,11 @@ def barr2str(barr: bytearray) -> str:
         if not c.isprintable():
             return s[:i].strip()
     return s.strip()
+
+
+def strstart2int(string: str) -> int:
+    """Convert the beginning of a string to an integer, till first non-digit is found."""
+    return int("".join(takewhile(str.isdigit, string)))
 
 
 def crc_modbus(data: bytearray) -> int:

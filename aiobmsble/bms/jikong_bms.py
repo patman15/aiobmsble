@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -12,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
+from aiobmsble.basebms import BaseBMS, barr2str, crc_sum, strstart2int
 
 
 class BMS(BaseBMS):
@@ -183,9 +184,7 @@ class BMS(BaseBMS):
         if char_notify_handle == -1 or self._char_write_handle == -1:
             self._log.debug("failed to detect characteristics.")
             await self._client.disconnect()
-            raise ConnectionError(
-                f"Failed to detect characteristics from {self.name}."
-            )
+            raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
         self._log.debug(
             "using characteristics handle #%i (notify), #%i (write).",
             char_notify_handle,
@@ -196,7 +195,7 @@ class BMS(BaseBMS):
 
         # wait for BMS ready (0xC8)
         _bms_info: BMSInfo = await self._fetch_device_info()
-        self._sw_version = int(_bms_info.get("sw_version", "0")[:2])
+        self._sw_version = strstart2int(_bms_info.get("sw_version", "0"))
         self._log.debug("device information: %s", _bms_info)
         self._prot_offset = -32 if self._sw_version < 11 else 0
         if not self._bms_ready:
@@ -205,6 +204,7 @@ class BMS(BaseBMS):
         self._valid_reply = 0x02  # cell information
 
     @staticmethod
+    @cache
     def _cmd(cmd: bytes, value: list[int] | None = None) -> bytes:
         """Assemble a Jikong BMS command."""
         value = [] if value is None else value

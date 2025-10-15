@@ -9,6 +9,7 @@ from unittest import mock
 
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
+from bleak.exc import BleakError
 import pytest
 
 from aiobmsble import BMSSample
@@ -74,6 +75,23 @@ async def test_detect_bms(
         "\t'power': 18.0,\n\t'battery_charging': True,\n\t'problem': False}\n"
         in caplog.text
     )
+
+
+async def test_scan_devices_fail(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Verify log ouput for working BMS update query."""
+
+    async def mock_discover_fail(
+        timeout: float = 5.0, *, return_adv: bool = False, **_kwargs
+    ) -> dict[str, tuple[BLEDevice, AdvertisementData]]:
+        raise BleakError("No BT adapters.")
+
+    monkeypatch.setattr("aiobmsble.__main__.BleakScanner.discover", mock_discover_fail)
+
+    with caplog.at_level(INFO):
+        await main_mod.scan_devices()
+    assert "Could not scan for BT devices: No BT adapters." in caplog.text
 
 
 async def test_bms_fail(
