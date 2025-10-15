@@ -12,13 +12,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Offgridtec LiFePO4 Smart Pro type A and type B BMS implementation."""
 
+    INFO: BMSInfo = {
+        "default_manufacturer": "Offgridtec",
+        "default_model": "LiFePo4 Smart Pro",
+    }
     _IDX_NAME: Final = 0
     _IDX_LEN: Final = 1
     _IDX_FCT: Final = 2
@@ -35,24 +39,28 @@ class BMS(BaseBMS):
         super().__init__(ble_device, keep_alive)
         self._type: str = (
             self.name[9]
-            if len(self.name) >= 10 and set(self.name[10:]).issubset(digits)
+            if len(self.name) >= 10
+            and set(self.name[10:]).issubset(digits)
             else "?"
         )
         self._key: int = (
-            sum(BMS._CRYPT_SEQ[int(c, 16)] for c in (f"{int(self.name[10:]):0>4X}"))
+            sum(
+                BMS._CRYPT_SEQ[int(c, 16)]
+                for c in (f"{int(self.name[10:]):0>4X}")
+            )
             if self._type in "AB"
             else 0
         ) + (5 if (self._type == "A") else 8)
         self._log.info(
             "%s type: %c, ID: %s, key: 0x%X",
-            self.device_id(),
+            self.bms_id(),
             self._type,
             self.name[10:],
             self._key,
         )
         self._exp_reply: int = 0x0
         self._response: BMS._Response = BMS._Response(False, 0, 0)
-        self._REGISTERS: dict[int, tuple[BMSvalue, int, Callable[[int], Any]]]
+        self._REGISTERS: dict[int, tuple[BMSValue, int, Callable[[int], Any]]]
         if self._type == "A":
             self._REGISTERS = {
                 # SOC (State of Charge)
@@ -98,11 +106,6 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return a dictionary of device information."""
-        return {"manufacturer": "Offgridtec", "model": "LiFePo4 Smart Pro"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("fff0")]
@@ -117,8 +120,12 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff6"
 
+    async def _fetch_device_info(self) -> BMSInfo:  # char "180a" contains garbage
+        """Fetch the device information via BLE."""
+        return {"serial_number": self.name[10:]}
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {"cycle_capacity", "power", "battery_charging", "delta_voltage"}
         )
@@ -177,9 +184,9 @@ class BMS(BaseBMS):
 
         return bytes(ord(cmd[i]) ^ self._key for i in range(len(cmd)))
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        result: BMSsample = {}
+        result: BMSSample = {}
 
         for reg in list(self._REGISTERS):
             self._exp_reply = reg

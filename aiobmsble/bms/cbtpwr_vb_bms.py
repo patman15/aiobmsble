@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from functools import cache
 from string import hexdigits
 from typing import Final
 
@@ -11,13 +12,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, lrc_modbus
 
 
 class BMS(BaseBMS):
     """CBT Power VB series battery class implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "Creabest", "default_model": "VB series"}
     _HEAD: Final[bytes] = b"\x7e"
     _TAIL: Final[bytes] = b"\x0d"
     _CMD_VER: Final[int] = 0x11  # TX protocol version
@@ -27,12 +29,12 @@ class BMS(BaseBMS):
     _MAX_LEN: Final[int] = 255
     _CELL_POS: Final[int] = 6
 
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 2, 2, False, lambda x: x / 10),
-        BMSdp("current", 0, 2, True, lambda x: x / 10),
-        BMSdp("battery_level", 4, 2, False, lambda x: min(x, 100)),
-        BMSdp("cycles", 7, 2, False),
-        BMSdp("problem_code", 15, 6, False, lambda x: x & 0xFFF000FF000F),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 2, 2, False, lambda x: x / 10),
+        BMSDp("current", 0, 2, True, lambda x: x / 10),
+        BMSDp("battery_level", 4, 2, False, lambda x: min(x, 100)),
+        BMSDp("cycles", 7, 2, False),
+        BMSDp("problem_code", 15, 6, False, lambda x: x & 0xFFF000FF000F),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -52,11 +54,6 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Creabest", "model": "VB series"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [
@@ -74,8 +71,10 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe9"
 
+    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "battery_charging",
@@ -145,6 +144,7 @@ class BMS(BaseBMS):
         return (sum((length >> (i * 4)) & 0xF for i in range(3)) ^ 0xF) + 1 & 0xF
 
     @staticmethod
+    @cache
     def _cmd(cmd: int, dev_id: int = 1, data: bytes = b"") -> bytes:
         """Assemble a Seplos VB series command."""
         assert len(data) <= 0xFFF
@@ -159,11 +159,11 @@ class BMS(BaseBMS):
         )
         return BMS._HEAD + frame.hex().upper().encode() + BMS._TAIL
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
         await self._await_reply(BMS._cmd(0x42))
-        result: BMSsample = {"cell_count": self._data[BMS._CELL_POS]}
+        result: BMSSample = {"cell_count": self._data[BMS._CELL_POS]}
         temp_pos: Final[int] = BMS._CELL_POS + result.get("cell_count", 0) * 2 + 1
         result["temp_sensors"] = self._data[temp_pos]
         result["cell_voltages"] = BMS._cell_voltages(

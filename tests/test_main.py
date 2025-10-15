@@ -9,9 +9,10 @@ from unittest import mock
 
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
+from bleak.exc import BleakError
 import pytest
 
-from aiobmsble import BMSsample
+from aiobmsble import BMSSample
 import aiobmsble.__main__ as main_mod
 
 from .bluetooth import generate_advertisement_data
@@ -76,6 +77,23 @@ async def test_detect_bms(
     )
 
 
+async def test_scan_devices_fail(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Verify log ouput for working BMS update query."""
+
+    async def mock_discover_fail(
+        timeout: float = 5.0, *, return_adv: bool = False, **_kwargs
+    ) -> dict[str, tuple[BLEDevice, AdvertisementData]]:
+        raise BleakError("No BT adapters.")
+
+    monkeypatch.setattr("aiobmsble.__main__.BleakScanner.discover", mock_discover_fail)
+
+    with caplog.at_level(INFO):
+        await main_mod.scan_devices()
+    assert "Could not scan for BT devices: No BT adapters." in caplog.text
+
+
 async def test_bms_fail(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client: Callable[..., None],
@@ -83,7 +101,7 @@ async def test_bms_fail(
 ) -> None:
     """Check that an error message is given if BMS update query fails (TimeoutError)."""
 
-    async def mock_async_update(self) -> BMSsample:
+    async def mock_async_update(self) -> BMSSample:
         raise TimeoutError
 
     monkeypatch.setattr("aiobmsble.__main__.BleakScanner.discover", mock_discover)

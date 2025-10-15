@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.ecoworthy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -48,7 +48,7 @@ _PROTO_DEFS: Final[dict[int, dict[int, bytearray]]] = {
 }
 
 
-_RESULT_DEFS: Final[dict[int, BMSsample]] = {
+_RESULT_DEFS: Final[dict[int, BMSSample]] = {
     0x1: {
         "cell_count": 4,
         "temp_sensors": 3,
@@ -164,6 +164,20 @@ async def test_update(
     await bms.disconnect()
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockECOWBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "fw_version": "mock_FW_version",
+        "hw_version": "mock_HW_version",
+        "sw_version": "mock_SW_version",
+        "manufacturer": "mock_manufacturer",
+        "model": "mock_model",
+        "serial_number": "mock_serial_number",
+    }
+
+
 @pytest.fixture(
     name="wrong_response",
     params=[
@@ -239,7 +253,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -297,7 +311,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result == _RESULT_DEFS[0x1] | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 15),

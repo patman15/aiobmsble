@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.felicity_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -145,6 +145,18 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
     await bms.disconnect()
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockFelicityBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "fw_version": 519,
+        "sw_version": "2.06",
+        "model_id": 112,
+        "serial_number": "100011002424470238",
+    }
+
+
 async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
     """Test Felicity BMS data update with problem response."""
 
@@ -192,7 +204,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 

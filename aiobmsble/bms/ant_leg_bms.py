@@ -2,13 +2,14 @@
 
 import contextlib
 from enum import IntEnum
+from functools import cache
 from typing import Final, override
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -26,21 +27,22 @@ class BMS(BaseBMS):
 
         STATUS = 0x00
 
+    INFO: BMSInfo = {"default_manufacturer": "ANT", "default_model": "legacy smart BMS"}
     _RX_HEADER: Final[bytes] = b"\xaa\x55\xaa"
     _RX_HEADER_RSP_STAT: Final[bytes] = b"\xaa\x55\xaa\xff"
 
     _RSP_STAT: Final[int] = 0xFF
     _RSP_STAT_LEN: Final[int] = 140
 
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("voltage", 4, 2, False, lambda x: x / 10),
-        BMSdp("current", 70, 4, True, lambda x: x / -10),
-        BMSdp("battery_level", 74, 1, False),
-        BMSdp("design_capacity", 75, 4, False, lambda x: x // 1e6),
-        BMSdp("cycle_charge", 79, 4, False, lambda x: x / 1e6),
-        BMSdp("total_charge", 83, 4, False, lambda x: x // 1000),
-        BMSdp("runtime", 87, 4, False),
-        BMSdp("cell_count", 123, 1, False),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 4, 2, False, lambda x: x / 10),
+        BMSDp("current", 70, 4, True, lambda x: x / -10),
+        BMSDp("battery_level", 74, 1, False),
+        BMSDp("design_capacity", 75, 4, False, lambda x: x // 1e6),
+        BMSDp("cycle_charge", 79, 4, False, lambda x: x / 1e6),
+        BMSDp("total_charge", 83, 4, False, lambda x: x // 1000),
+        BMSDp("runtime", 87, 4, False),
+        BMSDp("cell_count", 123, 1, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -63,12 +65,6 @@ class BMS(BaseBMS):
 
     @staticmethod
     @override
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "ANT", "model": "Smart BMS"}
-
-    @staticmethod
-    @override
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("ffe0")]  # change service UUID here!
@@ -85,9 +81,11 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
+    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
+
     @staticmethod
     @override
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             (
                 "battery_charging",
@@ -135,6 +133,7 @@ class BMS(BaseBMS):
         self._data_event.set()
 
     @staticmethod
+    @cache
     def _cmd(cmd: CMD, adr: ADR, value: int = 0x0000) -> bytes:
         """Assemble a ANT BMS command."""
         _frame = bytearray((cmd, cmd, adr))
@@ -143,12 +142,12 @@ class BMS(BaseBMS):
         return bytes(_frame)
 
     @override
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_reply(BMS._cmd(BMS.CMD.GET, BMS.ADR.STATUS))
 
         _data: bytearray = self._data_final
-        result: BMSsample = BMS._decode_data(
+        result: BMSSample = BMS._decode_data(
             BMS._FIELDS, _data, byteorder="big", offset=0
         )
 

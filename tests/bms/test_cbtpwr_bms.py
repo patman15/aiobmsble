@@ -8,13 +8,13 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.cbtpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
 
-def ref_value() -> BMSsample:
+def ref_value() -> BMSSample:
     """Return reference value for mock CBT power BMS."""
     return {
         "voltage": 13.4,
@@ -320,7 +320,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result == ref_value() | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 31),

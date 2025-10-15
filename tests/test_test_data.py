@@ -27,7 +27,7 @@ def test_json_dict_to_advdata() -> None:
         },
         "service_uuids": ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"],
         "tx_power": 21,
-        "platform_data": (123, "test", {"check": "ok"}),
+        "platform_data": ("00:11:22:aa:bb:cc", 123, "test", {"check": "ok"}),
     }
     assert _json_dict_to_advdata(data) == AdvertisementData(
         local_name="dummy_bms",
@@ -40,5 +40,5 @@ def test_json_dict_to_advdata() -> None:
         },
         service_uuids=["6e400001-b5a3-f393-e0a9-e50e24dcca9e"],
         tx_power=21,
-        platform_data=(123, "test", {"check": "ok"}),
+        platform_data=("00:11:22:aa:bb:cc", 123, "test", {"check": "ok"}),
     )
