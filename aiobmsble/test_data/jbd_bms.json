@@ -587,5 +587,42 @@
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/502)",
       "LANPWR battery"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "SPCC13C3BT43000017",
+      "rssi": -82,
+      "manufacturer_data": {
+        "19446": "4037c2a5"
+      },
+      "platform_data": [
+        "A5:C2:37:00:00:00"
+      ],
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/514)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "TZ-H006-02408-0042",
+      "manufacturer_data": {
+        "123": "02ffff7d"
+      },
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb"
+      ],
+      "rssi": -69,
+      "platform_data": ["F4:F0:3C:00:00:00"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/507)",
+      "CERRNSS battery"
+    ]
   }
 ]
