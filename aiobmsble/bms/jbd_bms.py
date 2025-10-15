@@ -54,6 +54,7 @@ class BMS(BaseBMS):
                 "SX1*",  # Supervolt v3*
                 "SBL-*",  # SBL*
                 "OGR-*",  # OGRPHY*
+                "TZ-H*",  # CERRNSS battery
             )
         ] + [
             MatcherPattern(
