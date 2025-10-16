@@ -587,7 +587,7 @@ def barr2str(barr: bytearray) -> str:
     return s.strip()
 
 
-def strstart2int(string: str) -> int:
+def lstr2int(string: str) -> int:
     """Convert the beginning of a string to an integer, till first non-digit is found."""
     return int("".join(takewhile(str.isdigit, string)))
 
