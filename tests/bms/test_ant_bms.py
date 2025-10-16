@@ -57,6 +57,9 @@ _RESULT_DEFS: Final[BMSSample] = {
     "delta_voltage": 0.148,
     "problem": False,
     "problem_code": 0,
+    "sw_balancer": 0,
+    "sw_chrg_mosfet": True,
+    "sw_dischrg_mosfet": True,
 }
 
 
@@ -257,6 +260,8 @@ async def test_problem_response(
     assert result == _RESULT_DEFS | {
         "problem": True,
         "problem_code": (0x202 if problem_response[1] == "low_value" else 0xE0E),
+        "sw_chrg_mosfet": False,
+        "sw_dischrg_mosfet": False,
     }
 
     await bms.disconnect()

@@ -48,7 +48,11 @@ _RESULT_DEFS: Final[BMSSample] = {
     "delta_voltage": 0.168,
     "temp_values": [26, 29, -5, 21],
     "temperature": 17.75,
-    "problem": False,
+    "problem": True,
+    "problem_code": 512,
+    "sw_balancer": 0,
+    "sw_chrg_mosfet": False,
+    "sw_dischrg_mosfet": True,
     "runtime": 169081843,
 }
 
@@ -85,6 +89,10 @@ _RESULT_DEFS_CAP: Final[BMSSample] = {
     "battery_charging": False,
     "temperature": 21.25,
     "problem": False,
+    "problem_code": 0,
+    "sw_balancer": 0,
+    "sw_chrg_mosfet": True,
+    "sw_dischrg_mosfet": True,
 }
 
 
