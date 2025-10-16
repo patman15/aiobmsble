@@ -51,9 +51,11 @@ class BMS(BaseBMS):
             )
             for pattern in (
                 "JBD-*",
-                "SX1*",  # Supervolt v3*
-                "SBL-*",  # SBL*
-                "OGR-*",  # OGRPHY*
+                "SX1*",  # Supervolt v3
+                "SX60*", # Supervolt Ultra
+                "SBL-*",  # SBL
+                "OGR-*",  # OGRPHY
+                "TZ-H*",  # CERRNSS battery
             )
         ] + [
             MatcherPattern(

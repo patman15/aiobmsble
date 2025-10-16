@@ -360,7 +360,8 @@
     },
     "type": "jbd_bms",
     "_comments": [
-      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/302)"
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/302)",
+      "OGRPHY battery"
     ]
   },
   {

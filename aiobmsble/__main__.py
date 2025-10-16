@@ -27,10 +27,15 @@ logger: logging.Logger = logging.getLogger(__package__)
 
 async def scan_devices() -> dict[str, tuple[BLEDevice, AdvertisementData]]:
     """Scan for BLE devices and return results."""
-    logger.info("starting scan...")
-    scan_result: dict[str, tuple[BLEDevice, AdvertisementData]] = (
-        await BleakScanner.discover(return_adv=True)
-    )
+    logger.info("starting scan ...")
+    try:
+        scan_result: dict[str, tuple[BLEDevice, AdvertisementData]] = (
+            await BleakScanner.discover(return_adv=True)
+        )
+    except BleakError as exc:
+        logger.error("Could not scan for BT devices: %s", exc)
+        return {}
+
     logger.debug(scan_result)
     logger.info("%i BT device(s) in range.", len(scan_result))
     return scan_result
