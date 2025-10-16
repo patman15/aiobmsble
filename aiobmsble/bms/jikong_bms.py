@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
+from aiobmsble.basebms import BaseBMS, barr2str, crc_sum, lstr2int
 
 
 class BMS(BaseBMS):
@@ -195,7 +195,7 @@ class BMS(BaseBMS):
 
         # wait for BMS ready (0xC8)
         _bms_info: BMSInfo = await self._fetch_device_info()
-        self._sw_version = int(_bms_info.get("sw_version", "0")[:2])
+        self._sw_version = lstr2int(_bms_info.get("sw_version", "0"))
         self._log.debug("device information: %s", _bms_info)
         self._prot_offset = -32 if self._sw_version < 11 else 0
         if not self._bms_ready:
