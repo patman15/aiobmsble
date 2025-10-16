@@ -34,6 +34,7 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 17, 2, False, lambda x: x // 100, 0x1),
         BMSDp("cycles", 23, 2, False, lambda x: x, 0x1),
         BMSDp("problem_code", 31, 2, False, lambda x: x, 0x1),
+        BMSDp("sw_balancer", 20, 2, False, lambda x: x, 0x1),
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS}
     _INIT_CMDS: Final[set[int]] = {
@@ -82,7 +83,7 @@ class BMS(BaseBMS):
             self._exp_reply = (cmd,)
             await self._await_reply(BMS._cmd(cmd))
         return {
-            "sw_version": '.'.join(str(x) for x in self._data_final[0xF4][3:6]),
+            "sw_version": ".".join(str(x) for x in self._data_final[0xF4][3:6]),
             "hw_version": barr2str(self._data_final[0x74][3:-1]),
         }
 
