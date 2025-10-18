@@ -9,7 +9,7 @@ from bleak.exc import BleakDeviceNotFoundError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.tdt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -230,9 +230,15 @@ class MockTDTBleakClient(MockBleakClient):
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
         **kwargs,
     ) -> bytearray:
-        """Mock write GATT characteristics."""
-        await super().read_gatt_char(char_specifier, kwargs=kwargs)
-        return bytearray(int.to_bytes(self._char_fffa, 1, "big"))
+        """Mock read GATT characteristics."""
+
+        if (
+            isinstance(char_specifier, str)
+            and normalize_uuid_str(char_specifier)[4:8] == "fffa"
+        ):
+            return bytearray(int.to_bytes(self._char_fffa, 1, "big"))
+
+        return await super().read_gatt_char(char_specifier, kwargs=kwargs)
 
 
 async def test_update(
@@ -326,7 +332,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
@@ -453,7 +459,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device(), False)
 
-    result: BMSsample = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result.get("problem", False)  # we expect a problem
     assert result.get("problem_code", 0) == (
         0x1 if problem_response[1].startswith("first_bit") else 0x8000

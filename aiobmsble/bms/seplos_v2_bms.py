@@ -4,19 +4,21 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_xmodem
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble.basebms import BaseBMS, barr2str, crc_xmodem
 
 
 class BMS(BaseBMS):
     """Seplos v2 BMS implementation."""
 
+    INFO: BMSInfo = {"default_manufacturer": "Seplos", "default_model": "smart BMS V2"}
     _HEAD: Final[bytes] = b"\x7e"
     _TAIL: Final[bytes] = b"\x0d"
     _CMD_VER: Final[int] = 0x10  # TX protocol version
@@ -26,12 +28,12 @@ class BMS(BaseBMS):
     _CELL_POS: Final[int] = 9
     _PRB_MAX: Final[int] = 8  # max number of alarm event bytes
     _PRB_MASK: Final[int] = ~0x82FFFF  # ignore byte 7-8 + byte 6 (bit 7,2)
-    _PFIELDS: Final[tuple[BMSdp, ...]] = (  # Seplos V2: single machine data
-        BMSdp("voltage", 2, 2, False, lambda x: x / 100),
-        BMSdp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
-        BMSdp("cycle_charge", 4, 2, False, lambda x: x / 100),  # /10 for 0x62
-        BMSdp("cycles", 13, 2, False, lambda x: x),
-        BMSdp("battery_level", 9, 2, False, lambda x: x / 10),
+    _PFIELDS: Final[tuple[BMSDp, ...]] = (  # Seplos V2: single machine data
+        BMSDp("voltage", 2, 2, False, lambda x: x / 100),
+        BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
+        BMSDp("cycle_charge", 4, 2, False, lambda x: x / 100),  # /10 for 0x62
+        BMSDp("cycles", 13, 2, False, lambda x: x),
+        BMSDp("battery_level", 9, 2, False, lambda x: x / 10),
     )
     _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
     _CMDS: Final[list[tuple[int, bytes]]] = [(0x51, b""), (0x61, b"\x00"), (0x62, b"")]
@@ -56,11 +58,6 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Seplos", "model": "Smart BMS V2"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("ff00")]
@@ -75,8 +72,18 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ff02"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        self._exp_reply = {0x51}
+        await self._await_reply(BMS._cmd(0x51))
+        _dat = self._data_final[0x51]
+        return {
+            "model": barr2str(_dat[26:36]),
+            "sw_version": f"{int(_dat[37])}.{int(_dat[38])}",
+        }
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {
                 "battery_charging",
@@ -151,7 +158,8 @@ class BMS(BaseBMS):
         self._exp_len = BMS._MIN_LEN
 
     @staticmethod
-    def _cmd(cmd: int, address: int = 0, data: bytearray = bytearray()) -> bytes:
+    @cache
+    def _cmd(cmd: int, address: int = 0, data: bytes = b"") -> bytes:
         """Assemble a Seplos V2 BMS command."""
         assert cmd in (0x47, 0x51, 0x61, 0x62, 0x04)  # allow only read commands
         frame = bytearray([*BMS._HEAD, BMS._CMD_VER, address, 0x46, cmd])
@@ -159,14 +167,14 @@ class BMS(BaseBMS):
         frame += int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL
         return bytes(frame)
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
         for cmd, data in BMS._CMDS:
             self._exp_reply.add(cmd)
-            await self._await_reply(BMS._cmd(cmd, data=bytearray(data)))
+            await self._await_reply(BMS._cmd(cmd, data=data))
 
-        result: BMSsample = {}
+        result: BMSSample = {}
         result["cell_count"] = self._data_final[0x61][BMS._CELL_POS]
         result["temp_sensors"] = self._data_final[0x61][
             BMS._CELL_POS + result["cell_count"] * 2 + 1

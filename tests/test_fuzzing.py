@@ -28,7 +28,7 @@ async def test_notification_handler(
     """Test the notification handler."""
 
     # fuzzing can run from VScode (no coverage) or command line with option --no-cov
-    if {"vscode_pytest", f"--cov={__package__}"}.issubset(
+    if {"vscode_pytest"}.issubset(
         set(pytestconfig.invocation_params.args)
     ) or (
         "vscode_pytest" not in pytestconfig.invocation_params.args

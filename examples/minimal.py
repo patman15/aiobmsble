@@ -12,7 +12,7 @@ from bleak import BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 
-from aiobmsble import BMSsample
+from aiobmsble import BMSSample
 from aiobmsble.bms.dummy_bms import BMS  # TODO: use the right BMS class for your device
 
 NAME: Final[str] = "BT Device Name"  # TODO: replace with the name of your BLE device
@@ -34,7 +34,7 @@ async def main(dev_name) -> None:
     try:
         async with BMS(ble_device=device) as bms:
             logger.info("Updating BMS data...")
-            data: BMSsample = await bms.async_update()
+            data: BMSSample = await bms.async_update()
             logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
     except BleakError as ex:
         logger.error("Failed to update BMS: %s", type(ex).__name__)

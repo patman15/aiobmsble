@@ -1,8 +1,9 @@
 [![GitHub Release][releases-shield]](https://pypi.org/p/aiobmsble/)
+[![Python Version][python-shield]](https://python.org/)
 [![License][license-shield]](LICENSE)
 
 # Aiobmsble
-Requires Python 3 and uses [asyncio](https://pypi.org/project/asyncio/) and [bleak](https://pypi.org/project/bleak/)
+Requires Python 3 and uses [asyncio](https://docs.python.org/3/library/asyncio.html) and [Bleak](https://pypi.org/project/bleak/)
 
 ## Asynchronous Library to Query Battery Management Systems via Bluetooth LE
 This library is intended to query data from battery management systems that use Bluetooth LE. This library can be used stand-alone in any Python environment (with necessary dependencies installed). It is developed to support [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/) that was written to make BMS data available to Home Assistant, but can be hopefully usefull for other use-cases as well.
@@ -17,9 +18,16 @@ This library is intended to query data from battery management systems that use 
 ## Features
 - Support for autodetecting compatible BLE BMSs
 - Automatic detection of compatible BLE write mode
-- Asynchronous operation using [asyncio](https://pypi.org/project/asyncio/)
+- Asynchronous operation using [asyncio](https://docs.python.org/3/library/asyncio.html)
 - Any number of batteries in parallel
 - 100% test coverage plus fuzz tests for BLE data
+
+> [!CAUTION]
+> This library **shall not be used for safety relevant operations**! The correctness or availability of data cannot be guaranteed (see [warranty section of the license](LICENSE)),
+> since the implementation is mostly based on openly available information or non-validated vendor specifications.
+> Further, issues with the Bluetooth connection, e.g. disturbances, can lead to unavailable or incorrect values.
+> 
+> **Do not rely** on the values to control actions that prevent battery damage, overheating (fire), or similar.
 
 ### Supported Devices
 The [list of supported devices](https://github.com/patman15/BMS_BLE-HA?tab=readme-ov-file#supported-devices) is maintained in the repository of the related [Home Assistant integration](https://github.com/patman15/BMS_BLE-HA).
@@ -51,7 +59,7 @@ from bleak import BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 
-from aiobmsble import BMSsample
+from aiobmsble import BMSSample
 from aiobmsble.bms.dummy_bms import BMS  # TODO: use the right BMS class for your device
 
 NAME: Final[str] = "BT Device Name"  # TODO: replace with the name of your BLE device
@@ -73,7 +81,7 @@ async def main(dev_name) -> None:
     try:
         async with BMS(ble_device=device) as bms:
             logger.info("Updating BMS data...")
-            data: BMSsample = await bms.async_update()
+            data: BMSSample = await bms.async_update()
             logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
     except BleakError as ex:
         logger.error("Failed to update BMS: %s", type(ex).__name__)
@@ -143,4 +151,6 @@ for helping with making the library better.
 - TianPower BMS: [esphome-tianpower-bms](https://github.com/syssi/esphome-tianpower-bms)
 
 [license-shield]: https://img.shields.io/github/license/patman15/aiobmsble?style=for-the-badge&cacheSeconds=86400
-[releases-shield]: https://img.shields.io/pypi/v/aiobmsble?style=for-the-badge
+[python-shield]: https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fpatman15%2Faiobmsble%2Fmain%2Fpyproject.toml&style=for-the-badge&cacheSeconds=86400
+[releases-shield]: https://img.shields.io/pypi/v/aiobmsble?style=for-the-badge&cacheSeconds=86400
+

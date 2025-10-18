@@ -7,23 +7,25 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from itertools import takewhile
 import logging
 from statistics import fmean
 from types import TracebackType
-from typing import Any, Final, Literal, Self
+from typing import Any, Final, Literal, Self, final
 
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.exc import BleakError
+from bleak.exc import BleakCharacteristicNotFoundError, BleakError
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
-from aiobmsble import BMSdp, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 
 
 class BaseBMS(ABC):
     """Abstract base class for battery management system."""
 
+    INFO: BMSInfo  # static BMS info, set "default_" keys in subclass
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
@@ -56,6 +58,7 @@ class BaseBMS(ABC):
 
         Args:
             ble_device (BLEDevice): the Bleak device to connect to
+            bms_info (dict[Literal["manufacturer", "model"], str]): default BMS identification
             keep_alive (bool): if true, the connection will be kept active after each update.
                 Make sure to call `disconnect()` when done using the BMS class or better use
                 `async with` context manager (requires `keep_alive=True`).
@@ -64,7 +67,10 @@ class BaseBMS(ABC):
         """
         assert (
             getattr(self, "_notification_handler", None) is not None
-        ), "BMS class must define _notification_handler method"
+        ), "BMS class must define `_notification_handler` method"
+        assert {"default_manufacturer", "default_model"}.issubset(
+            self.INFO
+        ), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
         self.name: Final[str] = self._ble_device.name or "undefined"
@@ -76,7 +82,7 @@ class BaseBMS(ABC):
         )
 
         self._log.debug(
-            "initializing %s, BT address: %s", self.device_id(), ble_device.address
+            "initializing %s, BT address: %s", self.bms_id(), ble_device.address
         )
         self._client: BleakClient = BleakClient(
             self._ble_device,
@@ -86,6 +92,7 @@ class BaseBMS(ABC):
         self._data: bytearray = bytearray()
         self._data_event: Final[asyncio.Event] = asyncio.Event()
 
+    @final
     async def __aenter__(self) -> Self:
         """Asynchronous context manager to implement `async with` functionality."""
         if not self._keep_alive:
@@ -93,6 +100,7 @@ class BaseBMS(ABC):
         await self._connect()
         return self
 
+    @final
     async def __aexit__(
         self,
         typ: type[BaseException] | None,
@@ -102,6 +110,7 @@ class BaseBMS(ABC):
         """Asynchronous context manager exit functionality."""
         await self.disconnect()
 
+    @final
     @classmethod
     def get_bms_module(cls) -> str:
         """Return BMS module name, e.g. aiobmsble.bms.dummy_bms."""
@@ -112,18 +121,11 @@ class BaseBMS(ABC):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Return a list of Bluetooth advertisement matchers."""
 
-    @staticmethod
-    @abstractmethod
-    def device_info() -> dict[str, str]:
-        """Return a dictionary of device information.
-
-        keys: manufacturer, model
-        """
-
+    @final
     @classmethod
-    def device_id(cls) -> str:
-        """Return device information as string."""
-        return " ".join(cls.device_info().values())
+    def bms_id(cls) -> str:
+        """Return static BMS information as string."""
+        return f"{cls.INFO['default_manufacturer']} {cls.INFO['default_model']}"
 
     @staticmethod
     @abstractmethod
@@ -140,16 +142,68 @@ class BaseBMS(ABC):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
 
+    @final
+    async def device_info(self) -> BMSInfo:
+        """Return a dictionary of device information.
+
+        keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
+        """
+
+        disconnect: Final[bool] = not self._client.is_connected
+        await self._connect()
+        dev_info: Final[BMSInfo] = await self._fetch_device_info()
+        if disconnect:
+            await self.disconnect()
+
+        self._log.debug("BMS info %s", dev_info)
+        return dev_info
+
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        if not self._client.services.get_service("180a"):
+            self._log.debug("No BT device information available.")
+            return BMSInfo()
+
+        type CharacteristicType = Literal[
+            "model",
+            "serial_number",
+            "fw_version",
+            "sw_version",
+            "hw_version",
+            "manufacturer",
+        ]
+
+        characteristics: Final[tuple[tuple[str, CharacteristicType], ...]] = (
+            ("2a24", "model"),
+            ("2a25", "serial_number"),
+            ("2a26", "fw_version"),
+            ("2a27", "hw_version"),
+            ("2a28", "sw_version"),  # overwrite FW with SW version
+            ("2a29", "manufacturer"),
+        )
+
+        info: BMSInfo = BMSInfo()
+        for char, key in characteristics:
+            try:
+                if value := await self._client.read_gatt_char(char):
+                    info[key] = barr2str(value)
+                    self._log.debug("BT device %s: '%s'", key, info[key])
+            except BleakCharacteristicNotFoundError:
+                pass
+
+        return info
+
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         """Return values that the BMS cannot provide and need to be calculated.
 
         See _add_missing_values() function for the required input to actually do so.
         """
         return frozenset()
 
+    @final
     @staticmethod
-    def _add_missing_values(data: BMSsample, values: frozenset[BMSvalue]) -> None:
+    def _add_missing_values(data: BMSSample, values: frozenset[BMSValue]) -> None:
         """Calculate missing BMS values from existing ones.
 
         Args:
@@ -163,7 +217,7 @@ class BaseBMS(ABC):
         if not values or not data:
             return
 
-        def can_calc(value: BMSvalue, using: frozenset[BMSvalue]) -> bool:
+        def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
             """Check value to add does not exist, is requested, and needed data is available."""
             return (value in values) and (value not in data) and using.issubset(data)
 
@@ -171,7 +225,7 @@ class BaseBMS(ABC):
         battery_level: Final[int | float] = data.get("battery_level", 0)
         current: Final[float] = data.get("current", 0)
 
-        calculations: dict[BMSvalue, tuple[set[BMSvalue], Callable[[], Any]]] = {
+        calculations: dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]] = {
             "voltage": ({"cell_voltages"}, lambda: round(sum(cell_voltages), 3)),
             "delta_voltage": (
                 {"cell_voltages"},
@@ -248,6 +302,7 @@ class BaseBMS(ABC):
             ]
         )
 
+    @final
     def _on_disconnect(self, _client: BleakClient) -> None:
         """Disconnect callback function."""
 
@@ -264,6 +319,7 @@ class BaseBMS(ABC):
             char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
         )
 
+    @final
     async def _connect(self) -> None:
         """Connect to the BMS and setup notification if not connected."""
 
@@ -302,6 +358,7 @@ class BaseBMS(ABC):
         )
         return bool(char_tx and "write" in getattr(char_tx, "properties", []))
 
+    @final
     async def _send_msg(
         self,
         data: bytes,
@@ -370,6 +427,7 @@ class BaseBMS(ABC):
                 await self._connect()
         raise TimeoutError
 
+    @final
     async def disconnect(self, reset: bool = False) -> None:
         """Disconnect the BMS, includes stoping notifications."""
 
@@ -382,16 +440,18 @@ class BaseBMS(ABC):
         except (BleakError, TimeoutError) as exc:
             self._log.error("disconnect failed! (%s)", type(exc).__name__)
 
+    @final
     async def _wait_event(self) -> None:
         """Wait for data event and clear it."""
         await self._data_event.wait()
         self._data_event.clear()
 
     @abstractmethod
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
-    async def async_update(self) -> BMSsample:
+    @final
+    async def async_update(self, raw: bool = False) -> BMSSample:
         """Retrieve updated values from the BMS using method of the subclass.
 
         Args:
@@ -399,13 +459,14 @@ class BaseBMS(ABC):
                 any calculations or missing values added
 
         Returns:
-            BMSsample: dictionary with BMS values
+            BMSSample: dictionary with BMS values
 
         """
         await self._connect()
 
-        data: BMSsample = await self._async_update()
-        self._add_missing_values(data, self._calc_values())
+        data: BMSSample = await self._async_update()
+        if not raw:
+            self._add_missing_values(data, self._calc_values())
 
         if not self._keep_alive:
             # disconnect after data update to force reconnect next time (slow!)
@@ -415,13 +476,13 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSdp, ...],
+        fields: tuple[BMSDp, ...],
         data: bytearray | dict[int, bytearray],
         *,
         byteorder: Literal["little", "big"] = "big",
         offset: int = 0,
-    ) -> BMSsample:
-        result: BMSsample = {}
+    ) -> BMSSample:
+        result: BMSSample = {}
         for field in fields:
             if isinstance(data, dict) and field.idx not in data:
                 continue
@@ -515,6 +576,20 @@ class BaseBMS(ABC):
                 or (offset == 0)
             )
         ]
+
+
+def barr2str(barr: bytearray) -> str:
+    """Decode a bytearray to string, stopping at the first non-printable character."""
+    s = barr.decode("utf-8", errors="ignore")
+    for i, c in enumerate(s):
+        if not c.isprintable():
+            return s[:i].strip()
+    return s.strip()
+
+
+def lstr2int(string: str) -> int:
+    """Convert the beginning of a string to an integer, till first non-digit is found."""
+    return int("".join(takewhile(str.isdigit, string)))
 
 
 def crc_modbus(data: bytearray) -> int:
