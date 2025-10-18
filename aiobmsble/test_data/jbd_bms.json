@@ -626,5 +626,23 @@
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/507)",
       "CERRNSS battery"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "SX60U-B250016",
+      "manufacturer_data": {
+        "123": "02ffff7d"
+      },
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb"
+      ],
+      "rssi": -69,
+      "platform_data": ["E9:99:6B:00:00:00"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/522)",
+      "Supervolt Ultra LiFePO4 battery"
+    ]
   }
 ]
