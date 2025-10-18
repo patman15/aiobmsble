@@ -30,11 +30,11 @@ class BMS(BaseBMS):
         BMSDp("voltage", 14, 2, False, lambda x: x / 100),
         BMSDp("current", 16, 2, True, lambda x: x),
         BMSDp("pack_count", 42, 2, False, lambda x: x),
-        # BMSDp("cycle_charge", 8, 4, False, lambda x: x),
-        # BMSDp("cycles", 46, 2, False, lambda x: x),
-        # BMSDp("design_capacity", 4, 4, False, lambda x: x),
+        # BMSdp("cycle_charge", 8, 4, False, lambda x: x),
+        # BMSdp("cycles", 46, 2, False, lambda x: x),
+        # BMSdp("design_capacity", 4, 4, False, lambda x: x),
         BMSDp("battery_level", 8, 2, False, lambda x: x),
-        # BMSDp("problem_code", 100, 8, False, lambda x: x),
+        BMSDp("problem_code", 100, 8, False, lambda x: x),
     )
 
     _PFIELDS: Final[list[tuple[BMSpackvalue, int, bool, Callable[[int], Any]]]] = [
