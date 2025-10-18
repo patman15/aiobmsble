@@ -7,6 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from itertools import takewhile
 import logging
 from statistics import fmean
 from types import TracebackType
@@ -584,6 +585,11 @@ def barr2str(barr: bytearray) -> str:
         if not c.isprintable():
             return s[:i].strip()
     return s.strip()
+
+
+def lstr2int(string: str) -> int:
+    """Convert the beginning of a string to an integer, till first non-digit is found."""
+    return int("".join(takewhile(str.isdigit, string)))
 
 
 def crc_modbus(data: bytearray) -> int:
