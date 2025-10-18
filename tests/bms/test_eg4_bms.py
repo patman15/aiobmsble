@@ -25,6 +25,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "delta_voltage": 0.004,
     "temperature": 14,
     "cycle_capacity": 4918.34,
+    "design_capacity": 400,
     "power": 0.0,
     # "runtime": 54770,
     "battery_charging": False,

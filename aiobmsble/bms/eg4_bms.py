@@ -30,10 +30,10 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 45, 2, False, lambda x: x / 10),
         BMSDp("cycles", 61, 4, False, lambda x: x),
         BMSDp("cell_count", 75, 2, False),
-        # BMSDp("design_capacity", 77, 2, False, lambda x: x / 10),
+        BMSDp("design_capacity", 77, 2, False, lambda x: x // 10),
         BMSDp("temperature", 39, 2, True),
         BMSDp("problem_code", 55, 6, False, lambda x: x),
-        # BMSDP("balance", 76, 2, False, lambda x: bool(x)),
+        # BMSDP("balance", 79, 2, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
