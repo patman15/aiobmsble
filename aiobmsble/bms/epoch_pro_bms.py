@@ -7,13 +7,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSdp, BMSpackvalue, BMSsample, BMSvalue, MatcherPattern
+from aiobmsble import BMSDp, BMSpackvalue, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
     """Epoch Pro BMS implementation."""
 
+    INFO = {"default_manufacturer": "Epoch", "default_model": "Pro"}
     _HEAD: Final[bytes] = b"\xfa"
     _CMDS: Final[set[int]] = {0xF3}
     _VER: Final[bytes] = b"\x16"  # version 1.6?
@@ -24,16 +25,16 @@ class BMS(BaseBMS):
     _HEAD_LEN: Final[int] = 5
     _MIN_LEN: Final[int] = 7  # HEAD, CMD, VER, DEV, LEN, CRC (2 bytes)
 
-    _FIELDS: Final[tuple[BMSdp, ...]] = (
-        BMSdp("temperature", 18, 2, True, lambda x: x / 10),
-        BMSdp("voltage", 14, 2, False, lambda x: x / 100),
-        BMSdp("current", 16, 2, True, lambda x: x),
-        BMSdp("pack_count", 42, 2, False, lambda x: x),
-        # BMSdp("cycle_charge", 8, 4, False, lambda x: x),
-        # BMSdp("cycles", 46, 2, False, lambda x: x),
-        # BMSdp("design_capacity", 4, 4, False, lambda x: x),
-        BMSdp("battery_level", 8, 2, False, lambda x: x),
-        # BMSdp("problem_code", 100, 8, False, lambda x: x),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("temperature", 18, 2, True, lambda x: x / 10),
+        BMSDp("voltage", 14, 2, False, lambda x: x / 100),
+        BMSDp("current", 16, 2, True, lambda x: x),
+        BMSDp("pack_count", 42, 2, False, lambda x: x),
+        # BMSDp("cycle_charge", 8, 4, False, lambda x: x),
+        # BMSDp("cycles", 46, 2, False, lambda x: x),
+        # BMSDp("design_capacity", 4, 4, False, lambda x: x),
+        BMSDp("battery_level", 8, 2, False, lambda x: x),
+        # BMSDp("problem_code", 100, 8, False, lambda x: x),
     )
 
     _PFIELDS: Final[list[tuple[BMSpackvalue, int, bool, Callable[[int], Any]]]] = [
@@ -61,11 +62,6 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def device_info() -> dict[str, str]:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Epoch", "model": "Pro"}
-
-    @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("ffe0")]
@@ -81,7 +77,7 @@ class BMS(BaseBMS):
         return "ffe1"
 
     @staticmethod
-    def _calc_values() -> frozenset[BMSvalue]:
+    def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             {"power", "battery_charging"}
         )  # calculate further values from BMS provided set ones
@@ -149,12 +145,12 @@ class BMS(BaseBMS):
         frame += int.to_bytes(crc_modbus(frame), 2, byteorder="little")
         return bytes(frame)
 
-    async def _async_update(self) -> BMSsample:
+    async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         # await self._await_reply(BMS._cmd(0, 0xf3, 0xea64, 0x1))
         await self._await_reply(BMS._cmd(1, 0xF3, 0x7654, 0x37))
 
-        data: BMSsample = BMS._decode_data(
+        data: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._data_final[0x016E], offset=BMS._HEAD_LEN
         )
 

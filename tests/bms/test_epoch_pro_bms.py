@@ -7,13 +7,13 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSsample
+from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.epoch_pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
 BT_FRAME_SIZE = 32  # ATT maximum is 512, minimal 27
-REF_VALUE: BMSsample = {
+REF_VALUE: BMSSample = {
     "voltage": 53.21,
     "current": 0,
     "battery_level": 91,
@@ -214,7 +214,7 @@ async def test_invalid_response(
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice"))
 
-    result: BMSsample = {}
+    result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
