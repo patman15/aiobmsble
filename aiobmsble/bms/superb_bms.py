@@ -59,12 +59,7 @@ class BMS(BaseBMS):
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "cycle_charge",
-                "power",
-            }
+            {"battery_charging", "power"}
         )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
@@ -77,7 +72,7 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length")
             return
 
-        self._data_final = data.copy()
+        self._data_final = bytearray(data)
         self._data_event.set()
 
     async def _async_update(self) -> BMSSample:
