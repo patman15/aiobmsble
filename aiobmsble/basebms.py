@@ -329,7 +329,7 @@ class BaseBMS(ABC):
 
         try:
             await self._client.disconnect()  # ensure no stale connection exists
-        except (BleakError, TimeoutError) as exc:
+        except (BleakError, TimeoutError, EOFError) as exc:
             self._log.debug(
                 "failed to disconnect stale connection (%s)", type(exc).__name__
             )
@@ -437,7 +437,7 @@ class BaseBMS(ABC):
             if reset:
                 self._inv_wr_mode = None  # reset write mode
             await self._client.disconnect()
-        except (BleakError, TimeoutError) as exc:
+        except (BleakError, TimeoutError, EOFError) as exc:
             self._log.error("disconnect failed! (%s)", type(exc).__name__)
 
     @final
