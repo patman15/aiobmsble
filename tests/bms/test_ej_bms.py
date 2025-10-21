@@ -88,6 +88,9 @@ class MockEJsfBleakClient(MockEJBleakClient):
             "battery_charging": True,
             "problem": False,
             "problem_code": 0,
+            "sw_balancer": 0,
+            "sw_chrg_mosfet": True,
+            "sw_dischrg_mosfet": True
         }
 
 
@@ -152,6 +155,9 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
         "battery_charging": False,
         "problem": False,
         "problem_code": 0,
+        "sw_balancer": 0,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
     }
 
     # query again to check already connected state
