@@ -43,6 +43,17 @@ class BMS(BaseBMS):
         BMSDp("total_charge", 83, 4, False, lambda x: x // 1000),
         BMSDp("runtime", 87, 4, False),
         BMSDp("cell_count", 123, 1, False),
+        BMSDp(
+            "problem_code",
+            103,
+            2,
+            False,
+            lambda x: ((x & 0xF00) if (x >> 8) not in (0x1, 0x4, 0xF) else 0)
+            | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB, 0xF) else 0),
+        ),
+        BMSDp("sw_chrg_mosfet", 103, 1, False, lambda x: x == 0x1),
+        BMSDp("sw_dischrg_mosfet", 104, 1, False, lambda x: x == 0x1),
+        BMSDp("sw_balancer", 105, 1, False, lambda x: x & 0x4),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
