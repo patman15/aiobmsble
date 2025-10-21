@@ -7,6 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from itertools import takewhile
 import logging
 from statistics import fmean
 from types import TracebackType
@@ -328,7 +329,7 @@ class BaseBMS(ABC):
 
         try:
             await self._client.disconnect()  # ensure no stale connection exists
-        except (BleakError, TimeoutError) as exc:
+        except (BleakError, TimeoutError, EOFError) as exc:
             self._log.debug(
                 "failed to disconnect stale connection (%s)", type(exc).__name__
             )
@@ -436,7 +437,7 @@ class BaseBMS(ABC):
             if reset:
                 self._inv_wr_mode = None  # reset write mode
             await self._client.disconnect()
-        except (BleakError, TimeoutError) as exc:
+        except (BleakError, TimeoutError, EOFError) as exc:
             self._log.error("disconnect failed! (%s)", type(exc).__name__)
 
     @final
@@ -584,6 +585,11 @@ def barr2str(barr: bytearray) -> str:
         if not c.isprintable():
             return s[:i].strip()
     return s.strip()
+
+
+def lstr2int(string: str) -> int:
+    """Convert the beginning of a string to an integer, till first non-digit is found."""
+    return int("".join(takewhile(str.isdigit, string)))
 
 
 def crc_modbus(data: bytearray) -> int:
