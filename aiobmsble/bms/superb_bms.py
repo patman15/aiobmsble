@@ -21,8 +21,6 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"default_manufacturer": "Super-B", "default_model": "Epsilon"}
     _INFO_LEN: Final[int] = 20
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        # BMSDp("voltage", 12, 4, False, float),
-        # BMSDp("current", 8, 4, True, float),
         BMSDp("battery_level", 2, 1, False),
         # BMSDp("design_capacity", 3, 1, False), // or SoH?
         BMSDp("runtime", 4, 4, False, float),
