@@ -1,0 +1,13 @@
+[
+  {
+    "advertisement": {
+      "local_name": "PC-9662",
+      "rssi":-69,
+      "manufacturer_data":{"1":"04b4c2e00101015043003331393136343231303535315a"}
+    },
+    "type": "pace_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/521)"
+    ]
+  }
+]
