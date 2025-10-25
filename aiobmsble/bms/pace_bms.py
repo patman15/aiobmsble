@@ -44,7 +44,7 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [{"local_name": "dummy", "connectable": True}]  # TODO: define matcher
+        return [{"local_name": "PC-????", "connectable": True}]
 
     @staticmethod
     def uuid_services() -> list[str]:
@@ -68,14 +68,14 @@ class BMS(BaseBMS):
         length: int = self._data[8]
         result["serial_number"] = barr2str(self._data[9 : 9 + length])
         await self._await_reply(self._cmd(b"\x00\x00\x00\x01\x00\x00"))
-        result["sw_version"] = barr2str(self._data[10:10+self._data[9]])
-        result["hw_version"] = barr2str(self._data[65:65+self._data[64]])
+        result["sw_version"] = barr2str(self._data[10 : 10 + self._data[9]])
+        result["hw_version"] = barr2str(self._data[65 : 65 + self._data[64]])
         return result
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
-            {"power", "battery_charging"}
+            {"power", "battery_charging", "temperature"}
         )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
@@ -121,5 +121,19 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_reply(BMS._cmd(b"\x00\x00\x0a\x00\x00\x00"))
-
-        return BMS._decode_data(BMS._FIELDS, self._data, byteorder="big", offset=8)
+        result = BMS._decode_data(BMS._FIELDS, self._data, byteorder="big", offset=8)
+        await self._await_reply(BMS._cmd(b"\x00\x00\x0a\x02\x00\x00", b"\x01\x01"))
+        result["cell_count"] = self._data[11]
+        result["cell_voltages"] = BMS._cell_voltages(
+            self._data, cells=result["cell_count"], start=12, gap=2
+        )
+        result["temp_values"] = BMS._temp_values(
+            self._data,
+            values=result["cell_count"],
+            start=14,
+            gap=2,
+            signed=False,
+            offset=2731,
+            divider=10,
+        )
+        return result

@@ -5,7 +5,6 @@ from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
-import pytest
 
 from aiobmsble.bms.pace_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -75,9 +74,9 @@ class MockPaceBleakClient(MockBleakClient):
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x83\xac\x9d"
         ),
         b"\x9a\x00\x00\x00\x02\x00\x00\x00\xa0\xc8\x9d": bytearray(
-            b"\x9a\x00\x00\x00\x02\x00\x00\x0e\x0d\x33\x31\x39\x31\x36\x34\x32"
-            b"\x31\x30\x35\x35\x31\x5a\xbf\x12\x9d"
-        ),  # serial number 319164210551Z
+            b"\x9a\x00\x00\x00\x02\x00\x00\x0e\x0d\x31\x32\x33\x34\x35\x36\x37"
+            b"\x38\x39\x30\x31\x32\x5a\x7d\x7d\x9d"
+        ),  # serial number 123456789012Z
         b"\x9a\x00\x00\x0a\x01\x00\x00\x02\x01\x01\x1b\x9c\x9d": bytearray(
             b"\x9a\x00\x00\x0a\x01\x00\x00\x2b\x02\xfe\x80\x14\xb6\x1c\xff\x27"
             b"\x10\x27\x10\x4a\x64\x00\xef\x00\x00\x00\x00\x00\x00\x00\x00\x14"
@@ -125,7 +124,7 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockPaceBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "serial_number": "319164210551Z",
+        "serial_number": "123456789012Z",
         "sw_version": "P16S100A-31916-1.06",
         "hw_version": "21939V140",
     }
@@ -146,7 +145,27 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
         "cycle_charge": 74.0,
         "design_capacity": 100,
         "cycles": 239,
-        # "temperature": 27.182,
+        "cell_count": 16,
+        "cell_voltages": [
+            3.31,
+            3.308,
+            3.31,
+            3.311,
+            3.311,
+            3.31,
+            3.311,
+            3.311,
+            3.311,
+            3.312,
+            3.311,
+            3.31,
+            3.31,
+            3.311,
+            3.31,
+            3.308,
+        ],
+        'temp_values': [22.2, 22.4, 22.7, 22.4],
+        "temperature": 22.425,
         "battery_charging": False,
         "power": -224.232,
         "problem": False,
