@@ -29,12 +29,15 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (  # Protocol: JK02_32S; JK02_24S has offset -32
         BMSDp("voltage", 150, 4, False, lambda x: x / 1000),
         BMSDp("current", 158, 4, True, lambda x: x / 1000),
-        BMSDp("battery_level", 173, 1, False, lambda x: x),
+        BMSDp("problem_code", 166, 4, False),
+        BMSDp("balance_current", 170, 2, True, lambda x: x / 1000),
+        BMSDp("sw_balancer", 201, 1, False),
+        BMSDp("battery_level", 173, 1, False),
         BMSDp("cycle_charge", 174, 4, False, lambda x: x / 1000),
         BMSDp("cycles", 182, 4, False, lambda x: x),
-        BMSDp("balance_current", 170, 2, True, lambda x: x / 1000),
-        BMSDp("temp_sensors", 214, 2, True, lambda x: x),
-        BMSDp("problem_code", 166, 4, False, lambda x: x),
+        BMSDp("sw_chrg_mosfet", 198, 1, False, bool),
+        BMSDp("sw_dischrg_mosfet", 199, 1, False, bool),
+        BMSDp("temp_sensors", 214, 2, True),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
