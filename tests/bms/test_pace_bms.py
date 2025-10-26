@@ -5,7 +5,9 @@ from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
+import pytest
 
+from aiobmsble import BMSSample
 from aiobmsble.bms.pace_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -164,7 +166,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
             3.31,
             3.308,
         ],
-        'temp_values': [22.2, 22.4, 22.7, 22.4],
+        "temp_values": [22.2, 22.4, 22.7, 22.4],
         "temperature": 22.425,
         "battery_charging": False,
         "power": -224.232,
@@ -175,4 +177,44 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
     await bms.async_update()
     assert bms._client and bms._client.is_connected is keep_alive_fixture
 
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("wrong_response"),
+    [
+        b"\x90\x00\x00\x0a\x00\x00\x00\x33\x01\xff\xff\xfe\x59\x00\x00\x14\xb5\x00\x00\x1c\xe8\x00"
+        b"\x00\x27\x10\x00\x00\x27\x10\x4a\x64\x00\x00\x00\xef\x00\x00\x00\x00\x00\x00\x00\x00\x01"
+        b"\x08\x0c\xef\x01\x10\x0c\xec\x01\x03\x0b\x8e\x01\x01\x0b\x89\x91\x36\x9d",
+        b"\x9a\x00\x00\x0a\x00\x00\x00\x33\x01\xff\xff\xfe\x59\x00\x00\x14\xb5\x00\x00\x1c\xe8\x00"
+        b"\x00\x27\x10\x00\x00\x27\x10\x4a\x64\x00\x00\x00\xef\x00\x00\x00\x00\x00\x00\x00\x00\x01"
+        b"\x08\x0c\xef\x01\x10\x0c\xec\x01\x03\x0b\x8e\x01\x01\x0b\x89\x99\x99\x9d",
+        b"\x9a\x00\x00\x0a\x00\x00\x00\x33\x01\xff\xff\xfe\x59\x00\x00\x14\xb5\x00\x00\x1c\xe8\x00"
+        b"\x00\x27\x10\x00\x00\x27\x10\x4a\x64\x00\x00\x00\xef\x00\x00\x00\x00\x00\x00\x00\x00\x01"
+        b"\x08\x0c\xef\x01\x10\x0c\xec\x01\x03\x0b\x8e\x01\x01\x0b\x89\x00\x16\x11\x9d",
+        b"",
+    ],
+    ids=["wrong_SOF", "wrong_CRC", "wrong_len", "empty"],
+)
+async def test_invalid_response(
+    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytes
+) -> None:
+    """Test data up date with BMS returning invalid data."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(
+        MockPaceBleakClient,
+        "_RESP",
+        MockPaceBleakClient._RESP
+        | {b"\x9a\x00\x00\x0a\x00\x00\x00\x00\x19\x51\x9d": bytearray(wrong_response)},
+    )
+    patch_bleak_client(MockPaceBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = {}
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
+
+    assert not result
     await bms.disconnect()
