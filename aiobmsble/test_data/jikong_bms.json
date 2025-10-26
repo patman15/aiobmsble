@@ -50,5 +50,25 @@
     "_comments": [
       "source LOG"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "506036N46002293-00",
+      "rssi": -84,
+      "platform_data": [
+        "A4:C1:38:00:00:00"
+      ],
+      "manufacturer_data": {
+        "2917": "88a0a4c13801085a"
+      },
+      "service_uuids": [
+        "0000ffe0-0000-1000-8000-00805f9b34fb",
+        "0000fee7-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "jikong_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/527)"
+    ]
   }
 ]
