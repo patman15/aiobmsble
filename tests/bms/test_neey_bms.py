@@ -70,6 +70,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.273,
         3.272,
     ],
+    "sw_balancer": 5,
     "temp_values": [50.24, 50.24],
     "problem": False,
     "problem_code": 0,
@@ -360,6 +361,7 @@ async def test_problem_response(
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": problem_response[0],
+        "sw_balancer": 0,
     }
 
     await bms.disconnect()
