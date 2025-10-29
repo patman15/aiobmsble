@@ -146,6 +146,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
         "battery_level": 74,
         "cycle_charge": 74.0,
         "design_capacity": 100,
+        "delta_voltage": 0.004,
         "cycles": 239,
         "cell_count": 16,
         "cell_voltages": [
