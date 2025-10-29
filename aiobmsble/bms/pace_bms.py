@@ -74,7 +74,16 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
-        return frozenset({"delta_voltage", "power", "battery_charging", "temperature"})
+        return frozenset(
+            {
+                "delta_voltage",
+                "cycle_capacity",
+                "power",
+                "runtime",
+                "battery_charging",
+                "temperature",
+            }
+        )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
