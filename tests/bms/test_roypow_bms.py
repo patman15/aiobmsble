@@ -37,6 +37,8 @@ def ref_value() -> BMSSample:
         "delta_voltage": 0.006,
         "problem": False,
         "problem_code": 0,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
     }
 
 
@@ -116,7 +118,6 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockRoyPowBleakClient)
@@ -129,6 +130,7 @@ async def test_device_info(patch_bleak_client) -> None:
         "model": "mock_model",
         "serial_number": "mock_serial_number",
     }
+
 
 async def test_update_dischrg(monkeypatch, patch_bleak_client) -> None:
     """Test RoyPow BMS data update."""
