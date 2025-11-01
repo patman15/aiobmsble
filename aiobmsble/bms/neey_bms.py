@@ -207,4 +207,6 @@ class BMS(BaseBMS):
             self._data_final, cells=24, start=9, byteorder="little", size=4
         )
 
+        self._data_final.clear()
+        self._data_event.clear()  # clear event for next update
         return data
