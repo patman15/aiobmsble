@@ -3,13 +3,13 @@
 import asyncio
 from collections.abc import Buffer
 from copy import deepcopy
-from typing import Final
+from typing import Final, cast
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble.basebms import BMSSample, crc_sum
 from aiobmsble.bms.neey_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -207,26 +207,34 @@ async def test_device_info(monkeypatch, patch_bleak_client) -> None:
     }
 
 
-async def test_stream_update(
-    monkeypatch, patch_bleak_client, keep_alive_fixture
-) -> None:
+async def test_stream_update(monkeypatch, patch_bleak_client, caplog) -> None:
     """Test Neey BMS data update."""
 
-    monkeypatch.setattr(MockStreamBleakClient, "_FRAME", _PROTO_DEFS)
+    _frames = deepcopy(_PROTO_DEFS)
+    monkeypatch.setattr(MockStreamBleakClient, "_FRAME", _frames)
     patch_bleak_client(MockStreamBleakClient)
-    monkeypatch.setattr(  # mock that response has already been received
-        "aiobmsble.basebms.asyncio.Event.is_set", lambda _: True
-    )
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS
+    assert bms._data_event.is_set() is False
+    assert "requesting cell info" in caplog.text
 
-    # query again to check already connected state
-    assert await bms.async_update() == _RESULT_DEFS
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    _client = cast(MockStreamBleakClient, bms._client)
+    _cell_frame = _frames["cell"]
+    _cell_frame[216] = 0x8  # modify data to ensure new read
+    _cell_frame[-2] = crc_sum(_cell_frame[:-2])
+    caplog.clear()
+    await _client._send_all()
 
-    await bms.disconnect()
+    # query again to see if updated streaming data is used
+    assert await bms.async_update() == _RESULT_DEFS | {
+        "sw_balancer": 0,
+        "problem": True,
+        "problem_code": 0x8,
+    }
+    assert bms._data_event.is_set() is False, "BMS does not request fresh data"
+    assert "requesting cell info" not in caplog.text, "BMS did not use streaming data"
 
 
 @pytest.fixture(
