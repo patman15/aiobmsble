@@ -56,6 +56,7 @@ class BMS(BaseBMS):
                 "SBL-*",  # SBL
                 "OGR-*",  # OGRPHY
                 "TZ-H*",  # CERRNSS battery
+                "DCH????",  # DCHOUSE battery with JBD BMS
             )
         ] + [
             MatcherPattern(

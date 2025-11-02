@@ -619,7 +619,9 @@
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
       "rssi": -69,
-      "platform_data": ["F4:F0:3C:00:00:00"]
+      "platform_data": [
+        "F4:F0:3C:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -637,12 +639,35 @@
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
       "rssi": -69,
-      "platform_data": ["E9:99:6B:00:00:00"]
+      "platform_data": [
+        "E9:99:6B:00:00:00"
+      ]
     },
     "type": "jbd_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/522)",
       "Supervolt Ultra LiFePO4 battery"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "DCH19A1",
+      "platform_data": [
+        "F2:C2:95:00:00:00"
+      ],
+      "rssi": -78,
+      "manufacturer_data": {
+        "49906": "956e19a1"
+      },
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb",
+        "00000001-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/386)",
+      "MAC address, correct, private"
     ]
   }
 ]
