@@ -48,7 +48,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray
+        self._data_final: bytes = b""
 
     @staticmethod
     @override
@@ -128,7 +128,7 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        self._data_final = self._data.copy()
+        self._data_final = bytes(self._data)
         self._data.clear()
         self._data_event.set()
 
@@ -146,13 +146,12 @@ class BMS(BaseBMS):
         """Update battery status information."""
         await self._await_reply(BMS._cmd(BMS.CMD.GET, BMS.ADR.STATUS))
 
-        _data: bytearray = self._data_final
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, _data, byteorder="big", offset=0
+            BMS._FIELDS, self._data_final, byteorder="big", offset=0
         )
 
         result["cell_voltages"] = BMS._cell_voltages(
-            _data,
+            self._data_final,
             cells=result["cell_count"],
             start=6,
             size=2,
@@ -170,7 +169,7 @@ class BMS(BaseBMS):
 
         # ANT-BMS carries 6 slots for temp sensors but only 4 looks like being connected by default
         result["temp_values"] = BMS._temp_values(
-            _data, values=4, start=91, size=2, byteorder="big", signed=True
+            self._data_final, values=4, start=91, size=2, byteorder="big", signed=True
         )
 
         return result

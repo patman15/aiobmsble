@@ -52,7 +52,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._data_final: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -182,7 +182,7 @@ class BMS(BaseBMS):
             int(self._data[5:7], 16),
             len(self._data),
         )
-        self._data_final = self._data.copy()
+        self._data_final = bytes(self._data)
         self._data_event.set()
 
     @staticmethod
@@ -191,7 +191,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _cell_voltages(
-        data: bytearray,
+        data: bytes,
         *,
         cells: int,
         start: int,
@@ -207,7 +207,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _conv_data(data: dict[int, bytearray]) -> BMSSample:
+    def _conv_data(data: dict[int, bytes]) -> BMSSample:
         result: BMSSample = {}
         for field in BMS._FIELDS:
             result[field.key] = field.fct(
@@ -217,7 +217,7 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        raw_data: dict[int, bytearray] = {}
+        raw_data: dict[int, bytes] = {}
 
         # query real-time information and capacity
         for cmd in (b":000250000E03~", b":001031000E05~"):
@@ -227,7 +227,7 @@ class BMS(BaseBMS):
             if rsp == Cmd.RT and len(self._data_final) == 0x8C:
                 # handle metrisun version
                 self._log.debug("single frame protocol detected")
-                raw_data[Cmd.CAP] = bytearray(15) + self._data_final[125:]
+                raw_data[Cmd.CAP] = bytes(15) + self._data_final[125:]
                 break
 
         if len(raw_data) != len(list(Cmd)) or not all(
@@ -235,8 +235,8 @@ class BMS(BaseBMS):
         ):
             return {}
 
-        return self._conv_data(raw_data) | {
-            "cell_voltages": BMS._cell_voltages(
+        return self._conv_data(raw_data) | BMSSample(
+            cell_voltages=BMS._cell_voltages(
                 raw_data[Cmd.RT], cells=BMS._MAX_CELLS, start=25, size=4
             )
-        }
+        )

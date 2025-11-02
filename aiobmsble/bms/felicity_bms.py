@@ -43,7 +43,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict = {}
+        self._data_final: dict[str, Any] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -96,7 +96,7 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if data.startswith(BMS._HEAD):
-            self._data = bytearray()
+            self._data.clear()
 
         self._data += data
         self._log.debug(
@@ -119,18 +119,18 @@ class BMS(BaseBMS):
         self._data_event.set()
 
     @staticmethod
-    def _conv_data(data: dict) -> BMSSample:
+    def _conv_data(data: dict[str, Any]) -> BMSSample:
         result: BMSSample = {}
         for key, itm, func in BMS._FIELDS:
             result[key] = func(data.get(itm, []))
         return result
 
     @staticmethod
-    def _conv_cells(data: dict) -> list[float]:
+    def _conv_cells(data: dict[str, Any]) -> list[float]:
         return [(value / 1000) for value in data.get("BatcelList", [])[0]]
 
     @staticmethod
-    def _conv_temp(data: dict) -> list[float]:
+    def _conv_temp(data: dict[str, Any]) -> list[float]:
         return [
             (value / 10) for value in data.get("BtemList", [])[0] if value != 0x7FFF
         ]

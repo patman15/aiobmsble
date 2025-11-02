@@ -67,9 +67,9 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         await self._await_reply(self._cmd(0x13F0, 0x1C))
         return {
-            "serial_number": barr2str(self._data[15:31]),
-            "name": barr2str(self._data[39:55]),
-            "sw_version": barr2str(self._data[55:59]),
+            "serial_number": barr2str(self._data_final[15:31]),
+            "name": barr2str(self._data_final[39:55]),
+            "sw_version": barr2str(self._data_final[55:59]),
         }
 
     @staticmethod
@@ -110,11 +110,11 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data = data.copy()
+        self._data_final = bytes(data)
         self._data_event.set()
 
     @staticmethod
-    def _read_int16(data: bytearray, pos: int, signed: bool = False) -> int:
+    def _read_int16(data: bytes, pos: int, signed: bool = False) -> int:
         return int.from_bytes(data[pos : pos + 2], byteorder="big", signed=signed)
 
     @staticmethod
@@ -134,28 +134,28 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         await self._await_reply(self._cmd(0x13B2, 0x7))
-        result: BMSSample = BMS._decode_data(type(self).FIELDS, self._data)
+        result: BMSSample = BMS._decode_data(type(self).FIELDS, self._data_final)
 
         await self._await_reply(self._cmd(0x1388, 0x22))
-        result["cell_count"] = BMS._read_int16(self._data, BMS._CELL_POS)
+        result["cell_count"] = BMS._read_int16(self._data_final, BMS._CELL_POS)
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data,
+            self._data_final,
             cells=min(16, result.get("cell_count", 0)),
             start=BMS._CELL_POS + 2,
             byteorder="big",
             divider=10,
         )
 
-        result["temp_sensors"] = BMS._read_int16(self._data, BMS._TEMP_POS)
+        result["temp_sensors"] = BMS._read_int16(self._data_final, BMS._TEMP_POS)
         result["temp_values"] = BMS._temp_values(
-            self._data,
+            self._data_final,
             values=min(16, result.get("temp_sensors", 0)),
             start=BMS._TEMP_POS + 2,
             divider=10,
         )
 
         await self._await_reply(self._cmd(0x13EC, 0x7))
-        result["problem_code"] = int.from_bytes(self._data[3:-2], byteorder="big") & (
+        result["problem_code"] = int.from_bytes(self._data_final[3:-2], byteorder="big") & (
             ~0xE
         )
 

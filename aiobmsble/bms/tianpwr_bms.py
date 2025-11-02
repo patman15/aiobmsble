@@ -41,7 +41,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._data_final: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -103,7 +103,7 @@ class BMS(BaseBMS):
             self._log.debug("incorrect EOF.")
             return
 
-        self._data_final[data[2]] = data.copy()
+        self._data_final[data[2]] = bytes(data)
         self._data_event.set()
 
     @staticmethod
@@ -127,7 +127,7 @@ class BMS(BaseBMS):
             result["cell_voltages"] = result.setdefault(
                 "cell_voltages", []
             ) + BMS._cell_voltages(
-                self._data_final.get(cmd, bytearray()), cells=8, start=3
+                self._data_final.get(cmd, b""), cells=8, start=3
             )
 
         if {0x83, 0x87}.issubset(self._data_final):
@@ -138,7 +138,7 @@ class BMS(BaseBMS):
                 / 10
                 for idx in (7, 11)  # take ambient and mosfet temperature
             ] + BMS._temp_values(
-                self._data_final.get(0x87, bytearray()),
+                self._data_final.get(0x87, b""),
                 values=min(BMS._MAX_TEMP, result.get("temp_sensors", 0)),
                 start=3,
                 divider=10,

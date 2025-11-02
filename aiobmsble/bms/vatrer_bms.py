@@ -43,7 +43,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._data_final: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -103,7 +103,7 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data_final[data[2]] = data.copy()
+        self._data_final[data[2]] = bytes(data)
         self._data_event.set()
 
     @staticmethod

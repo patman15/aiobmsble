@@ -39,7 +39,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Intialize private BMS members."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._data_final: bytes = b""
         self._bms_info: dict[str, str] = {}
         self._exp_len: int = BMS._MIN_FRAME
         self._valid_reply: int = 0x02
@@ -94,7 +94,7 @@ class BMS(BaseBMS):
         if (
             len(self._data) >= self._exp_len or not self._data.startswith(BMS._HEAD_RSP)
         ) and data.startswith(BMS._HEAD_RSP):
-            self._data = bytearray()
+            self._data.clear()
             self._exp_len = max(
                 int.from_bytes(data[6:8], byteorder="little", signed=False),
                 BMS._MIN_FRAME,
@@ -137,7 +137,7 @@ class BMS(BaseBMS):
             self._log.debug("invalid checksum 0x%X != 0x%X", self._data[-2], crc)
             return
 
-        self._data_final = self._data.copy()
+        self._data_final = bytes(self._data)
         self._data_event.set()
 
     async def _init_connection(
@@ -156,13 +156,13 @@ class BMS(BaseBMS):
         assert len(value) <= 11
         frame: bytearray = bytearray(  # 0x14 frame length
             [*BMS._HEAD_CMD, cmd[0], reg & 0xFF, 0x14, *value]
-        ) + bytearray(11 - len(value))
+        ) + bytes(11 - len(value))
         frame += bytes([crc_sum(frame), BMS._TAIL])
         return bytes(frame)
 
     @staticmethod
     def _cell_voltages(
-        data: bytearray,
+        data: bytes,
         *,
         cells: int,
         start: int,
@@ -178,14 +178,14 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _temp_sensors(data: bytearray, sensors: int) -> list[int | float]:
+    def _temp_sensors(data: bytes, sensors: int) -> list[int | float]:
         return [
             round(unpack_from("<f", data, 221 + idx * 4)[0], 2)
             for idx in range(sensors)
         ]
 
     @staticmethod
-    def _conv_data(data: bytearray) -> BMSSample:
+    def _conv_data(data: bytes) -> BMSSample:
         """Return BMS data from status message."""
         result: BMSSample = {}
         for key, idx, fmt, func in BMS._FIELDS:
@@ -207,4 +207,6 @@ class BMS(BaseBMS):
             self._data_final, cells=24, start=9, byteorder="little", size=4
         )
 
+        self._data_final = b""
+        self._data_event.clear()  # clear event for next update
         return data

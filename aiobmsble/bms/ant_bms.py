@@ -51,7 +51,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._data_final: bytes = b""
         self._valid_reply: int = BMS._CMD_STAT | 0x10  # valid reply mask
         self._exp_len: int = 0
 
@@ -152,7 +152,7 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data_final = self._data.copy()
+        self._data_final = bytes(self._data)
         self._data_event.set()
 
     @staticmethod
@@ -168,7 +168,7 @@ class BMS(BaseBMS):
         return bytes(frame) + BMS._TAIL
 
     @staticmethod
-    def _temp_sensors(data: bytearray, sensors: int, offs: int) -> list[float]:
+    def _temp_sensors(data: bytes, sensors: int, offs: int) -> list[float]:
         return [
             float(int.from_bytes(data[idx : idx + 2], byteorder="little", signed=True))
             for idx in range(offs, offs + sensors * 2, 2)

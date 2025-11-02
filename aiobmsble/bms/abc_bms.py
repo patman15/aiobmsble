@@ -55,7 +55,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._data_final: dict[int, bytes] = {}
         self._exp_reply: set[int] = set()
 
     @staticmethod
@@ -126,9 +126,9 @@ class BMS(BaseBMS):
 
         if data[1] == 0xF4 and 0xF4 in self._data_final:
             # expand cell voltage frame with all parts
-            self._data_final[0xF4] = bytearray(self._data_final[0xF4][:-2] + data[2:])
+            self._data_final[0xF4] = bytes(self._data_final[0xF4][:-2] + data[2:])
         else:
-            self._data_final[data[1]] = data.copy()
+            self._data_final[data[1]] = bytes(data)
 
         self._exp_reply.discard(data[1])
 
@@ -152,8 +152,7 @@ class BMS(BaseBMS):
                 await self._await_reply(BMS._cmd(bytes([cmd])))
 
         # check all repsonses are here, 0xF9 is not mandatory (not all BMS report it)
-        self._data_final.setdefault(0xF9, bytearray())
-        if not BMS._RESPS.issubset(set(self._data_final.keys())):
+        if not BMS._RESPS.issubset(set(self._data_final.keys()) | {0xF9}):
             self._log.debug("Incomplete data set %s", self._data_final.keys())
             raise TimeoutError("BMS data incomplete.")
 

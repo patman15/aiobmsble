@@ -64,7 +64,7 @@ class BMS(BaseBMS):
         """Intialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         assert self._ble_device.name is not None  # required for unlock
-        self._data_final: dict[int, bytearray] = {}
+        self._data_final: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -154,7 +154,7 @@ class BMS(BaseBMS):
             self._data_event.set()
 
     @staticmethod
-    def _crc(data: bytearray) -> int:
+    def _crc(data: bytes) -> int:
         return sum(data) + 8
 
     @staticmethod

@@ -37,7 +37,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._data_final: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -121,16 +121,16 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        self._data_final = self._data.copy()
+        self._data_final = bytes(self._data)
         self._data_event.set()
 
     @staticmethod
-    def _crc(data: bytearray) -> int:
+    def _crc(data: bytes) -> int:
         return sum(int(data[idx : idx + 2], 16) for idx in range(0, len(data), 2))
 
     @staticmethod
     def _cell_voltages(
-        data: bytearray,
+        data: bytes,
         *,
         cells: int,
         start: int,
@@ -150,7 +150,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _conv_int(data: bytearray, sign: bool = False) -> int:
+    def _conv_int(data: bytes, sign: bool = False) -> int:
         return int.from_bytes(
             bytes.fromhex(data.decode("ascii", errors="strict")),
             byteorder="little",
@@ -158,7 +158,7 @@ class BMS(BaseBMS):
         )
 
     @staticmethod
-    def _conv_data(data: bytearray) -> BMSSample:
+    def _conv_data(data: bytes) -> BMSSample:
         result: BMSSample = {}
         for field in BMS._FIELDS:
             result[field.key] = field.fct(

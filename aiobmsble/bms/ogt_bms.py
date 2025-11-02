@@ -149,11 +149,11 @@ class BMS(BaseBMS):
         self._exp_reply = -1
         self._data_event.set()
 
-    def _ogt_response(self, resp: bytearray) -> _Response:
+    def _ogt_response(self, resp: bytes) -> _Response:
         """Descramble a response from the BMS."""
 
         try:
-            msg: Final[str] = bytearray(
+            msg: Final[str] = bytes(
                 (resp[x] ^ self._key) for x in range(len(resp))
             ).decode(encoding="ascii")
         except UnicodeDecodeError:

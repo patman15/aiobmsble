@@ -40,7 +40,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Intialize private BMS members."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._data_final: bytes = b""
         self._char_write_handle: int = -1
         self._sw_version: int = 0
         self._prot_offset: int = 0
@@ -111,7 +111,7 @@ class BMS(BaseBMS):
             len(self._data) >= self.INFO_LEN
             and (data.startswith((BMS.HEAD_RSP, BMS.HEAD_CMD)))
         ) or not self._data.startswith(BMS.HEAD_RSP):
-            self._data = bytearray()
+            self._data.clear()
 
         self._data += data
 
@@ -155,7 +155,7 @@ class BMS(BaseBMS):
             self._log.debug("invalid checksum 0x%X != 0x%X", self._data[-1], crc)
             return
 
-        self._data_final = self._data.copy()
+        self._data_final = bytes(self._data)
         self._data_event.set()
 
     async def _init_connection(
@@ -211,7 +211,7 @@ class BMS(BaseBMS):
         assert len(value) <= 13
         frame: bytearray = bytearray(
             [*BMS.HEAD_CMD, cmd[0], len(value), *value]
-        ) + bytearray(13 - len(value))
+        ) + bytes(13 - len(value))
         frame.append(crc_sum(frame))
         return bytes(frame)
 
@@ -224,7 +224,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _temp_sensors(
-        data: bytearray, temp_pos: list[tuple[int, int]], mask: int
+        data: bytes, temp_pos: list[tuple[int, int]], mask: int
     ) -> list[int | float]:
         return [
             (value / 10)
@@ -239,7 +239,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _conv_data(data: bytearray, offs: int, sw_majv: int) -> BMSSample:
+    def _conv_data(data: bytes, offs: int, sw_majv: int) -> BMSSample:
         """Return BMS data from status message."""
 
         result: BMSSample = BMS._decode_data(
@@ -294,4 +294,5 @@ class BMS(BaseBMS):
             byteorder="little",
         )
 
+        self._data_event.clear()
         return data

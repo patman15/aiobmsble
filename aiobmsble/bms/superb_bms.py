@@ -32,7 +32,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._data_final: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -70,7 +70,7 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length")
             return
 
-        self._data_final = bytearray(data)
+        self._data_final = bytes(data)
         self._data_event.set()
 
     async def _async_update(self) -> BMSSample:

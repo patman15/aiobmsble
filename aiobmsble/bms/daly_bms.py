@@ -44,6 +44,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Intialize private BMS members."""
         super().__init__(ble_device, keep_alive)
+        self._data_final: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -81,9 +82,9 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         await self._await_reply(BMS.HEAD_READ + BMS.VER_INFO)
         return {
-            "sw_version": barr2str(self._data[3:19]),
-            "hw_version": barr2str(self._data[19:35]),
-            # "manuf.date": barr2str(self._data[35:51]),
+            "sw_version": barr2str(self._data_final[3:19]),
+            "hw_version": barr2str(self._data_final[19:35]),
+            # "manuf.date": barr2str(self._data_final[35:51]),
         }
 
     @staticmethod
@@ -119,10 +120,9 @@ class BMS(BaseBMS):
                 int.from_bytes(data[-2:], byteorder="little"),
                 crc,
             )
-            self._data.clear()
             return
 
-        self._data = data.copy()
+        self._data_final = bytes(data)
         self._data_event.set()
 
     async def _async_update(self) -> BMSSample:
@@ -135,11 +135,11 @@ class BMS(BaseBMS):
                 # request MOS temperature (possible outcome: response, empty response, no response)
                 await self._await_reply(BMS.HEAD_READ + BMS.MOS_INFO)
 
-                if sum(self._data[BMS.MOS_TEMP_POS :][:2]):
-                    self._log.debug("MOS info: %s", self._data)
+                if sum(self._data_final[BMS.MOS_TEMP_POS :][:2]):
+                    self._log.debug("MOS info: %s", self._data_final)
                     result["temp_values"] = [
                         int.from_bytes(
-                            self._data[BMS.MOS_TEMP_POS :][:2],
+                            self._data_final[BMS.MOS_TEMP_POS :][:2],
                             byteorder="big",
                             signed=True,
                         )
@@ -150,16 +150,16 @@ class BMS(BaseBMS):
 
         await self._await_reply(BMS.HEAD_READ + BMS.CMD_INFO)
 
-        if len(self._data) != BMS.INFO_LEN:
-            self._log.debug("incorrect frame length: %i", len(self._data))
+        if len(self._data_final) != BMS.INFO_LEN:
+            self._log.debug("incorrect frame length: %i", len(self._data_final))
             return {}
 
-        result |= BMS._decode_data(BMS._FIELDS, self._data, offset=BMS.HEAD_LEN)
+        result |= BMS._decode_data(BMS._FIELDS, self._data_final, offset=BMS.HEAD_LEN)
 
         # add temperature sensors
         result.setdefault("temp_values", []).extend(
             BMS._temp_values(
-                self._data,
+                self._data_final,
                 values=result.get("temp_sensors", 0),
                 start=64 + BMS.HEAD_LEN,
                 offset=40,
@@ -168,7 +168,7 @@ class BMS(BaseBMS):
 
         # get cell voltages
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data, cells=result.get("cell_count", 0), start=BMS.HEAD_LEN
+            self._data_final, cells=result.get("cell_count", 0), start=BMS.HEAD_LEN
         )
 
         return result

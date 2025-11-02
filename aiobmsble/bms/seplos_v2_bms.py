@@ -41,7 +41,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._data_final: dict[int, bytes] = {}
         self._exp_len: int = BMS._MIN_LEN
         self._exp_reply: set[int] = set()
 
@@ -143,7 +143,7 @@ class BMS(BaseBMS):
             self._data[4],
         )
 
-        self._data_final[self._data[3]] = self._data
+        self._data_final[self._data[3]] = bytes(self._data)
         try:
             self._exp_reply.remove(self._data[3])
             self._data_event.set()

@@ -40,6 +40,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
+        self._data_final: bytes = b""
         self._exp_len: int = 0
 
     @staticmethod
@@ -133,7 +134,7 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        self._data = bytearray(
+        self._data_final = bytearray(
             bytes.fromhex(self._data.strip(BMS._HEAD + BMS._TAIL).decode())
         )
         self._data_event.set()
@@ -163,26 +164,26 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         await self._await_reply(BMS._cmd(0x42))
-        result: BMSSample = {"cell_count": self._data[BMS._CELL_POS]}
+        result: BMSSample = {"cell_count": self._data_final[BMS._CELL_POS]}
         temp_pos: Final[int] = BMS._CELL_POS + result.get("cell_count", 0) * 2 + 1
-        result["temp_sensors"] = self._data[temp_pos]
+        result["temp_sensors"] = self._data_final[temp_pos]
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data, cells=result.get("cell_count", 0), start=BMS._CELL_POS + 1
+            self._data_final, cells=result.get("cell_count", 0), start=BMS._CELL_POS + 1
         )
         result["temp_values"] = BMS._temp_values(
-            self._data,
+            self._data_final,
             values=result.get("temp_sensors", 0),
             start=temp_pos + 1,
             divider=10,
         )
 
         result |= BMS._decode_data(
-            BMS._FIELDS, self._data, offset=temp_pos + 2 * result["temp_sensors"] + 1
+            BMS._FIELDS, self._data_final, offset=temp_pos + 2 * result["temp_sensors"] + 1
         )
 
         await self._await_reply(BMS._cmd(0x81, 1, b"\x01\x00"), max_size=20)
         result["design_capacity"] = (
-            int.from_bytes(self._data[6:8], byteorder="big", signed=False) // 10
+            int.from_bytes(self._data_final[6:8], byteorder="big", signed=False) // 10
         )
 
         return result

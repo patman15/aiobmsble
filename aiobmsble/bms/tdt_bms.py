@@ -46,7 +46,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._data_final: dict[int, bytes] = {}
         self._cmd_heads: list[int] = BMS._CMD_HEADS
         self._exp_len: int = 0
 
@@ -142,12 +142,12 @@ class BMS(BaseBMS):
                 crc,
             )
             return
-        self._data_final[self._data[5]] = self._data
+        self._data_final[self._data[5]] = bytes(self._data)
         self._data_event.set()
 
     @staticmethod
     @cache
-    def _cmd(cmd: int, data: bytearray = bytearray(), cmd_head: int = _HEAD) -> bytes:
+    def _cmd(cmd: int, data: bytes = b"", cmd_head: int = _HEAD) -> bytes:
         """Assemble a TDT BMS command."""
         assert cmd in (0x8C, 0x8D, 0x92)  # allow only read commands
 

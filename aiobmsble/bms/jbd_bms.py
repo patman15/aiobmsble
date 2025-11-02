@@ -38,7 +38,7 @@ class BMS(BaseBMS):
         """Intialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._valid_reply: int = 0x00
-        self._data_final: bytearray = bytearray()
+        self._data_final: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -105,7 +105,7 @@ class BMS(BaseBMS):
             and data[2] == 0x00
             and len(self._data) >= self.INFO_LEN + self._data[3]
         ):
-            self._data = bytearray()
+            self._data.clear()
 
         self._data += data
         self._log.debug(
@@ -142,11 +142,11 @@ class BMS(BaseBMS):
             self._log.debug("unexpected response (type 0x%X)", self._data[1])
             return
 
-        self._data_final = self._data
+        self._data_final = bytes(self._data)
         self._data_event.set()
 
     @staticmethod
-    def _crc(frame: bytearray) -> int:
+    def _crc(frame: bytes) -> int:
         """Calculate JBD frame CRC."""
         return 0x10000 - sum(frame)
 

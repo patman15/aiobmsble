@@ -62,7 +62,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Intialize private BMS members."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._data_final: dict[int, bytes] = {}
         self._pack_count: int = 0  # number of battery packs
         self._pkglen: int = 0  # expected packet length
 
@@ -114,7 +114,7 @@ class BMS(BaseBMS):
             and data[1] & 0x7F in BMS.CMD_READ  # include read errors
             and data[2] >= BMS.HEAD_LEN + BMS.CRC_LEN
         ):
-            self._data = bytearray()
+            self._data.clear()
             self._pkglen = data[2] + BMS.HEAD_LEN + BMS.CRC_LEN
         elif (  # error message
             len(data) == BMS.HEAD_LEN + BMS.CRC_LEN
@@ -122,7 +122,7 @@ class BMS(BaseBMS):
             and data[1] & 0x80
         ):
             self._log.debug("RX error: %X", data[2])
-            self._data = bytearray()
+            self._data.clear()
             self._pkglen = BMS.HEAD_LEN + BMS.CRC_LEN
 
         self._data += data
@@ -142,14 +142,14 @@ class BMS(BaseBMS):
                 int.from_bytes(self._data[self._pkglen - 2 : self._pkglen], "little"),
                 crc,
             )
-            self._data = bytearray()
+            self._data.clear()
             return
 
         if self._data[2] >> 1 not in BMS._CMDS or self._data[1] & 0x80:
             self._log.debug(
                 "unknown message: %s, length: %s", self._data[0:2], self._data[2]
             )
-            self._data = bytearray()
+            self._data.clear()
             return
 
         if len(self._data) != self._pkglen:
@@ -160,8 +160,8 @@ class BMS(BaseBMS):
                 self._data,
             )
 
-        self._data_final[self._data[0] << 8 | self._data[2] >> 1] = self._data
-        self._data = bytearray()
+        self._data_final[self._data[0] << 8 | self._data[2] >> 1] = bytes(self._data)
+        self._data.clear()
         self._data_event.set()
 
     async def _init_connection(

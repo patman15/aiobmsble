@@ -42,6 +42,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Intialize private BMS members."""
         super().__init__(ble_device, keep_alive)
+        self._data_final: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -114,7 +115,7 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data = data
+        self._data_final = bytes(data)
         self._data_event.set()
 
     @staticmethod
@@ -130,20 +131,20 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        resp_cache: dict[int, bytearray] = {}  # avoid multiple queries
+        resp_cache: dict[int, bytes] = {}  # avoid multiple queries
         for cmd in BMS._CMDS:
             self._log.debug("request command 0x%X.", cmd)
             try:
                 await self._await_reply(BMS._cmd(cmd.to_bytes(1)))
             except TimeoutError:
                 continue
-            if cmd != self._data[BMS.CMD_POS]:
+            if cmd != self._data_final[BMS.CMD_POS]:
                 self._log.debug(
                     "incorrect response 0x%X to command 0x%X",
-                    self._data[BMS.CMD_POS],
+                    self._data_final[BMS.CMD_POS],
                     cmd,
                 )
-            resp_cache[self._data[BMS.CMD_POS]] = self._data.copy()
+            resp_cache[self._data_final[BMS.CMD_POS]] = self._data_final
 
         voltages: list[float] = []
         for cmd in BMS.CELL_VOLTAGE_CMDS:
@@ -152,7 +153,7 @@ class BMS(BaseBMS):
             except TimeoutError:
                 break
             cells: list[float] = BMS._cell_voltages(
-                self._data, cells=5, start=4, byteorder="little"
+                self._data_final, cells=5, start=4, byteorder="little"
             )
             voltages.extend(cells)
             if len(voltages) % 5 or len(cells) == 0:

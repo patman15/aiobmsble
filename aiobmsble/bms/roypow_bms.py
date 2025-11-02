@@ -52,7 +52,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._data_final: dict[int, bytes] = {}
         self._exp_len: int = 0
 
     @staticmethod
@@ -140,12 +140,12 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        self._data_final[self._data[5]] = self._data.copy()
+        self._data_final[self._data[5]] = bytes(self._data)
         self._data.clear()
         self._data_event.set()
 
     @staticmethod
-    def _crc(frame: bytearray) -> int:
+    def _crc(frame: bytes) -> int:
         """Calculate XOR of all frame bytes."""
         crc: int = 0
         for b in frame:
@@ -156,7 +156,7 @@ class BMS(BaseBMS):
     @cache
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a RoyPow BMS command."""
-        data: Final[bytearray] = bytearray([len(cmd) + 2, *cmd])
+        data: Final[bytes] = bytes([len(cmd) + 2, *cmd])
         return bytes([*BMS._HEAD, *data, BMS._crc(data), BMS._TAIL])
 
     async def _async_update(self) -> BMSSample:
@@ -174,12 +174,12 @@ class BMS(BaseBMS):
             result.pop("runtime", None)
 
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final.get(0x2, bytearray()),
-            cells=max(0, (len(self._data_final.get(0x2, bytearray())) - 11) // 2),
+            self._data_final.get(0x2, b""),
+            cells=max(0, (len(self._data_final.get(0x2, b"")) - 11) // 2),
             start=9,
         )
         result["temp_values"] = BMS._temp_values(
-            self._data_final.get(0x3, bytearray()),
+            self._data_final.get(0x3, b""),
             values=result.get("temp_sensors", 0),
             start=14,
             size=1,

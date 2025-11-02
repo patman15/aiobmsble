@@ -477,7 +477,7 @@ class BaseBMS(ABC):
     @staticmethod
     def _decode_data(
         fields: tuple[BMSDp, ...],
-        data: bytearray | dict[int, bytearray],
+        data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",
         offset: int = 0,
@@ -486,7 +486,7 @@ class BaseBMS(ABC):
         for field in fields:
             if isinstance(data, dict) and field.idx not in data:
                 continue
-            msg: bytearray = data[field.idx] if isinstance(data, dict) else data
+            msg: bytes = data[field.idx] if isinstance(data, dict) else data
             result[field.key] = field.fct(
                 int.from_bytes(
                     msg[offset + field.pos : offset + field.pos + field.size],
@@ -498,7 +498,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _cell_voltages(
-        data: bytearray,
+        data: bytes,
         *,
         cells: int,
         start: int,
@@ -535,7 +535,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _temp_values(
-        data: bytearray,
+        data: bytes,
         *,
         values: int,
         start: int,
@@ -578,7 +578,7 @@ class BaseBMS(ABC):
         ]
 
 
-def barr2str(barr: bytearray) -> str:
+def barr2str(barr: bytes) -> str:
     """Decode a bytearray to string, stopping at the first non-printable character."""
     s = barr.decode("utf-8", errors="ignore")
     for i, c in enumerate(s):
