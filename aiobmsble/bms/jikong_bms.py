@@ -77,6 +77,7 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         self._valid_reply = 0x03
         await self._await_reply(self._cmd(b"\x97"), char=self._char_write_handle)
+        self._valid_reply = 0x02
         return {
             "model": barr2str(self._data_final[6:22]),
             "hw_version": barr2str(self._data_final[22:30]),
@@ -293,5 +294,6 @@ class BMS(BaseBMS):
             start=6,
             byteorder="little",
         )
-
+        self._data_final.clear()
+        self._data_event.clear()
         return data

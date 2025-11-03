@@ -11,7 +11,7 @@ import importlib
 import pkgutil
 import re
 from types import ModuleType
-from typing import Final
+from typing import Final, cast
 
 from bleak.backends.scanner import AdvertisementData
 
@@ -115,7 +115,8 @@ async def bms_cls(name: str) -> type[BaseBMS] | None:
         )
     except ModuleNotFoundError:
         return None
-    return bms_module.BMS
+
+    return cast(type[BaseBMS], bms_module.BMS)
 
 
 async def bms_matching(

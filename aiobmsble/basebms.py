@@ -34,7 +34,7 @@ class BaseBMS(ABC):
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
 
-    class PrefixAdapter(logging.LoggerAdapter):
+    class PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
         """Logging adpater to add instance ID to each log message."""
 
         def process(
