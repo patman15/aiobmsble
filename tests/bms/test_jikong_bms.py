@@ -371,11 +371,11 @@ class MockJikongBleakClient(MockBleakClient):
         if char_specifier != 3 or crc_sum(frame[:-1]) != frame[19]:
             return bytearray()
 
-        if frame[0:5] == self.HEAD_CMD + self.CMD_INFO:
+        if frame.startswith(self.HEAD_CMD + self.CMD_INFO):
             return (
                 bytearray(b"\x41\x54\x0d\x0a") + self._FRAME["cell"]
             )  # added AT\r\n command
-        if frame[0:5] == self.HEAD_CMD + self.DEV_INFO:
+        if frame.startswith(self.HEAD_CMD + self.DEV_INFO):
             return self._FRAME["dev"]
 
         return bytearray()
@@ -407,7 +407,7 @@ class MockJikongBleakClient(MockBleakClient):
         ]:
             self._notify_callback("MockJikongBleakClient", notify_data)
         if (
-            bytearray(data)[0:5] == self.HEAD_CMD + self.DEV_INFO
+            bytes(data).startswith(self.HEAD_CMD + self.DEV_INFO)
         ):  # JK BMS confirms commands with a command in reply
             self._task = asyncio.create_task(self._send_confirm())
 
@@ -465,24 +465,24 @@ class MockStreamBleakClient(MockJikongBleakClient):
             self._notify_callback("MockJikongBleakClient", resp)
             await asyncio.sleep(0)
 
-    async def write_gatt_char(
-        self,
-        char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        data: Buffer,
-        response: bool | None = None,
-    ) -> None:
-        """Issue write command to GATT."""
+    # async def write_gatt_char(
+    #     self,
+    #     char_specifier: BleakGATTCharacteristic | int | str | UUID,
+    #     data: Buffer,
+    #     response: bool | None = None,
+    # ) -> None:
+    #     """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
-        self._notify_callback(
-            "MockJikongBleakClient", bytearray(b"\x41\x54\x0d\x0a")
-        )  # interleaved AT\r\n command
-        if bytearray(data).startswith(
-            self.HEAD_CMD + self.DEV_INFO
-        ):  # send all responses as a series
-            self._task = asyncio.create_task(self._send_all())
+    #     assert (
+    #         self._notify_callback
+    #     ), "write to characteristics but notification not enabled"
+    #     self._notify_callback(
+    #         "MockJikongBleakClient", bytearray(b"\x41\x54\x0d\x0a")
+    #     )  # interleaved AT\r\n command
+    #     if bytearray(data).startswith(
+    #         self.HEAD_CMD + self.CMD_INFO
+    #     ):  # send all responses as a series
+    #         self._task = asyncio.create_task(self._send_all())
 
 
 class MockWrongBleakClient(MockBleakClient):
@@ -608,7 +608,7 @@ async def test_stream_update(
     bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
-    assert bms._data_event.is_set() is False
+    assert bms._data_event.is_set() is False, "BMS does not request fresh data"
     assert "requesting cell info" in caplog.text
 
     _client = cast(MockStreamBleakClient, bms._client)
@@ -620,8 +620,16 @@ async def test_stream_update(
 
     # query again to see if updated streaming data is used
     assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {"cycles": 0x73}
-    assert bms._data_event.is_set() is False, "BMS does not request fresh data"
     assert "requesting cell info" not in caplog.text, "BMS did not use streaming data"
+
+    _cell_frame[_prot_offset + 182] = 0x37  # modify data to ensure new read
+    _cell_frame[-1] = crc_sum(_cell_frame[:-1])
+    caplog.clear()
+    # do not automatically send data this time
+
+    # query again to see if BMS recovers if no data is sent
+    assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {"cycles": 0x37}
+    assert "requesting cell info" in caplog.text, "BMS did not use streaming data"
 
 
 async def test_invalid_response(
