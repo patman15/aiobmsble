@@ -1,4 +1,4 @@
-"""Module to support Dummy BMS.
+"""Module to support PACEEX BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -16,30 +16,34 @@ from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 
 
 class BMS(BaseBMS):
-    """Dummy BMS implementation."""
+    """PACEEX BMS implementation."""
+
+    # TODO: implement multi battery pack
 
     INFO: BMSInfo = {
         "default_manufacturer": "PeiCheng Technology",
         "default_model": "PACEEX Smart BMS",
-    }  # TODO: fill correct manufacturer/model
-    _HEAD: Final[bytes] = b"\x9a"  # beginning of frame
-    _TAIL: Final[bytes] = b"\x9d"  # end of frame
+    }
+    _HEAD: Final[bytes] = b"\x9a"
+    _TAIL: Final[bytes] = b"\x9d"
+    _FRM_TYPE: Final[slice] = slice(1, 7)
     _MIN_LEN: Final[int] = 11  # minimal frame length
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 1, 4, True, lambda x: x / 100),
         BMSDp("voltage", 5, 4, False, lambda x: x / 100),
         BMSDp("cycle_charge", 9, 4, False, lambda x: x / 100),
         BMSDp("design_capacity", 13, 4, False, lambda x: x // 100),
-        BMSDp("battery_level", 21, 1, False, lambda x: x),
+        BMSDp("battery_level", 21, 1, False),
         # BMSDp("battery_health", 22, 1, False, lambda x: x),
-        BMSDp("pack_count", 0, 1, False, lambda x: x),
-        BMSDp("cycles", 23, 4, False, lambda x: x),
+        BMSDp("pack_count", 0, 1, False),
+        BMSDp("cycles", 23, 4, False),
         # BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
+        self._valid_reply: bytes = b""  # expected reply type
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -109,6 +113,10 @@ class BMS(BaseBMS):
             )
             return
 
+        if data[BMS._FRM_TYPE] != self._valid_reply:
+            self._log.debug("unexpected response")
+            return
+
         self._data = data.copy()
         self._data_event.set()
 
@@ -116,14 +124,21 @@ class BMS(BaseBMS):
     @cache
     def _cmd(cmd: bytes, data: bytes = b"") -> bytes:
         """Assemble a Pace BMS command."""
-        # assert device >= 0x00 and (device <= 0x10 or device in (0xC0, 0xE0))
-        # assert cmd in (0x01, 0x04)  # allow only read commands
-        # assert start >= 0 and count > 0 and start + count <= 0xFFFF
         frame: bytearray = bytearray(BMS._HEAD) + cmd + len(data).to_bytes(1) + data
-        # frame += int.to_bytes(start, 2, byteorder="big")
-        # frame += int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big")
         frame += int.to_bytes(crc_modbus(frame), 2, byteorder="big") + BMS._TAIL
         return bytes(frame)
+
+    async def _await_reply(
+        self,
+        data: bytes,
+        char: int | str | None = None,
+        wait_for_notify: bool = True,
+        max_size: int = 0,
+    ) -> None:
+        """Send data to the BMS and wait for valid reply notification."""
+
+        self._valid_reply = data[BMS._FRM_TYPE]  # expected reply type
+        await super()._await_reply(data, char, wait_for_notify, max_size)
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

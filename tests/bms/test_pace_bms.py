@@ -171,7 +171,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
         "temp_values": [22.2, 22.4, 22.7, 22.4],
         "temperature": 22.425,
         "battery_charging": False,
-        'runtime': 62978,
+        "runtime": 62978,
         "power": -224.232,
         "problem": False,
     }
@@ -195,9 +195,12 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
         b"\x9a\x00\x00\x0a\x00\x00\x00\x33\x01\xff\xff\xfe\x59\x00\x00\x14\xb5\x00\x00\x1c\xe8\x00"
         b"\x00\x27\x10\x00\x00\x27\x10\x4a\x64\x00\x00\x00\xef\x00\x00\x00\x00\x00\x00\x00\x00\x01"
         b"\x08\x0c\xef\x01\x10\x0c\xec\x01\x03\x0b\x8e\x01\x01\x0b\x89\x00\x16\x11\x9d",
+        b"\x9a\x00\x00\x00\x00\x00\x00\x33\x01\xff\xff\xfe\x59\x00\x00\x14\xb5\x00\x00\x1c\xe8\x00"
+        b"\x00\x27\x10\x00\x00\x27\x10\x4a\x64\x00\x00\x00\xef\x00\x00\x00\x00\x00\x00\x00\x00\x01"
+        b"\x08\x0c\xef\x01\x10\x0c\xec\x01\x03\x0b\x8e\x01\x01\x0b\x89\x59\x3d\x9d",
         b"",
     ],
-    ids=["wrong_SOF", "wrong_CRC", "wrong_len", "empty"],
+    ids=["wrong_SOF", "wrong_CRC", "wrong_len", "wrong_response", "empty"],
 )
 async def test_invalid_response(
     monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytes
