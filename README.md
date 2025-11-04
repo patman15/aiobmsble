@@ -92,7 +92,7 @@ if __name__ == "__main__":
 ```
 
 ### Testing
-For integrations tests (using pytest) the library provides advertisement data that can be used to verify detection of BMSs. For your tests you can use
+For integration tests (using pytest) the library provides advertisement data that can be used to verify detection of BMSs. For your tests you can use
 
 ```python
 from aiobmsble.test_data import bms_advertisements
@@ -133,7 +133,7 @@ In case you have problems with the library, please enable debug logging. You can
 - please record a debug log using `aiobmsble -v -l debug.log`,
 - [open an issue](https://github.com/patman15/aiobmsble/issues/new?assignees=&labels=question&projects=&template=support.yml) with a good description of what your question/issue is and attach the log, or
 - [open a bug](https://github.com/patman15/aiobmsble/issues/new?assignees=&labels=Bug&projects=&template=bug.yml) if you think the behaviour you see is misbehaviour of the library, including a good description of what happened, your expectations,
-- and put the `debug.log` **as attachement** to the issue.
+- and put the `debug.log` **as attachment** to the issue.
 
 ## Thanks to
 > [@gkathan](https://github.com/patman15/BMS_BLE-HA/issues/2), [@downset](https://github.com/patman15/BMS_BLE-HA/issues/19), [@gerritb](https://github.com/patman15/BMS_BLE-HA/issues/22), [@Goaheadz](https://github.com/patman15/BMS_BLE-HA/issues/24), [@alros100, @majonessyltetoy](https://github.com/patman15/BMS_BLE-HA/issues/52), [@snipah, @Gruni22](https://github.com/patman15/BMS_BLE-HA/issues/59), [@azisto](https://github.com/patman15/BMS_BLE-HA/issues/78), [@BikeAtor, @Karatzie](https://github.com/patman15/BMS_BLE-HA/issues/57), [@PG248](https://github.com/patman15/BMS_BLE-HA/issues/85), [@SkeLLLa,@romanshypovskyi](https://github.com/patman15/BMS_BLE-HA/issues/90), [@riogrande75, @ebagnoli, @andreas-bulling](https://github.com/patman15/BMS_BLE-HA/issues/101), [@goblinmaks, @andreitoma-github](https://github.com/patman15/BMS_BLE-HA/issues/102), [@hacsler](https://github.com/patman15/BMS_BLE-HA/issues/103), [@ViPeR5000](https://github.com/patman15/BMS_BLE-HA/pull/182), [@edelstahlratte](https://github.com/patman15/BMS_BLE-HA/issues/161), [@nezra](https://github.com/patman15/BMS_BLE-HA/issues/164), [@Fandu21](https://github.com/patman15/BMS_BLE-HA/issues/194), [@rubenclark74](https://github.com/patman15/BMS_BLE-HA/issues/186), [@geierwally1978](https://github.com/patman15/BMS_BLE-HA/issues/240), [@Tulexcorp](https://github.com/patman15/BMS_BLE-HA/issues/271), [@oliviercommelarbre](https://github.com/patman15/BMS_BLE-HA/issues/279), [@shaf](https://github.com/patman15/BMS_BLE-HA/issues/286), [@gavrilov](https://github.com/patman15/BMS_BLE-HA/issues/247), [@SOLAR-RAIDER](https://github.com/patman15/BMS_BLE-HA/issues/291), [@prodisz](https://github.com/patman15/BMS_BLE-HA/issues/303), [@thecodingmax](https://github.com/patman15/BMS_BLE-HA/issues/390), [@daubman](https://github.com/patman15/BMS_BLE-HA/pull/413), [@krahabb](https://github.com/patman15/BMS_BLE-HA/pull/468), [@ardeus-ua](https://github.com/patman15/BMS_BLE-HA/issues/521)
@@ -147,7 +147,7 @@ for helping with making the library better.
 - JBD BMS: [esphome-jbd-bms](https://github.com/syssi/esphome-jbd-bms)
 - D-powercore BMS: [Strom BMS monitor](https://github.com/majonessyltetoy/strom)
 - Pro BMS: [@daubman](https://github.com/patman15/BMS_BLE-HA/docs/pro_bms.md)
-- Redodo BMS: [LiTime BMS bluetooth](https://github.com/calledit/LiTime_BMS_bluetooth)
+- Redodo BMS: [LiTime BMS Bluetooth](https://github.com/calledit/LiTime_BMS_bluetooth)
 - TianPower BMS: [esphome-tianpower-bms](https://github.com/syssi/esphome-tianpower-bms)
 
 [license-shield]: https://img.shields.io/github/license/patman15/aiobmsble?style=for-the-badge&cacheSeconds=86400
