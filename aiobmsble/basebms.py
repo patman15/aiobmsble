@@ -503,6 +503,7 @@ class BaseBMS(ABC):
         cells: int,
         start: int,
         size: int = 2,
+        gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         divider: int = 1000,
     ) -> list[float]:
@@ -512,7 +513,8 @@ class BaseBMS(ABC):
             data: Raw data from BMS
             cells: Number of cells to read
             start: Start position in data array
-            size: Number of bytes per cell value (defaults 2)
+            size: Number of bytes per cell value (default: 2)
+            gap: Number of bytes to skip after each cell value (default: 0)
             byteorder: Byte order ("big"/"little" endian)
             divider: Value to divide raw value by, defaults to 1000 (mv to V)
 
@@ -523,10 +525,12 @@ class BaseBMS(ABC):
         return [
             value / divider
             for idx in range(cells)
-            if (len(data) >= start + (idx + 1) * size)
+            if (len(data) >= start + idx * (size + gap) + size)
             and (
                 value := int.from_bytes(
-                    data[start + idx * size : start + (idx + 1) * size],
+                    data[
+                        start + idx * (size + gap) : start + idx * (size + gap) + size
+                    ],
                     byteorder=byteorder,
                     signed=False,
                 )
@@ -540,6 +544,7 @@ class BaseBMS(ABC):
         values: int,
         start: int,
         size: int = 2,
+        gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         signed: bool = True,
         offset: float = 0,
@@ -551,7 +556,8 @@ class BaseBMS(ABC):
             data: Raw data from BMS
             values: Number of values to read
             start: Start position in data array
-            size: Number of bytes per cell value (defaults 2)
+            size: Number of bytes per temperature value (defaults 2)
+            gap: Number of bytes to skip after each temperature value (default: 2)
             byteorder: Byte order ("big"/"little" endian)
             signed: Indicates whether two's complement is used to represent the integer.
             offset: The offset read values are shifted by (for Kelvin use 273.15)
@@ -564,11 +570,16 @@ class BaseBMS(ABC):
         return [
             (value - offset) / divider
             for idx in range(values)
-            if (len(data) >= start + (idx + 1) * size)
+            if (len(data) >= start + idx * (size + gap) + size)
             and (
                 (
                     value := int.from_bytes(
-                        data[start + idx * size : start + (idx + 1) * size],
+                        data[
+                            start
+                            + idx * (size + gap) : start
+                            + idx * (size + gap)
+                            + size
+                        ],
                         byteorder=byteorder,
                         signed=signed,
                     )
