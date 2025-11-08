@@ -153,14 +153,14 @@ class BMS(BaseBMS):
 
         result["cell_voltages"] = BMS._cell_voltages(
             _data,
-            cells=result["cell_count"],
+            cells=result.get("cell_count", 0),
             start=6,
             size=2,
             byteorder="big",
             divider=1000,
         )
 
-        if not result["design_capacity"]:
+        if not result.get("design_capacity", 1):
             # Workaround for some BMS always reporting 0 for design_capacity
             result.pop("design_capacity")
             with contextlib.suppress(ZeroDivisionError):

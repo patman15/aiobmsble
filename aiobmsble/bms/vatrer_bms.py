@@ -110,7 +110,7 @@ class BMS(BaseBMS):
     @cache
     def _cmd(addr: int, words: int) -> bytes:
         """Assemble a Vatrer BMS command."""
-        frame = (
+        frame: bytearray = (
             bytearray(BMS._HEAD)
             + addr.to_bytes(2, byteorder="big")
             + words.to_bytes(2, byteorder="big")
@@ -126,12 +126,12 @@ class BMS(BaseBMS):
             self._log.debug("Incomplete data set %s", self._data_final.keys())
             raise TimeoutError("BMS data incomplete.")
 
-        result = BMS._decode_data(BMS._FIELDS, self._data_final)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final[0x3E], cells=result["cell_count"], start=5
+            self._data_final[0x3E], cells=result.get("cell_count", 0), start=5
         )
         result["temp_values"] = BMS._temp_values(
-            self._data_final[0x24], values=result["temp_sensors"] + 2, start=5
+            self._data_final[0x24], values=result.get("temp_sensors", 0) + 2, start=5
         )  # MOS sensor is last (pos 6 of 4)
 
         return result
