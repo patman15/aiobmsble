@@ -47,6 +47,10 @@ REF_VALUE: BMSSample = {
     "temp_values": [22.8, 22.2, 22.3, 23.2, 27.7, 23.7],
     "delta_voltage": 0.004,
     "pack_count": 1,
+    "sw_balancer": 0,
+    "sw_chrg_mosfet": True,
+    "sw_dischrg_mosfet": True,
+    "sw_heater": False,
     "problem": False,
     "problem_code": 0,
 }
@@ -86,7 +90,6 @@ class MockSeplosv2BleakClient(MockBleakClient):
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")
@@ -121,9 +124,9 @@ class MockSeplosv2BleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, (
+            "write to characteristics but notification not enabled"
+        )
 
         resp: bytearray = self._response(char_specifier, data)
         for notify_data in [
@@ -147,6 +150,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     await bms.disconnect()
 
+
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockSeplosv2BleakClient)
@@ -155,6 +159,7 @@ async def test_device_info(patch_bleak_client) -> None:
         "sw_version": "16.6",
         "model": "B1101-SP76",
     }
+
 
 async def test_short_message(monkeypatch, patch_bleak_client) -> None:
     """Test Seplos V2 BMS data update with short message (missing values)."""
@@ -236,7 +241,6 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
     def prb_response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")
