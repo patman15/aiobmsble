@@ -32,6 +32,9 @@ class BMS(BaseBMS):
         BMSDp("cycles", 15, 2, False, lambda x: x, 0x28),
         BMSDp("delta_voltage", 29, 2, False, lambda x: x / 1000, 0x28),
         BMSDp("problem", 17, 15, False, lambda x: (x != 0), 0x24),
+        BMSDp("sw_chrg_mosfet", 32, 1, False, lambda x: bool(x & 0x10), 0x24),
+        BMSDp("sw_dischrg_mosfet", 32, 1, False, lambda x: bool(x & 0x20), 0x24),
+        BMSDp("sw_balancer", 35, 4, False, lambda x: x, 0x24),
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS}
     _CMDS: Final[tuple[tuple[int, int], ...]] = (
