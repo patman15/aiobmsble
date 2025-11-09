@@ -119,7 +119,7 @@ async def test_update(
         "battery_charging": False,
         "temperature": 20.0,
         "problem": False,
-        "sw_balancer": 0,
+        "balancer": False,
         "sw_chrg_mosfet": True,
         "sw_dischrg_mosfet": True,
         "sw_heater": False,

@@ -51,7 +51,7 @@ class BMS(BaseBMS):
         BMSDp("sw_dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), EIC_LEN),
         BMSDp("sw_chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), EIC_LEN),
         BMSDp("sw_heater", 7, 1, False, lambda x: bool(x & 8), EIC_LEN),
-        BMSDp("sw_balancer", 7, 1, False, lambda x: bool(x & 4), EIC_LEN),  # limit FET
+        BMSDp("balancer", 7, 1, False, lambda x: bool(x & 4), EIC_LEN),  # limit FET
     )  # Protocol Seplos V3
     _PFIELDS: Final[list[tuple[BMSpackvalue, int, bool, Callable[[int], Any]]]] = [
         ("pack_voltages", 0, False, lambda x: x / 100),

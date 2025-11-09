@@ -34,7 +34,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "delta_voltage": 0.015,
     "problem": False,
     "problem_code": 0,
-    "sw_balancer": 0,
+    "balancer": False,
     "sw_chrg_mosfet": True,
     "sw_dischrg_mosfet": True,
 }

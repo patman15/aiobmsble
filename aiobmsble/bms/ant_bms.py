@@ -48,7 +48,7 @@ class BMS(BaseBMS):
         BMSDp("power", 62, 4, True, lambda x: x / 1),
         BMSDp("sw_chrg_mosfet", 46, 1, False, lambda x: x == 0x1),
         BMSDp("sw_dischrg_mosfet", 47, 1, False, lambda x: x == 0x1),
-        BMSDp("sw_balancer", 48, 1, False, lambda x: x & 0x4),
+        BMSDp("balancer", 48, 1, False, lambda x: bool(x & 0x4)),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:

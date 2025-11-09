@@ -34,7 +34,7 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 17, 2, False, lambda x: x // 100, 0x1),
         BMSDp("cycles", 23, 2, False, lambda x: x, 0x1),
         BMSDp("problem_code", 31, 2, False, lambda x: x, 0x1),
-        BMSDp("sw_balancer", 20, 2, False, lambda x: x, 0x1),
+        BMSDp("balancer", 20, 2, False, lambda x: x, 0x1),
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS}
     _INIT_CMDS: Final[set[int]] = {

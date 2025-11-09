@@ -52,7 +52,7 @@ class BMS(BaseBMS):
         BMSDp("sw_chrg_mosfet", 2, 1, False, bool, 0xF2),
         BMSDp("sw_dischrg_mosfet", 3, 1, False, bool, 0xF2),
         BMSDp("sw_heater", 8, 1, False, bool, 0xF3),
-        BMSDp("sw_balancer", 10, 1, False, lambda x: x, 0xF3),
+        BMSDp("balancer", 10, 1, False, lambda x: x, 0xF3),
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS} | {0xF4}  # cell voltages
 

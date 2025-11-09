@@ -31,7 +31,7 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 62, 2, False, lambda x: x / 100),
         BMSDp("design_capacity", 64, 4, False, lambda x: x // 100),
         BMSDp("cycles", 96, 4, False),
-        BMSDp("sw_balancer", 84, 4, False),
+        BMSDp("balancer", 84, 4, False),
         BMSDp("sw_heater", 68, 4, False, bool),
         BMSDp("problem_code", 76, 4, False),
     )

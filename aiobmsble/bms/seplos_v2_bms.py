@@ -196,7 +196,7 @@ class BMS(BaseBMS):
         result |= {
             "sw_dischrg_mosfet": bool(sw_state & 0x1),
             "sw_chrg_mosfet": bool(sw_state & 0x2),
-            "sw_balancer": sw_state & 0x4,
+            "balancer": bool(sw_state & 0x4),
             "sw_heater": bool(sw_state & 0x8),
         }
 

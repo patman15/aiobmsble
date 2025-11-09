@@ -58,7 +58,7 @@ def ref_value() -> BMSSample:
         "runtime": 78684,
         "problem_code": 0,
         "problem": False,
-        "sw_balancer": 0,
+        "balancer": False,
     }
 
 

@@ -25,7 +25,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "power": -5.664,
     "runtime": 420,
     "battery_charging": False,
-    "sw_balancer": 0,
+    "balancer": False,
     "problem": False,
     "problem_code": 0,
 }

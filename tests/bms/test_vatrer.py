@@ -29,7 +29,7 @@ def ref_value() -> BMSSample:
         "temperature": 19.5,
         "battery_charging": False,
         "power": -261.243,
-        "sw_balancer": 0,
+        "balancer": False,
         "sw_chrg_mosfet": True,
         "sw_dischrg_mosfet": True,
         "problem": False,

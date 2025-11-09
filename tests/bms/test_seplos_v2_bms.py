@@ -47,7 +47,7 @@ REF_VALUE: BMSSample = {
     "temp_values": [22.8, 22.2, 22.3, 23.2, 27.7, 23.7],
     "delta_voltage": 0.004,
     "pack_count": 1,
-    "sw_balancer": 0,
+    "balancer": False,
     "sw_chrg_mosfet": True,
     "sw_dischrg_mosfet": True,
     "sw_heater": False,

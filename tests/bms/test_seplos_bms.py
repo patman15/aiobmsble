@@ -65,7 +65,7 @@ REF_VALUE: BMSSample = {
     "temp_values": [25.0, 23.8, 23.9, 24.9, 25.0, 23.8, 23.9, 24.9],
     "sw_dischrg_mosfet": True,
     "sw_chrg_mosfet": True,
-    "sw_balancer": False,
+    "balancer": False,
     "sw_heater": False,
     "pack_battery_levels": [47.9, 48.0],
     "pack_currents": [-7.2, -7.19],

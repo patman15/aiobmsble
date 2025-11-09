@@ -25,7 +25,7 @@ class BMS(BaseBMS):
         # BMSDp("health", 3, 1, False), // or SoH?
         BMSDp("runtime", 4, 4, False, float),
         BMSDp("problem_code", 1, 1, False, lambda x: (x & 0x1) ^ 0x1),
-        BMSDp("sw_balancer", 1, 1, False, lambda x: x & 0x80),
+        BMSDp("balancer", 1, 1, False, lambda x: bool(x & 0x80)),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:

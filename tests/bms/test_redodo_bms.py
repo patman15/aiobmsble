@@ -30,7 +30,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycles": 3,
     "problem": False,
     "problem_code": 0,
-    "sw_balancer": 0,
+    "balancer": False,
     "sw_heater": False,
 }
 

@@ -50,7 +50,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "temperature": 17.75,
     "problem": True,
     "problem_code": 512,
-    "sw_balancer": 0,
+    "balancer": False,
     "sw_chrg_mosfet": False,
     "sw_dischrg_mosfet": True,
     "runtime": 169081843,
@@ -90,7 +90,7 @@ _RESULT_DEFS_CAP: Final[BMSSample] = {
     "temperature": 21.25,
     "problem": False,
     "problem_code": 0,
-    "sw_balancer": 0,
+    "balancer": False,
     "sw_chrg_mosfet": True,
     "sw_dischrg_mosfet": True,
 }

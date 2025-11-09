@@ -33,7 +33,7 @@ class BMS(BaseBMS):
         ("voltage", 201, "<f", lambda x: round(x, 3)),
         ("delta_voltage", 209, "<f", lambda x: round(x, 3)),
         ("problem_code", 216, "B", lambda x: x if x in {1, 3, 7, 8, 9, 10, 11} else 0),
-        ("sw_balancer", 216, "B", lambda x: x if x == 0x5 else 0x0),
+        ("balancer", 216, "B", lambda x: (x == 0x5)),
         ("balance_current", 217, "<f", lambda x: round(x, 3)),
     ]
 
