@@ -135,8 +135,6 @@ class MockNeeyBleakClient(MockBleakClient):
 class MockStreamBleakClient(MockNeeyBleakClient):
     """Mock Neey BMS that already sends battery data (no request required)."""
 
-    _FRAME: dict[str, bytearray] = {}
-
     async def _send_all(self) -> None:
         assert (
             self._notify_callback
