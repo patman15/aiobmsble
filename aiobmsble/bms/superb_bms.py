@@ -22,11 +22,10 @@ class BMS(BaseBMS):
     _INFO_LEN: Final[int] = 20
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("battery_level", 2, 1, False),
-        # BMSDp("design_capacity", 3, 1, False), // or SoH?
+        # BMSDp("health", 3, 1, False), // or SoH?
         BMSDp("runtime", 4, 4, False, float),
         BMSDp("problem_code", 1, 1, False, lambda x: (x & 0x1) ^ 0x1),
-        # BMSDp("sw_dischrg_mosfet", 1, 1, False, lambda x: bool(x & 0x2)),
-        # BMSDp("sw_chrg_mosfet", 1, 1, False, lambda x: bool(x & 0x4)),
+        BMSDp("sw_balancer", 1, 1, False, lambda x: x & 0x80),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
