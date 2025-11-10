@@ -279,7 +279,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     # query again to check already connected state
     assert await bms.async_update() == REF_VALUE
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
