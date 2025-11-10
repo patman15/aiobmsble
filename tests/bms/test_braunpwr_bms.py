@@ -58,6 +58,7 @@ def ref_value() -> BMSSample:
         "runtime": 78684,
         "problem_code": 0,
         "problem": False,
+        "balancer": False,
     }
 
 
@@ -132,6 +133,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     await bms.disconnect()
 
+
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockBraunPWRBleakClient)
@@ -140,6 +142,7 @@ async def test_device_info(patch_bleak_client) -> None:
         "hw_version": "KS_BLE_WIFI_Ver1.0.0_20240313",
         "sw_version": "2.3.1",
     }
+
 
 @pytest.fixture(
     name="wrong_response",

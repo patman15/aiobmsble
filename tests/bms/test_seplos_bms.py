@@ -63,6 +63,10 @@ REF_VALUE: BMSSample = {
     ],
     "delta_voltage": 0.003,
     "temp_values": [25.0, 23.8, 23.9, 24.9, 25.0, 23.8, 23.9, 24.9],
+    "sw_dischrg_mosfet": True,
+    "sw_chrg_mosfet": True,
+    "balancer": False,
+    "sw_heater": False,
     "pack_battery_levels": [47.9, 48.0],
     "pack_currents": [-7.2, -7.19],
     "pack_cycles": [9, 10],
@@ -366,7 +370,7 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
 
     problem_resp: dict[str, bytearray] = MockSeplosBleakClient.RESP.copy()
     problem_resp["EIC"] = bytearray(
-        b"\x00\x01\x0a\x01\xff\xff\xff\xff\xff\xff\xff\x03\xff\xcb\x45"
+        b"\x00\x01\x0a\x01\xff\xff\xff\xff\xff\xff\x03\xff\xff\x4a\x75"
     )
 
     monkeypatch.setattr(MockSeplosBleakClient, "RESP", problem_resp)

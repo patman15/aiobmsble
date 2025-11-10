@@ -216,6 +216,9 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "temp_sensors": 7,
         "problem": False,
         "problem_code": 0,
+        "balancer": True,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
     },
     "JK02_32S": {
         "cell_count": 8,
@@ -236,6 +239,9 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "runtime": 72613,
         "temperature": 29.9,
         "problem": False,
+        "balancer": False,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
     },
     "JK02_32S_v15": {
         "cell_count": 16,
@@ -273,6 +279,9 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "battery_charging": True,
         "temperature": 16.367,
         "problem": False,
+        "balancer": False,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
     },
     "JK02_32S_v19": {
         "cell_count": 16,
@@ -310,6 +319,9 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "battery_charging": True,
         "temperature": 16.367,
         "problem": False,
+        "balancer": False,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
     },
 }
 

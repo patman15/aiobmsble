@@ -82,6 +82,8 @@ def ref_value() -> dict:
             "cell_voltages": [3.297, 3.295, 3.297, 3.292],
             "temp_values": [23.2, 24.0, 22.6, 22.5],
             "delta_voltage": 0.005,
+            "sw_chrg_mosfet": True,
+            "sw_dischrg_mosfet": True,
             "problem": False,
             "problem_code": 0,
         },
@@ -118,6 +120,8 @@ def ref_value() -> dict:
             "temp_values": [17.9, 19.6, 17.9, 17.9, 17.9, 18.7],
             "delta_voltage": 0.012,
             "runtime": 62589,
+            "sw_chrg_mosfet": True,
+            "sw_dischrg_mosfet": True,
             "problem": False,
             "problem_code": 0,
         },
@@ -155,6 +159,8 @@ def ref_value() -> dict:
             "battery_charging": False,
             "runtime": 14333,
             "temperature": 26.4,
+            "sw_chrg_mosfet": True,
+            "sw_dischrg_mosfet": True,
             "problem": False,
         },
     }
@@ -186,7 +192,6 @@ class MockTDTBleakClient(MockBleakClient):
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("fff2")
@@ -215,9 +220,9 @@ class MockTDTBleakClient(MockBleakClient):
                 self._char_fffa = 0x1
             return
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, (
+            "write to characteristics but notification not enabled"
+        )
 
         resp: bytearray = self._response(char_specifier, data)
         for notify_data in [
@@ -340,13 +345,11 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-# FIXME! put parameter for throw_exception
+@pytest.mark.parametrize(("throw_exception"), [True, False], ids=("throw", "error"))
 async def test_init_fail(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, bool_fixture
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, throw_exception: bool
 ) -> None:
     """Test that failing to initialize simply continues and tries to read data."""
-
-    throw_exception: bool = bool_fixture
 
     async def error_repsonse(*_args, **_kwargs) -> bytearray:
         return bytearray(b"\x00")
@@ -365,7 +368,7 @@ async def test_init_fail(
 
     bms = BMS(generate_ble_device())
 
-    if bool_fixture:
+    if throw_exception:
         with pytest.raises(BleakDeviceNotFoundError):
             assert not await bms.async_update()
     else:

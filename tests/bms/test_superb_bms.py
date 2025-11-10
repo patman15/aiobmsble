@@ -1,4 +1,4 @@
-"""Test the Ective BMS implementation."""
+"""Test the Super-B BMS implementation."""
 
 from collections.abc import Awaitable, Callable
 from typing import Final
@@ -25,6 +25,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "power": -5.664,
     "runtime": 420,
     "battery_charging": False,
+    "balancer": False,
     "problem": False,
     "problem_code": 0,
 }
