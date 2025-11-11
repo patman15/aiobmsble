@@ -122,6 +122,12 @@ class BaseBMS(ABC):
         await self.disconnect()
 
     @final
+    @property
+    def is_connected(self) -> bool:
+        """Return True if BMS is connected."""
+        return self._client.is_connected
+
+    @final
     @classmethod
     def get_bms_module(cls) -> str:
         """Return BMS module name, e.g. aiobmsble.bms.dummy_bms."""

@@ -38,6 +38,9 @@ def ref_value() -> BMSSample:
         "temp_sensors": 3,
         "temperature": 27.2,
         "voltage": 13.3,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
+        "sw_heater": False,
     }
 
 
@@ -57,8 +60,8 @@ class MockRenogyProBleakClient(MockBleakClient):
         BASE_VALUE_CMD: bytearray(
             b"\x30\x03\x0e\xff\xf4\x00\x85\x00\x03\x30\x42\x00\x03\x3b\xda\x00\x06\x3e\x33"
         ),  # -1.2A, 13.3V, 208.9Ah [mAh], 211.9Ah [mAh], 6 cycles
-        b"\x30\x03\x13\xec\x00\x07\xc5\x58": bytearray(
-            b"\x30\x03\x0e\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x2b\x4e"
+         b"\x30\x03\x13\xec\x00\x08\x85\x5c": bytearray(
+            b"\x30\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x00\xf7\x62"
         ),
     }
 
@@ -149,7 +152,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

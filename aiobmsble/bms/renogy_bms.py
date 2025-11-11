@@ -154,9 +154,12 @@ class BMS(BaseBMS):
             divider=10,
         )
 
-        await self._await_reply(self._cmd(0x13EC, 0x7))
-        result["problem_code"] = int.from_bytes(self._data[3:-2], byteorder="big") & (
+        await self._await_reply(self._cmd(0x13EC, 0x8))
+        result["problem_code"] = int.from_bytes(self._data[3:17], byteorder="big") & (
             ~0xE
         )
+        result["sw_chrg_mosfet"] = bool(self._data[16] & 0x2)
+        result["sw_dischrg_mosfet"] = bool(self._data[16] & 0x4)
+        result["sw_heater"] = bool(self._data[17] & 0x20)
 
         return result

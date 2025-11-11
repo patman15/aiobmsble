@@ -17,17 +17,23 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 class BMS(BaseBMS):
     """Redodo BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Redodo", "default_model": "Bluetooth battery"}
+    INFO: BMSInfo = {
+        "default_manufacturer": "Redodo",
+        "default_model": "Bluetooth battery",
+    }
     _HEAD_LEN: Final[int] = 3
     _MAX_CELLS: Final[int] = 16
     _MAX_TEMP: Final[int] = 3
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 12, 2, False, lambda x: x / 1000),
         BMSDp("current", 48, 4, True, lambda x: x / 1000),
-        BMSDp("battery_level", 90, 2, False, lambda x: x),
+        BMSDp("battery_level", 90, 2, False),
         BMSDp("cycle_charge", 62, 2, False, lambda x: x / 100),
-        BMSDp("cycles", 96, 4, False, lambda x: x),
-        BMSDp("problem_code", 76, 4, False, lambda x: x),
+        BMSDp("design_capacity", 64, 4, False, lambda x: x // 100),
+        BMSDp("cycles", 96, 4, False),
+        BMSDp("balancer", 84, 4, False),
+        BMSDp("sw_heater", 68, 4, False, bool),
+        BMSDp("problem_code", 76, 4, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:

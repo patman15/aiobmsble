@@ -191,6 +191,15 @@ class BMS(BaseBMS):
         # get extention pack count from parallel data (main pack)
         result["pack_count"] = self._data_final[0x51][42]
 
+        # get switches from parallel data (main pack)
+        sw_state: Final[int] = self._data_final[0x62][45]
+        result |= {
+            "sw_dischrg_mosfet": bool(sw_state & 0x1),
+            "sw_chrg_mosfet": bool(sw_state & 0x2),
+            "balancer": bool(sw_state & 0x4),
+            "sw_heater": bool(sw_state & 0x8),
+        }
+
         # get alarms from parallel data (main pack)
         alarm_evt: Final[int] = min(self._data_final[0x62][46], BMS._PRB_MAX)
         result["problem_code"] = (

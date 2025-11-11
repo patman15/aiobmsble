@@ -1,4 +1,4 @@
-"""Test the Ective BMS implementation."""
+"""Test the Super-B BMS implementation."""
 
 from collections.abc import Awaitable, Callable
 from typing import Final
@@ -25,6 +25,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "power": -5.664,
     "runtime": 420,
     "battery_charging": False,
+    "balancer": False,
     "problem": False,
     "problem_code": 0,
 }
@@ -75,7 +76,7 @@ async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> No
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

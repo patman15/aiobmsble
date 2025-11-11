@@ -37,6 +37,8 @@ def ref_value() -> BMSSample:
         "delta_voltage": 0.006,
         "problem": False,
         "problem_code": 0,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
     }
 
 
@@ -111,10 +113,9 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
-
 
 
 async def test_device_info(patch_bleak_client) -> None:
@@ -129,6 +130,7 @@ async def test_device_info(patch_bleak_client) -> None:
         "model": "mock_model",
         "serial_number": "mock_serial_number",
     }
+
 
 async def test_update_dischrg(monkeypatch, patch_bleak_client) -> None:
     """Test RoyPow BMS data update."""

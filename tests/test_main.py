@@ -1,6 +1,7 @@
 """Test the package main script."""
 
 import argparse
+import asyncio
 from collections.abc import Callable
 from logging import DEBUG, INFO
 import sys
@@ -48,13 +49,7 @@ def setup_logging():
 def asyncio_run():
     """Unittest mock for asyncio_run to check calls to it."""
     with mock.patch("asyncio.run") as m:
-        yield m
-
-
-@pytest.fixture(name="mock_detect_bms")
-def detect_bms():
-    """Unittest mock for detect_bms to check calls to it."""
-    with mock.patch.object(main_mod, "detect_bms") as m:
+        m.side_effect = lambda coro: asyncio.get_event_loop().run_until_complete(coro)
         yield m
 
 

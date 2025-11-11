@@ -32,6 +32,9 @@ def ref_value() -> BMSSample:
         "battery_charging": True,
         "problem": False,
         "problem_code": 0,
+        "sw_chrg_mosfet": False,
+        "sw_dischrg_mosfet": True,
+        "balancer": True,
     }
 
 
@@ -142,7 +145,7 @@ async def test_update(
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

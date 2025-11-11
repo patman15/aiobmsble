@@ -29,6 +29,9 @@ def ref_value() -> BMSSample:
         "temperature": 19.5,
         "battery_charging": False,
         "power": -261.243,
+        "balancer": False,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
         "problem": False,
         "cell_voltages": [
             3.295,
@@ -97,7 +100,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
@@ -164,14 +167,14 @@ async def test_invalid_response(
         (
             bytearray(
                 b"\x02\x03\x24\x00\x04\x00\x12\x00\x14\x00\x13\x00\x14\x00\x14\x00\x14\x80\x00\x00\x00"
-                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x34\x02\x40\x00\x00\x00\x00\xCE\x2B"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x34\x02\x40\x00\x00\x00\x00\xce\x2b"
             ),
             "first_bit",
         ),
         (
             bytearray(
                 b"\x02\x03\x24\x00\x04\x00\x12\x00\x14\x00\x13\x00\x14\x00\x14\x00\x14\x00\x00\x00\x00"
-                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x34\x02\x40\x00\x00\x00\x00\x87\x8F"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x34\x02\x40\x00\x00\x00\x00\x87\x8f"
             ),
             "last_bit",
         ),

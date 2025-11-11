@@ -71,6 +71,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.273,
         3.272,
     ],
+    "balancer": True,
     "temp_values": [50.24, 50.24],
     "problem": False,
     "problem_code": 0,
@@ -121,9 +122,9 @@ class MockNeeyBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, (
+            "write to characteristics but notification not enabled"
+        )
 
         resp: Final[bytearray] = self._response(char_specifier, data)
         for notify_data in [
@@ -136,9 +137,9 @@ class MockStreamBleakClient(MockNeeyBleakClient):
     """Mock Neey BMS that already sends battery data (no request required)."""
 
     async def _send_all(self) -> None:
-        assert (
-            self._notify_callback
-        ), "send_all frames called but notification not enabled"
+        assert self._notify_callback, (
+            "send_all frames called but notification not enabled"
+        )
         for resp in self._FRAME.values():
             self._notify_callback("MockNeeyBleakClient", resp)
             await asyncio.sleep(0)
@@ -151,9 +152,9 @@ class MockStreamBleakClient(MockNeeyBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, (
+            "write to characteristics but notification not enabled"
+        )
         if bytearray(data).startswith(
             self.HEAD_CMD + self.DEV_INFO
         ):  # send all responses as a series
@@ -173,7 +174,6 @@ class MockOversizedBleakClient(MockNeeyBleakClient):
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-
         return super()._response(char_specifier, data) + bytearray(6)
 
 
@@ -181,16 +181,14 @@ async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> No
     """Test Neey BMS data update."""
 
     monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", _PROTO_DEFS)
-
     patch_bleak_client(MockNeeyBleakClient)
-
     bms = BMS(generate_ble_device(), keep_alive_fixture)
 
     assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     assert await bms.async_update() == _RESULT_DEFS
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
@@ -210,7 +208,7 @@ async def test_device_info(monkeypatch, patch_bleak_client) -> None:
 async def test_stream_update(monkeypatch, patch_bleak_client, caplog) -> None:
     """Test Neey BMS data update."""
 
-    _frames = deepcopy(_PROTO_DEFS)
+    _frames: dict[str, bytearray] = deepcopy(_PROTO_DEFS)
     monkeypatch.setattr(MockStreamBleakClient, "_FRAME", _frames)
     patch_bleak_client(MockStreamBleakClient)
 
@@ -220,8 +218,8 @@ async def test_stream_update(monkeypatch, patch_bleak_client, caplog) -> None:
     assert bms._data_event.is_set() is False
     assert "requesting cell info" in caplog.text
 
-    _client = cast(MockStreamBleakClient, bms._client)
-    _cell_frame = _frames["cell"]
+    _client: MockStreamBleakClient = cast(MockStreamBleakClient, bms._client)
+    _cell_frame: bytearray = _frames["cell"]
     _cell_frame[216] = 0x8  # modify data to ensure new read
     _cell_frame[-2] = crc_sum(_cell_frame[:-2])
     caplog.clear()
@@ -231,6 +229,7 @@ async def test_stream_update(monkeypatch, patch_bleak_client, caplog) -> None:
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 0x8,
+        "balancer": False,
     }
     assert bms._data_event.is_set() is False, "BMS does not request fresh data"
     assert "requesting cell info" not in caplog.text, "BMS did not use streaming data"
@@ -298,9 +297,8 @@ async def test_non_stale_data(
     monkeypatch.setattr(
         MockNeeyBleakClient,
         "_response",
-        lambda _s, _c, _d: bytearray(b"\x55\xaa\xeb\x90\x05")
-        + bytearray(10),  # invalid frame type (0x5)
-    )
+        lambda _s, _c, _d: bytearray(b"\x55\xaa\xeb\x90\x05") + bytearray(10),
+    )  # invalid frame type (0x5)
 
     patch_bleak_client(MockNeeyBleakClient)
 
@@ -354,10 +352,7 @@ async def test_problem_response(
     protocol_def: dict[str, bytearray] = deepcopy(_PROTO_DEFS)
     # set error flags in the copy
 
-    frame_update(
-        protocol_def["cell"],
-        problem_response[0],
-    )
+    frame_update(protocol_def["cell"], problem_response[0])
 
     monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", protocol_def)
 
@@ -368,6 +363,7 @@ async def test_problem_response(
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": problem_response[0],
+        "balancer": False,
     }
 
     await bms.disconnect()
