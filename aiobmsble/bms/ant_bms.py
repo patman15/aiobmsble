@@ -39,13 +39,16 @@ class BMS(BaseBMS):
             46,
             2,
             False,
-            lambda x: ((x & 0xF00) if (x >> 8) not in (0x1, 0x4, 0xB, 0xF) else 0)
-            | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB, 0xC, 0xF) else 0),
+            lambda x: ((x & 0xF00) if (x >> 8) not in (0x1, 0x4, 0xF) else 0)
+            | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB, 0xF) else 0),
         ),
         BMSDp("cycle_charge", 54, 4, False, lambda x: x / 1e6),
         BMSDp("total_charge", 58, 4, False, lambda x: x // 1000),
         BMSDp("delta_voltage", 82, 2, False, lambda x: x / 1000),
         BMSDp("power", 62, 4, True, lambda x: x / 1),
+        BMSDp("sw_chrg_mosfet", 46, 1, False, lambda x: x == 0x1),
+        BMSDp("sw_dischrg_mosfet", 47, 1, False, lambda x: x == 0x1),
+        BMSDp("balancer", 48, 1, False, lambda x: bool(x & 0x4)),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:

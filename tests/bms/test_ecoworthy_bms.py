@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.ecoworthy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -159,7 +159,7 @@ async def test_update(
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

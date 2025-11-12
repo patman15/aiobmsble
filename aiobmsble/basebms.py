@@ -34,7 +34,16 @@ class BaseBMS(ABC):
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
 
-    class PrefixAdapter(logging.LoggerAdapter):
+    type InfoCharType = Literal[
+        "model",
+        "serial_number",
+        "fw_version",
+        "sw_version",
+        "hw_version",
+        "manufacturer",
+    ]
+
+    class PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
         """Logging adpater to add instance ID to each log message."""
 
         def process(
@@ -65,12 +74,12 @@ class BaseBMS(ABC):
             logger_name (str): name of the logger for the BMS instance, default: module name
 
         """
-        assert (
-            getattr(self, "_notification_handler", None) is not None
-        ), "BMS class must define `_notification_handler` method"
-        assert {"default_manufacturer", "default_model"}.issubset(
-            self.INFO
-        ), "BMS class must define `INFO`"
+        assert getattr(self, "_notification_handler", None) is not None, (
+            "BMS class must define `_notification_handler` method"
+        )
+        assert {"default_manufacturer", "default_model"}.issubset(self.INFO), (
+            "BMS class must define `INFO`"
+        )
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
         self.name: Final[str] = self._ble_device.name or "undefined"
@@ -78,7 +87,9 @@ class BaseBMS(ABC):
         logger_name = logger_name or self.__class__.__module__
         self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
-            {"prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':','')}:"},
+            {
+                "prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':', '')}:"
+            },
         )
 
         self._log.debug(
@@ -109,6 +120,12 @@ class BaseBMS(ABC):
     ) -> None:
         """Asynchronous context manager exit functionality."""
         await self.disconnect()
+
+    @final
+    @property
+    def is_connected(self) -> bool:
+        """Return True if BMS is connected."""
+        return self._client.is_connected
 
     @final
     @classmethod
@@ -164,16 +181,7 @@ class BaseBMS(ABC):
             self._log.debug("No BT device information available.")
             return BMSInfo()
 
-        type CharacteristicType = Literal[
-            "model",
-            "serial_number",
-            "fw_version",
-            "sw_version",
-            "hw_version",
-            "manufacturer",
-        ]
-
-        characteristics: Final[tuple[tuple[str, CharacteristicType], ...]] = (
+        characteristics: Final[tuple[tuple[str, BaseBMS.InfoCharType], ...]] = (
             ("2a24", "model"),
             ("2a25", "serial_number"),
             ("2a26", "fw_version"),
@@ -187,7 +195,7 @@ class BaseBMS(ABC):
             try:
                 if value := await self._client.read_gatt_char(char):
                     info[key] = barr2str(value)
-                    self._log.debug("BT device %s: '%s'", key, info[key])
+                    self._log.debug("BT device %s: '%s'", key, info.get(key))
             except BleakCharacteristicNotFoundError:
                 pass
 
@@ -503,6 +511,7 @@ class BaseBMS(ABC):
         cells: int,
         start: int,
         size: int = 2,
+        gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         divider: int = 1000,
     ) -> list[float]:
@@ -512,7 +521,8 @@ class BaseBMS(ABC):
             data: Raw data from BMS
             cells: Number of cells to read
             start: Start position in data array
-            size: Number of bytes per cell value (defaults 2)
+            size: Number of bytes per cell value (default: 2)
+            gap: Number of bytes to skip after each cell value (default: 0)
             byteorder: Byte order ("big"/"little" endian)
             divider: Value to divide raw value by, defaults to 1000 (mv to V)
 
@@ -523,10 +533,12 @@ class BaseBMS(ABC):
         return [
             value / divider
             for idx in range(cells)
-            if (len(data) >= start + (idx + 1) * size)
+            if (len(data) >= start + idx * (size + gap) + size)
             and (
                 value := int.from_bytes(
-                    data[start + idx * size : start + (idx + 1) * size],
+                    data[
+                        start + idx * (size + gap) : start + idx * (size + gap) + size
+                    ],
                     byteorder=byteorder,
                     signed=False,
                 )
@@ -540,6 +552,7 @@ class BaseBMS(ABC):
         values: int,
         start: int,
         size: int = 2,
+        gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         signed: bool = True,
         offset: float = 0,
@@ -551,7 +564,8 @@ class BaseBMS(ABC):
             data: Raw data from BMS
             values: Number of values to read
             start: Start position in data array
-            size: Number of bytes per cell value (defaults 2)
+            size: Number of bytes per temperature value (defaults 2)
+            gap: Number of bytes to skip after each temperature value (default: 2)
             byteorder: Byte order ("big"/"little" endian)
             signed: Indicates whether two's complement is used to represent the integer.
             offset: The offset read values are shifted by (for Kelvin use 273.15)
@@ -564,11 +578,15 @@ class BaseBMS(ABC):
         return [
             (value - offset) / divider
             for idx in range(values)
-            if (len(data) >= start + (idx + 1) * size)
+            if (len(data) >= start + idx * (size + gap) + size)
             and (
                 (
                     value := int.from_bytes(
-                        data[start + idx * size : start + (idx + 1) * size],
+                        data[
+                            start + idx * (size + gap) : start
+                            + idx * (size + gap)
+                            + size
+                        ],
                         byteorder=byteorder,
                         signed=signed,
                     )

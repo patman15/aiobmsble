@@ -37,7 +37,7 @@ class BMS(BaseBMS):
         BMSDp("temp_sensors", 4, 1, False, lambda x: x, 0xF2),
         BMSDp("voltage", 2, 3, False, lambda x: x / 1000, 0xF0),
         BMSDp("current", 5, 3, True, lambda x: x / 1000, 0xF0),
-        # ("design_capacity", 8, 3, False, lambda x: x / 1000, 0xF0),
+        BMSDp("design_capacity", 8, 3, False, lambda x: x // 1000, 0xF0),
         BMSDp("battery_level", 16, 1, False, lambda x: x, 0xF0),
         BMSDp("cycle_charge", 11, 3, False, lambda x: x / 1000, 0xF0),
         BMSDp("cycles", 14, 2, False, lambda x: x, 0xF0),
@@ -49,6 +49,10 @@ class BMS(BaseBMS):
             lambda x: sum(((x >> (i * 8)) & 1) << i for i in range(16)),
             0xF9,
         ),
+        BMSDp("sw_chrg_mosfet", 2, 1, False, bool, 0xF2),
+        BMSDp("sw_dischrg_mosfet", 3, 1, False, bool, 0xF2),
+        BMSDp("sw_heater", 8, 1, False, bool, 0xF3),
+        BMSDp("balancer", 10, 1, False, lambda x: x, 0xF3),
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS} | {0xF4}  # cell voltages
 

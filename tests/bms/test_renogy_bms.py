@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.renogy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -37,6 +37,9 @@ def ref_value() -> BMSSample:
         "temp_sensors": 2,
         "temperature": 17.0,
         "voltage": 13.6,
+        "sw_chrg_mosfet": False,
+        "sw_dischrg_mosfet": False,
+        "sw_heater": False,
     }
 
 
@@ -61,8 +64,8 @@ class MockRenogyBleakClient(MockBleakClient):
         BASE_VALUE_CMD: bytearray(
             b"\x30\x03\x0e\xff\xaa\x00\x88\x00\x01\x7b\xb0\x00\x01\x86\xa0\x00\x0f\xe0\x1e"
         ),  # -0.86A, 13.6V, 97.2Ah [mAh], 100Ah [mAh], (15 cycles (generated))
-        b"\x30\x03\x13\xec\x00\x07\xc5\x58": bytearray(
-            b"\x30\x03\x0e\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa\x8a"
+        b"\x30\x03\x13\xec\x00\x08\x85\x5c": bytearray(
+            b"\x30\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x96\xa1"
         ),  # alarm flags
         b"\x30\x03\x14\x02\x00\x08\xe4\x1d": bytearray(
             b"\x30\x03\x10\x52\x42\x54\x31\x30\x30\x4c\x46\x50\x31\x32\x2d\x42\x54\x20\x20\x58\xbb"
@@ -108,7 +111,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
@@ -181,8 +184,9 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
         "RESP",
         MockRenogyBleakClient.RESP
         | {
-            b"\x30\x03\x13\xec\x00\x07\xc5\x58": bytearray(
-                b"\x30\x03\x0e\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x54\x0a"
+            b"\x30\x03\x13\xec\x00\x08\x85\x5c": bytearray(
+                b"\x30\x03\x10\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xd6"
+                b"\xd1"
             )
         },
     )
@@ -195,6 +199,9 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
     assert result == ref_value() | {
         "problem": True,
         "problem_code": 0xFFFFFFFFFFFFFFFFFFFFFFFFFFF1,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
+        "sw_heater": True,
     }
 
     await bms.disconnect()

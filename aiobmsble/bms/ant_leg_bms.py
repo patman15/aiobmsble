@@ -43,6 +43,17 @@ class BMS(BaseBMS):
         BMSDp("total_charge", 83, 4, False, lambda x: x // 1000),
         BMSDp("runtime", 87, 4, False),
         BMSDp("cell_count", 123, 1, False),
+        BMSDp(
+            "problem_code",
+            103,
+            2,
+            False,
+            lambda x: ((x & 0xF00) if (x >> 8) not in (0x1, 0x4, 0xF) else 0)
+            | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB, 0xF) else 0),
+        ),
+        BMSDp("sw_chrg_mosfet", 103, 1, False, lambda x: x == 0x1),
+        BMSDp("sw_dischrg_mosfet", 104, 1, False, lambda x: x == 0x1),
+        BMSDp("balancer", 105, 1, False, lambda x: bool(x & 0x4)),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -152,14 +163,14 @@ class BMS(BaseBMS):
 
         result["cell_voltages"] = BMS._cell_voltages(
             self._data_final,
-            cells=result["cell_count"],
+            cells=result.get("cell_count", 0),
             start=6,
             size=2,
             byteorder="big",
             divider=1000,
         )
 
-        if not result["design_capacity"]:
+        if not result.get("design_capacity", 1):
             # Workaround for some BMS always reporting 0 for design_capacity
             result.pop("design_capacity")
             with contextlib.suppress(ZeroDivisionError):

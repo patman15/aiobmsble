@@ -109,14 +109,13 @@ class BMS(BaseBMS):
                 int.from_bytes(data[-2:], "little"),
                 crc,
             )
-            self._data.clear()
             return
 
         # copy final data without message type and adapt to protocol type
         shift: Final[bool] = data.startswith(self._mac_head)
-        self._data_final[data[6 if shift else 0]] = bytes(2 if shift else 0) + bytes(
-            data
-        )
+        self._data_final[data[6 if shift else 0]] = bytearray(
+            2 if shift else 0
+        ) + bytes(data)
         if BMS._CMDS.issubset(self._data_final.keys()):
             self._data_event.set()
 

@@ -23,6 +23,7 @@ type BMSValue = Literal[
     "delta_voltage",
     "problem",
     "runtime",
+    "balancer",
     "balance_current",
     "cell_count",
     "cell_voltages",
@@ -31,6 +32,10 @@ type BMSValue = Literal[
     "temp_sensors",
     "temp_values",
     "problem_code",
+    "sw_chrg_mosfet",
+    "sw_dischrg_mosfet",
+    "sw_heater",
+    "sw_dry_contacts",
 ]
 
 type BMSpackvalue = Literal[
@@ -65,7 +70,9 @@ class BMSSample(TypedDict, total=False):
     delta_voltage: float  # [V]
     problem: bool  # True: problem detected
     runtime: int  # [s]
+
     # detailed information
+    balancer: bool | int  # False: off, True: active or bit mask, 1: enabled/active
     balance_current: float  # [A]
     cell_count: int  # [#]
     cell_voltages: list[float]  # [V]
@@ -76,6 +83,13 @@ class BMSSample(TypedDict, total=False):
     temp_sensors: int  # [#]
     temp_values: list[int | float]  # [°C]
     problem_code: int  # BMS specific code, 0 no problem
+
+    # BMS switches
+    sw_chrg_mosfet: bool  # True: enabled
+    sw_dischrg_mosfet: bool  # True: enabled
+    sw_heater: bool  # True: enabled
+    sw_dry_contacts: int  # bit mask 1: closed/on, 0: open/off
+
     # battery pack data
     pack_voltages: list[float]  # [V]
     pack_currents: list[float]  # [A]

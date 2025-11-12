@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from json import JSONDecodeError, loads
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -29,7 +29,15 @@ class BMS(BaseBMS):
     _CMD_BI: Final[bytes] = b"get dev basice infor"
     _CMD_DT: Final[bytes] = b"get Date"
     _CMD_RT: Final[bytes] = b"get dev real infor"
-    _FIELDS: Final[list[tuple[BMSValue, str, Callable[[list], Any]]]] = [
+    _FIELDS: Final[
+        list[
+            tuple[
+                Literal["voltage", "current", "cycle_charge", "battery_level"],
+                str,
+                Callable[[list[Any]], float],
+            ]
+        ]
+    ] = [
         ("voltage", "Batt", lambda x: x[0][0] / 1000),
         ("current", "Batt", lambda x: x[1][0] / 10),
         (

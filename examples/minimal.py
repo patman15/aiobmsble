@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-async def main(dev_name) -> None:
+async def main(dev_name: str) -> None:
     """Find a BLE device by name and update its sensor data."""
 
     device: BLEDevice | None = await BleakScanner.find_device_by_name(dev_name)

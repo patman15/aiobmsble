@@ -23,16 +23,13 @@ async def test_notification_handler(
     patch_bleak_client,
     pytestconfig: pytest.Config,
     plugin_fixture: ModuleType,
-    data: bytearray,
+    data: bytes,
 ) -> None:
     """Test the notification handler."""
 
     # fuzzing can run from VScode (no coverage) or command line with option --no-cov
-    if {"vscode_pytest"}.issubset(
-        set(pytestconfig.invocation_params.args)
-    ) or (
-        "vscode_pytest" not in pytestconfig.invocation_params.args
-        and not pytestconfig.getoption("--no-cov")
+    if {"vscode_pytest"}.issubset(set(pytestconfig.invocation_params.args)) or (
+        not pytestconfig.getoption("--no-cov")
     ):
         pytest.skip("Skipping fuzzing tests due to coverage generation!")
 
@@ -56,6 +53,6 @@ async def test_notification_handler(
     )
 
     if iscoroutinefunction(notify_handler):
-        await notify_handler(notify_characteristics, data)
+        await notify_handler(notify_characteristics, bytearray(data))
     else:
-        notify_handler(notify_characteristics, data)
+        notify_handler(notify_characteristics, bytearray(data))
