@@ -1,3 +1,9 @@
 {
-    "python.envFile": "${workspaceFolder}/.envFile"
+    "python.envFile": "${workspaceFolder}/.envFile",
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.useEnvironmentsExtension": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }
