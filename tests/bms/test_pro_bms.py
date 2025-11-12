@@ -12,7 +12,7 @@ import logging
 
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -217,8 +217,18 @@ async def test_async_update_already_streaming(patch_bleak_client) -> None:
     await bms.async_update()
 
     # Second update should reuse existing connection
-    result = await bms.async_update()
-    assert result["voltage"] == pytest.approx(13.39, rel=0.01)
+    assert await bms.async_update() == {
+        "voltage": 13.39,
+        "current": 13.414,
+        "temperature": 21.8,
+        "battery_level": 32,
+        "battery_charging": True,
+        "cycle_charge": 41.83,
+        "cycle_capacity": 560.104,
+        "power": 179.61,
+        "problem_code": 0,
+        "problem": False,
+    }
 
     await bms.disconnect()
 
@@ -259,9 +269,9 @@ async def test_async_update_no_data_after_init(
         result = await bms.async_update()
 
     assert not result
-    assert (
-        not bms._client.is_connected
-    ), "BMS should be disconnected if streaming is not working."
+    assert not bms._client.is_connected, (
+        "BMS should be disconnected if streaming is not working."
+    )
 
 
 @pytest.mark.parametrize(

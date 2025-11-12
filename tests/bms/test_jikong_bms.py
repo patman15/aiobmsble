@@ -12,8 +12,9 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSInfo, BMSSample, lstr2int
-from aiobmsble.bms.jikong_bms import BMS, BMSMode, crc_sum
+from aiobmsble import BMSInfo, BMSMode, BMSSample
+from aiobmsble.basebms import crc_sum, lstr2int
+from aiobmsble.bms.jikong_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
 
@@ -407,9 +408,9 @@ class MockJikongBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, (
+            "write to characteristics but notification not enabled"
+        )
         self._notify_callback(
             "MockJikongBleakClient", bytearray(b"\x41\x54\x0d\x0a")
         )  # interleaved AT\r\n command
@@ -418,8 +419,8 @@ class MockJikongBleakClient(MockBleakClient):
             resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockJikongBleakClient", notify_data)
-        if (
-            bytes(data).startswith(self.HEAD_CMD + self.DEV_INFO)
+        if bytes(data).startswith(
+            self.HEAD_CMD + self.DEV_INFO
         ):  # JK BMS confirms commands with a command in reply
             self._task = asyncio.create_task(self._send_confirm())
 
@@ -470,9 +471,9 @@ class MockStreamBleakClient(MockJikongBleakClient):
     """Mock JiKong BMS that already sends battery data (no request required)."""
 
     async def _send_all(self) -> None:
-        assert (
-            self._notify_callback
-        ), "send_all frames called but notification not enabled"
+        assert self._notify_callback, (
+            "send_all frames called but notification not enabled"
+        )
         for resp in self._FRAME.values():
             self._notify_callback("MockJikongBleakClient", resp)
             await asyncio.sleep(0)

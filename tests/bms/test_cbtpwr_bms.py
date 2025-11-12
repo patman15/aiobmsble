@@ -8,7 +8,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.cbtpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -179,10 +179,7 @@ async def test_update(
     patch_bms_timeout()
     patch_bleak_client(MockCBTpwrBleakClient)
 
-    bms = BMS(
-        generate_ble_device(),
-        keep_alive_fixture
-    )
+    bms = BMS(generate_ble_device(), keep_alive_fixture)
 
     assert await bms.async_update() == ref_value()
 
