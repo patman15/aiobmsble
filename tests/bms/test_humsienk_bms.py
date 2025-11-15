@@ -26,17 +26,19 @@ class MockHumsienkBleakClient(MockBleakClient):
 
     RESP: dict[bytes, bytearray] = {
         b"\xaa\x00\x00\x00\x00": bytearray(b"\xaa\x00\x00\x00\x00"),  # init
-        b"\xaa\x10\x00\x10\x00": bytearray(b"\xaa\x10\x03\x42\x4d\x43\xe5\x00"),  #
+        b"\xaa\x10\x00\x10\x00": bytearray(
+            b"\xaa\x10\x03\x42\x4d\x43\xe5\x00"
+        ),  # device type: BMC
         b"\xaa\x11\x00\x11\x00": bytearray(
             b"\xaa\x11\x0a\x42\x4d\x43\x2d\x30\x34\x53\x30\x30\x31\x62\x02"
-        ),  #
+        ),  # model: BMC-04S001
         b"\xaa\x20\x00\x20\x00": bytearray(
             b"\xaa\x20\x0f\x00\x00\x00\x00\x80\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x2f\x01"
         ),  #
         b"\xaa\x21\x00\x21\x00": bytearray(
             b"\xaa\x21\x1a\x4a\x33\x00\x00\x82\xfb\xff\xff\x2a\x64\xe4\xf7\x00\x00\xf0\x49\x02\x00"
             b"\x03\x00\x23\x1a\x1a\x1a\x2c\x1a\x91\x08"
-        ),  #
+        ),  # 13.130V, ...
         b"\xaa\x22\x00\x22\x00": bytearray(
             b"\xaa\x22\x30\xd1\x0c\xdb\x0c\xd4\x0c\xd0\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -84,60 +86,49 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
     await bms.disconnect()
 
 
-# async def test_device_info(patch_bleak_client) -> None:
-#     """Test that the BMS returns initialized dynamic device information."""
-#     patch_bleak_client(MockHumsienkBleakClient)
-#     bms = BMS(generate_ble_device())
-#     assert await bms.device_info() == {
-#         "fw_version": "mock_FW_version",
-#         "hw_version": "mock_HW_version",
-#         "sw_version": "mock_SW_version",
-#         "manufacturer": "mock_manufacturer",
-#         "model": "mock_model",
-#         "serial_number": "mock_serial_number",
-#     }
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockHumsienkBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "hw_version": "V02",
+        "model": "BMC-04S001",
+    }
 
 
-# @pytest.fixture(
-#     name="wrong_response",
-#     params=[
-#         (bytearray(b"\x01\x03\x24" + bytes(36) + b"\x7b\xa1"), "wrong_SOF"),
-#         (bytearray(b"\x02\x03\x24" + bytes(36) + b"\x60\x15\x00"), "wrong_length"),
-#         (bytearray(b"\x02\x03\x24" + bytes(36) + b"\x60\x16"), "wrong_CRC"),
-#         (bytearray(b"\x02\x03\x21" + bytes(33) + b"\xba\x66"), "wrong_type"),
-#         (bytearray(), "empty_frame"),
-#     ],
-#     ids=lambda param: param[1],
-# )
-# def fix_response(request) -> bytearray:
-#     """Return faulty response frame."""
-#     return request.param[0]
+@pytest.mark.parametrize(
+    ("wrong_response"),
+    [
+        b"\xbb\x00\x00\x00\x00",
+        b"\xaa\x00\x00\x00\x01",
+        b"\xaa\x00\x00\x00\x00\x00",
+        b"",
+    ],
+    ids=["wrong_SOF", "wrong_CRC", "wrong_len", "empty"],
+)
+async def test_invalid_response(
+    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytes
+) -> None:
+    """Test data up date with BMS returning invalid data."""
 
+    patch_bms_timeout()
 
-# async def test_invalid_response(
-#     monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
-# ) -> None:
-#     """Test data up date with BMS returning invalid data."""
+    monkeypatch.setattr(
+        MockHumsienkBleakClient,
+        "RESP",
+        MockHumsienkBleakClient.RESP | {b"\xaa\x00\x00\x00\x00": wrong_response},
+    )
 
-#     patch_bms_timeout()
+    patch_bleak_client(MockHumsienkBleakClient)
 
-#     monkeypatch.setattr(
-#         MockHumsienkBleakClient,
-#         "RESP",
-#         MockHumsienkBleakClient.RESP
-#         | {b"\x02\x03\x00\x34\x00\x12\x84\x3a": wrong_response},
-#     )
+    bms = BMS(generate_ble_device())
 
-#     patch_bleak_client(MockHumsienkBleakClient)
+    result: BMSSample = {}
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
 
-#     bms = BMS(generate_ble_device())
-
-#     result: BMSSample = {}
-#     with pytest.raises(TimeoutError):
-#         result = await bms.async_update()
-
-#     assert not result
-#     await bms.disconnect()
+    assert not result
+    await bms.disconnect()
 
 
 # @pytest.fixture(

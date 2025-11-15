@@ -64,10 +64,10 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         for cmd in (b"\x11", b"\xf5"):
-            await self._await_reply(cmd)
+            await self._await_reply(BMS._cmd(cmd))
         return {
             "model": barr2str(bytearray(self._data_final[0x11][3:-2])),
-            "sw_version": barr2str(bytearray(self._data_final[0xF5][3:-2])),
+            "hw_version": barr2str(bytearray(self._data_final[0xF5][3:-2])),
         }
 
     @staticmethod
