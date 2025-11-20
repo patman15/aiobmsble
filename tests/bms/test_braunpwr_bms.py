@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.braunpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -58,6 +58,7 @@ def ref_value() -> BMSSample:
         "runtime": 78684,
         "problem_code": 0,
         "problem": False,
+        "balancer": False,
     }
 
 
@@ -128,9 +129,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
+
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
@@ -140,6 +142,7 @@ async def test_device_info(patch_bleak_client) -> None:
         "hw_version": "KS_BLE_WIFI_Ver1.0.0_20240313",
         "sw_version": "2.3.1",
     }
+
 
 @pytest.fixture(
     name="wrong_response",

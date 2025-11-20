@@ -7,7 +7,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.ej_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -88,6 +88,9 @@ class MockEJsfBleakClient(MockEJBleakClient):
             "battery_charging": True,
             "problem": False,
             "problem_code": 0,
+            "balancer": False,
+            "sw_chrg_mosfet": True,
+            "sw_dischrg_mosfet": True
         }
 
 
@@ -152,11 +155,14 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
         "battery_charging": False,
         "problem": False,
         "problem_code": 0,
+        "balancer": False,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
     }
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
@@ -186,7 +192,7 @@ async def test_update_single_frame(patch_bleak_client, keep_alive_fixture) -> No
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

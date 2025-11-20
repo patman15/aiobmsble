@@ -8,7 +8,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -63,6 +63,10 @@ REF_VALUE: BMSSample = {
     ],
     "delta_voltage": 0.003,
     "temp_values": [25.0, 23.8, 23.9, 24.9, 25.0, 23.8, 23.9, 24.9],
+    "sw_dischrg_mosfet": True,
+    "sw_chrg_mosfet": True,
+    "balancer": False,
+    "sw_heater": False,
     "pack_battery_levels": [47.9, 48.0],
     "pack_currents": [-7.2, -7.19],
     "pack_cycles": [9, 10],
@@ -275,7 +279,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     # query again to check already connected state
     assert await bms.async_update() == REF_VALUE
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
@@ -366,7 +370,7 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
 
     problem_resp: dict[str, bytearray] = MockSeplosBleakClient.RESP.copy()
     problem_resp["EIC"] = bytearray(
-        b"\x00\x01\x0a\x01\xff\xff\xff\xff\xff\xff\xff\x03\xff\xcb\x45"
+        b"\x00\x01\x0a\x01\xff\xff\xff\xff\xff\xff\x03\xff\xff\x4a\x75"
     )
 
     monkeypatch.setattr(MockSeplosBleakClient, "RESP", problem_resp)

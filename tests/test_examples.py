@@ -80,6 +80,8 @@ class TestMinimal:
             raise BleakError
 
         patch_find_device_by_name()
+        # Ensure BMS attribute exists on the examples.minimal module before monkeypatching
+        assert hasattr(examples.minimal, "BMS")
         monkeypatch.setattr(examples.minimal.BMS, "async_update", _raise_bleak_error)
         patch_bleak_client()
         await examples.minimal.main("Dummy device")

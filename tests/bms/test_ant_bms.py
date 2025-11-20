@@ -8,7 +8,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.ant_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -57,6 +57,9 @@ _RESULT_DEFS: Final[BMSSample] = {
     "delta_voltage": 0.148,
     "problem": False,
     "problem_code": 0,
+    "balancer": False,
+    "sw_chrg_mosfet": True,
+    "sw_dischrg_mosfet": True,
 }
 
 
@@ -133,7 +136,7 @@ async def test_update(
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
@@ -257,6 +260,8 @@ async def test_problem_response(
     assert result == _RESULT_DEFS | {
         "problem": True,
         "problem_code": (0x202 if problem_response[1] == "low_value" else 0xE0E),
+        "sw_chrg_mosfet": False,
+        "sw_dischrg_mosfet": False,
     }
 
     await bms.disconnect()

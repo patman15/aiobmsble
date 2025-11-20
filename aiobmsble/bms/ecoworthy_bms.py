@@ -19,7 +19,7 @@ class BMS(BaseBMS):
     """ECO-WORTHY BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "ECO-WORTHY", "default_model": "BW02"}
-    _HEAD: Final[tuple] = (b"\xa1", b"\xa2")
+    _HEAD: Final[tuple[bytes, ...]] = (b"\xa1", b"\xa2")
     _CELL_POS: Final[int] = 14
     _TEMP_POS: Final[int] = 80
     _FIELDS_V1: Final[tuple[BMSDp, ...]] = (
@@ -46,7 +46,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._mac_head: Final[tuple] = tuple(
+        self._mac_head: Final[tuple[bytes, ...]] = tuple(
             int(self._ble_device.address.replace(":", ""), 16).to_bytes(6) + head
             for head in BMS._HEAD
         )
@@ -109,14 +109,13 @@ class BMS(BaseBMS):
                 int.from_bytes(data[-2:], "little"),
                 crc,
             )
-            self._data = bytearray()
             return
 
         # copy final data without message type and adapt to protocol type
         shift: Final[bool] = data.startswith(self._mac_head)
-        self._data_final[data[6 if shift else 0]] = (
-            bytearray(2 if shift else 0) + data.copy()
-        )
+        self._data_final[data[6 if shift else 0]] = bytearray(
+            2 if shift else 0
+        ) + bytes(data)
         if BMS._CMDS.issubset(self._data_final.keys()):
             self._data_event.set()
 

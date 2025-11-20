@@ -33,6 +33,7 @@ class BMS(BaseBMS):
         ("voltage", 201, "<f", lambda x: round(x, 3)),
         ("delta_voltage", 209, "<f", lambda x: round(x, 3)),
         ("problem_code", 216, "B", lambda x: x if x in {1, 3, 7, 8, 9, 10, 11} else 0),
+        ("balancer", 216, "B", lambda x: (x == 0x5)),
         ("balance_current", 217, "<f", lambda x: round(x, 3)),
     ]
 
@@ -167,6 +168,7 @@ class BMS(BaseBMS):
         cells: int,
         start: int,
         size: int = 2,
+        gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         divider: int = 1000,
     ) -> list[float]:
@@ -207,4 +209,6 @@ class BMS(BaseBMS):
             self._data_final, cells=24, start=9, byteorder="little", size=4
         )
 
+        self._data_final.clear()
+        self._data_event.clear()  # clear event for next update
         return data

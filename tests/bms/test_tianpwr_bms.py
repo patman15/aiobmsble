@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample, BMSValue
+from aiobmsble import BMSSample, BMSValue
 from aiobmsble.bms.tianpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -49,6 +49,9 @@ def ref_value() -> BMSSample:
         ],
         "temp_values": [28.0, 25.0, 23.0, 23.0, 23.0, 23.0],
         "delta_voltage": 0.014,
+        "balancer": False,
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
         "problem": False,
         "problem_code": 0,
     }
@@ -102,7 +105,6 @@ class MockTianPwrBleakClient(MockBleakClient):
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-
         if isinstance(char_specifier, str) and normalize_uuid_str(
             char_specifier
         ) == normalize_uuid_str("ff02"):
@@ -120,9 +122,9 @@ class MockTianPwrBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, (
+            "write to characteristics but notification not enabled"
+        )
 
         self._notify_callback(
             "MockTianPwrBleakClient", self._response(char_specifier, data)
@@ -140,7 +142,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

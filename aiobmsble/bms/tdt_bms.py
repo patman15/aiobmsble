@@ -40,7 +40,7 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 10, 0x8C),
         BMSDp("battery_level", 13, 1, False, lambda x: x, 0x8C),
         BMSDp("cycles", 8, 2, False, lambda x: x, 0x8C),
-    )  # problem code is not included in the list, but extra
+    )  # problem code, switches are not included in the list, but extra
     _CMDS: Final[list[int]] = [*list({field.idx for field in _FIELDS}), 0x8D]
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -197,6 +197,8 @@ class BMS(BaseBMS):
         result["problem_code"] = int.from_bytes(
             self._data_final[0x8D][BMS._CELL_POS + idx + 6 : BMS._CELL_POS + idx + 8]
         )
+        sw_states: Final[int] = self._data_final[0x8D][BMS._CELL_POS + idx + 8]
+        result |= {"sw_chrg_mosfet": bool(sw_states & 0x4), "sw_dischrg_mosfet": bool(sw_states & 0x2)}
 
         self._data_final.clear()
 
