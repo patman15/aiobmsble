@@ -27,6 +27,8 @@ class BMS(BaseBMS):
     _CMDS: tuple[bytes, ...] = (b"\x20", b"\x21", b"\x22", b"\x23")
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 1000, 0x21),
+        BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),  # TODO: check devisor
+        BMSDp("battery_level", 11, 1, False, lambda x: x, 0x21),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -73,7 +75,7 @@ class BMS(BaseBMS):
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
-            {"power", "battery_charging"}
+            {"power", "battery_charging", "delta_voltage"}
         )  # calculate further values from BMS provided set ones
 
     async def _init_connection(
@@ -149,6 +151,9 @@ class BMS(BaseBMS):
         )
         result["cell_voltages"] = BMS._cell_voltages(
             self._data_final[0x22], cells=24, start=3, byteorder="little"
+        )
+        result["temp_values"] = BMS._temp_values(
+            self._data_final[0x21], values=6, start=23, size=1, byteorder="little"
         )
 
         return result

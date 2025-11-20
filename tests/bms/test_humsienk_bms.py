@@ -15,8 +15,21 @@ from tests.conftest import MockBleakClient
 def ref_value() -> BMSSample:
     """Return reference value for mock Humsienk BMS."""
     return {
+        "battery_level": 42,
         "voltage": 13.130,
+        "current": -1.15,
         "cell_voltages": [3.281, 3.291, 3.284, 3.28],
+        "battery_charging": False,
+        "power": -15.099,
+        "delta_voltage": 0.011,
+        "temp_values": [
+            35.0,
+            26.0,
+            26.0,
+            26.0,
+            44.0,
+            26.0,
+        ],
         "problem": False,
     }
 
