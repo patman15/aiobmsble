@@ -77,9 +77,12 @@
     "advertisement": {
       "local_name": "XZHXLD012404120010    ",
       "service_uuids": ["0000fff0-0000-1000-8000-00805f9b34fb"],
-      "rssi": -53
+      "rssi": -80,
+      "platform_data": ["C0:D6:3C:00:00:00"]
     },
     "type": "seplos_bms",
-    "_comments": ["nRF connect"]
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/547)"
+    ]
   }
 ]
