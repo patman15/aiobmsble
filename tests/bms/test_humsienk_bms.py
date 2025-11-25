@@ -30,6 +30,8 @@ def ref_value() -> BMSSample:
             44.0,
             26.0,
         ],
+        "sw_chrg_mosfet": True,
+        "sw_dischrg_mosfet": True,
         "problem": False,
     }
 

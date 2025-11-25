@@ -29,6 +29,8 @@ class BMS(BaseBMS):
         BMSDp("voltage", 3, 2, False, lambda x: x / 1000, 0x21),
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),  # TODO: check devisor
         BMSDp("battery_level", 11, 1, False, lambda x: x, 0x21),
+        BMSDp("sw_chrg_mosfet", 21, 1, False, lambda x: bool(~(x & 0x1)), 0x21),
+        BMSDp("sw_dischrg_mosfet", 21, 1, False, lambda x: bool(~(x & 0x2)), 0x21),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
