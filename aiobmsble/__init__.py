@@ -60,7 +60,8 @@ class BMSSample(TypedDict, total=False):
 
     battery_charging: bool  # True: battery charging
     battery_mode: BMSMode  # BMS charging mode
-    battery_level: int | float  # [%]
+    battery_level: int | float  # [%] SoC
+    battery_health: int | float  # [%] SoH
     current: float  # [A] (positive: charging)
     power: float  # [W] (positive: charging)
     temperature: int | float  # [°C]
