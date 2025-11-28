@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from typing import Final
+from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -81,6 +82,19 @@ class BMS(BaseBMS):
         return frozenset(
             {"power", "delta_voltage", "temperature", "runtime", "battery_charging"}
         )
+
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        for uuid_str in ("fff1", "fff3", "fff4"):
+            self._log.debug("start notify on RX characteristic %s", uuid_str)
+            await self._client.start_notify(
+                UUID(uuid_str), getattr(self, "_backup_handler")
+            )
+        await super()._init_connection(char_notify)
+
+    def _backup_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
+        self._log.debug("notification from %s: %s", sender, data)
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
