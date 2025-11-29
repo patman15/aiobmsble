@@ -83,7 +83,8 @@ class MockWSNovaBleakClient(MockBleakClient):
     ) -> None:
         """Mock start_notify."""
         await super().start_notify(char_specifier, callback)
-        self._send_info()
+        if char_specifier == "FFF6":
+            self._send_info()
 
 
 async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> None:
