@@ -4,7 +4,6 @@ from collections.abc import Buffer
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
-import pytest
 
 from aiobmsble.bms.dummy_bms import BMS
 from tests.bluetooth import generate_ble_device
