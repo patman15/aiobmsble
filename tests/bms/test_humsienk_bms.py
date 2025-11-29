@@ -49,7 +49,7 @@ class MockHumsienkBleakClient(MockBleakClient):
         ),  # model: BMC-04S001
         b"\xaa\x20\x00\x20\x00": bytearray(
             b"\xaa\x20\x0f\x00\x00\x00\x00\x80\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x2f\x01"
-        ),  #
+        ),  # MOSFET status [7], [9]
         b"\xaa\x21\x00\x21\x00": bytearray(
             b"\xaa\x21\x1a\x4a\x33\x00\x00\x82\xfb\xff\xff\x2a\x64\xe4\xf7\x00\x00\xf0\x49\x02\x00"
             b"\x03\x00\x23\x1a\x1a\x1a\x2c\x1a\x91\x08"
@@ -59,12 +59,12 @@ class MockHumsienkBleakClient(MockBleakClient):
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\xd2\x03"
         ),  # cell voltages
-        b"\xaa\x23\x00\x23\x00": bytearray(b"\xaa\x23\x04\xdc\xfb\xff\xff\xfc\x03"),  #
+        b"\xaa\x23\x00\x23\x00": bytearray(b"\xaa\x23\x04\xdc\xfb\xff\xff\xfc\x03"),
         b"\xaa\x58\x00\x58\x00": bytearray(
             b"\xaa\x58\x30\x04\x00\x98\x3a\x42\x0e\x02\x0d\x04\x00\xc4\x09\xf0\x0a\x04\x00\xf8\x2a"
             b"\x10\x00\x30\x75\x14\x00\x66\x02\x50\x00\x03\x0d\xd1\x0c\xab\x0a\xdd\x0a\x35\x0d\x03"
             b"\x0d\xe3\x09\x15\x0a\xc5\x0d\x1e\x00\x05\x0b"
-        ),  #
+        ),
         b"\xaa\xf5\x00\xf5\x00": bytearray(
             b"\xaa\xf5\x0c\x56\x30\x32\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb9\x01"
         ),  # version info
@@ -85,7 +85,7 @@ class MockHumsienkBleakClient(MockBleakClient):
         )
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Humsienk BMS data update."""
 
     patch_bleak_client(MockHumsienkBleakClient)
@@ -144,50 +144,3 @@ async def test_invalid_response(
 
     assert not result
     await bms.disconnect()
-
-
-# @pytest.fixture(
-#     name="problem_response",
-#     params=[
-#         (
-#             bytearray(
-#                 b"\x02\x03\x24\x00\x04\x00\x12\x00\x14\x00\x13\x00\x14\x00\x14\x00\x14\x80\x00\x00\x00"
-#                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x34\x02\x40\x00\x00\x00\x00\xce\x2b"
-#             ),
-#             "first_bit",
-#         ),
-#         (
-#             bytearray(
-#                 b"\x02\x03\x24\x00\x04\x00\x12\x00\x14\x00\x13\x00\x14\x00\x14\x00\x14\x00\x00\x00\x00"
-#                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x34\x02\x40\x00\x00\x00\x00\x87\x8f"
-#             ),
-#             "last_bit",
-#         ),
-#     ],
-#     ids=lambda param: param[1],
-# )
-# def prb_response(request):
-#     """Return faulty response frame."""
-#     return request.param
-
-
-# async def test_problem_response(
-#     monkeypatch, patch_bleak_client, problem_response: tuple[bytearray, str]
-# ) -> None:
-#     """Test data update with BMS returning error flags."""
-
-#     monkeypatch.setattr(
-#         MockHumsienkBleakClient,
-#         "RESP",
-#         MockHumsienkBleakClient.RESP
-#         | {b"\x02\x03\x00\x34\x00\x12\x84\x3a": problem_response[0]},
-#     )
-
-#     patch_bleak_client(MockHumsienkBleakClient)
-
-#     bms = BMS(generate_ble_device())
-
-#     result: BMSSample = await bms.async_update()
-#     assert result == ref_value() | {"problem": True}
-
-#     await bms.disconnect()
