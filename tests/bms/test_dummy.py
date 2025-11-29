@@ -51,9 +51,9 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     await bms.disconnect()
 
+
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockDummyBleakClient)
     bms = BMS(generate_ble_device())
-    with pytest.raises(NotImplementedError):
-        await bms.device_info()
+    assert {"default_manufacturer", "default_model"}.issubset(await bms.device_info())
