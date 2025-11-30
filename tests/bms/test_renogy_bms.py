@@ -37,9 +37,9 @@ def ref_value() -> BMSSample:
         "temp_sensors": 2,
         "temperature": 17.0,
         "voltage": 13.6,
-        "sw_chrg_mosfet": False,
-        "sw_dischrg_mosfet": False,
-        "sw_heater": False,
+        "chrg_mosfet": False,
+        "dischrg_mosfet": False,
+        "heater": False,
     }
 
 
@@ -199,9 +199,9 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
     assert result == ref_value() | {
         "problem": True,
         "problem_code": 0xFFFFFFFFFFFFFFFFFFFFFFFFFFF1,
-        "sw_chrg_mosfet": True,
-        "sw_dischrg_mosfet": True,
-        "sw_heater": True,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
+        "heater": True,
     }
 
     await bms.disconnect()

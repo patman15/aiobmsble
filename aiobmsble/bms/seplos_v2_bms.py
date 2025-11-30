@@ -192,12 +192,12 @@ class BMS(BaseBMS):
         result["pack_count"] = self._data_final[0x51][42]
 
         # get switches from parallel data (main pack)
-        sw_state: Final[int] = self._data_final[0x62][45]
+        states: Final[int] = self._data_final[0x62][45]
         result |= {
-            "sw_dischrg_mosfet": bool(sw_state & 0x1),
-            "sw_chrg_mosfet": bool(sw_state & 0x2),
-            "balancer": bool(sw_state & 0x4),
-            "sw_heater": bool(sw_state & 0x8),
+            "dischrg_mosfet": bool(states & 0x1),
+            "chrg_mosfet": bool(states & 0x2),
+            "balancer": bool(states & 0x4),
+            "heater": bool(states & 0x8),
         }
 
         # get alarms from parallel data (main pack)

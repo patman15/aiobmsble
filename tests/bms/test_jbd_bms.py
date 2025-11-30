@@ -35,8 +35,8 @@ _RESULT_DEFS: Final[BMSSample] = {
     "problem": False,
     "problem_code": 0,
     "balancer": False,
-    "sw_chrg_mosfet": True,
-    "sw_dischrg_mosfet": True,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
 }
 
 

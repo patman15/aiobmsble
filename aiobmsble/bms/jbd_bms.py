@@ -32,8 +32,8 @@ class BMS(BaseBMS):
         BMSDp("balancer", 16, 4, False),
         BMSDp("problem_code", 20, 2, False),
         BMSDp("battery_level", 23, 1, False),
-        BMSDp("sw_chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x1)),
-        BMSDp("sw_dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2)),
+        BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x1)),
+        BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2)),
         BMSDp("temp_sensors", 26, 1, False),  # count is not limited
     )  # general protocol v4
 
