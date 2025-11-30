@@ -36,8 +36,8 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 7, 2, False, lambda x: x / 100, 0x84),
         BMSDp("cycles", 9, 2, False, lambda x: x, 0x84),
         BMSDp("balancer", 13, 2, False, lambda x: x, 0x85),
-        BMSDp("sw_chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
-        BMSDp("sw_dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
+        BMSDp("chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
+        BMSDp("dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
     )
     _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS}) | set({0x87})
 

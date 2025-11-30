@@ -50,8 +50,8 @@ def ref_value() -> BMSSample:
         "temp_values": [28.0, 25.0, 23.0, 23.0, 23.0, 23.0],
         "delta_voltage": 0.014,
         "balancer": False,
-        "sw_chrg_mosfet": True,
-        "sw_dischrg_mosfet": True,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
         "problem": False,
         "problem_code": 0,
     }

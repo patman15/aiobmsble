@@ -30,8 +30,8 @@ class BMS(BaseBMS):
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),
         BMSDp("battery_level", 11, 1, False, lambda x: x, 0x21),
         # BMSDp("battery_health",12, 1, False, lambda x: x, 0x21),
-        BMSDp("sw_chrg_mosfet", 9, 1, False, bool, 0x20),
-        BMSDp("sw_dischrg_mosfet", 7, 1, False, bool, 0x20),
+        BMSDp("chrg_mosfet", 9, 1, False, bool, 0x20),
+        BMSDp("dischrg_mosfet", 7, 1, False, bool, 0x20),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:

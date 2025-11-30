@@ -48,9 +48,9 @@ class BMS(BaseBMS):
         BMSDp("cycles", 46, 2, False, lambda x: x, EIA_LEN),
         BMSDp("battery_level", 48, 2, False, lambda x: x / 10, EIA_LEN),
         BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
-        BMSDp("sw_dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), EIC_LEN),
-        BMSDp("sw_chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), EIC_LEN),
-        BMSDp("sw_heater", 7, 1, False, lambda x: bool(x & 8), EIC_LEN),
+        BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), EIC_LEN),
+        BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), EIC_LEN),
+        BMSDp("heater", 7, 1, False, lambda x: bool(x & 8), EIC_LEN),
         BMSDp("balancer", 7, 1, False, lambda x: bool(x & 4), EIC_LEN),  # limit FET
     )  # Protocol Seplos V3
     _PFIELDS: Final[list[tuple[BMSpackvalue, int, bool, Callable[[int], Any]]]] = [

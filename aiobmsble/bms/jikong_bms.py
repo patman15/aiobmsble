@@ -35,8 +35,8 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 173, 1, False),
         BMSDp("cycle_charge", 174, 4, False, lambda x: x / 1000),
         BMSDp("cycles", 182, 4, False, lambda x: x),
-        BMSDp("sw_chrg_mosfet", 198, 1, False, bool),
-        BMSDp("sw_dischrg_mosfet", 199, 1, False, bool),
+        BMSDp("chrg_mosfet", 198, 1, False, bool),
+        BMSDp("dischrg_mosfet", 199, 1, False, bool),
         BMSDp("temp_sensors", 214, 2, True),
     )
 
