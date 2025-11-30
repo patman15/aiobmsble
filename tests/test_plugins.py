@@ -39,7 +39,7 @@ def test_matcher_dict(plugin_fixture: ModuleType) -> None:
             ), "manufacturer_data_start needs to contain Byte values!"
 
         if oui := matcher.get("oui"):
-            parts = oui.split(":")
+            parts: list[str] = oui.split(":")
             assert len(parts) == 3 and all(
                 len(part) == 2 and all(c in hexdigits for c in part) for part in parts
             ), f"incorrect {oui=}"
