@@ -142,7 +142,7 @@ class BaseBMS(ABC):
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
-        return f"{cls.INFO['default_manufacturer']} {cls.INFO['default_model']}"
+        return f"{cls.INFO.get('default_manufacturer', "unknown")} {cls.INFO.get('default_model', "unknown")}"
 
     @staticmethod
     @abstractmethod
