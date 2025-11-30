@@ -574,7 +574,9 @@
     "advertisement": {
       "local_name": "LP02555",
       "rssi": -64,
-      "platform_data": ["A5:C2:37:00:00:00"],
+      "platform_data": [
+        "A5:C2:37:00:00:00"
+      ],
       "manufacturer_data": {
         "407": "2e37c2a5"
       },
