@@ -105,7 +105,7 @@ async def test_bms_fail(
     with caplog.at_level(INFO):
         await main_mod.detect_bms()
     assert "Found matching BMS type: Dummy Manufacturer dummy model" in caplog.text
-    assert "Failed to update BMS: TimeoutError" in caplog.text
+    assert "Failed to query BMS: TimeoutError" in caplog.text
 
 
 def test_main_parses_logfile_and_verbose(

@@ -98,7 +98,7 @@ class BaseBMS(ABC):
         self._client: BleakClient = BleakClient(
             self._ble_device,
             disconnected_callback=self._on_disconnect,
-            services=[*self.uuid_services()],
+            services=[*self.uuid_services(), "180a"],
         )
         self._data: bytearray = bytearray()
         self._data_event: Final[asyncio.Event] = asyncio.Event()
@@ -177,9 +177,11 @@ class BaseBMS(ABC):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
+        info: BMSInfo = BMSInfo()
+
         if not self._client.services.get_service("180a"):
             self._log.debug("No BT device information available.")
-            return BMSInfo()
+            return info
 
         characteristics: Final[tuple[tuple[str, BaseBMS.InfoCharType], ...]] = (
             ("2a24", "model"),
@@ -190,7 +192,6 @@ class BaseBMS(ABC):
             ("2a29", "manufacturer"),
         )
 
-        info: BMSInfo = BMSInfo()
         for char, key in characteristics:
             try:
                 if value := await self._client.read_gatt_char(char):
@@ -348,7 +349,7 @@ class BaseBMS(ABC):
             device=self._ble_device,
             name=self._ble_device.address,
             disconnected_callback=self._on_disconnect,
-            services=[*self.uuid_services()],
+            services=[*self.uuid_services(), "180a"],
         )
 
         try:
@@ -446,7 +447,7 @@ class BaseBMS(ABC):
                 self._inv_wr_mode = None  # reset write mode
             await self._client.disconnect()
         except (BleakError, TimeoutError, EOFError) as exc:
-            self._log.error("disconnect failed! (%s)", type(exc).__name__)
+            self._log.warning("disconnect failed! (%s)", type(exc).__name__)
 
     @final
     async def _wait_event(self) -> None:
