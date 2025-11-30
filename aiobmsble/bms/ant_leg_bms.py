@@ -3,7 +3,7 @@
 import contextlib
 from enum import IntEnum
 from functools import cache
-from typing import Final, override
+from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -62,7 +62,6 @@ class BMS(BaseBMS):
         self._data_final: bytearray
 
     @staticmethod
-    @override
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
@@ -75,19 +74,16 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    @override
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("ffe0")]  # change service UUID here!
 
     @staticmethod
-    @override
     def uuid_rx() -> str:
         """Return 16-bit UUID of characteristic that provides notification/read property."""
         return "ffe1"
 
     @staticmethod
-    @override
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
@@ -95,7 +91,6 @@ class BMS(BaseBMS):
     # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
 
     @staticmethod
-    @override
     def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             (
@@ -152,7 +147,6 @@ class BMS(BaseBMS):
         _frame += crc_sum(_frame[2:], 1).to_bytes(1, "big")
         return bytes(_frame)
 
-    @override
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_reply(BMS._cmd(BMS.CMD.GET, BMS.ADR.STATUS))

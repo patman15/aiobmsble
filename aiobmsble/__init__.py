@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from enum import IntEnum
-from typing import Any, Literal, NamedTuple, ReadOnly, TypedDict
+from typing import Any, Literal, NamedTuple, TypedDict
 
 type BMSValue = Literal[
     "battery_charging",
@@ -111,9 +111,9 @@ class BMSDp(NamedTuple):
 class BMSInfo(TypedDict, total=False):
     """Human readable information about the BMS device."""
 
-    default_manufacturer: ReadOnly[str]
-    default_model: ReadOnly[str]
-    default_name: ReadOnly[str]
+    default_manufacturer: str
+    default_model: str
+    default_name: str
     fw_version: str
     manufacturer: str
     model: str
@@ -127,10 +127,10 @@ class BMSInfo(TypedDict, total=False):
 class MatcherPattern(TypedDict, total=False):
     """Optional patterns that can match Bleak advertisement data."""
 
-    local_name: ReadOnly[str]  # name pattern that supports Unix shell-style wildcards
-    manufacturer_data_start: ReadOnly[list[int]]  # start bytes of manufacturer data
-    manufacturer_id: ReadOnly[int]  # required manufacturer ID
-    oui: ReadOnly[str]  # required OUI used in the MAC address (first 3 bytes)
-    service_data_uuid: ReadOnly[str]  # service data for the service UUID
-    service_uuid: ReadOnly[str]  # 128-bit UUID that the device must advertise
-    connectable: ReadOnly[bool]  # True if active connections to the device are required
+    local_name: str  # name pattern that supports Unix shell-style wildcards
+    manufacturer_data_start: list[int]  # start bytes of manufacturer data
+    manufacturer_id: int  # required manufacturer ID
+    oui: str  # required OUI used in the MAC address (first 3 bytes)
+    service_data_uuid: str  # service data for the service UUID
+    service_uuid: str  # 128-bit UUID that the device must advertise
+    connectable: bool  # True if active connections to the device are required
