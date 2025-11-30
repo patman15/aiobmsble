@@ -142,5 +142,7 @@ class BMS(BaseBMS):
         result: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._data, byteorder="little"
         )
-        result["power"] *= -1 if result["current"] < 0 else 1
+        result["power"] = result.get("power", 0) * (
+            -1 if result.get("current", 0) < 0 else 1
+        )
         return result
