@@ -117,9 +117,11 @@ async def test_device_info(patch_bleak_client) -> None:
         b"\xbb\x00\x00\x00\x00",
         b"\xaa\x00\x00\x00\x01",
         b"\xaa\x00\x00\x00\x00\x00",
+        b"\xaa\x10\x00\x10\x00",
+        b"\xaa",
         b"",
     ],
-    ids=["wrong_SOF", "wrong_CRC", "wrong_len", "empty"],
+    ids=["wrong_SOF", "wrong_CRC", "wrong_len", "wrong_type", "only_SOF", "empty"],
 )
 async def test_invalid_response(
     monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytes

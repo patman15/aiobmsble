@@ -94,11 +94,11 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
-        if not data.startswith(BMS._HEAD):
+        if not data.startswith(BMS._HEAD) or ((length := len(data)) < BMS._MIN_LEN):
             self._log.debug("incorrect SOF")
             return
 
-        if (length := len(data) - BMS._MIN_LEN) < 0 or length != data[2]:
+        if length != data[2] + BMS._MIN_LEN:
             self._log.debug("invalid frame length %d != %d", length, data[2])
             return
 
