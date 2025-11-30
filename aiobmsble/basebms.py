@@ -336,8 +336,7 @@ class BaseBMS(ABC):
             return
 
         try:
-            if self.is_connected: # FIXME! seems to be a Bleak Windows issue
-                await self._client.disconnect()  # ensure no stale connection exists
+            await self._client.disconnect()  # ensure no stale connection exists
         except (BleakError, TimeoutError, EOFError) as exc:
             self._log.debug(
                 "failed to disconnect stale connection (%s)", type(exc).__name__
