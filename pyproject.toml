@@ -29,7 +29,8 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 dependencies = [
-  "bleak>=1.0.1",
+  "bleak>=1.0.1; os_name != 'Windows'",
+  "bleak>=2.0.0; os_name == 'Windows'",
   "bleak-retry-connector>=4.4.3",
 ]
 
