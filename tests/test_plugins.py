@@ -15,8 +15,7 @@ def test_bms_id(plugin_fixture: ModuleType) -> None:
     """Test that the BMS returns default information."""
     bms_class: type[BaseBMS] = plugin_fixture.BMS
     for key in ("default_manufacturer", "default_model"):
-        assert key in bms_class.INFO
-        assert bms_class.INFO[key].strip()
+        assert str(bms_class.INFO.get(key, "")).strip()
     assert len(bms_class.bms_id().strip())
 
 

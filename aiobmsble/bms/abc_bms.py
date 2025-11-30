@@ -49,9 +49,9 @@ class BMS(BaseBMS):
             lambda x: sum(((x >> (i * 8)) & 1) << i for i in range(16)),
             0xF9,
         ),
-        BMSDp("sw_chrg_mosfet", 2, 1, False, bool, 0xF2),
-        BMSDp("sw_dischrg_mosfet", 3, 1, False, bool, 0xF2),
-        BMSDp("sw_heater", 8, 1, False, bool, 0xF3),
+        BMSDp("chrg_mosfet", 2, 1, False, bool, 0xF2),
+        BMSDp("dischrg_mosfet", 3, 1, False, bool, 0xF2),
+        BMSDp("heater", 8, 1, False, bool, 0xF3),
         BMSDp("balancer", 10, 1, False, lambda x: x, 0xF3),
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS} | {0xF4}  # cell voltages

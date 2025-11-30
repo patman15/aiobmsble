@@ -51,8 +51,8 @@ class BMS(BaseBMS):
             lambda x: ((x & 0xF00) if (x >> 8) not in (0x1, 0x4, 0xF) else 0)
             | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB, 0xF) else 0),
         ),
-        BMSDp("sw_chrg_mosfet", 103, 1, False, lambda x: x == 0x1),
-        BMSDp("sw_dischrg_mosfet", 104, 1, False, lambda x: x == 0x1),
+        BMSDp("chrg_mosfet", 103, 1, False, lambda x: x == 0x1),
+        BMSDp("dischrg_mosfet", 104, 1, False, lambda x: x == 0x1),
         BMSDp("balancer", 105, 1, False, lambda x: bool(x & 0x4)),
     )
 
@@ -170,7 +170,12 @@ class BMS(BaseBMS):
             result.pop("design_capacity")
             with contextlib.suppress(ZeroDivisionError):
                 result["design_capacity"] = int(
-                    round((result["cycle_charge"] / result["battery_level"]) * 100, -1)
+                    round(
+                        result.get("cycle_charge", 0)
+                        / result.get("battery_level", 0)
+                        * 100,
+                        -1,
+                    )
                 )  # leads to `cycles` not available when level == 0
 
         # ANT-BMS carries 6 slots for temp sensors but only 4 looks like being connected by default

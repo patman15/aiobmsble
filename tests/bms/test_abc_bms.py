@@ -120,9 +120,9 @@ async def test_update(
         "temperature": 20.0,
         "problem": False,
         "balancer": False,
-        "sw_chrg_mosfet": True,
-        "sw_dischrg_mosfet": True,
-        "sw_heater": False,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
+        "heater": False,
     }
 
     # query again to check already connected state

@@ -58,8 +58,8 @@ _RESULT_DEFS: Final[BMSSample] = {
     "problem": False,
     "problem_code": 0,
     "balancer": False,
-    "sw_chrg_mosfet": True,
-    "sw_dischrg_mosfet": True,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
 }
 
 
@@ -260,8 +260,8 @@ async def test_problem_response(
     assert result == _RESULT_DEFS | {
         "problem": True,
         "problem_code": (0x202 if problem_response[1] == "low_value" else 0xE0E),
-        "sw_chrg_mosfet": False,
-        "sw_dischrg_mosfet": False,
+        "chrg_mosfet": False,
+        "dischrg_mosfet": False,
     }
 
     await bms.disconnect()

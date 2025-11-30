@@ -48,9 +48,9 @@ REF_VALUE: BMSSample = {
     "delta_voltage": 0.004,
     "pack_count": 1,
     "balancer": False,
-    "sw_chrg_mosfet": True,
-    "sw_dischrg_mosfet": True,
-    "sw_heater": False,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
+    "heater": False,
     "problem": False,
     "problem_code": 0,
 }

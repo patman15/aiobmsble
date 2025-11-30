@@ -197,8 +197,11 @@ class BMS(BaseBMS):
         result["problem_code"] = int.from_bytes(
             self._data_final[0x8D][BMS._CELL_POS + idx + 6 : BMS._CELL_POS + idx + 8]
         )
-        sw_states: Final[int] = self._data_final[0x8D][BMS._CELL_POS + idx + 8]
-        result |= {"sw_chrg_mosfet": bool(sw_states & 0x4), "sw_dischrg_mosfet": bool(sw_states & 0x2)}
+        mosfets: Final[int] = self._data_final[0x8D][BMS._CELL_POS + idx + 8]
+        result |= {
+            "chrg_mosfet": bool(mosfets & 0x4),
+            "dischrg_mosfet": bool(mosfets & 0x2),
+        }
 
         self._data_final.clear()
 

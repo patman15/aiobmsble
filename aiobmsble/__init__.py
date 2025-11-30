@@ -12,6 +12,7 @@ type BMSValue = Literal[
     "battery_charging",
     "battery_mode",
     "battery_level",
+    "battery_health",
     "current",
     "power",
     "temperature",
@@ -32,10 +33,9 @@ type BMSValue = Literal[
     "temp_sensors",
     "temp_values",
     "problem_code",
-    "sw_chrg_mosfet",
-    "sw_dischrg_mosfet",
-    "sw_heater",
-    "sw_dry_contacts",
+    "chrg_mosfet",
+    "dischrg_mosfet",
+    "heater",
 ]
 
 type BMSpackvalue = Literal[
@@ -86,10 +86,9 @@ class BMSSample(TypedDict, total=False):
     problem_code: int  # BMS specific code, 0 no problem
 
     # BMS switches
-    sw_chrg_mosfet: bool  # True: enabled
-    sw_dischrg_mosfet: bool  # True: enabled
-    sw_heater: bool  # True: enabled
-    sw_dry_contacts: int  # bit mask 1: closed/on, 0: open/off
+    chrg_mosfet: bool  # True: enabled
+    dischrg_mosfet: bool  # True: enabled
+    heater: bool  # True: enabled
 
     # battery pack data
     pack_voltages: list[float]  # [V]
