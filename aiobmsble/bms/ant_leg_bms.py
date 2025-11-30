@@ -170,7 +170,12 @@ class BMS(BaseBMS):
             result.pop("design_capacity")
             with contextlib.suppress(ZeroDivisionError):
                 result["design_capacity"] = int(
-                    round((result["cycle_charge"] / result["battery_level"]) * 100, -1)
+                    round(
+                        result.get("cycle_charge", 0)
+                        / result.get("battery_level", 0)
+                        * 100,
+                        -1,
+                    )
                 )  # leads to `cycles` not available when level == 0
 
         # ANT-BMS carries 6 slots for temp sensors but only 4 looks like being connected by default
