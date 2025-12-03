@@ -219,22 +219,8 @@ async def test_missing_message(
 
     bms = BMS(generate_ble_device())
 
-    # remove values from reference that are in 0x84 response (and dependent)
-    ref: BMSSample = ref_value()
-    key: BMSValue
-    for key in (
-        "battery_level",
-        "battery_charging",
-        "cycle_capacity",
-        "power",
-        "voltage",
-        "current",
-        "temp_values",
-        "temperature",
-    ):
-        ref.pop(key)
-    assert await bms.async_update() == ref
-    await bms.disconnect()
+    with pytest.raises(TimeoutError):
+        await bms.async_update()
 
 
 @pytest.fixture(
