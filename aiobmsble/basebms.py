@@ -16,7 +16,11 @@ from typing import Any, Final, Literal, Self, final
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.exc import BleakCharacteristicNotFoundError, BleakError
+from bleak.exc import (
+    BleakCharacteristicNotFoundError,
+    BleakDeviceNotFoundError,
+    BleakError,
+)
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
@@ -427,13 +431,11 @@ class BaseBMS(ABC):
 
                     self._inv_wr_mode = inv_wr_mode
                     return  # leave loop if no exception
+            except (BleakCharacteristicNotFoundError, BleakDeviceNotFoundError):
+                raise  # do not retry on these exceptions
             except BleakError as exc:
-                # reconnect on communication errors
-                self._log.warning(
-                    "TX BLE request error, retrying connection (%s)", type(exc).__name__
-                )
-                await self.disconnect()
-                await self._connect()
+                self._log.error("TX BLE request error (%s)", type(exc).__name__)
+                # try next write mode, without reconnecting, as recursion might occur
         raise TimeoutError
 
     @final
