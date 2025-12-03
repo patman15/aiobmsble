@@ -32,8 +32,9 @@ class BMS(BaseBMS):
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),
         BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 100),  # /10 for 0x62
-        BMSDp("cycles", 13, 2, False, lambda x: x),
+        BMSDp("cycles", 13, 2, False),
         BMSDp("battery_level", 9, 2, False, lambda x: x / 10),
+        BMSDp("battery_health", 15, 2, False, lambda x: x / 10),
     )
     _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
     _CMDS: Final[list[tuple[int, bytes]]] = [(0x51, b""), (0x61, b"\x00"), (0x62, b"")]

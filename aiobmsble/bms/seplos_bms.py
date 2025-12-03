@@ -47,6 +47,7 @@ class BMS(BaseBMS):
         BMSDp("pack_count", 44, 2, False, lambda x: x, EIA_LEN),
         BMSDp("cycles", 46, 2, False, lambda x: x, EIA_LEN),
         BMSDp("battery_level", 48, 2, False, lambda x: x / 10, EIA_LEN),
+        BMSDp("battery_health", 50, 2, False, lambda x: x / 10, EIA_LEN),
         BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
         BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), EIC_LEN),
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), EIC_LEN),
@@ -57,6 +58,7 @@ class BMS(BaseBMS):
         ("pack_voltages", 0, False, lambda x: x / 100),
         ("pack_currents", 2, True, lambda x: x / 100),
         ("pack_battery_levels", 10, False, lambda x: x / 10),
+        ("pack_battery_health", 12, False, lambda x: x / 10),
         ("pack_cycles", 14, False, lambda x: x),
     ]  # Protocol Seplos V3
     _CMDS: Final[set[int]] = {field[2] for field in QUERY.values()} | {

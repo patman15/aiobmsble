@@ -21,6 +21,7 @@ def ref_value() -> BMSSample:
         "voltage": 54.74,
         "current": 0.0,
         "battery_level": 60,
+        "battery_health": 100,
         "cycle_charge": 138.96,
         "cycles": 0,
         "temperature": 24.167,
@@ -224,6 +225,7 @@ async def test_missing_message(
     key: BMSValue
     for key in (
         "battery_level",
+        "battery_health",
         "battery_charging",
         "cycle_capacity",
         "power",

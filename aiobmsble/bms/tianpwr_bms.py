@@ -29,6 +29,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 3, 2, False, lambda x: x, 0x83),
         BMSDp("voltage", 5, 2, False, lambda x: x / 100, 0x83),
         BMSDp("current", 13, 2, True, lambda x: x / 100, 0x83),
+        BMSDp("battery_health", 17, 2, False, lambda x: x, 0x83),
         BMSDp("problem_code", 11, 8, False, lambda x: x, 0x84),
         BMSDp("cell_count", 3, 1, False, lambda x: x, 0x84),
         BMSDp("temp_sensors", 4, 1, False, lambda x: x, 0x84),

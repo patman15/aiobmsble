@@ -16,6 +16,7 @@ def ref_value() -> BMSSample:
     """Return reference value for mock Humsienk BMS."""
     return {
         "battery_level": 42,
+        "battery_health": 100,
         "voltage": 13.130,
         "current": -1.15,
         "cell_voltages": [3.281, 3.291, 3.284, 3.28],

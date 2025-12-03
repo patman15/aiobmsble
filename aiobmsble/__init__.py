@@ -42,6 +42,7 @@ type BMSpackvalue = Literal[
     "pack_voltages",
     "pack_currents",
     "pack_battery_levels",
+    "pack_battery_health",
     "pack_cycles",
 ]
 
@@ -94,6 +95,7 @@ class BMSSample(TypedDict, total=False):
     pack_voltages: list[float]  # [V]
     pack_currents: list[float]  # [A]
     pack_battery_levels: list[int | float]  # [%]
+    pack_battery_health: list[int | float]  # [%]
     pack_cycles: list[int]  # [#]
 
 

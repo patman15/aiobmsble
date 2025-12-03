@@ -28,8 +28,8 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 1000, 0x21),
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),
-        BMSDp("battery_level", 11, 1, False, lambda x: x, 0x21),
-        # BMSDp("battery_health",12, 1, False, lambda x: x, 0x21),
+        BMSDp("battery_level", 11, 1, False, idx=0x21),
+        BMSDp("battery_health", 12, 1, False, idx=0x21),
         BMSDp("chrg_mosfet", 9, 1, False, bool, 0x20),
         BMSDp("dischrg_mosfet", 7, 1, False, bool, 0x20),
     )
