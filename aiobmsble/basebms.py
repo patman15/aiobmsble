@@ -329,7 +329,7 @@ class BaseBMS(ABC):
         )
 
     @final
-    async def _connect(self, init: bool = True) -> None:
+    async def _connect(self) -> None:
         """Connect to the BMS and setup notification if not connected."""
 
         if self._client.is_connected:
@@ -352,8 +352,6 @@ class BaseBMS(ABC):
             services=[*self.uuid_services(), "180a"],
         )
 
-        if not init:
-            return
         try:
             await self._init_connection()
         except Exception as exc:
@@ -435,7 +433,7 @@ class BaseBMS(ABC):
                     "TX BLE request error, retrying connection (%s)", type(exc).__name__
                 )
                 await self.disconnect()
-                await self._connect(init=False)
+                await self._connect()
         raise TimeoutError
 
     @final
