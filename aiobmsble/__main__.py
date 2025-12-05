@@ -66,8 +66,6 @@ async def detect_bms() -> None:
                 logger.info("BMS data: %s", repr(data).replace(", '", ",\n\t'"))
             except (BleakError, TimeoutError) as exc:
                 logger.error("Failed to query BMS: %s", type(exc).__name__)
-            finally:
-                await bms.disconnect()
 
     logger.info("done.")
 
