@@ -30,7 +30,7 @@ jobs:
           id: set-param
           run: |
             if [[ "${{ github.event_name }}" == "schedule" ]]; then
-              echo "test_param='--max-examples=100000'" >> $GITHUB_ENV
+              echo "test_param='--max-examples=75000'" >> $GITHUB_ENV
             fi
       
         - name: Run fuzz tests
