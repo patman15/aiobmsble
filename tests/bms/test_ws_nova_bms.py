@@ -12,7 +12,7 @@ from aiobmsble.bms.ws_nova_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
-BT_FRAME_SIZE = 300
+BT_FRAME_SIZE = 20
 
 _PROTO_DEFS: Final[bytearray] = bytearray(
     b"\x3a\x32\x31\x37\x34\x32\x31\x32\x30\x43\x43\x32\x30\x32\x31\x32\x32\x34\x39\x33"
@@ -48,7 +48,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.257,
         3.252,
     ],
-    "sw_heater": False,
+    "heater": False,
     "problem": False,
 }
 

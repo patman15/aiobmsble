@@ -87,30 +87,30 @@ class BMS(BaseBMS):
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         await self._await_reply(
-            b"\x3a\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45\x7e",
+            BMS._HEAD + b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45" + BMS._TAIL,
             wait_for_notify=False,
         )
         await super()._init_connection(char_notify)
-
-    def _backup_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
-        self._log.debug("notification from %s: %s", sender, data)
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
-        self._log.debug("RX BLE data: %s", data)
 
-        if not data.startswith(BMS._HEAD):
-            self._log.debug("incorrect SOF")
+        if data.startswith(BMS._HEAD):
+            self._data.clear()
+
+        self._data += data
+
+        self._log.debug(
+            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+        )
+
+        if not (self._data.startswith(BMS._HEAD) and self._data.endswith(BMS._TAIL)):
             return
 
-        if not data.endswith(BMS._TAIL):
-            self._log.debug("incorrect EOF")
-            return
-
-        if len(data) % 2:
-            self._log.debug("incorrect frame length (%i)", len(data))
+        if len(self._data) % 2:
+            self._log.debug("incorrect frame length (%i)", len(self._data))
             return
 
         if not all(chr(c) in hexdigits for c in self._data[1:-1]):
@@ -118,13 +118,15 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        data = bytearray(b ^ 0x20 for b in bytes.fromhex(data[1:-1].decode("ascii")))
-
-        # if (crc := crc_sum(data[:-1])) != data[-1]:
-        #     self._log.debug("invalid checksum 0x%X != 0x%X", data[-1], crc)
+        decoded = bytearray(
+            b ^ 0x20 for b in bytes.fromhex(self._data[1:-1].decode("ascii"))
+        )
+        self._log.debug("decoded data: %s", decoded)
+        # if (crc := crc_sum(decoded[:-1])) != decoded[-1]:
+        #     self._log.debug("invalid checksum 0x%X != 0x%X", decoded[-1], crc)
         #     return
 
-        self._data_final = data.copy()
+        self._data_final = decoded.copy()
         self._data_event.set()
 
     async def _async_update(self) -> BMSSample:
