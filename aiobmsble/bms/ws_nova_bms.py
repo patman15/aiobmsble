@@ -38,7 +38,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 17, 1, False),
         BMSDp("design_capacity", 18, 4, False, lambda x: x // 1000),
         BMSDp("cycle_charge", 22, 4, False, lambda x: x / 1000),
-        BMSDp("sw_heater", 107, 4, False, lambda x: bool(x)),
+        BMSDp("heater", 107, 4, False, lambda x: bool(x)),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -70,7 +70,7 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-        raise NotImplementedError
+        return "FFF6"
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
@@ -86,7 +86,10 @@ class BMS(BaseBMS):
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
-        await self._await_reply(b"\x3A\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45\x7E")
+        await self._await_reply(
+            b"\x3a\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45\x7e",
+            wait_for_notify=False,
+        )
         await super()._init_connection(char_notify)
 
     def _backup_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
