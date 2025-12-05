@@ -86,9 +86,7 @@ class BMS(BaseBMS):
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
-        for uuid_str in ("fff1", "fff3", "fff4"):
-            self._log.debug("start notify on RX characteristic %s", uuid_str)
-            await self._client.start_notify(uuid_str, getattr(self, "_backup_handler"))
+        await self._await_reply(b"\x3A\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45\x7E")
         await super()._init_connection(char_notify)
 
     def _backup_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
