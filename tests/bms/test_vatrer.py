@@ -30,8 +30,8 @@ def ref_value() -> BMSSample:
         "battery_charging": False,
         "power": -261.243,
         "balancer": False,
-        "sw_chrg_mosfet": True,
-        "sw_dischrg_mosfet": True,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
         "problem": False,
         "cell_voltages": [
             3.295,

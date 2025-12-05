@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, BMSValue
+from aiobmsble import BMSSample
 from aiobmsble.bms.tianpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -50,8 +50,8 @@ def ref_value() -> BMSSample:
         "temp_values": [28.0, 25.0, 23.0, 23.0, 23.0, 23.0],
         "delta_voltage": 0.014,
         "balancer": False,
-        "sw_chrg_mosfet": True,
-        "sw_dischrg_mosfet": True,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
         "problem": False,
         "problem_code": 0,
     }
@@ -219,22 +219,8 @@ async def test_missing_message(
 
     bms = BMS(generate_ble_device())
 
-    # remove values from reference that are in 0x84 response (and dependent)
-    ref: BMSSample = ref_value()
-    key: BMSValue
-    for key in (
-        "battery_level",
-        "battery_charging",
-        "cycle_capacity",
-        "power",
-        "voltage",
-        "current",
-        "temp_values",
-        "temperature",
-    ):
-        ref.pop(key)
-    assert await bms.async_update() == ref
-    await bms.disconnect()
+    with pytest.raises(TimeoutError):
+        await bms.async_update()
 
 
 @pytest.fixture(

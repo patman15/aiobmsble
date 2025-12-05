@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiobmsble"
-version = "0.12.0-beta.5"
-requires-python = ">=3.13"
+version = "0.12.2-beta.1"
+requires-python = ">=3.12"
 description = "Asynchronous Python library to query battery management systems via Bluetooth Low Energy."
 readme = "README.md"
 authors = [
@@ -29,7 +29,8 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 dependencies = [
-  "bleak>=1.0.1",
+  "bleak>=1.0.1; os_name != 'Windows'",
+  "bleak>=2.0.0; os_name == 'Windows'",
   "bleak-retry-connector>=4.4.3",
 ]
 

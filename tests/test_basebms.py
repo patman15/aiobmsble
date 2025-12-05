@@ -9,7 +9,7 @@ from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
-from bleak.exc import BleakError
+from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
@@ -356,6 +356,11 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
             [0x15, 0x16],
         ),
         (
+            [BleakDeviceNotFoundError("mock_device")],
+            [False],
+            [BleakDeviceNotFoundError("mock_device")],
+        ),
+        (
             [None] * (BaseBMS.MAX_RETRY - 1) + [ValueError()],
             [True] * (BaseBMS.MAX_RETRY),
             [ValueError()],
@@ -367,6 +372,7 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
         "retry_count-1",
         "retry_count",
         "mode_switch",
+        "no-retry-exc",
         "unhandled_exc",
     ],
 )

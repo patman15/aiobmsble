@@ -36,8 +36,8 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 7, 2, False, lambda x: x / 100, 0x84),
         BMSDp("cycles", 9, 2, False, lambda x: x, 0x84),
         BMSDp("balancer", 13, 2, False, lambda x: x, 0x85),
-        BMSDp("sw_chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
-        BMSDp("sw_dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
+        BMSDp("chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
+        BMSDp("dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
     )
     _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS}) | set({0x87})
 
@@ -121,6 +121,9 @@ class BMS(BaseBMS):
         for cmd in BMS._CMDS:
             await self._await_reply(BMS._cmd(cmd))
 
+        if not BMS._CMDS.issubset(self._data_final):
+            raise TimeoutError("Incomplete data received from BMS.")
+
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
 
         for cmd in range(
@@ -133,18 +136,17 @@ class BMS(BaseBMS):
                 self._data_final.get(cmd, bytearray()), cells=8, start=3
             )
 
-        if {0x83, 0x87}.issubset(self._data_final):
-            result["temp_values"] = [
-                int.from_bytes(
-                    self._data_final[0x83][idx : idx + 2], byteorder="big", signed=True
-                )
-                / 10
-                for idx in (7, 11)  # take ambient and mosfet temperature
-            ] + BMS._temp_values(
-                self._data_final.get(0x87, bytearray()),
-                values=min(BMS._MAX_TEMP, result.get("temp_sensors", 0)),
-                start=3,
-                divider=10,
+        result["temp_values"] = [
+            int.from_bytes(
+                self._data_final[0x83][idx : idx + 2], byteorder="big", signed=True
             )
+            / 10
+            for idx in (7, 11)  # take ambient and mosfet temperature
+        ] + BMS._temp_values(
+            self._data_final.get(0x87, bytearray()),
+            values=min(BMS._MAX_TEMP, result.get("temp_sensors", 0)),
+            start=3,
+            divider=10,
+        )
 
         return result

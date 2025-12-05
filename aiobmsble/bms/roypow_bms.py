@@ -46,8 +46,8 @@ class BMS(BaseBMS):
         BMSDp("runtime", 30, 2, False, lambda x: x * 60, 0x4),
         BMSDp("temp_sensors", 13, 1, False, lambda x: x, 0x3),
         BMSDp("cycles", 9, 2, False, lambda x: x, 0x4),
-        BMSDp("sw_chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x4), 0x3),
-        BMSDp("sw_dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2), 0x3),
+        BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x4), 0x3),
+        BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2), 0x3),
     )
     _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS})
 

@@ -3,7 +3,7 @@
 import contextlib
 from enum import IntEnum
 from functools import cache
-from typing import Final, override
+from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -51,8 +51,8 @@ class BMS(BaseBMS):
             lambda x: ((x & 0xF00) if (x >> 8) not in (0x1, 0x4, 0xF) else 0)
             | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB, 0xF) else 0),
         ),
-        BMSDp("sw_chrg_mosfet", 103, 1, False, lambda x: x == 0x1),
-        BMSDp("sw_dischrg_mosfet", 104, 1, False, lambda x: x == 0x1),
+        BMSDp("chrg_mosfet", 103, 1, False, lambda x: x == 0x1),
+        BMSDp("dischrg_mosfet", 104, 1, False, lambda x: x == 0x1),
         BMSDp("balancer", 105, 1, False, lambda x: bool(x & 0x4)),
     )
 
@@ -62,7 +62,6 @@ class BMS(BaseBMS):
         self._data_final: bytearray
 
     @staticmethod
-    @override
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
@@ -75,19 +74,16 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    @override
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return [normalize_uuid_str("ffe0")]  # change service UUID here!
 
     @staticmethod
-    @override
     def uuid_rx() -> str:
         """Return 16-bit UUID of characteristic that provides notification/read property."""
         return "ffe1"
 
     @staticmethod
-    @override
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
@@ -95,7 +91,6 @@ class BMS(BaseBMS):
     # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
 
     @staticmethod
-    @override
     def _calc_values() -> frozenset[BMSValue]:
         return frozenset(
             (
@@ -152,7 +147,6 @@ class BMS(BaseBMS):
         _frame += crc_sum(_frame[2:], 1).to_bytes(1, "big")
         return bytes(_frame)
 
-    @override
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_reply(BMS._cmd(BMS.CMD.GET, BMS.ADR.STATUS))
@@ -176,7 +170,12 @@ class BMS(BaseBMS):
             result.pop("design_capacity")
             with contextlib.suppress(ZeroDivisionError):
                 result["design_capacity"] = int(
-                    round((result["cycle_charge"] / result["battery_level"]) * 100, -1)
+                    round(
+                        result.get("cycle_charge", 0)
+                        / result.get("battery_level", 0)
+                        * 100,
+                        -1,
+                    )
                 )  # leads to `cycles` not available when level == 0
 
         # ANT-BMS carries 6 slots for temp sensors but only 4 looks like being connected by default

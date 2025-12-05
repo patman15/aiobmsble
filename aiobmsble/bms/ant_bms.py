@@ -46,8 +46,8 @@ class BMS(BaseBMS):
         BMSDp("total_charge", 58, 4, False, lambda x: x // 1000),
         BMSDp("delta_voltage", 82, 2, False, lambda x: x / 1000),
         BMSDp("power", 62, 4, True, lambda x: x / 1),
-        BMSDp("sw_chrg_mosfet", 46, 1, False, lambda x: x == 0x1),
-        BMSDp("sw_dischrg_mosfet", 47, 1, False, lambda x: x == 0x1),
+        BMSDp("chrg_mosfet", 46, 1, False, lambda x: x == 0x1),
+        BMSDp("dischrg_mosfet", 47, 1, False, lambda x: x == 0x1),
         BMSDp("balancer", 48, 1, False, lambda x: bool(x & 0x4)),
     )
 
