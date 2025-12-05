@@ -31,7 +31,7 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 26, 2, False, lambda x: x // 100, 0xA1),
         BMSDp("cell_count", _CELL_POS, 2, False, idx=0xA2),
         BMSDp("temp_sensors", _TEMP_POS, 2, False, idx=0xA2),
-        # ("cycles", 0xA1, 8, 2, False, lambda x: x),
+        # ("cycles", 0xA1, 8, 2, False,
     )
     _FIELDS_V2: Final[tuple[BMSDp, ...]] = tuple(
         BMSDp(

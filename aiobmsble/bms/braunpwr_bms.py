@@ -33,7 +33,7 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 34, 1, False, idx=0x1),
         BMSDp("cycle_charge", 15, 2, False, lambda x: x / 100, 0x1),
         BMSDp("design_capacity", 17, 2, False, lambda x: x // 100, 0x1),
-        BMSDp("cycles", 23, 2, False, lambda x: x, 0x1),
+        BMSDp("cycles", 23, 2, False, idx=0x1),
         BMSDp("problem_code", 31, 2, False, idx=0x1),
         BMSDp("balancer", 20, 2, False, idx=0x1),
     )

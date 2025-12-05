@@ -38,18 +38,18 @@ class BMS(BaseBMS):
         BMSDp(
             "current", 89, 8, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
         ),
-        BMSDp("battery_level", 123, 2, False, lambda x: x, Cmd.RT),
+        BMSDp("battery_level", 123, 2, False, idx=Cmd.RT),
         BMSDp("cycle_charge", 15, 4, False, lambda x: x / 10, Cmd.CAP),
         BMSDp(
             "temperature", 97, 2, False, lambda x: x - 40, Cmd.RT
         ),  # only 1st sensor relevant
-        BMSDp("cycles", 115, 4, False, lambda x: x, Cmd.RT),
+        BMSDp("cycles", 115, 4, False, idx=Cmd.RT),
         BMSDp(
             "problem_code", 105, 4, False, lambda x: x & 0x0FFC, Cmd.RT
         ),  # mask status bits
         BMSDp("dischrg_mosfet", 105, 1, False, lambda x: bool(x & 0x1), Cmd.RT),
         BMSDp("chrg_mosfet", 105, 1, False, lambda x: bool(x & 0x2), Cmd.RT),
-        BMSDp("balancer", 111, 4, False, lambda x: x, Cmd.RT)
+        BMSDp("balancer", 111, 4, False, idx=Cmd.RT)
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
