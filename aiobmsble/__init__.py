@@ -12,7 +12,7 @@ type BMSValue = Literal[
     "battery_charging",
     "battery_mode",
     "battery_level",
-    # "battery_health",
+    "battery_health",
     "current",
     "power",
     "temperature",
@@ -42,6 +42,7 @@ type BMSpackvalue = Literal[
     "pack_voltages",
     "pack_currents",
     "pack_battery_levels",
+    "pack_battery_health",
     "pack_cycles",
 ]
 
@@ -60,8 +61,8 @@ class BMSSample(TypedDict, total=False):
 
     battery_charging: bool  # True: battery charging
     battery_mode: BMSMode  # BMS charging mode
-    battery_level: int | float  # [%]
-    # battery_health: int | float  # [%]
+    battery_level: int | float  # [%] SoC
+    battery_health: int | float  # [%] SoH
     current: float  # [A] (positive: charging)
     power: float  # [W] (positive: charging)
     temperature: int | float  # [°C]
@@ -94,6 +95,7 @@ class BMSSample(TypedDict, total=False):
     pack_voltages: list[float]  # [V]
     pack_currents: list[float]  # [A]
     pack_battery_levels: list[int | float]  # [%]
+    pack_battery_health: list[int | float]  # [%]
     pack_cycles: list[int]  # [#]
 
 

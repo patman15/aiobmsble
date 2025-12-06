@@ -20,6 +20,7 @@ REF_VALUE: BMSSample = {
     "voltage": 53.0,
     "current": 6.85,
     "battery_level": 51.4,
+    "battery_health": 100.0,
     "cycle_charge": 143.94,
     "cycles": 128,
     "temperature": 23.65,

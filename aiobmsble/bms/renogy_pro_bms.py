@@ -25,7 +25,7 @@ class BMS(RenogyBMS):
         BMSDp("current", 3, 2, True, lambda x: x / 10),
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000),
-        BMSDp("cycles", 15, 2, False, lambda x: x),
+        BMSDp("cycles", 15, 2, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:

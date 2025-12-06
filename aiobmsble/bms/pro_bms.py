@@ -49,7 +49,7 @@ class BMS(BaseBMS):
             lambda x: ((x & 0xFFFF) / 10) * (-1 if x >> 16 else 1),
         ),
         BMSDp("cycle_charge", 20, 4, False, lambda x: x / 100),
-        BMSDp("battery_level", 24, 1, False, lambda x: x),
+        BMSDp("battery_level", 24, 1, False),
         BMSDp("power", 32, 4, False, lambda x: x / 100),
     )
 

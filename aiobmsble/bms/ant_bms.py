@@ -33,7 +33,8 @@ class BMS(BaseBMS):
         BMSDp("voltage", 38, 2, False, lambda x: x / 100),
         BMSDp("current", 40, 2, True, lambda x: x / 10),
         BMSDp("design_capacity", 50, 4, False, lambda x: x // 1e6),
-        BMSDp("battery_level", 42, 2, False, lambda x: x),
+        BMSDp("battery_level", 42, 2, False),
+        BMSDp("battery_health", 44, 2, False),
         BMSDp(
             "problem_code",
             46,
@@ -45,7 +46,7 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 54, 4, False, lambda x: x / 1e6),
         BMSDp("total_charge", 58, 4, False, lambda x: x // 1000),
         BMSDp("delta_voltage", 82, 2, False, lambda x: x / 1000),
-        BMSDp("power", 62, 4, True, lambda x: x / 1),
+        BMSDp("power", 62, 4, True, float),
         BMSDp("chrg_mosfet", 46, 1, False, lambda x: x == 0x1),
         BMSDp("dischrg_mosfet", 47, 1, False, lambda x: x == 0x1),
         BMSDp("balancer", 48, 1, False, lambda x: bool(x & 0x4)),
