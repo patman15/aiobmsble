@@ -7,7 +7,7 @@ import pytest
 
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.test_data import BmsAdvList, bms_advertisements
+from aiobmsble.test_data import bms_advertisements
 from aiobmsble.utils import (
     _advertisement_matches,
     bms_cls,
@@ -27,16 +27,6 @@ from tests.bluetooth import generate_advertisement_data
 def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
     """Return module of a BMS."""
     return request.param
-
-
-def get_advertisement_by_type(
-    advertisements: BmsAdvList, name: str
-) -> AdvertisementData | None:
-    """Return advertisement for a specific BMS type."""
-    for ad_data, ad_name, _type, _comments in advertisements:
-        if ad_name == name:
-            return ad_data
-    return None
 
 
 async def test_bms_identify(plugin: ModuleType) -> None:
