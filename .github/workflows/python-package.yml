@@ -38,3 +38,5 @@ jobs:
         mypy aiobmsble --strict
     - name: Test with pytest
       run: pytest
+    - name: "Spell checking"
+      run: codespell
