@@ -39,7 +39,8 @@ jobs:
 
       - name: Set version from tag
         run: |
-          VERSION=${{ replace(github.event.release.tag_name, 'v', '') }}
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
           toml set --toml-path pyproject.toml project.version "$VERSION"
 
       - name: Build release package
