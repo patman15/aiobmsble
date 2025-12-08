@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from functools import cache
 from string import hexdigits
 from typing import Final
 
@@ -74,7 +75,9 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        await self._await_reply(
+            self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45")
+        )
         return BMSInfo(serial_number=barr2str(self._data_final[91:107]))
 
     @staticmethod
@@ -82,15 +85,6 @@ class BMS(BaseBMS):
         return frozenset(
             {"power", "delta_voltage", "temperature", "runtime", "battery_charging"}
         )
-
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        await self._await_reply(
-            BMS._HEAD + b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45" + BMS._TAIL,
-            wait_for_notify=False,
-        )
-        await super()._init_connection(char_notify)
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -129,9 +123,19 @@ class BMS(BaseBMS):
         self._data_final = decoded.copy()
         self._data_event.set()
 
+    @staticmethod
+    @cache
+    def _cmd(cmd: bytes) -> bytes:
+        """Assemble a Wattstunde Nova BMS command."""
+
+        return BMS._HEAD + cmd + BMS._TAIL
+
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        if not self._data_event.is_set():
+            await self._await_reply(
+                self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45")
+            )
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final, offset=52)
         result["cell_voltages"] = BMS._cell_voltages(
@@ -140,4 +144,5 @@ class BMS(BaseBMS):
         result["temp_values"] = BMS._temp_values(
             self._data_final, values=4, start=48, size=1, signed=False, offset=40
         )
+        self._data_event.clear()
         return result
