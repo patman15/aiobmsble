@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.abc_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -113,16 +113,21 @@ async def test_update(
         "cell_voltages": [3.442, 3.496, 3.375, 3.464, 3.457, 3.429, 3.359, 3.42],
         "temp_values": [20],
         "delta_voltage": 0.137,
+        "design_capacity": 100,
         "cycle_capacity": 2922.047,
         "power": 0.0,
         "battery_charging": False,
         "temperature": 20.0,
         "problem": False,
+        "balancer": False,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
+        "heater": False,
     }
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

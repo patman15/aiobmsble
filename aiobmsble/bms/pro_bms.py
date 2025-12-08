@@ -49,7 +49,7 @@ class BMS(BaseBMS):
             lambda x: ((x & 0xFFFF) / 10) * (-1 if x >> 16 else 1),
         ),
         BMSDp("cycle_charge", 20, 4, False, lambda x: x / 100),
-        BMSDp("battery_level", 24, 1, False, lambda x: x),
+        BMSDp("battery_level", 24, 1, False),
         BMSDp("power", 32, 4, False, lambda x: x / 100),
     )
 
@@ -142,5 +142,7 @@ class BMS(BaseBMS):
         result: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._data, byteorder="little"
         )
-        result["power"] *= -1 if result["current"] < 0 else 1
+        result["power"] = result.get("power", 0) * (
+            -1 if result.get("current", 0) < 0 else 1
+        )
         return result

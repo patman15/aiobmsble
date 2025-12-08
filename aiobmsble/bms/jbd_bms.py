@@ -25,17 +25,20 @@ class BMS(BaseBMS):
     INFO_LEN: Final[int] = 7  # minimum frame size
     BASIC_INFO: Final[int] = 23  # basic info data length
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("temp_sensors", 26, 1, False, lambda x: x),  # count is not limited
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
-        BMSDp("battery_level", 23, 1, False, lambda x: x),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),
-        BMSDp("cycles", 12, 2, False, lambda x: x),
-        BMSDp("problem_code", 20, 2, False, lambda x: x),
+        BMSDp("cycles", 12, 2, False),
+        BMSDp("balancer", 16, 4, False),
+        BMSDp("problem_code", 20, 2, False),
+        BMSDp("battery_level", 23, 1, False),
+        BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x1)),
+        BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2)),
+        BMSDp("temp_sensors", 26, 1, False),  # count is not limited
     )  # general protocol v4
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._valid_reply: int = 0x00
         self._data_final: bytearray = bytearray()
@@ -52,7 +55,7 @@ class BMS(BaseBMS):
             for pattern in (
                 "JBD-*",
                 "SX1*",  # Supervolt v3
-                "SX60*", # Supervolt Ultra
+                "SX60*",  # Supervolt Ultra
                 "SBL-*",  # SBL
                 "OGR-*",  # OGRPHY
                 "TZ-H*",  # CERRNSS battery

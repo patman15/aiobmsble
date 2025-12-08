@@ -23,9 +23,7 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"default_manufacturer": "Neey", "default_model": "Balancer"}
     _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
     _HEAD_RSP: Final = bytes([0x55, 0xAA, 0x11, 0x01])  # start, dev addr, read cmd
-    _HEAD_CMD: Final = bytes(
-        [0xAA, 0x55, 0x11, 0x01]
-    )  # header for commands (endiness!)
+    _HEAD_CMD: Final = bytes([0xAA, 0x55, 0x11, 0x01])  # cmd header (endianness!)
     _TAIL: Final[int] = 0xFF  # end of message
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _MIN_FRAME: Final[int] = 10  # header length
@@ -33,11 +31,12 @@ class BMS(BaseBMS):
         ("voltage", 201, "<f", lambda x: round(x, 3)),
         ("delta_voltage", 209, "<f", lambda x: round(x, 3)),
         ("problem_code", 216, "B", lambda x: x if x in {1, 3, 7, 8, 9, 10, 11} else 0),
+        ("balancer", 216, "B", lambda x: (x == 0x5)),
         ("balance_current", 217, "<f", lambda x: round(x, 3)),
     ]
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._data_final: bytearray = bytearray()
         self._bms_info: dict[str, str] = {}
@@ -167,6 +166,7 @@ class BMS(BaseBMS):
         cells: int,
         start: int,
         size: int = 2,
+        gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         divider: int = 1000,
     ) -> list[float]:
@@ -207,4 +207,6 @@ class BMS(BaseBMS):
             self._data_final, cells=24, start=9, byteorder="little", size=4
         )
 
+        self._data_final.clear()
+        self._data_event.clear()  # clear event for next update
         return data

@@ -35,7 +35,7 @@ class BMS(BaseBMS):
         value: int
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._type: str = (
             self.name[9]
@@ -92,7 +92,7 @@ class BMS(BaseBMS):
             self._HEADER = "+R16"
         else:
             self._REGISTERS = {}
-            self._log.exception("unkown device type '%c'", self._type)
+            self._log.exception("unknown device type '%c'", self._type)
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:

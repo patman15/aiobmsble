@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.seplos_v2_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -20,6 +20,7 @@ REF_VALUE: BMSSample = {
     "voltage": 53.0,
     "current": 6.85,
     "battery_level": 51.4,
+    "battery_health": 100.0,
     "cycle_charge": 143.94,
     "cycles": 128,
     "temperature": 23.65,
@@ -47,6 +48,10 @@ REF_VALUE: BMSSample = {
     "temp_values": [22.8, 22.2, 22.3, 23.2, 27.7, 23.7],
     "delta_voltage": 0.004,
     "pack_count": 1,
+    "balancer": False,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
+    "heater": False,
     "problem": False,
     "problem_code": 0,
 }
@@ -86,7 +91,6 @@ class MockSeplosv2BleakClient(MockBleakClient):
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")
@@ -103,7 +107,7 @@ class MockSeplosv2BleakClient(MockBleakClient):
                     b"\x03\xe8\x14\xb9\x07\x00\x02\x03\x08\x00\x00\x00\x00\x00\x00\x00\x00\x76\x31"
                     b"\x0d"
                 )
-                # return bytearray( # GPD for extention pack
+                # return bytearray( # GPD for extension pack
                 #     b"\x7e\x14\x00\x62\x00\x00\x28\x00\x00\x10\x00\x00\x00\x00\x06\x00\x00\x00\x00"
                 #     b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00\x00\x00\x00\x00\x00"
                 #     b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0a\x4f\x0d"
@@ -121,9 +125,9 @@ class MockSeplosv2BleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, (
+            "write to characteristics but notification not enabled"
+        )
 
         resp: bytearray = self._response(char_specifier, data)
         for notify_data in [
@@ -143,9 +147,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
+
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
@@ -155,6 +160,7 @@ async def test_device_info(patch_bleak_client) -> None:
         "sw_version": "16.6",
         "model": "B1101-SP76",
     }
+
 
 async def test_short_message(monkeypatch, patch_bleak_client) -> None:
     """Test Seplos V2 BMS data update with short message (missing values)."""
@@ -236,7 +242,6 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
     def prb_response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")

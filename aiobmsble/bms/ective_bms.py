@@ -27,11 +27,11 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 1, 8, False, lambda x: x / 1000),
         BMSDp("current", 9, 8, True, lambda x: x / 1000),
-        BMSDp("battery_level", 29, 4, False, lambda x: x),
+        BMSDp("battery_level", 29, 4, False),
         BMSDp("cycle_charge", 17, 8, False, lambda x: x / 1000),
-        BMSDp("cycles", 25, 4, False, lambda x: x),
+        BMSDp("cycles", 25, 4, False),
         BMSDp("temperature", 33, 4, False, lambda x: round(x * 0.1 - 273.15, 1)),
-        BMSDp("problem_code", 37, 2, False, lambda x: x),
+        BMSDp("problem_code", 37, 2, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -135,6 +135,7 @@ class BMS(BaseBMS):
         cells: int,
         start: int,
         size: int = 2,
+        gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         divider: int = 1000,
     ) -> list[float]:

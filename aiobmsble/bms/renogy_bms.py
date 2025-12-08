@@ -30,7 +30,7 @@ class BMS(BaseBMS):
         BMSDp("current", 3, 2, True, lambda x: x / 100),
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000),
-        BMSDp("cycles", 15, 2, False, lambda x: x),
+        BMSDp("cycles", 15, 2, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -154,9 +154,12 @@ class BMS(BaseBMS):
             divider=10,
         )
 
-        await self._await_reply(self._cmd(0x13EC, 0x7))
-        result["problem_code"] = int.from_bytes(self._data[3:-2], byteorder="big") & (
+        await self._await_reply(self._cmd(0x13EC, 0x8))
+        result["problem_code"] = int.from_bytes(self._data[3:17], byteorder="big") & (
             ~0xE
         )
+        result["chrg_mosfet"] = bool(self._data[16] & 0x2)
+        result["dischrg_mosfet"] = bool(self._data[16] & 0x4)
+        result["heater"] = bool(self._data[17] & 0x20)
 
         return result

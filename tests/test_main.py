@@ -1,6 +1,7 @@
 """Test the package main script."""
 
 import argparse
+import asyncio
 from collections.abc import Callable
 from logging import DEBUG, INFO
 import sys
@@ -48,13 +49,7 @@ def setup_logging():
 def asyncio_run():
     """Unittest mock for asyncio_run to check calls to it."""
     with mock.patch("asyncio.run") as m:
-        yield m
-
-
-@pytest.fixture(name="mock_detect_bms")
-def detect_bms():
-    """Unittest mock for detect_bms to check calls to it."""
-    with mock.patch.object(main_mod, "detect_bms") as m:
+        m.side_effect = lambda coro: asyncio.new_event_loop().run_until_complete(coro)
         yield m
 
 
@@ -63,7 +58,7 @@ async def test_detect_bms(
     patch_bleak_client: Callable[..., None],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Verify log ouput for working BMS update query."""
+    """Verify log output for working BMS update query."""
 
     monkeypatch.setattr("aiobmsble.__main__.BleakScanner.discover", mock_discover)
     patch_bleak_client()
@@ -80,7 +75,7 @@ async def test_detect_bms(
 async def test_scan_devices_fail(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Verify log ouput for working BMS update query."""
+    """Verify log output for working BMS update query."""
 
     async def mock_discover_fail(
         timeout: float = 5.0, *, return_adv: bool = False, **_kwargs
@@ -110,7 +105,7 @@ async def test_bms_fail(
     with caplog.at_level(INFO):
         await main_mod.detect_bms()
     assert "Found matching BMS type: Dummy Manufacturer dummy model" in caplog.text
-    assert "Failed to update BMS: TimeoutError" in caplog.text
+    assert "Failed to query BMS: TimeoutError" in caplog.text
 
 
 def test_main_parses_logfile_and_verbose(

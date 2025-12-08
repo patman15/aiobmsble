@@ -1,4 +1,4 @@
-"""Base class defintion for battery management systems (BMS).
+"""Base class definition for battery management systems (BMS).
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -16,7 +16,11 @@ from typing import Any, Final, Literal, Self, final
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.exc import BleakCharacteristicNotFoundError, BleakError
+from bleak.exc import (
+    BleakCharacteristicNotFoundError,
+    BleakDeviceNotFoundError,
+    BleakError,
+)
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
@@ -30,12 +34,21 @@ class BaseBMS(ABC):
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
-    _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timout increase to 8x
+    _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
 
-    class PrefixAdapter(logging.LoggerAdapter):
-        """Logging adpater to add instance ID to each log message."""
+    type InfoCharType = Literal[
+        "model",
+        "serial_number",
+        "fw_version",
+        "sw_version",
+        "hw_version",
+        "manufacturer",
+    ]
+
+    class PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
+        """Logging adapter to add instance ID to each log message."""
 
         def process(
             self, msg: str, kwargs: MutableMapping[str, Any]
@@ -50,7 +63,7 @@ class BaseBMS(ABC):
         keep_alive: bool = True,
         logger_name: str = "",
     ) -> None:
-        """Intialize the BMS.
+        """Initialize the BMS.
 
         `_notification_handler`: the callback function used for notifications from `uuid_rx()`
             characteristic. Not defined as abstract in this base class, as it can be both,
@@ -65,12 +78,12 @@ class BaseBMS(ABC):
             logger_name (str): name of the logger for the BMS instance, default: module name
 
         """
-        assert (
-            getattr(self, "_notification_handler", None) is not None
-        ), "BMS class must define `_notification_handler` method"
-        assert {"default_manufacturer", "default_model"}.issubset(
-            self.INFO
-        ), "BMS class must define `INFO`"
+        assert getattr(self, "_notification_handler", None) is not None, (
+            "BMS class must define `_notification_handler` method"
+        )
+        assert {"default_manufacturer", "default_model"}.issubset(self.INFO), (
+            "BMS class must define `INFO`"
+        )
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
         self.name: Final[str] = self._ble_device.name or "undefined"
@@ -78,7 +91,9 @@ class BaseBMS(ABC):
         logger_name = logger_name or self.__class__.__module__
         self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
-            {"prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':','')}:"},
+            {
+                "prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':', '')}:"
+            },
         )
 
         self._log.debug(
@@ -87,10 +102,11 @@ class BaseBMS(ABC):
         self._client: BleakClient = BleakClient(
             self._ble_device,
             disconnected_callback=self._on_disconnect,
-            services=[*self.uuid_services()],
+            services=[*self.uuid_services(), "180a"],
         )
         self._data: bytearray = bytearray()
         self._data_event: Final[asyncio.Event] = asyncio.Event()
+        self._connect_lock: Final[asyncio.Lock] = asyncio.Lock()
 
     @final
     async def __aenter__(self) -> Self:
@@ -111,6 +127,12 @@ class BaseBMS(ABC):
         await self.disconnect()
 
     @final
+    @property
+    def is_connected(self) -> bool:
+        """Return True if BMS is connected."""
+        return self._client.is_connected
+
+    @final
     @classmethod
     def get_bms_module(cls) -> str:
         """Return BMS module name, e.g. aiobmsble.bms.dummy_bms."""
@@ -125,7 +147,7 @@ class BaseBMS(ABC):
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
-        return f"{cls.INFO['default_manufacturer']} {cls.INFO['default_model']}"
+        return f"{cls.INFO.get('default_manufacturer', "unknown")} {cls.INFO.get('default_model', "unknown")}"
 
     @staticmethod
     @abstractmethod
@@ -160,20 +182,13 @@ class BaseBMS(ABC):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
+        info: BMSInfo = BMSInfo()
+
         if not self._client.services.get_service("180a"):
             self._log.debug("No BT device information available.")
-            return BMSInfo()
+            return info
 
-        type CharacteristicType = Literal[
-            "model",
-            "serial_number",
-            "fw_version",
-            "sw_version",
-            "hw_version",
-            "manufacturer",
-        ]
-
-        characteristics: Final[tuple[tuple[str, CharacteristicType], ...]] = (
+        characteristics: Final[tuple[tuple[str, BaseBMS.InfoCharType], ...]] = (
             ("2a24", "model"),
             ("2a25", "serial_number"),
             ("2a26", "fw_version"),
@@ -182,12 +197,11 @@ class BaseBMS(ABC):
             ("2a29", "manufacturer"),
         )
 
-        info: BMSInfo = BMSInfo()
         for char, key in characteristics:
             try:
                 if value := await self._client.read_gatt_char(char):
                     info[key] = barr2str(value)
-                    self._log.debug("BT device %s: '%s'", key, info[key])
+                    self._log.debug("BT device %s: '%s'", key, info.get(key))
             except BleakCharacteristicNotFoundError:
                 pass
 
@@ -323,34 +337,35 @@ class BaseBMS(ABC):
     async def _connect(self) -> None:
         """Connect to the BMS and setup notification if not connected."""
 
-        if self._client.is_connected:
-            self._log.debug("BMS already connected")
-            return
+        async with self._connect_lock:
+            if self._client.is_connected:
+                self._log.debug("BMS already connected")
+                return
 
-        try:
-            await self._client.disconnect()  # ensure no stale connection exists
-        except (BleakError, TimeoutError, EOFError) as exc:
-            self._log.debug(
-                "failed to disconnect stale connection (%s)", type(exc).__name__
+            try:
+                await self._client.disconnect()  # ensure no stale connection exists
+            except (BleakError, TimeoutError, EOFError) as exc:
+                self._log.debug(
+                    "failed to disconnect stale connection (%s)", type(exc).__name__
+                )
+
+            self._log.debug("connecting BMS")
+            self._client = await establish_connection(
+                client_class=BleakClient,
+                device=self._ble_device,
+                name=self._ble_device.address,
+                disconnected_callback=self._on_disconnect,
+                services=[*self.uuid_services(), "180a"],
             )
 
-        self._log.debug("connecting BMS")
-        self._client = await establish_connection(
-            client_class=BleakClient,
-            device=self._ble_device,
-            name=self._ble_device.address,
-            disconnected_callback=self._on_disconnect,
-            services=[*self.uuid_services()],
-        )
-
-        try:
-            await self._init_connection()
-        except Exception as exc:
-            self._log.info(
-                "failed to initialize BMS connection (%s)", type(exc).__name__
-            )
-            await self.disconnect()
-            raise
+            try:
+                await self._init_connection()
+            except Exception as exc:
+                self._log.info(
+                    "failed to initialize BMS connection (%s)", type(exc).__name__
+                )
+                await self.disconnect()
+                raise
 
     def _wr_response(self, char: int | str) -> bool:
         char_tx: Final[BleakGATTCharacteristic | None] = (
@@ -418,18 +433,16 @@ class BaseBMS(ABC):
 
                     self._inv_wr_mode = inv_wr_mode
                     return  # leave loop if no exception
+            except (BleakCharacteristicNotFoundError, BleakDeviceNotFoundError):
+                raise  # do not retry on these exceptions
             except BleakError as exc:
-                # reconnect on communication errors
-                self._log.warning(
-                    "TX BLE request error, retrying connection (%s)", type(exc).__name__
-                )
-                await self.disconnect()
-                await self._connect()
+                self._log.error("TX BLE request error (%s)", type(exc).__name__)
+                # try next write mode, without reconnecting, as recursion might occur
         raise TimeoutError
 
     @final
     async def disconnect(self, reset: bool = False) -> None:
-        """Disconnect the BMS, includes stoping notifications."""
+        """Disconnect the BMS, includes stopping notifications."""
 
         self._log.debug("disconnecting BMS (%s)", str(self._client.is_connected))
         try:
@@ -438,7 +451,7 @@ class BaseBMS(ABC):
                 self._inv_wr_mode = None  # reset write mode
             await self._client.disconnect()
         except (BleakError, TimeoutError, EOFError) as exc:
-            self._log.error("disconnect failed! (%s)", type(exc).__name__)
+            self._log.warning("disconnect failed! (%s)", type(exc).__name__)
 
     @final
     async def _wait_event(self) -> None:
@@ -503,6 +516,7 @@ class BaseBMS(ABC):
         cells: int,
         start: int,
         size: int = 2,
+        gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         divider: int = 1000,
     ) -> list[float]:
@@ -512,7 +526,8 @@ class BaseBMS(ABC):
             data: Raw data from BMS
             cells: Number of cells to read
             start: Start position in data array
-            size: Number of bytes per cell value (defaults 2)
+            size: Number of bytes per cell value (default: 2)
+            gap: Number of bytes to skip after each cell value (default: 0)
             byteorder: Byte order ("big"/"little" endian)
             divider: Value to divide raw value by, defaults to 1000 (mv to V)
 
@@ -523,10 +538,12 @@ class BaseBMS(ABC):
         return [
             value / divider
             for idx in range(cells)
-            if (len(data) >= start + (idx + 1) * size)
+            if (len(data) >= start + idx * (size + gap) + size)
             and (
                 value := int.from_bytes(
-                    data[start + idx * size : start + (idx + 1) * size],
+                    data[
+                        start + idx * (size + gap) : start + idx * (size + gap) + size
+                    ],
                     byteorder=byteorder,
                     signed=False,
                 )
@@ -540,6 +557,7 @@ class BaseBMS(ABC):
         values: int,
         start: int,
         size: int = 2,
+        gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         signed: bool = True,
         offset: float = 0,
@@ -551,7 +569,8 @@ class BaseBMS(ABC):
             data: Raw data from BMS
             values: Number of values to read
             start: Start position in data array
-            size: Number of bytes per cell value (defaults 2)
+            size: Number of bytes per temperature value (defaults 2)
+            gap: Number of bytes to skip after each temperature value (default: 2)
             byteorder: Byte order ("big"/"little" endian)
             signed: Indicates whether two's complement is used to represent the integer.
             offset: The offset read values are shifted by (for Kelvin use 273.15)
@@ -564,11 +583,15 @@ class BaseBMS(ABC):
         return [
             (value - offset) / divider
             for idx in range(values)
-            if (len(data) >= start + (idx + 1) * size)
+            if (len(data) >= start + idx * (size + gap) + size)
             and (
                 (
                     value := int.from_bytes(
-                        data[start + idx * size : start + (idx + 1) * size],
+                        data[
+                            start + idx * (size + gap) : start
+                            + idx * (size + gap)
+                            + size
+                        ],
                         byteorder=byteorder,
                         signed=signed,
                     )

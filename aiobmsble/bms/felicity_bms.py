@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from json import JSONDecodeError, loads
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -29,7 +29,15 @@ class BMS(BaseBMS):
     _CMD_BI: Final[bytes] = b"get dev basice infor"
     _CMD_DT: Final[bytes] = b"get Date"
     _CMD_RT: Final[bytes] = b"get dev real infor"
-    _FIELDS: Final[list[tuple[BMSValue, str, Callable[[list], Any]]]] = [
+    _FIELDS: Final[
+        list[
+            tuple[
+                Literal["voltage", "current", "cycle_charge", "battery_level"],
+                str,
+                Callable[[list[Any]], float],
+            ]
+        ]
+    ] = [
         ("voltage", "Batt", lambda x: x[0][0] / 1000),
         ("current", "Batt", lambda x: x[1][0] / 10),
         (
@@ -43,7 +51,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict = {}
+        self._data_final: dict[str, Any] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -119,18 +127,18 @@ class BMS(BaseBMS):
         self._data_event.set()
 
     @staticmethod
-    def _conv_data(data: dict) -> BMSSample:
+    def _conv_data(data: dict[str, Any]) -> BMSSample:
         result: BMSSample = {}
         for key, itm, func in BMS._FIELDS:
             result[key] = func(data.get(itm, []))
         return result
 
     @staticmethod
-    def _conv_cells(data: dict) -> list[float]:
+    def _conv_cells(data: dict[str, Any]) -> list[float]:
         return [(value / 1000) for value in data.get("BatcelList", [])[0]]
 
     @staticmethod
-    def _conv_temp(data: dict) -> list[float]:
+    def _conv_temp(data: dict[str, Any]) -> list[float]:
         return [
             (value / 10) for value in data.get("BtemList", [])[0] if value != 0x7FFF
         ]

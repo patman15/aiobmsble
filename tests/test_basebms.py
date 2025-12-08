@@ -9,7 +9,7 @@ from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
-from bleak.exc import BleakError
+from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
@@ -207,7 +207,7 @@ async def test_device_info_fail(
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     await bms.async_update()  # run update to have connection open
-    assert not await bms.device_info()  # if characteristic does not exist, no ouput
+    assert not await bms.device_info()  # if characteristic does not exist, no output
     assert bms.name == "MockBLEDevice"  # name is gathered from BLEDevice
     assert bms._client.is_connected
 
@@ -290,7 +290,7 @@ def test_calc_cycles() -> None:
 async def test_async_update(
     patch_bleak_client: Callable[..., None], raw: bool, expected: dict
 ) -> None:
-    """Check update function of the BMS returns calues."""
+    """Check update function of the BMS returns values."""
     patch_bleak_client()
     bms: DataTestBMS = DataTestBMS(generate_ble_device())
     assert await bms.async_update(raw=raw) == BMSSample(
@@ -356,6 +356,11 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
             [0x15, 0x16],
         ),
         (
+            [BleakDeviceNotFoundError("mock_device")],
+            [False],
+            [BleakDeviceNotFoundError("mock_device")],
+        ),
+        (
             [None] * (BaseBMS.MAX_RETRY - 1) + [ValueError()],
             [True] * (BaseBMS.MAX_RETRY),
             [ValueError()],
@@ -367,6 +372,7 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
         "retry_count-1",
         "retry_count",
         "mode_switch",
+        "no-retry-exc",
         "unhandled_exc",
     ],
 )

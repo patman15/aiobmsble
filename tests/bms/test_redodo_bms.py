@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.redodo_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -21,7 +21,9 @@ _RESULT_DEFS: Final[BMSSample] = {
     "power": -38.108,
     "battery_charging": False,
     "battery_level": 65,
+    "battery_health": 100,
     "cycle_charge": 68.89,
+    "design_capacity": 105,
     "cycle_capacity": 1829.443,
     "runtime": 172825,
     "temp_values": [23, 22, -2],
@@ -29,6 +31,8 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycles": 3,
     "problem": False,
     "problem_code": 0,
+    "balancer": False,
+    "heater": False,
 }
 
 
@@ -51,7 +55,7 @@ class MockRedodoBleakClient(MockBleakClient):
                 b"\x00\x00\xe9\x1a\x04\x29\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x41\x00\x64\x00\x00\x00\x03\x00\x00\x00"
                 b"\x5f\x01\x00\x00\xa2"
-            )  # TODO: put numbers
+            )  # 26.182V, cellVS 26.556V, 65%, 68.89Ah, 3 cycles
         return bytearray()
 
     async def write_gatt_char(
@@ -68,7 +72,7 @@ class MockRedodoBleakClient(MockBleakClient):
         )
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Redodo technology BMS data update."""
 
     patch_bleak_client(MockRedodoBleakClient)
@@ -79,7 +83,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 

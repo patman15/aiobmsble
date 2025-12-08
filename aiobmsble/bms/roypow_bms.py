@@ -24,7 +24,7 @@ class BMS(BaseBMS):
     _BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module
     _MIN_LEN: Final[int] = len(_HEAD) + 1
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("battery_level", 7, 1, False, lambda x: x, 0x4),
+        BMSDp("battery_level", 7, 1, False, idx=0x4),
         BMSDp("voltage", 47, 2, False, lambda x: x / 100, 0x4),
         BMSDp(
             "current",
@@ -34,7 +34,7 @@ class BMS(BaseBMS):
             lambda x: (x & 0xFFFF) * (-1 if (x >> 16) & 0x1 else 1) / 100,
             0x3,
         ),
-        BMSDp("problem_code", 9, 3, False, lambda x: x, 0x3),
+        BMSDp("problem_code", 9, 3, False, idx=0x3),
         BMSDp(
             "cycle_charge",
             24,
@@ -44,8 +44,10 @@ class BMS(BaseBMS):
             0x4,
         ),
         BMSDp("runtime", 30, 2, False, lambda x: x * 60, 0x4),
-        BMSDp("temp_sensors", 13, 1, False, lambda x: x, 0x3),
-        BMSDp("cycles", 9, 2, False, lambda x: x, 0x4),
+        BMSDp("temp_sensors", 13, 1, False, idx=0x3),
+        BMSDp("cycles", 9, 2, False, idx=0x4),
+        BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x4), 0x3),
+        BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2), 0x3),
     )
     _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS})
 

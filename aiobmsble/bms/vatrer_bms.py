@@ -10,8 +10,8 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, BMSDp, BMSInfo, crc_modbus
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -26,12 +26,16 @@ class BMS(BaseBMS):
         BMSDp("voltage", 3, 2, False, lambda x: x / 100, 0x28),
         BMSDp("current", 5, 4, True, lambda x: x / 100, 0x28),
         BMSDp("battery_level", 9, 2, False, idx=0x28),
+        BMSDp("battery_health", 17, 2, False, idx=0x28),
         BMSDp("cycle_charge", 11, 2, False, lambda x: x / 100, 0x28),
         BMSDp("cell_count", 3, 2, False, lambda x: min(x, BMS._MAX_CELLS), 0x3E),
         BMSDp("temp_sensors", 3, 2, False, lambda x: min(x, BMS._MAX_TEMP), 0x24),
-        BMSDp("cycles", 15, 2, False, lambda x: x, 0x28),
+        BMSDp("cycles", 15, 2, False, idx=0x28),
         BMSDp("delta_voltage", 29, 2, False, lambda x: x / 1000, 0x28),
         BMSDp("problem", 17, 15, False, lambda x: (x != 0), 0x24),
+        BMSDp("chrg_mosfet", 32, 1, False, lambda x: bool(x & 0x10), 0x24),
+        BMSDp("dischrg_mosfet", 32, 1, False, lambda x: bool(x & 0x20), 0x24),
+        BMSDp("balancer", 35, 4, False, idx=0x24),
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS}
     _CMDS: Final[tuple[tuple[int, int], ...]] = (
@@ -110,7 +114,7 @@ class BMS(BaseBMS):
     @cache
     def _cmd(addr: int, words: int) -> bytes:
         """Assemble a Vatrer BMS command."""
-        frame = (
+        frame: bytearray = (
             bytearray(BMS._HEAD)
             + addr.to_bytes(2, byteorder="big")
             + words.to_bytes(2, byteorder="big")
@@ -126,12 +130,12 @@ class BMS(BaseBMS):
             self._log.debug("Incomplete data set %s", self._data_final.keys())
             raise TimeoutError("BMS data incomplete.")
 
-        result = BMS._decode_data(BMS._FIELDS, self._data_final)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final[0x3E], cells=result["cell_count"], start=5
+            self._data_final[0x3E], cells=result.get("cell_count", 0), start=5
         )
         result["temp_values"] = BMS._temp_values(
-            self._data_final[0x24], values=result["temp_sensors"] + 2, start=5
+            self._data_final[0x24], values=result.get("temp_sensors", 0) + 2, start=5
         )  # MOS sensor is last (pos 6 of 4)
 
         return result
