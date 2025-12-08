@@ -39,7 +39,7 @@ jobs:
 
       - name: Set version from tag
         run: |
-          VERSION=${{ github.event.release.tag_name#v }}
+          VERSION=${{ replace(github.event.release.tag_name, 'v', '') }}
           toml set --toml-path pyproject.toml project.version "$VERSION"
 
       - name: Build release package
@@ -82,7 +82,7 @@ jobs:
       # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
       # ALTERNATIVE: exactly, uncomment the following line instead:
       # url: https://pypi.org/project/aiobmsble/${{ github.event.inputs.release_name }}
-      url: https://pypi.org/project/aiobmsble/${{ github.event.release.tag_name#v }}
+      url: https://pypi.org/project/aiobmsble/${{ replace(github.event.release.tag_name, 'v', '') }}
 
     steps:
       - name: Retrieve release distributions
