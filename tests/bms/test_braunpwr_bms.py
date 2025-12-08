@@ -20,10 +20,10 @@ def ref_value() -> BMSSample:
         "voltage": 53.31,
         "current": -11.45,
         "battery_level": 83,
+        "battery_health": 100,
         "cell_count": 16,
         "cycle_charge": 250.26,
         "cycles": 8,
-        # "problem_code": 0,
         "cell_voltages": [
             3.327,
             3.334,

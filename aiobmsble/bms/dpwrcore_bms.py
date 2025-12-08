@@ -41,8 +41,8 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 32
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 6, 2, False, lambda x: x / 10, Cmd.LEGINFO1),
-        BMSDp("current", 8, 2, True, lambda x: x, Cmd.LEGINFO1),
-        BMSDp("battery_level", 14, 1, False, lambda x: x, Cmd.LEGINFO1),
+        BMSDp("current", 8, 2, True, idx=Cmd.LEGINFO1),
+        BMSDp("battery_level", 14, 1, False, idx=Cmd.LEGINFO1),
         BMSDp("cycle_charge", 12, 2, False, lambda x: x / 1000, Cmd.LEGINFO1),
         BMSDp(
             "temperature",
@@ -55,13 +55,13 @@ class BMS(BaseBMS):
         BMSDp(
             "cell_count", 6, 1, False, lambda x: min(x, BMS._MAX_CELLS), Cmd.CELLVOLT
         ),
-        BMSDp("cycles", 8, 2, False, lambda x: x, Cmd.LEGINFO2),
+        BMSDp("cycles", 8, 2, False, idx=Cmd.LEGINFO2),
         BMSDp("problem_code", 15, 1, False, lambda x: x & 0xFF, Cmd.LEGINFO1),
     )
     _CMDS: Final[set[Cmd]] = {Cmd(field.idx) for field in _FIELDS}
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         assert self._ble_device.name is not None  # required for unlock
         self._data_final: dict[int, bytearray] = {}

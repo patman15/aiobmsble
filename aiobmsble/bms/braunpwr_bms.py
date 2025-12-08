@@ -25,16 +25,17 @@ class BMS(BaseBMS):
     _TAIL: Final[int] = 0x7D  # tail for command
     _MIN_LEN: Final[int] = 4  # minimum frame size
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("cell_count", 3, 1, False, lambda x: x, 0x2),
-        BMSDp("temp_sensors", 3, 1, False, lambda x: x, 0x3),
+        BMSDp("cell_count", 3, 1, False, idx=0x2),
+        BMSDp("temp_sensors", 3, 1, False, idx=0x3),
         BMSDp("voltage", 5, 2, False, lambda x: x / 100, 0x1),
         BMSDp("current", 13, 2, True, lambda x: x / 100, 0x1),
-        BMSDp("battery_level", 4, 1, False, lambda x: x, 0x1),
+        BMSDp("battery_level", 4, 1, False, idx=0x1),
+        BMSDp("battery_health", 34, 1, False, idx=0x1),
         BMSDp("cycle_charge", 15, 2, False, lambda x: x / 100, 0x1),
         BMSDp("design_capacity", 17, 2, False, lambda x: x // 100, 0x1),
-        BMSDp("cycles", 23, 2, False, lambda x: x, 0x1),
-        BMSDp("problem_code", 31, 2, False, lambda x: x, 0x1),
-        BMSDp("balancer", 20, 2, False, lambda x: x, 0x1),
+        BMSDp("cycles", 23, 2, False, idx=0x1),
+        BMSDp("problem_code", 31, 2, False, idx=0x1),
+        BMSDp("balancer", 20, 2, False, idx=0x1),
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS}
     _INIT_CMDS: Final[set[int]] = {
@@ -44,7 +45,7 @@ class BMS(BaseBMS):
     }
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._data_final: dict[int, bytearray] = {}
         self._exp_reply: tuple[int] = (0x01,)

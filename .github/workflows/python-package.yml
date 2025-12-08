@@ -33,7 +33,10 @@ jobs:
     - name: "Lint with ruff"
       run: python3 -m ruff check .        
     - name: "Lint using mypy"
-      run: mypy .
+      run: | 
+        mypy .
+        mypy aiobmsble --strict
     - name: Test with pytest
-      run: |
-        pytest
+      run: pytest
+    - name: "Spell checking"
+      run: codespell

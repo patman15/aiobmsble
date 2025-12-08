@@ -44,9 +44,10 @@ class BMS(BaseBMS):
         BMSDp("voltage", 0, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
         BMSDp("current", 4, 4, True, lambda x: BMS._swap32(x, True) / 10, EIA_LEN),
         BMSDp("cycle_charge", 8, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
-        BMSDp("pack_count", 44, 2, False, lambda x: x, EIA_LEN),
-        BMSDp("cycles", 46, 2, False, lambda x: x, EIA_LEN),
+        BMSDp("pack_count", 44, 2, False, idx=EIA_LEN),
+        BMSDp("cycles", 46, 2, False, idx=EIA_LEN),
         BMSDp("battery_level", 48, 2, False, lambda x: x / 10, EIA_LEN),
+        BMSDp("battery_health", 50, 2, False, lambda x: x / 10, EIA_LEN),
         BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
         BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), EIC_LEN),
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), EIC_LEN),
@@ -57,6 +58,7 @@ class BMS(BaseBMS):
         ("pack_voltages", 0, False, lambda x: x / 100),
         ("pack_currents", 2, True, lambda x: x / 100),
         ("pack_battery_levels", 10, False, lambda x: x / 10),
+        ("pack_battery_health", 12, False, lambda x: x / 10),
         ("pack_cycles", 14, False, lambda x: x),
     ]  # Protocol Seplos V3
     _CMDS: Final[set[int]] = {field[2] for field in QUERY.values()} | {
@@ -64,7 +66,7 @@ class BMS(BaseBMS):
     }
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._data_final: dict[int, bytearray] = {}
         self._pack_count: int = 0  # number of battery packs

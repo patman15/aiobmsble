@@ -207,7 +207,7 @@ async def test_device_info_fail(
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     await bms.async_update()  # run update to have connection open
-    assert not await bms.device_info()  # if characteristic does not exist, no ouput
+    assert not await bms.device_info()  # if characteristic does not exist, no output
     assert bms.name == "MockBLEDevice"  # name is gathered from BLEDevice
     assert bms._client.is_connected
 
@@ -290,7 +290,7 @@ def test_calc_cycles() -> None:
 async def test_async_update(
     patch_bleak_client: Callable[..., None], raw: bool, expected: dict
 ) -> None:
-    """Check update function of the BMS returns calues."""
+    """Check update function of the BMS returns values."""
     patch_bleak_client()
     bms: DataTestBMS = DataTestBMS(generate_ble_device())
     assert await bms.async_update(raw=raw) == BMSSample(

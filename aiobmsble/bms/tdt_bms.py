@@ -38,8 +38,8 @@ class BMS(BaseBMS):
             0x8C,
         ),
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 10, 0x8C),
-        BMSDp("battery_level", 13, 1, False, lambda x: x, 0x8C),
-        BMSDp("cycles", 8, 2, False, lambda x: x, 0x8C),
+        BMSDp("battery_level", 12, 2, False, idx=0x8C),
+        BMSDp("cycles", 8, 2, False, idx=0x8C),
     )  # problem code, switches are not included in the list, but extra
     _CMDS: Final[list[int]] = [*list({field.idx for field in _FIELDS}), 0x8D]
 
@@ -162,6 +162,7 @@ class BMS(BaseBMS):
 
         for head in self._cmd_heads:
             try:
+                self._log.debug("trying command head: 0x%X", head)
                 for cmd in BMS._CMDS:
                     await self._await_reply(BMS._cmd(cmd, cmd_head=head))
                 self._cmd_heads = [head]  # set to single head for further commands

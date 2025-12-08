@@ -1,4 +1,4 @@
-"""Base class defintion for battery management systems (BMS).
+"""Base class definition for battery management systems (BMS).
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -34,7 +34,7 @@ class BaseBMS(ABC):
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
-    _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timout increase to 8x
+    _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
 
@@ -48,7 +48,7 @@ class BaseBMS(ABC):
     ]
 
     class PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
-        """Logging adpater to add instance ID to each log message."""
+        """Logging adapter to add instance ID to each log message."""
 
         def process(
             self, msg: str, kwargs: MutableMapping[str, Any]
@@ -63,7 +63,7 @@ class BaseBMS(ABC):
         keep_alive: bool = True,
         logger_name: str = "",
     ) -> None:
-        """Intialize the BMS.
+        """Initialize the BMS.
 
         `_notification_handler`: the callback function used for notifications from `uuid_rx()`
             characteristic. Not defined as abstract in this base class, as it can be both,
@@ -445,7 +445,7 @@ class BaseBMS(ABC):
 
     @final
     async def disconnect(self, reset: bool = False) -> None:
-        """Disconnect the BMS, includes stoping notifications."""
+        """Disconnect the BMS, includes stopping notifications."""
 
         self._log.debug("disconnecting BMS (%s)", str(self._client.is_connected))
         try:

@@ -28,6 +28,7 @@ class BMS(BaseBMS):
         BMSDp("voltage", 12, 2, False, lambda x: x / 1000),
         BMSDp("current", 48, 4, True, lambda x: x / 1000),
         BMSDp("battery_level", 90, 2, False),
+        BMSDp("battery_health", 92, 4, False),
         BMSDp("cycle_charge", 62, 2, False, lambda x: x / 100),
         BMSDp("design_capacity", 64, 4, False, lambda x: x // 100),
         BMSDp("cycles", 96, 4, False),
@@ -62,7 +63,7 @@ class BMS(BaseBMS):
                 "L-12*",  # vv *** LiTime *** vv
                 "L-24*",
                 "L-51*",
-                "LT-12???BG-A0[7-9]*",  # LiTime based on ser#
+                "LT-12???BG-A0[7-9]*",  # LiTime based on serial #
                 "LT-24???B-A00[3-9]*",
                 "LT-24???B-A0[1-9]*",
                 "LT-24???B-A[1-9]*",

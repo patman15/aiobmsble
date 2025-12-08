@@ -21,6 +21,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 50.88,
     "current": 2.1,
     "battery_level": 10,
+    "battery_health": 100,
     "cycle_charge": 9.957766,
     "design_capacity": 80,
     "total_charge": 15265,

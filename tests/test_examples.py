@@ -1,4 +1,4 @@
-"""Test clases for package exaples."""
+"""Test classes for package examples."""
 
 from collections.abc import Callable
 from typing import NoReturn

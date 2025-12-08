@@ -21,7 +21,7 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"default_manufacturer": "Jikong", "default_model": "smart BMS"}
     HEAD_RSP: Final = bytes([0x55, 0xAA, 0xEB, 0x90])  # header for responses
-    HEAD_CMD: Final = bytes([0xAA, 0x55, 0x90, 0xEB])  # header for commands (endiness!)
+    HEAD_CMD: Final = bytes([0xAA, 0x55, 0x90, 0xEB])  # cmd header (endianness!)
     _READY_MSG: Final = HEAD_CMD + bytes([0xC8, 0x01, 0x01] + [0x00] * 12 + [0x44])
     _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
     TYPE_POS: Final[int] = 4  # frame type is right after the header
@@ -34,14 +34,15 @@ class BMS(BaseBMS):
         BMSDp("balancer", 201, 1, False, bool),
         BMSDp("battery_level", 173, 1, False),
         BMSDp("cycle_charge", 174, 4, False, lambda x: x / 1000),
-        BMSDp("cycles", 182, 4, False, lambda x: x),
+        BMSDp("cycles", 182, 4, False),
+        BMSDp("battery_health", 190, 1, False),
         BMSDp("chrg_mosfet", 198, 1, False, bool),
         BMSDp("dischrg_mosfet", 199, 1, False, bool),
         BMSDp("temp_sensors", 214, 2, True),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._data_final: bytearray = bytearray()
         self._char_write_handle: int = -1

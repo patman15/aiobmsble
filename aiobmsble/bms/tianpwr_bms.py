@@ -26,16 +26,17 @@ class BMS(BaseBMS):
     _MIN_LEN: Final[int] = 4
     _DEF_LEN: Final[int] = 20
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("battery_level", 3, 2, False, lambda x: x, 0x83),
+        BMSDp("battery_level", 3, 2, False, idx=0x83),
         BMSDp("voltage", 5, 2, False, lambda x: x / 100, 0x83),
         BMSDp("current", 13, 2, True, lambda x: x / 100, 0x83),
-        BMSDp("problem_code", 11, 8, False, lambda x: x, 0x84),
-        BMSDp("cell_count", 3, 1, False, lambda x: x, 0x84),
-        BMSDp("temp_sensors", 4, 1, False, lambda x: x, 0x84),
+        BMSDp("battery_health", 17, 2, False, idx=0x83),
+        BMSDp("problem_code", 11, 8, False, idx=0x84),
+        BMSDp("cell_count", 3, 1, False, idx=0x84),
+        BMSDp("temp_sensors", 4, 1, False, idx=0x84),
         BMSDp("design_capacity", 5, 2, False, lambda x: x // 100, 0x84),
         BMSDp("cycle_charge", 7, 2, False, lambda x: x / 100, 0x84),
-        BMSDp("cycles", 9, 2, False, lambda x: x, 0x84),
-        BMSDp("balancer", 13, 2, False, lambda x: x, 0x85),
+        BMSDp("cycles", 9, 2, False, idx=0x84),
+        BMSDp("balancer", 13, 2, False, idx=0x85),
         BMSDp("chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
         BMSDp("dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
     )

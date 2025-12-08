@@ -36,7 +36,7 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 96, 2, False, lambda x: x / 10),
         BMSDp("cell_count", 98, 2, False, lambda x: min(x, BMS.MAX_CELLS)),
         BMSDp("temp_sensors", 100, 2, False, lambda x: min(x, BMS.MAX_TEMP)),
-        BMSDp("cycles", 102, 2, False, lambda x: x),
+        BMSDp("cycles", 102, 2, False),
         BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
         BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
         BMSDp("balancer", 104, 2, False),
@@ -45,7 +45,7 @@ class BMS(BaseBMS):
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
 
     @staticmethod
