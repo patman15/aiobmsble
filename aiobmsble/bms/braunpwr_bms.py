@@ -45,7 +45,7 @@ class BMS(BaseBMS):
     }
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._data_final: dict[int, bytearray] = {}
         self._exp_reply: tuple[int] = (0x01,)

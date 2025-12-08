@@ -74,14 +74,14 @@ class BMS(BaseBMS):
                 {"local_name": "SV12V*", "manufacturer_id": 33384, "connectable": True},
             ]
             + [  # LiTime
-                MatcherPattern(  # LiTime based on ser#
+                MatcherPattern(  # LiTime based on serial #
                     local_name="LT-12???BG-A0[0-6]*",
                     manufacturer_id=m_id,
                     connectable=True,
                 )
                 for m_id in (33384, 22618)
             ]
-            + [  # LiTime based on ser#
+            + [  # LiTime based on serial #
                 {
                     "local_name": "LT-24???B-A00[0-2]*",
                     "manufacturer_id": 22618,

@@ -189,7 +189,7 @@ class BMS(BaseBMS):
             BMS._PFIELDS, self._data_final[0x61], offset=BMS._CELL_POS + ct_blk_len
         )
 
-        # get extention pack count from parallel data (main pack)
+        # get extension pack count from parallel data (main pack)
         result["pack_count"] = self._data_final[0x51][42]
 
         # get switches from parallel data (main pack)

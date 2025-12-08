@@ -58,7 +58,7 @@ async def test_detect_bms(
     patch_bleak_client: Callable[..., None],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Verify log ouput for working BMS update query."""
+    """Verify log output for working BMS update query."""
 
     monkeypatch.setattr("aiobmsble.__main__.BleakScanner.discover", mock_discover)
     patch_bleak_client()
@@ -75,7 +75,7 @@ async def test_detect_bms(
 async def test_scan_devices_fail(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Verify log ouput for working BMS update query."""
+    """Verify log output for working BMS update query."""
 
     async def mock_discover_fail(
         timeout: float = 5.0, *, return_adv: bool = False, **_kwargs

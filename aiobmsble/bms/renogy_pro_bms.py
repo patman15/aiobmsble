@@ -29,7 +29,7 @@ class BMS(RenogyBMS):
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._char_write_handle: int = -1
 

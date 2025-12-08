@@ -61,7 +61,7 @@ class BMS(BaseBMS):
     _CMDS: Final[set[Cmd]] = {Cmd(field.idx) for field in _FIELDS}
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         assert self._ble_device.name is not None  # required for unlock
         self._data_final: dict[int, bytearray] = {}

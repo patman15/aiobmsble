@@ -38,7 +38,7 @@ class BMS(BaseBMS):
     )  # general protocol v4
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._valid_reply: int = 0x00
         self._data_final: bytearray = bytearray()

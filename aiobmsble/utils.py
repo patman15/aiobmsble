@@ -1,4 +1,4 @@
-"""Utilitiy/Support functions for aiobmsble.
+"""Utility/Support functions for aiobmsble.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -133,7 +133,7 @@ async def bms_matching(
         mac_addr (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
     Returns:
-        list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwhise.
+        list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwise.
 
     """
     loop = asyncio.get_running_loop()
@@ -155,7 +155,7 @@ async def bms_identify(
         mac_addr (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
     Returns:
-        type[BaseBMS] | None: The identified BMS class if a match is found, None otherwhise
+        type[BaseBMS] | None: The identified BMS class if a match is found, None otherwise
 
     """
 

@@ -40,7 +40,7 @@ class BMS(BaseBMS):
     _CMDS: Final[list[int]] = list({field.idx for field in _FIELDS})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
 
     @staticmethod
