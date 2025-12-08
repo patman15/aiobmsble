@@ -33,7 +33,7 @@ jobs:
           semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
 
           if [[ ! "$tag" =~ $semver_regex ]]; then
-            echo "❌ Invalid tag: must start with a number"
+            echo "❌ Invalid tag: must match semantic version, e.g. '3.4.5-beta.2+exp'"
             exit 1
           else
             echo "✅ Tag is valid"
@@ -43,6 +43,8 @@ jobs:
   release-build:
     name: Build distribution
     runs-on: ubuntu-latest
+    needs:
+      - validate-tag
 
     steps:
       - uses: actions/checkout@v4
