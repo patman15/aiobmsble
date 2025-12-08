@@ -249,3 +249,5 @@ per-file-ignores = [
     "tests/**:protected-access"
 ]
 
+[tool.codespell]
+ignore-regex = 'b".*"'
