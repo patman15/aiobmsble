@@ -35,7 +35,12 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          pip install build toml-cli
+
+      - name: Set version from tag
+        run: |
+          VERSION=${{ github.event.release.tag_name#v }}
+          toml set --toml-path pyproject.toml project.version "$VERSION"
 
       - name: Build release package
         run: python -m build
@@ -77,7 +82,7 @@ jobs:
       # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
       # ALTERNATIVE: exactly, uncomment the following line instead:
       # url: https://pypi.org/project/aiobmsble/${{ github.event.inputs.release_name }}
-      url: https://pypi.org/project/YOURPROJECT/${{ github.event.release.name }}
+      url: https://pypi.org/project/aiobmsble/${{ github.event.release.tag_name#v }}
 
     steps:
       - name: Retrieve release distributions
