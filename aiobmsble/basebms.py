@@ -615,6 +615,15 @@ def lstr2int(string: str) -> int:
     return int("".join(takewhile(str.isdigit, string)))
 
 
+def swap32(value: int, signed: bool = False) -> int:
+    """Swap high and low 16bit in 32bit integer."""
+
+    value = ((value >> 16) & 0xFFFF) | (value & 0xFFFF) << 16
+    if signed and value & 0x80000000:
+        value = -0x100000000 + value
+    return value
+
+
 def crc_modbus(data: bytearray) -> int:
     """Calculate CRC-16-CCITT MODBUS."""
     crc: int = 0xFFFF
