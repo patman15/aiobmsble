@@ -12,7 +12,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS
+from aiobmsble.basebms import BaseBMS, barr2str
 
 
 class BMS(BaseBMS):
@@ -82,7 +82,13 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ff02"
 
-    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        await self._await_cmd_resp(0x05)
+        length: Final[int] = self._data_final[3]
+        return {
+            "hw_version": barr2str(self._data_final[4 : length + 4]),
+        }
 
     @staticmethod
     def _calc_values() -> frozenset[BMSValue]:
@@ -104,7 +110,7 @@ class BMS(BaseBMS):
         if (
             data.startswith(self.HEAD_RSP)
             and len(self._data) > self.INFO_LEN
-            and data[1] in (0x03, 0x04)
+            and data[1] in (0x03, 0x04, 0x05)
             and data[2] == 0x00
             and len(self._data) >= self.INFO_LEN + self._data[3]
         ):
