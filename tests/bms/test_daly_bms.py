@@ -56,7 +56,7 @@ class MockDalyBleakClient(MockBleakClient):
             b"\x80\x00\x04\x00\x04\x00\x39\x00\x01\x00\x00\x00\x01\x10\x2e\x01\x41\x00\x2a\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\xa0\xdf"
         ),  # 'voltage': 14.0, 'current': 3.0, 'battery_level': 90.0, 'cycles': 57,
-            # 'cycle_charge': 345.6, 'numTemp': 4, 'temperature': 21.5, 'cycle_capacity': 4838.400000000001, 
+            # 'cycle_charge': 345.6, 'numTemp': 4, 'temperature': 21.5, 'cycle_capacity': 4838.400000000001,
             # 'power': 42.0, 'battery_charging': True, 'runtime': none!, 'delta_voltage': 0.321
         MOS_INFO: bytearray(
             b"\xd2\x03\x12\x00\x00\x00\x00\x75\x30\x00\x00\x00\x4e\xff\xff\xff\xff\xff\xff\xff"
