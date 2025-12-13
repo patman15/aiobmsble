@@ -80,6 +80,7 @@ class MockEJsfBleakClient(MockEJBleakClient):
             "battery_level": 75,
             "cycles": 1,
             "cycle_charge": 110.0,
+            "cell_count": 4,
             "cell_voltages": [3.263, 3.264, 3.306, 3.285],
             "delta_voltage": 0.043,
             "temperature": 25,
@@ -88,7 +89,7 @@ class MockEJsfBleakClient(MockEJBleakClient):
             "battery_charging": True,
             "problem": False,
             "problem_code": 0,
-            "balancer": False,
+            "balancer": 0,
             "chrg_mosfet": True,
             "dischrg_mosfet": True
         }
@@ -122,7 +123,7 @@ class MockEJinvalidBleakClient(MockEJBleakClient):
         )  # TODO: put numbers
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test E&J technology BMS data update."""
 
     patch_bleak_client(MockEJBleakClient)
@@ -135,6 +136,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
         "battery_level": 1,
         "cycles": 0,
         "cycle_charge": 0.2,
+        "cell_count": 10,
         "cell_voltages": [
             3.924,
             3.900,

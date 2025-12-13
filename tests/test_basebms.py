@@ -273,6 +273,12 @@ def test_calc_battery_level() -> None:
     BaseBMS._add_missing_values(bms_data, frozenset({"battery_level"}))
     assert bms_data == ref | {"battery_level": 42.8, "problem": False}
 
+def test_calc_cell_count() -> None:
+    """Check if missing cell_count is correctly calculated."""
+    bms_data: BMSSample = {"cell_voltages": [3.456, 3.567]}
+    ref: BMSSample = bms_data.copy()
+    BaseBMS._add_missing_values(bms_data, frozenset({"cell_count"}))
+    assert bms_data == ref | {"cell_count": 2, "problem": False}
 
 def test_calc_cycles() -> None:
     """Check if missing cycle is correctly calculated."""

@@ -260,6 +260,7 @@ class BaseBMS(ABC):
                     1,
                 ),
             ),
+            "cell_count": ({"cell_voltages"}, lambda: len(cell_voltages)),
             "cycle_capacity": (
                 {"voltage", "cycle_charge"},
                 lambda: round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3),
