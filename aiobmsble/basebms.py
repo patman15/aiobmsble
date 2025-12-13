@@ -606,7 +606,7 @@ class BaseBMS(ABC):
 
 def barr2str(barr: bytearray) -> str:
     """Decode a bytearray to string, stopping at the first non-printable character."""
-    s = barr.decode("utf-8", errors="ignore")
+    s: Final[str] = barr.decode("utf-8", errors="ignore")
     for i, c in enumerate(s):
         if not c.isprintable():
             return s[:i].strip()
@@ -616,6 +616,14 @@ def barr2str(barr: bytearray) -> str:
 def lstr2int(string: str) -> int:
     """Convert the beginning of a string to an integer, till first non-digit is found."""
     return int("".join(takewhile(str.isdigit, string)))
+
+
+def swap32(value: int, signed: bool = False) -> int:
+    """Swap high and low 16bit in 32bit integer."""
+    value = ((value >> 16) & 0xFFFF) | (value & 0xFFFF) << 16
+    if signed and value & 0x80000000:
+        value -= 0x100000000
+    return value
 
 
 def crc_modbus(data: bytearray) -> int:
