@@ -42,8 +42,8 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
+                "local_name": "BT-TH-*",
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": 0x9860,
                 "connectable": True,
             },
         ]
