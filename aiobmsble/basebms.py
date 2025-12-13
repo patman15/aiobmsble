@@ -30,8 +30,8 @@ class BaseBMS(ABC):
     """Abstract base class for battery management system."""
 
     INFO: BMSInfo  # static BMS info, set "default_" keys in subclass
-    MAX_RETRY: Final[int] = 3  # max number of retries for data requests
-    TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    MAX_RETRY: Final[int] = 4  # max number of retries for data requests
+    TIMEOUT: Final[float] = BLEAK_TIMEOUT / 2  # default timeout for BMS operations
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
