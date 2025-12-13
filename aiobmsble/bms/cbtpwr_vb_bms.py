@@ -47,8 +47,8 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {  # Creabest
+                "local_name": "VB?????????",
                 "service_uuid": normalize_uuid_str("fff0"),
-                "manufacturer_id": 16963,
                 "connectable": True,
             },
         ]
