@@ -16,6 +16,7 @@ from tests.conftest import MockBleakClient
 _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 26.556,
     "current": -1.435,
+    "cell_count": 8,
     "cell_voltages": [3.317, 3.319, 3.324, 3.323, 3.320, 3.314, 3.322, 3.317],
     "delta_voltage": 0.01,
     "power": -38.108,
@@ -31,7 +32,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycles": 3,
     "problem": False,
     "problem_code": 0,
-    "balancer": False,
+    "balancer": 0,
     "heater": False,
 }
 
@@ -142,13 +143,13 @@ async def test_device_info(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request):
+def fix_response(request: pytest.FixtureRequest):
     """Return faulty response frame."""
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout, wrong_response
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -198,7 +199,7 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request):
+def prb_response(request: pytest.FixtureRequest):
     """Return faulty response frame."""
     return request.param
 

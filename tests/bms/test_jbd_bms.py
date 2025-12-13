@@ -29,12 +29,13 @@ _RESULT_DEFS: Final[BMSSample] = {
     "power": -44.772,
     "battery_charging": False,
     "runtime": 6246,
+    "cell_count": 4,
     "cell_voltages": [3.43, 3.425, 3.432, 3.417],
     "temp_values": [22.4, 22.3, 21.7],
     "delta_voltage": 0.015,
     "problem": False,
     "problem_code": 0,
-    "balancer": False,
+    "balancer": 0,
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
 }
@@ -140,7 +141,7 @@ class MockOversizedBleakClient(MockJBDBleakClient):
         raise BleakError
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test JBD BMS data update."""
 
     patch_bleak_client(MockJBDBleakClient)
@@ -186,7 +187,7 @@ async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response,
+    wrong_response: bytearray,
 ) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
@@ -240,7 +241,9 @@ def prb_response(request: pytest.FixtureRequest) -> bytearray:
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
