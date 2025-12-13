@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSpackvalue, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble.basebms import BaseBMS, crc_modbus, swap32
 
 
 class BMS(BaseBMS):
@@ -41,9 +41,9 @@ class BMS(BaseBMS):
     }
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("temperature", 20, 2, True, lambda x: x / 10, EIB_LEN),  # avg. ctemp
-        BMSDp("voltage", 0, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
-        BMSDp("current", 4, 4, True, lambda x: BMS._swap32(x, True) / 10, EIA_LEN),
-        BMSDp("cycle_charge", 8, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
+        BMSDp("voltage", 0, 4, False, lambda x: swap32(x) / 100, EIA_LEN),
+        BMSDp("current", 4, 4, True, lambda x: swap32(x, True) / 10, EIA_LEN),
+        BMSDp("cycle_charge", 8, 4, False, lambda x: swap32(x) / 100, EIA_LEN),
         BMSDp("pack_count", 44, 2, False, idx=EIA_LEN),
         BMSDp("cycles", 46, 2, False, idx=EIA_LEN),
         BMSDp("battery_level", 48, 2, False, lambda x: x / 10, EIA_LEN),
@@ -177,15 +177,6 @@ class BMS(BaseBMS):
         await super()._init_connection()
         self._pack_count = 0
         self._pkglen = 0
-
-    @staticmethod
-    def _swap32(value: int, signed: bool = False) -> int:
-        """Swap high and low 16bit in 32bit integer."""
-
-        value = ((value >> 16) & 0xFFFF) | (value & 0xFFFF) << 16
-        if signed and value & 0x80000000:
-            value = -0x100000000 + value
-        return value
 
     @staticmethod
     @cache

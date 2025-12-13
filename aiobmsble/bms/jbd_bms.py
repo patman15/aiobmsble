@@ -12,7 +12,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str
+from aiobmsble.basebms import BaseBMS, barr2str, swap32
 
 
 class BMS(BaseBMS):
@@ -29,7 +29,7 @@ class BMS(BaseBMS):
         BMSDp("current", 6, 2, True, lambda x: x / 100),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),
         BMSDp("cycles", 12, 2, False),
-        BMSDp("balancer", 16, 4, False),
+        BMSDp("balancer", 16, 4, False, lambda x: swap32(x)),
         BMSDp("problem_code", 20, 2, False),
         BMSDp("battery_level", 23, 1, False),
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x1)),
