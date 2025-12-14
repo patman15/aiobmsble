@@ -28,6 +28,7 @@ REF_VALUE: BMSSample = {
     "battery_charging": False,
     "runtime": 72064,
     "pack_count": 2,  # last packet does not report data!
+    "cell_count": 16,
     "cell_voltages": [
         3.272,
         3.272,
@@ -270,7 +271,7 @@ class MockOversizedBleakClient(MockSeplosBleakClient):
             self._notify_callback("MockOversizedBleakClient", notify_data)
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Seplos BMS data update."""
 
     patch_bleak_client(MockSeplosBleakClient)
@@ -367,7 +368,7 @@ async def test_invalid_message(patch_bleak_client, patch_bms_timeout) -> None:
 
 # Alaramflags used: TB02, TB03, TB05, TB06, TB15
 #          skipped: TB09, TB04, TB16, TB07, TB08
-async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
+async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
     problem_resp: dict[str, bytearray] = MockSeplosBleakClient.RESP.copy()

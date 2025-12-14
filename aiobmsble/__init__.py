@@ -76,7 +76,7 @@ class BMSSample(TypedDict, total=False):
     # detailed information
     balancer: bool | int  # False: off, True: active or bit mask, 1: enabled/active
     balance_current: float  # [A]
-    cell_count: int  # [#]
+    cell_count: int  # [#] of parallel cells, i.e. per pack
     cell_voltages: list[float]  # [V]
     cycle_charge: int | float  # [Ah]
     total_charge: int  # [Ah], overall discharged

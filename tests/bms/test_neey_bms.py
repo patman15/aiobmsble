@@ -53,6 +53,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "temperature": 50.24,
     "voltage": 52.313,
     "balance_current": -4.082,
+    "cell_count": 16,
     "cell_voltages": [
         3.265,
         3.266,
@@ -177,7 +178,9 @@ class MockOversizedBleakClient(MockNeeyBleakClient):
         return super()._response(char_specifier, data) + bytearray(6)
 
 
-async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, keep_alive_fixture: bool
+) -> None:
     """Test Neey BMS data update."""
 
     monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", _PROTO_DEFS)

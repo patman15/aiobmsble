@@ -11,7 +11,7 @@ from typing import Final, Literal
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -49,7 +49,7 @@ class BMS(BaseBMS):
         ),  # mask status bits
         BMSDp("dischrg_mosfet", 105, 1, False, lambda x: bool(x & 0x1), Cmd.RT),
         BMSDp("chrg_mosfet", 105, 1, False, lambda x: bool(x & 0x2), Cmd.RT),
-        BMSDp("balancer", 111, 4, False, idx=Cmd.RT)
+        BMSDp("balancer", 111, 4, False, int, idx=Cmd.RT)
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -104,19 +104,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 128-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "runtime",
-                "voltage",
-            }
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

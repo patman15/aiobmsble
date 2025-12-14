@@ -38,6 +38,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_level": 98,
         "cycles": 407,
         "cycle_charge": 194.86,
+        "cell_count": 4,
         "cell_voltages": [3.422, 3.441, 3.429, 3.422],
         "delta_voltage": 0.019,
         "temperature": 31.0,
@@ -54,6 +55,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_level": 98,
         "cycles": 22,
         "cycle_charge": 101,
+        "cell_count": 4,
         "cell_voltages": [3.35, 3.351, 3.353, 3.356],
         "delta_voltage": 0.006,
         "temperature": 16.8,
@@ -282,6 +284,7 @@ async def test_problem_response(
         "battery_level": 98,
         "cycles": 407,
         "cycle_charge": 194.86,
+        "cell_count": 4,
         "cell_voltages": [
             3.422,
             3.441,

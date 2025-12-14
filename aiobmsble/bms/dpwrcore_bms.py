@@ -13,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -94,18 +94,6 @@ class BMS(BaseBMS):
         return "fff3"
 
     # async def _fetch_device_info(self) -> BMSInfo: use default
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "runtime",
-            }
-        )
 
     async def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -201,7 +189,8 @@ class BMS(BaseBMS):
             await self._await_reply(self._cmd(request, b""))
 
         if not BMS._CMDS.issubset(set(self._data_final.keys())):
-            raise ValueError("incomplete response set")
+            self._log.debug("Incomplete data set %s", self._data_final.keys())
+            raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
         result["cell_voltages"] = BMS._cell_voltages(

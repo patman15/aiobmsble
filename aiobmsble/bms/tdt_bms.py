@@ -5,14 +5,14 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from functools import cache
-from typing import Final
+from typing import Final, cast
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -70,20 +70,29 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
-    # async def _fetch_device_info(self) -> BMSInfo: use default
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        for head in self._cmd_heads:
+            try:
+                await self._await_reply(BMS._cmd(0x92, cmd_head=head))
+                break
+            except TimeoutError:
+                ...  # try next command head
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "runtime",
-                "temperature",
-            }
-        )  # calculate further values from BMS provided set ones
+        if 0x92 not in self._data_final:
+            # if BMS does not answer fallback to default
+            return await super()._fetch_device_info()
+
+        ret: dict[str, str] = {
+            k: v
+            for k, v in {
+                "sw_version": barr2str(self._data_final[0x92][8:28]),
+                "manufacturer": barr2str(self._data_final[0x92][28:48]),
+                "serial_number": barr2str(self._data_final[0x92][48:68]),
+            }.items()
+            if len(v) > 0
+        }
+        return cast(BMSInfo, ret)
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -162,10 +171,11 @@ class BMS(BaseBMS):
 
         for head in self._cmd_heads:
             try:
-                self._log.debug("trying command head: 0x%X", head)
                 for cmd in BMS._CMDS:
                     await self._await_reply(BMS._cmd(cmd, cmd_head=head))
-                self._cmd_heads = [head]  # set to single head for further commands
+                if len(self._cmd_heads) > 1:
+                    self._log.debug("detected command head: 0x%X", head)
+                    self._cmd_heads = [head]  # set to single head for further commands
                 break
             except TimeoutError:
                 ...  # try next command head
