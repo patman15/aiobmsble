@@ -208,32 +208,43 @@ class BaseBMS(ABC):
         return info
 
     @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        """Return values that the BMS cannot provide and need to be calculated.
+    def _raw_values() -> frozenset[BMSValue]:
+        """Return values that shall not be calculated even if the BMS cannot provide them.
 
+        Default is `None`, i.e. calculate all possible missing values.
         See _add_missing_values() function for the required input to actually do so.
+
+        Returns:
+            frozenset[BMSValue]: set of BMS values that shall not be calculated
+
         """
         return frozenset()
 
     @final
     @staticmethod
-    def _add_missing_values(data: BMSSample, values: frozenset[BMSValue]) -> None:
+    def _add_missing_values(
+        data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
+    ) -> None:
         """Calculate missing BMS values from existing ones.
 
         Args:
             data: data dictionary with values received from BMS
-            values: list of values to calculate and add to the dictionary
+            raw_values: list of values that shall not be added to the dictionary
 
         Returns:
             None
 
         """
-        if not values or not data:
+        if not data:
             return
 
         def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
-            """Check value to add does not exist, is requested, and needed data is available."""
-            return (value in values) and (value not in data) and using.issubset(data)
+            """Check value to add is not excluded, does not exist, and needed data is available."""
+            return (
+                (value not in raw_values)
+                and (value not in data)
+                and using.issubset(data)
+            )
 
         cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
         battery_level: Final[int | float] = data.get("battery_level", 0)
@@ -480,7 +491,7 @@ class BaseBMS(ABC):
 
         data: BMSSample = await self._async_update()
         if not raw:
-            self._add_missing_values(data, self._calc_values())
+            self._add_missing_values(data, self._raw_values())
 
         if not self._keep_alive:
             # disconnect after data update to force reconnect next time (slow!)
