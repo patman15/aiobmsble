@@ -9,7 +9,8 @@
         "0000fff0-0000-1000-8000-00805f9b34fb",
         "0000ffb0-0000-1000-8000-00805f9b34fb"
       ],
-      "rssi": -73
+      "rssi": -73,
+      "platform_data": ["F8:2E:0C:00:00:00"]
     },
     "type": "cbtpwr_vb_bms",
     "_comments": [

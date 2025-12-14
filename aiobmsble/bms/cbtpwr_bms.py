@@ -49,8 +49,8 @@ class BMS(BaseBMS):
         return [
             {"service_uuid": BMS.uuid_services()[0], "connectable": True},
             {  # Creabest
+                "local_name": "???[CR]??????",
                 "service_uuid": normalize_uuid_str("fff0"),
-                "manufacturer_id": 0,
                 "connectable": True,
             },
             {
