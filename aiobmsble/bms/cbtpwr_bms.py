@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -76,18 +76,6 @@ class BMS(BaseBMS):
         return "ffe9"
 
     # async def _fetch_device_info(self) -> BMSInfo: use default
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "power",
-                "battery_charging",
-                "delta_voltage",
-                "cycle_capacity",
-                "temperature",
-            }
-        )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

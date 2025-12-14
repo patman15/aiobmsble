@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -49,7 +49,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x4), 0x3),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2), 0x3),
     )
-    _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS})
+    _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS}) | {0x2}
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
@@ -85,18 +85,6 @@ class BMS(BaseBMS):
         return "ffe1"
 
     # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "temperature",
-            }
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -166,8 +154,12 @@ class BMS(BaseBMS):
 
         self._data.clear()
         self._data_final.clear()
-        for cmd in range(2, 5):
+        for cmd in BMS._CMDS:
             await self._await_reply(BMS._cmd(bytes([0xFF, cmd])))
+
+        if not BMS._CMDS.issubset(self._data_final.keys()):
+            self._log.debug("Incomplete data set %s", self._data_final.keys())
+            raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
 

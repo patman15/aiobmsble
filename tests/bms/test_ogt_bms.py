@@ -134,6 +134,7 @@ async def test_update(patch_bleak_client, ogt_bms_name, keep_alive_fixture) -> N
             "delta_voltage": 0.003,
             "power": 56.188,
             "battery_charging": True,
+            "cell_count": 4,
             "cell_voltages": [3.306, 3.305, 3.304, 3.303],
         }
 
@@ -166,6 +167,7 @@ async def test_update_16s(monkeypatch, patch_bleak_client) -> None:
         "delta_voltage": 0.003,
         "power": 56.188,
         "battery_charging": True,
+        "cell_count": 16,
         "cell_voltages": [
             3.306,
             3.305,

@@ -220,7 +220,7 @@ async def test_missing_message(
 
     bms = BMS(generate_ble_device())
 
-    with pytest.raises(TimeoutError):
+    with pytest.raises(ValueError, match="BMS data incomplete."):
         await bms.async_update()
 
 

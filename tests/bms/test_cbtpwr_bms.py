@@ -22,6 +22,7 @@ def ref_value() -> BMSSample:
         "battery_level": 100,
         "cycles": 3,
         "cycle_charge": 40.0,
+        "cell_count": 5,
         "cell_voltages": [3.339, 3.339, 3.338, 3.338, 2.317],
         "delta_voltage": 1.022,
         "temperature": -2,
@@ -198,12 +199,12 @@ async def test_invalid_response(patch_bleak_client, patch_bms_timeout) -> None:
 
     bms = BMS(generate_ble_device())
 
-    result = await bms.async_update()
-    assert result == {
+    assert await bms.async_update() == {
         "battery_charging": False,
         "current": -3.14,
         "power": -42.076,
         "voltage": 13.4,
+        "cell_count": 0,
         "cell_voltages": [],
         "problem": False,
     }
@@ -224,6 +225,7 @@ async def test_partly_base_data(patch_bleak_client, patch_bms_timeout) -> None:
         "current": 0.0,
         "power": 0.0,
         "voltage": 13.4,
+        "cell_count": 0,
         "cell_voltages": [],
         "problem": False,
     }
@@ -245,6 +247,7 @@ async def test_all_cell_voltages(patch_bleak_client, patch_bms_timeout) -> None:
         "battery_level": 100,
         "cycles": 3,
         "cycle_charge": 40.0,
+        "cell_count": 20,
         "cell_voltages": [
             3.339,
             3.338,
