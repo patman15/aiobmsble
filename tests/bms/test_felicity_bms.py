@@ -51,6 +51,7 @@ def ref_value() -> dict:
         "cycle_capacity": 5227.2,
         "power": -5.28,
         "battery_charging": False,
+        "cell_count": 16,
         "cell_voltages": [
             3.296,
             3.296,

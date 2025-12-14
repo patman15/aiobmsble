@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, barr2str, crc_xmodem
 
 
@@ -77,24 +77,11 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         self._exp_reply = {0x51}
         await self._await_reply(BMS._cmd(0x51))
-        _dat = self._data_final[0x51]
+        _dat: Final[bytearray] = self._data_final[0x51]
         return {
             "model": barr2str(_dat[26:36]),
             "sw_version": f"{int(_dat[37])}.{int(_dat[38])}",
         }
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "runtime",
-                "temperature",
-            }
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

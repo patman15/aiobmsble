@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, BMSValue
+from aiobmsble import BMSSample
 from aiobmsble.bms.roypow_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -32,6 +32,7 @@ def ref_value() -> BMSSample:
         "cycle_capacity": 1321.795,
         "power": 4.718,
         "battery_charging": True,
+        "cell_count": 4,
         "cell_voltages": [3.375, 3.370, 3.369, 3.372],
         "temp_values": [19, 19, 19, 20],
         "delta_voltage": 0.006,
@@ -220,7 +221,7 @@ async def test_invalid_response(
 
 
 async def test_missing_message(
-    monkeypatch, patch_bleak_client, patch_bms_timeout
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
 ) -> None:
     """Test data up date with BMS returning no message type 4 but 8."""
 
@@ -241,19 +242,8 @@ async def test_missing_message(
 
     bms = BMS(generate_ble_device())
 
-    # remove values from reference that are in 0x4 response (and dependent)
-    ref: BMSSample = ref_value()
-    key: BMSValue
-    for key in (
-        "battery_level",
-        "cycle_capacity",
-        "cycle_charge",
-        "cycles",
-        "power",
-        "voltage",
-    ):
-        ref.pop(key)
-    assert await bms.async_update() == ref
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        assert await bms.async_update() == {}
     await bms.disconnect()
 
 
@@ -283,7 +273,9 @@ def prb_response(request):
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response: tuple[bytearray, str]
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
