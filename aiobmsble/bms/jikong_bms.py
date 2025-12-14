@@ -297,6 +297,6 @@ class BMS(BaseBMS):
             start=6,
             byteorder="little",
         )
-        self._data_final.clear()
+
         self._data_event.clear()
         return data

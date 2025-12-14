@@ -751,4 +751,4 @@ def test_decode_data(fields, data, byteorder, offset, expected) -> None:
 )
 def test_barr2str(data: bytes, expected: str) -> None:
     """Test bytearray to string conversion function."""
-    assert barr2str(bytearray(data)) == expected
+    assert barr2str(data) == expected

@@ -193,7 +193,7 @@ class BaseBMS(ABC):
         info: BMSInfo = BMSInfo()
         for char, key in characteristics:
             try:
-                if value := await self._client.read_gatt_char(char):
+                if value := bytes(await self._client.read_gatt_char(char)):
                     info[key] = barr2str(value)
                     self._log.debug("BT device %s: '%s'", key, info.get(key))
             except BleakCharacteristicNotFoundError:

@@ -134,8 +134,8 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        self._data_final = bytearray(
-            bytes.fromhex(self._data.strip(BMS._HEAD + BMS._TAIL).decode())
+        self._data_final = bytes.fromhex(
+            self._data.strip(BMS._HEAD + BMS._TAIL).decode()
         )
         self._data_event.set()
 
@@ -178,7 +178,9 @@ class BMS(BaseBMS):
         )
 
         result |= BMS._decode_data(
-            BMS._FIELDS, self._data_final, offset=temp_pos + 2 * result["temp_sensors"] + 1
+            BMS._FIELDS,
+            self._data_final,
+            offset=temp_pos + 2 * result["temp_sensors"] + 1,
         )
 
         await self._await_reply(BMS._cmd(0x81, 1, b"\x01\x00"), max_size=20)

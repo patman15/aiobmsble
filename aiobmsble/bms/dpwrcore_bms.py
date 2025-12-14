@@ -150,7 +150,7 @@ class BMS(BaseBMS):
                 self._data_final = {}  # reset invalid data
                 return
 
-            self._data_final[self._data[3]] = self._data.copy()
+            self._data_final[self._data[3]] = bytes(self._data)
             self._data_event.set()
 
     @staticmethod

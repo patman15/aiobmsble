@@ -90,7 +90,7 @@ class MockProBMSBleakClient(MockBleakClient):
 
 
 @pytest.mark.asyncio
-async def test_async_update_discharging(patch_bleak_client):
+async def test_async_update_discharging(patch_bleak_client) -> None:
     """Test async update with discharging data."""
     device = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client = MockProBMSBleakClient(device)
@@ -117,7 +117,7 @@ async def test_async_update_discharging(patch_bleak_client):
 
 
 @pytest.mark.asyncio
-async def test_async_update_charging(patch_bleak_client):
+async def test_async_update_charging(patch_bleak_client) -> None:
     """Test async update with charging data."""
     device = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client = MockProBMSBleakClient(device)
@@ -142,7 +142,7 @@ async def test_async_update_charging(patch_bleak_client):
 
 
 @pytest.mark.asyncio
-async def test_async_update_with_protection(patch_bleak_client):
+async def test_async_update_with_protection(patch_bleak_client) -> None:
     """Test async update with protection status."""
     device = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client = MockProBMSBleakClient(device)
@@ -285,7 +285,11 @@ async def test_async_update_no_data_after_init(
     ids=["wrong_length", "unexpected_RT_data", "invalid_header", "short_packet"],
 )
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response, caplog
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
