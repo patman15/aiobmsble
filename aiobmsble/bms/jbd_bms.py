@@ -96,6 +96,7 @@ class BMS(BaseBMS):
             {
                 "power",
                 "battery_charging",
+                "cell_count",
                 "cycle_capacity",
                 "runtime",
                 "delta_voltage",
