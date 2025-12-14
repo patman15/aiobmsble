@@ -49,7 +49,7 @@ class BMS(BaseBMS):
         ),  # mask status bits
         BMSDp("dischrg_mosfet", 105, 1, False, lambda x: bool(x & 0x1), Cmd.RT),
         BMSDp("chrg_mosfet", 105, 1, False, lambda x: bool(x & 0x2), Cmd.RT),
-        BMSDp("balancer", 111, 4, False, idx=Cmd.RT)
+        BMSDp("balancer", 111, 4, False, int, idx=Cmd.RT)
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -110,6 +110,7 @@ class BMS(BaseBMS):
         return frozenset(
             {
                 "battery_charging",
+                "cell_count",
                 "cycle_capacity",
                 "delta_voltage",
                 "power",

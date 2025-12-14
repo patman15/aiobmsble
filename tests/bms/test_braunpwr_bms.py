@@ -58,7 +58,7 @@ def ref_value() -> BMSSample:
         "runtime": 78684,
         "problem_code": 0,
         "problem": False,
-        "balancer": False,
+        "balancer": 32385,
     }
 
 
@@ -68,7 +68,7 @@ class MockBraunPWRBleakClient(MockBleakClient):
     RESP: dict[int, bytearray] = {
         0x01: bytearray(
             b"\x7b\x01\x20\x00\x53\x14\xd3\x00\xd2\x00\xb4\x00\xbe\xfb\x87\x61"
-            b"\xc2\x75\x30\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x0e\x00"
+            b"\xc2\x75\x30\x00\x00\x00\x00\x00\x08\x7e\x81\x00\x00\x00\x0e\x00"
             b"\x00\x00\x64\x7d"
         ),
         0x02: bytearray(
