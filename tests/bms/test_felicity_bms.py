@@ -135,12 +135,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     bms = BMS(generate_ble_device(), keep_alive_fixture)
 
-    result = await bms.async_update()
-
-    assert result == ref_value()
+    assert await bms.async_update() == ref_value()
 
     # query again to check already connected state
-    result = await bms.async_update()
+    await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -158,7 +156,7 @@ async def test_device_info(patch_bleak_client) -> None:
     }
 
 
-async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
+async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test Felicity BMS data update with problem response."""
 
     prb_resp: dict[str, bytearray] = RESP_VALUE.copy()

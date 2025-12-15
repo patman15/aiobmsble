@@ -70,7 +70,7 @@ _PROTO_DEFS: Final[dict[str, dict[int, bytearray]]] = {
 }
 
 
-def ref_value() -> dict:
+def ref_value() -> dict[str, BMSSample]:
     """Return reference value for mock Seplos BMS."""
     return {
         "4S4Tv0.0": {
@@ -178,6 +178,7 @@ def ref_value() -> dict:
 )
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
+    assert isinstance(request.param, str)
     return request.param
 
 
@@ -487,13 +488,14 @@ async def test_init_fail(
 )
 def prb_response(
     request: pytest.FixtureRequest,
-) -> list[tuple[dict[int, bytearray], str]]:
+) -> tuple[dict[int, bytearray], str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: tuple[dict[int, bytearray], str]
 ) -> None:
     """Test data update with BMS returning error flags."""
 
