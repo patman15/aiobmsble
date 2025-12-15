@@ -90,8 +90,6 @@ class MockANTBleakClient(MockBleakClient):
         ),
     }
 
-    _task: asyncio.Task
-
     async def _notify(self) -> None:
         """Notify function."""
 

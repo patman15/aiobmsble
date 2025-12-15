@@ -187,13 +187,17 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request):
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytes)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 

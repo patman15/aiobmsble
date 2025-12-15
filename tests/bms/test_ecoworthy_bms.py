@@ -112,7 +112,7 @@ class MockECOWBleakClient(MockBleakClient):
     }
     RESP: Final[dict[int, bytearray]] = {}
 
-    _task: asyncio.Task | None = None
+    _task: asyncio.Task[None] | None = None
 
     async def _notify(self) -> None:
         """Notify function."""

@@ -380,8 +380,6 @@ class MockJikongBleakClient(MockBleakClient):
     DEV_INFO: Final = bytearray(b"\x97")
     _FRAME: dict[str, bytearray] = {}
 
-    _task: asyncio.Task | None = None
-
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:

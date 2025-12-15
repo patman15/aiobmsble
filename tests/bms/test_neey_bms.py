@@ -88,7 +88,7 @@ class MockNeeyBleakClient(MockBleakClient):
     TAIL: Final = 0xFF
     _FRAME: dict[str, bytearray] = {}
 
-    _task: asyncio.Task | None = None
+    _task: asyncio.Task[None] | None = None
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer

@@ -49,7 +49,7 @@ class MockJBDBleakClient(MockBleakClient):
     CMD_CELL = bytearray(b"\xa5\x04")
     HW_INFO = bytearray(b"\xa5\x05")
 
-    _tasks: set[asyncio.Task] = set()
+    _tasks: set[asyncio.Task[None]] = set()
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
@@ -99,7 +99,7 @@ class MockJBDBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        _task: asyncio.Task = asyncio.create_task(self._send_data(char_specifier, data))
+        _task: asyncio.Task[None] = asyncio.create_task(self._send_data(char_specifier, data))
         self._tasks.add(_task)
         _task.add_done_callback(self._tasks.discard)
 

@@ -52,7 +52,7 @@ class MockProBMSBleakClient(MockBleakClient):
         """Initialize the mock client."""
         super().__init__(address_or_ble_device, disconnected_callback, **kwargs)
         self._test_packet: bytearray = RECORDED_PACKETS["data_discharging"]
-        self._streaming_task: asyncio.Task | None = None
+        self._streaming_task: asyncio.Task[None] | None = None
         self._stop_streaming: bool = False
 
     def set_test_packet(self, packet: bytearray) -> None:
