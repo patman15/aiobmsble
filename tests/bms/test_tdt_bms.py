@@ -311,23 +311,22 @@ async def test_update_0x1e_head(
     await bms.disconnect()
 
 
+@pytest.mark.parametrize(("header"), [0x7E, 0x1E], ids=["7e", "1e"])
 async def test_device_info(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
     protocol_type: str,
-    bool_fixture: bool,
+    header: int,
 ) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     monkeypatch.setattr(MockTDTBleakClient, "RESP", _PROTO_DEFS[protocol_type])
-    if bool_fixture:  # test both header variants
-        monkeypatch.setattr(MockTDTBleakClient, "HEAD_CMD", 0x1E)
+    monkeypatch.setattr(MockTDTBleakClient, "HEAD_CMD", header)
     patch_bms_timeout()
     patch_bleak_client(MockTDTBleakClient)
     bms = BMS(generate_ble_device())
-    assert (
-        await bms.device_info()
-        == ({
+    assert await bms.device_info() == (
+        {
             "fw_version": "mock_FW_version",
             "hw_version": "mock_HW_version",
             "manufacturer": "mock_manufacturer",
@@ -339,7 +338,7 @@ async def test_device_info(
         else {
             "sw_version": "6032_10016S000_L_41",
             "serial_number": "60326016207270001",
-        })
+        }
     )
 
 

@@ -180,6 +180,7 @@ async def test_device_info(patch_bleak_client) -> None:
 )
 def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytearray)
     return request.param[0]
 
 
@@ -235,8 +236,9 @@ async def test_oversized_response(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request: pytest.FixtureRequest) -> bytearray:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 

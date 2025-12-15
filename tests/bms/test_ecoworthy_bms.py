@@ -97,8 +97,9 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
     name="protocol_type",
     params=[0x1, 0x2],
 )
-def proto(request: pytest.FixtureRequest) -> str:
+def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
+    assert isinstance(request.param, int)
     return request.param
 
 
@@ -148,7 +149,10 @@ class MockECOWBleakClient(MockBleakClient):
 
 
 async def test_update(
-    monkeypatch, patch_bleak_client, protocol_type, keep_alive_fixture
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    protocol_type: int,
+    keep_alive_fixture: bool,
 ) -> None:
     """Test ECO-WORTHY BMS data update."""
 
@@ -238,7 +242,11 @@ async def test_tx_notimplemented(patch_bleak_client) -> None:
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, protocol_type, wrong_response
+    monkeypatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    protocol_type: int,
+    wrong_response,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -289,13 +297,16 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request) -> tuple[bytearray, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 

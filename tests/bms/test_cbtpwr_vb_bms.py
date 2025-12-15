@@ -99,10 +99,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockCBTpwrVBBleakClient)
 
-    bms = BMS(
-        generate_ble_device(),
-        keep_alive_fixture
-    )
+    bms = BMS(generate_ble_device(), keep_alive_fixture)
 
     result = await bms.async_update()
 
@@ -171,13 +168,17 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytearray)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 

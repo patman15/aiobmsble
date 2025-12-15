@@ -224,13 +224,16 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[2],
 )
-def prb_response(request) -> tuple[bytearray, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, int, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response: tuple[bytearray, int, str]
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, int, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 

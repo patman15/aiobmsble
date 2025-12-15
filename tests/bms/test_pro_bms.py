@@ -52,8 +52,8 @@ class MockProBMSBleakClient(MockBleakClient):
         """Initialize the mock client."""
         super().__init__(address_or_ble_device, disconnected_callback, **kwargs)
         self._test_packet: bytearray = RECORDED_PACKETS["data_discharging"]
-        self._streaming_task = None
-        self._stop_streaming = False
+        self._streaming_task: asyncio.Task | None = None
+        self._stop_streaming: bool = False
 
     def set_test_packet(self, packet: bytearray) -> None:
         """Set the packet to return."""
@@ -94,7 +94,7 @@ class MockProBMSBleakClient(MockBleakClient):
 
 
 @pytest.mark.asyncio
-async def test_async_update_discharging(patch_bleak_client):
+async def test_async_update_discharging(patch_bleak_client) -> None:
     """Test async update with discharging data."""
     device: BLEDevice = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client: MockProBMSBleakClient = MockProBMSBleakClient(device)
@@ -121,7 +121,7 @@ async def test_async_update_discharging(patch_bleak_client):
 
 
 @pytest.mark.asyncio
-async def test_async_update_charging(patch_bleak_client):
+async def test_async_update_charging(patch_bleak_client) -> None:
     """Test async update with charging data."""
     device: BLEDevice = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client: MockProBMSBleakClient = MockProBMSBleakClient(device)
@@ -146,7 +146,7 @@ async def test_async_update_charging(patch_bleak_client):
 
 
 @pytest.mark.asyncio
-async def test_async_update_with_protection(patch_bleak_client):
+async def test_async_update_with_protection(patch_bleak_client) -> None:
     """Test async update with protection status."""
     device: BLEDevice = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client: MockProBMSBleakClient = MockProBMSBleakClient(device)

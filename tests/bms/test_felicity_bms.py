@@ -40,7 +40,7 @@ RESP_VALUE: Final[dict[str, bytearray]] = {
 }
 
 
-def ref_value() -> dict:
+def ref_value() -> BMSSample:
     """Return reference value for mock Seplos BMS."""
     return {
         "voltage": 52.8,
