@@ -27,7 +27,7 @@ class BMS(BaseBMS):
     _MAX_SUBS: Final[int] = 0xF
     _CELL_POS: Final[int] = 9
     _PRB_MAX: Final[int] = 8  # max number of alarm event bytes
-    _PRB_MASK: Final[int] = ~0x82FFFF  # ignore byte 7-8 + byte 6 (bit 7,2)
+    _PRB_MASK: Final[int] = 0x7DFFFFFFFFFF  # ignore byte 7-8 + byte 6 (bit 7,2)
     _PFIELDS: Final[tuple[BMSDp, ...]] = (  # Seplos V2: single machine data
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),
         BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
