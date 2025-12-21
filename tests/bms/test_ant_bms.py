@@ -90,8 +90,6 @@ class MockANTBleakClient(MockBleakClient):
         ),
     }
 
-    _task: asyncio.Task
-
     async def _notify(self) -> None:
         """Notify function."""
 
@@ -233,8 +231,9 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request) -> tuple[bytearray, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
@@ -242,7 +241,7 @@ async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bms_timeout,
     patch_bleak_client,
-    problem_response,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 

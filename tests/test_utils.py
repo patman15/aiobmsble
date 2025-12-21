@@ -26,6 +26,7 @@ from tests.bluetooth import generate_advertisement_data
 )
 def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
     """Return module of a BMS."""
+    assert isinstance(request.param, ModuleType)
     return request.param
 
 
@@ -216,8 +217,8 @@ async def test_bms_identify_fail() -> None:
     ],
 )
 def test_advertisement_matches(
-    matcher: MatcherPattern, adv_data: AdvertisementData, mac_addr, expected: bool
-):
+    matcher: MatcherPattern, adv_data: AdvertisementData, mac_addr: str, expected: bool
+) -> None:
     """Test _advertisement_matches() returns the expected result for a given matcher/advertisement.
 
     Args:

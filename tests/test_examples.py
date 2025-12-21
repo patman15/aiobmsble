@@ -1,7 +1,7 @@
 """Test classes for package examples."""
 
 from collections.abc import Callable
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
@@ -12,7 +12,7 @@ from tests.bluetooth import generate_ble_device
 
 
 @pytest.fixture(name="patch_find_device_by_name")
-def fixture_find_device_by_name(monkeypatch: pytest.MonkeyPatch):
+def fixture_find_device_by_name(monkeypatch: pytest.MonkeyPatch) -> Callable[[], None]:
     """Fixture to patch BleakClient with a given MockClient."""
 
     def _patch() -> None:
@@ -29,7 +29,7 @@ class TestMinimal:
 
     @staticmethod
     async def mock_find_device_by_name(
-        name: str, timeout: float = 10.0, **_kwargs
+        name: str, timeout: float = 10.0, **kwargs: Any
     ) -> BLEDevice | None:
         """Mock function that returns a BleakDevice for 'Dummy device'."""
         assert timeout > 0
@@ -76,7 +76,7 @@ class TestMinimal:
     ) -> None:
         """Test that minimal example handles if a Bleak error occurs."""
 
-        def _raise_bleak_error(_self) -> NoReturn:
+        def _raise_bleak_error(self: Any) -> NoReturn:
             raise BleakError
 
         patch_find_device_by_name()
