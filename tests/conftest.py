@@ -1,6 +1,7 @@
 """Common fixtures for the aiobmsble library tests.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from collections.abc import Awaitable, Buffer, Callable, Iterable
