@@ -298,13 +298,14 @@ async def test_all_cell_voltages(patch_bleak_client, patch_bms_timeout) -> None:
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request) -> tuple[dict[int, bytearray], str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[dict[int, bytearray], str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
     problem_response: tuple[dict[int, bytearray], str],

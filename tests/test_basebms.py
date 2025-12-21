@@ -2,7 +2,7 @@
 
 from collections.abc import Buffer, Callable
 from logging import DEBUG
-from typing import Final, NoReturn
+from typing import Any, Final, Literal, NoReturn
 from uuid import UUID
 
 from bleak.assigned_numbers import CharacteristicPropertyName
@@ -175,11 +175,11 @@ class WMTestBMS(MinTestBMS):
 async def test_device_info(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client: Callable[..., None],
-    bt_patch,
-    result_patch,
+    bt_patch: dict[str, bytes],
+    result_patch: dict[str, str],
 ) -> None:
     """Verify that device_info reads BLE characteristic 180A and provides default values."""
-    defaults = MockBleakClient.BT_INFO.copy()
+    defaults: dict[str, bytes] = MockBleakClient.BT_INFO.copy()
     del defaults["2a28"]
     monkeypatch.setattr(MockBleakClient, "BT_INFO", defaults | bt_patch)
     patch_bleak_client()
@@ -445,7 +445,7 @@ async def test_disconnect_fail(
 ) -> None:
     """Check that exceptions in connect function for guarding disconnect are ignored."""
 
-    async def _raise_bleak_error(_args) -> NoReturn:
+    async def _raise_bleak_error(*args: Any) -> NoReturn:
         raise BleakError
 
     monkeypatch.setattr(MockBleakClient, "disconnect", _raise_bleak_error)
@@ -466,7 +466,7 @@ async def test_init_connect_fail(
 ) -> None:
     """Check that exceptions in connect function for guarding disconnect are ignored."""
 
-    async def _raise_value_error(_args) -> NoReturn:
+    async def _raise_value_error(*args: Any) -> NoReturn:
         raise ValueError("MockValueError")
 
     patch_bleak_client(MockBleakClient)
@@ -662,7 +662,15 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
     ],
 )
 def test_temp_values(
-    data, values, start, size, byteorder, signed, offset, divider, expected
+    data: bytearray,
+    values: int,
+    start: int,
+    size: int,
+    byteorder: Literal["little", "big"],
+    signed: bool,
+    offset: float,
+    divider: int,
+    expected: list[int | float],
 ) -> None:
     """Test the _temp_values method of BaseBMS with various input parameters."""
     result: list[int | float] = BaseBMS._temp_values(

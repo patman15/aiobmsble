@@ -56,8 +56,8 @@ class MockDalyBleakClient(MockBleakClient):
             b"\x80\x00\x04\x00\x04\x00\x39\x00\x01\x00\x00\x00\x01\x10\x2e\x01\x41\x00\x2a\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\xa0\xdf"
         ),  # 'voltage': 14.0, 'current': 3.0, 'battery_level': 90.0, 'cycles': 57,
-            # 'cycle_charge': 345.6, 'numTemp': 4, 'temperature': 21.5, 'cycle_capacity': 4838.400000000001,
-            # 'power': 42.0, 'battery_charging': True, 'runtime': none!, 'delta_voltage': 0.321
+        # 'cycle_charge': 345.6, 'numTemp': 4, 'temperature': 21.5, 'cycle_capacity': 4838.400000000001,
+        # 'power': 42.0, 'battery_charging': True, 'runtime': none!, 'delta_voltage': 0.321
         MOS_INFO: bytearray(
             b"\xd2\x03\x12\x00\x00\x00\x00\x75\x30\x00\x00\x00\x4e\xff\xff\xff\xff\xff\xff\xff"
             b"\xff\x0b\x4e"
@@ -215,13 +215,17 @@ async def test_too_short_frame(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request) -> tuple[bytearray, str]:
+def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytearray)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data update with BMS returning invalid data."""
 
@@ -280,7 +284,9 @@ def prb_response(request: pytest.FixtureRequest):
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: tuple[bytearray, str]
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 

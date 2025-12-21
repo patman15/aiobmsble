@@ -49,7 +49,7 @@ class MockJBDBleakClient(MockBleakClient):
     CMD_CELL = bytearray(b"\xa5\x04")
     HW_INFO = bytearray(b"\xa5\x05")
 
-    _tasks: set[asyncio.Task] = set()
+    _tasks: set[asyncio.Task[None]] = set()
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
@@ -99,7 +99,7 @@ class MockJBDBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        _task: asyncio.Task = asyncio.create_task(self._send_data(char_specifier, data))
+        _task: asyncio.Task[None] = asyncio.create_task(self._send_data(char_specifier, data))
         self._tasks.add(_task)
         _task.add_done_callback(self._tasks.discard)
 
@@ -180,6 +180,7 @@ async def test_device_info(patch_bleak_client) -> None:
 )
 def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytearray)
     return request.param[0]
 
 
@@ -235,8 +236,9 @@ async def test_oversized_response(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request: pytest.FixtureRequest) -> bytearray:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 

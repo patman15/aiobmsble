@@ -5,7 +5,7 @@ import asyncio
 from collections.abc import Callable
 from logging import DEBUG, INFO
 import sys
-from typing import Final
+from typing import Any, Final
 from unittest import mock
 
 from bleak.backends.device import BLEDevice
@@ -20,7 +20,7 @@ from .bluetooth import generate_advertisement_data
 
 
 async def mock_discover(
-    timeout: float = 5.0, *, return_adv: bool = False, **_kwargs
+    timeout: float = 5.0, *, return_adv: bool = False, **kwargs: Any
 ) -> dict[str, tuple[BLEDevice, AdvertisementData]]:
     """Mock BleakScanner to avoid actual BLE scanning."""
     mock_mac_unknown: Final[str] = "00:00:00:00:00:00"
@@ -78,7 +78,7 @@ async def test_scan_devices_fail(
     """Verify log output for working BMS update query."""
 
     async def mock_discover_fail(
-        timeout: float = 5.0, *, return_adv: bool = False, **_kwargs
+        timeout: float = 5.0, *, return_adv: bool = False, **kwargs: Any
     ) -> dict[str, tuple[BLEDevice, AdvertisementData]]:
         raise BleakError("No BT adapters.")
 

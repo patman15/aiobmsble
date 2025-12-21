@@ -73,8 +73,9 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
     name="protocol_type",
     params=[0x5E, 0x83],
 )
-def proto(request: pytest.FixtureRequest) -> str:
+def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
+    assert isinstance(request.param, int)
     return request.param
 
 
@@ -205,13 +206,17 @@ async def test_tx_notimplemented(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def response(request) -> bytearray:
+def response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytes)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
