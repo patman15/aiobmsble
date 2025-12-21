@@ -233,24 +233,43 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
+@pytest.mark.parametrize(
+    ("problem", "expected"),
+    [
+        (
+            bytearray(
+                b"\x7e\x14\x00\x62\x00\x00\x30\x00\x00\x10\x0c\xf4\x0c\xee\x06\x0b\x93\x0b\x7f"
+                b"\x0b\xb6\x0b\x8d\x00\xd7\x14\xb4\x11\x14\x07\x20\xd0\x02\x08\x20\xd0\x00\x71"
+                b"\x03\xe8\x14\xb9\x07\x00\x02\x03\x08\xff\xff\xff\xff\xff\xff\xff\xff\xd0\xd0"
+                b"\x0d"
+            ),
+            0x7DFFFFFFFFFF,
+        ),
+        (
+            bytearray(
+                b"\x7e\x14\x03\x62\x00\x00\x30\x00\x00\x10\x0e\x03\x0d\x70\x06\x0b\xf5\x0b\xed"
+                b"\x0c\x0f\x0b\xf9\xff\xa5\x16\x2f\x0a\xf0\x07\x0a\xf0\x03\xe7\x0a\xf0\x01\xbb"
+                b"\x03\xe8\x16\x2b\x01\x00\x01\x03\x08\x00\x11\x00\x00\x00\x02\x00\x00\xd5\x8d"
+                b"\x0d"
+            ),
+            0x20000,  # Charging over-temp protection
+        ),
+    ],
+    ids=("all", "over-temp"),
+)
 # Alarm flags: Events 1-6, excluding 7-8
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem: bytearray,
+    expected: int,
 ) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
     monkeypatch.setattr(
         MockSeplosv2BleakClient,
         "RESP",
-        MockSeplosv2BleakClient.RESP
-        | {
-            b"\x00\x46\x62\x00\x00\xa6\x8a": bytearray(
-                b"\x7e\x14\x00\x62\x00\x00\x30\x00\x00\x10\x0c\xf4\x0c\xee\x06\x0b\x93\x0b\x7f"
-                b"\x0b\xb6\x0b\x8d\x00\xd7\x14\xb4\x11\x14\x07\x20\xd0\x02\x08\x20\xd0\x00\x71"
-                b"\x03\xe8\x14\xb9\x07\x00\x02\x03\x08\xff\xff\xff\xff\xff\xff\xff\xff\xd0\xd0"
-                b"\x0d"
-            )
-        },
+        MockSeplosv2BleakClient.RESP | {b"\x00\x46\x62\x00\x00\xa6\x8a": problem},
     )
 
     patch_bleak_client(MockSeplosv2BleakClient)
@@ -259,5 +278,5 @@ async def test_problem_response(
 
     assert await bms.async_update() == REF_VALUE | {
         "problem": True,
-        "problem_code": 0xFFFFFFFFFF7D0000,
+        "problem_code": expected,
     }
