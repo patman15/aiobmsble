@@ -1,7 +1,7 @@
-"""Test helpers for bluetooth copied from HA 2025.8.3.
+"""Test helpers for Bleak / Bluetooth.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
-Source: /tests/components/bluetooth/__init__.py
+License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from typing import Any
