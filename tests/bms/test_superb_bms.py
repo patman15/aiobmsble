@@ -21,6 +21,7 @@ _PROTO_DEFS: Final[bytearray] = bytearray(
 _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 14.159,
     "current": -0.4,
+    "battery_health": 100,
     "battery_level": 94,
     "power": -5.664,
     "runtime": 420,
