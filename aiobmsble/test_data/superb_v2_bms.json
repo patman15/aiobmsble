@@ -1,0 +1,16 @@
+[
+  {
+    "advertisement": {
+      "local_name": "Epsilon 150 - 202019586",
+      "manufacturer_data": { "20670": "457073696c6f6e205632" },
+      "rssi": -78,
+      "platform_data": [
+        "48:23:35:00:00:00"
+      ]
+    },
+    "type": "superb_v2_bms",
+    "_comments": [
+      "source pcap log (https://github.com/patman15/BMS_BLE-HA/issues/546)"
+    ]
+  }
+]
