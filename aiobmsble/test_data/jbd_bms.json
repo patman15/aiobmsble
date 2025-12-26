@@ -659,5 +659,19 @@
       "manufacturer app (https://github.com/patman15/BMS_BLE-HA/issues/565)",
       "CHINS 48V lifepo4 battery"
     ]
-  }  
+  },
+  {
+    "advertisement": {
+      "local_name": "ECO-LFP48100-3U-031212",
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb"
+      ],
+      "rssi": -87,
+      "platform_data": ["AA:C2:37:03:12:12"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "ECO-WORTHY 48V 100AH Server Rack V3 battery"
+    ]
+  }
 ]
