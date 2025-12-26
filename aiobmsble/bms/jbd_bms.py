@@ -54,11 +54,12 @@ class BMS(BaseBMS):
             )
             for pattern in (
                 "JBD-*",
-                "SX1*",  # Supervolt v3
-                "SX60*",  # Supervolt Ultra
-                "SBL-*",  # SBL
-                "OGR-*",  # OGRPHY
-                "TZ-H*",  # CERRNSS battery
+                "SX1*",               # Supervolt v3
+                "SX60*",              # Supervolt Ultra
+                "SBL-*",              # SBL
+                "OGR-*",              # OGRPHY
+                "TZ-H*",              # CERRNSS battery
+                "ECO-LFP48100-3U-*"   # ECO-WORTHY 48V v3 Server rack battery
             )
         ] + [
             MatcherPattern(
