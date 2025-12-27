@@ -54,7 +54,7 @@ def _advertisement_matches(
     ) and service_data_uuid not in adv_data.service_data:
         return False
 
-    if (oui := matcher.get("oui")) and not mac_addr.startswith(oui[:8]):
+    if (oui := matcher.get("oui")) and not mac_addr.lower().startswith(oui.lower()[:8]):
         return False
 
     if (manufacturer_id := matcher.get("manufacturer_id")) is not None:
@@ -108,7 +108,7 @@ async def bms_cls(name: str) -> type[BaseBMS] | None:
     """
     if not name.endswith(_MODULE_POSTFIX):
         return None
-    loop = asyncio.get_running_loop()
+    loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
     try:
         bms_module: ModuleType = await loop.run_in_executor(
             None, importlib.import_module, f"aiobmsble.bms.{name}"
@@ -136,8 +136,8 @@ async def bms_matching(
         list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwise.
 
     """
-    loop = asyncio.get_running_loop()
-    bms_plugins = await loop.run_in_executor(None, load_bms_plugins)
+    loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
+    bms_plugins: set[ModuleType] = await loop.run_in_executor(None, load_bms_plugins)
 
     for bms_module in bms_plugins:
         if bms_supported(bms_module.BMS, adv_data, mac_addr):
