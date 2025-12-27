@@ -15,8 +15,7 @@ import pytest
 
 from aiobmsble import BMSSample
 import aiobmsble.__main__ as main_mod
-
-from .bluetooth import generate_advertisement_data
+from aiobmsble.test_data import adv_dict_to_advdata
 
 
 async def mock_discover(
@@ -26,13 +25,13 @@ async def mock_discover(
     mock_mac_unknown: Final[str] = "00:00:00:00:00:00"
     mock_mac: Final[str] = "11:22:33:44:55:66"
     mock_device: BLEDevice = BLEDevice(mock_mac, "Dummy BMS", None)
-    mock_adv: AdvertisementData = generate_advertisement_data(local_name="dummy")
+    mock_adv: AdvertisementData = adv_dict_to_advdata({"local_name":"dummy"})
     assert timeout >= 0, "timeout cannot be negative."
     assert return_adv, "mock only works with advertisement info."
     return {
         mock_mac_unknown: (
             BLEDevice(mock_mac_unknown, "Unknown Device", None),
-            generate_advertisement_data(local_name="unknown_device"),
+            adv_dict_to_advdata({"local_name":"unknown_device"}),
         ),
         mock_mac: (mock_device, mock_adv),
     }

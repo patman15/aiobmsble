@@ -64,7 +64,14 @@ class BMS(BaseBMS):
             MatcherPattern(
                 oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True
             )
-            for oui in ("A4:C1:37", "A4:C1:38", "A5:C2:37", "AA:C2:37", "70:3E:97")
+            for oui in (
+                "10:A5:62",  # CHINS
+                "A4:C1:37",
+                "A4:C1:38",
+                "A5:C2:37",
+                "AA:C2:37",
+                "70:3E:97",
+            )
         ]
 
     @staticmethod

@@ -1,20 +1,20 @@
 """Test the aiobmsble library utility functions."""
 
 from types import ModuleType
+from typing import Any
 
 from bleak.backends.scanner import AdvertisementData
 import pytest
 
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.test_data import BmsAdvList, bms_advertisements
+from aiobmsble.test_data import BmsAdvList, adv_dict_to_advdata, bms_advertisements
 from aiobmsble.utils import (
     _advertisement_matches,
     bms_cls,
     bms_identify,
     load_bms_plugins,
 )
-from tests.bluetooth import generate_advertisement_data
 
 
 @pytest.fixture(
@@ -50,7 +50,7 @@ async def test_bms_identify(plugin: ModuleType) -> None:
         bms_advertisements(bms_type).pop()
         if bms_type != "dummy_bms"
         else (
-            generate_advertisement_data(local_name="dummy"),
+            adv_dict_to_advdata({"local_name": "dummy"}),
             "cc:cc:cc:cc:cc:cc",
             bms_type,
             "",
@@ -78,69 +78,69 @@ async def test_bms_cls_none(bms_type: str) -> None:
 
 async def test_bms_identify_fail() -> None:
     """Test if bms_identify returns None if matching BMS for advertisement does not exist."""
-    assert await bms_identify(generate_advertisement_data(), "") is None
+    assert await bms_identify(adv_dict_to_advdata({}), "") is None
 
 
 @pytest.mark.parametrize(
-    ("matcher", "adv_data", "mac_addr", "expected"),
+    ("matcher", "adv_dict", "mac_addr", "expected"),
     [
         (  # Match service_uuid
             {"service_uuid": "1234"},
-            generate_advertisement_data(service_uuids=["1234"]),
+            {"service_uuids": ["1234"]},
             "",
             True,
         ),
         (  # Do not match service_uuid
             {"service_uuid": "abcd"},
-            generate_advertisement_data(service_uuids=["1234"]),
+            {"service_uuids": ["1234"]},
             "",
             False,
         ),
         (  # Match service_data_uuid
             {"service_data_uuid": "abcd"},
-            generate_advertisement_data(service_data={"abcd": b"\x01\x02"}),
+            {"service_data": {"abcd": b"\x01\x02"}},
             "",
             True,
         ),
         (  # Do not Match service_data_uuid
             {"service_data_uuid": "efgh"},
-            generate_advertisement_data(service_data={"abcd": b"\x01\x02"}),
+            {"service_data": {"abcd": b"\x01\x02"}},
             "",
             False,
         ),
         (  # Match manufacturer_id
             {"manufacturer_id": 123},
-            generate_advertisement_data(manufacturer_data={123: b"\x01\x02"}),
+            {"manufacturer_data": {123: b"\x01\x02"}},
             "",
             True,
         ),
         (  # Do not match manufacturer_id
             {"manufacturer_id": 456},
-            generate_advertisement_data(manufacturer_data={123: b"\x01\x02"}),
+            {"manufacturer_data": {123: b"\x01\x02"}},
             "",
             False,
         ),
         (  # Match manufacturer_data_start
             {"manufacturer_id": 123, "manufacturer_data_start": b"\x01"},
-            generate_advertisement_data(manufacturer_data={123: b"\x01\x02"}),
+            {"manufacturer_data": {123: b"\x01\x02"}},
             "",
             True,
         ),
         (  # Do not match manufacturer_data_start
             {"manufacturer_id": 123, "manufacturer_data_start": b"\x02"},
-            generate_advertisement_data(manufacturer_data={123: b"\x01\x02"}),
+            {"manufacturer_data": {123: b"\x01\x02"}},
             "",
             False,
         ),
         (  # Match local_name with wildcard
             {"local_name": "Test*"},
-            generate_advertisement_data(local_name="TestDevice"),
+            {"local_name": "TestDevice"},
             "",
             True,
         ),
         (  # Do not match local_name with wildcard
             {"local_name": "Foo*"},
-            generate_advertisement_data(local_name="BarDevice"),
+            {"local_name": "BarDevice"},
             "",
             False,
         ),
@@ -150,11 +150,11 @@ async def test_bms_identify_fail() -> None:
                 "manufacturer_id": 123,
                 "local_name": "Dev*",
             },
-            generate_advertisement_data(
-                service_uuids=["1234"],
-                manufacturer_data={123: b"\x01"},
-                local_name="Device",
-            ),
+            {
+                "service_uuids": ["1234"],
+                "manufacturer_data": {123: b"\x01"},
+                "local_name": "Device",
+            },
             "",
             True,
         ),
@@ -164,38 +164,18 @@ async def test_bms_identify_fail() -> None:
                 "manufacturer_id": 999,
                 "local_name": "Dev*",
             },
-            generate_advertisement_data(
-                service_uuids=["1234"],
-                manufacturer_data={123: b"\x01"},
-                local_name="Device",
-            ),
+            {
+                "service_uuids": ["1234"],
+                "manufacturer_data": {123: b"\x01"},
+                "local_name": "Device",
+            },
             "",
             False,
         ),
-        (  # Empty matcher always matches
-            {},
-            generate_advertisement_data(),
-            "",
-            True,
-        ),
-        (
-            {"oui": "00:11:22"},
-            generate_advertisement_data(),
-            "00:11:22:aa:bb:cc",
-            True,
-        ),
-        (
-            {"oui": "00:11:22-xx:yy:zz"},
-            generate_advertisement_data(),
-            "00:11:22:aa:bb:cc",
-            True,
-        ),
-        (
-            {"oui": "00"},
-            generate_advertisement_data(),
-            "00:11:22:aa:bb:cc",
-            True,
-        ),
+        ({}, {}, "", True),  # Empty matcher matches always
+        ({"oui": "00:11:22"}, {}, "00:11:22:aa:bb:cc", True),
+        ({"oui": "00:11:22-xx:yy:zz"}, {}, "00:11:22:aa:bb:cc", True),
+        ({"oui": "00"}, {}, "00:11:22:aa:bb:cc", True),
     ],
     ids=[
         "service_uuid-match",
@@ -217,13 +197,13 @@ async def test_bms_identify_fail() -> None:
     ],
 )
 def test_advertisement_matches(
-    matcher: MatcherPattern, adv_data: AdvertisementData, mac_addr: str, expected: bool
+    matcher: MatcherPattern, adv_dict: dict[str, Any], mac_addr: str, expected: bool
 ) -> None:
     """Test _advertisement_matches() returns the expected result for a given matcher/advertisement.
 
     Args:
         matcher: The matcher object or criteria used to evaluate the advertisement data.
-        adv_data: The advertisement data to be checked against the matcher.
+        adv_dict: The advertisement data dictionary to be checked against the matcher.
         mac_addr: Bluetooth device address
         expected: The expected boolean result indicating if the advertisement matches the criteria.
 
@@ -231,4 +211,4 @@ def test_advertisement_matches(
         That advertisement_matches(matcher, adv_data) returns the value specified by expected.
 
     """
-    assert _advertisement_matches(matcher, adv_data, mac_addr) is expected
+    assert _advertisement_matches(matcher, adv_dict_to_advdata(adv_dict), mac_addr) is expected
