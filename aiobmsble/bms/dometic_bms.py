@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from typing import Final, Literal
+from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -83,7 +83,7 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         if not data.startswith(BMS._HEAD):
-            self._log.debug("unkown SOF (%s)", data[:2].hex(" "))
+            self._log.debug("unknown SOF (%s)", data[:2].hex(" "))
             return
 
         if len(data) != BMS._FRAME_LEN:
