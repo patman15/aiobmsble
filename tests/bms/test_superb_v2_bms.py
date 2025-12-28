@@ -30,6 +30,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "current": -2.465,
     "power": -32.555,
     "problem": False,
+    "runtime": 77609,
     "voltage": 13.207,
 }
 

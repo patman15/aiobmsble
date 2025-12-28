@@ -10,7 +10,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -28,6 +28,7 @@ class BMS(BaseBMS):
         BMSDp("voltage", 10, 2, False, lambda x: x / 1000, 0x2),
         BMSDp("battery_level", 1, 1, False, idx=0x0),
         BMSDp("battery_health", 19, 1, False, idx=0x0),
+        BMSDp("runtime", 20, 4, False, idx=0x0),
         BMSDp("cycles", 18, 1, False, idx=0x0),
         # BMSDp("runtime", 4, 4, False, float),
         # BMSDp("problem_code", 1, 1, False, lambda x: (x & 0x1) ^ 0x1),
@@ -67,9 +68,9 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "cf9ccdfa-eee9-43ce-87a5-82b54af5324e"
 
-    # @staticmethod
-    # def _raw_values() -> frozenset[BMSValue]:
-    #     return frozenset({"runtime"})  # never calculate, e.g. runtime
+    @staticmethod
+    def _raw_values() -> frozenset[BMSValue]:
+        return frozenset({"runtime"})  # never calculate runtime
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -100,7 +101,7 @@ class BMS(BaseBMS):
         result: BMSSample = self._decode_data(BMS._FIELDS, self._data_final)
 
         # remove runtime if not discharging
-        # if result.get("current", 0) >= 0:
-        #     result.pop("runtime", None)
+        if result.get("runtime", 0) == 0xFFFFFFFF:
+             result.pop("runtime", None)
         self._data_final.clear()
         return result
