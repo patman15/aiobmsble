@@ -174,6 +174,7 @@ async def test_bms_identify_fail() -> None:
         ),
         ({}, {}, "", True),  # Empty matcher matches always
         ({"oui": "00:11:22"}, {}, "00:11:22:aa:bb:cc", True),
+        ({"oui": "AA:bb:CC"}, {}, "aa:BB:cc:00:11:22", True),
         ({"oui": "00:11:22-xx:yy:zz"}, {}, "00:11:22:aa:bb:cc", True),
         ({"oui": "00"}, {}, "00:11:22:aa:bb:cc", True),
     ],
@@ -192,6 +193,7 @@ async def test_bms_identify_fail() -> None:
         "multiple-criteria-one-no-match",
         "empty-matcher-always-match",
         "OUI-matches",
+        "OUI-match-case-insensitive",
         "OUI-matches-long",
         "OUI-matches-short",
     ],
