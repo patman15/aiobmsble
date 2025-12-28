@@ -22,6 +22,10 @@ class BMS(BaseBMS):
         "default_manufacturer": "Dometic",
         "default_model": "Büttner BMS",
     }
+    _NOTIFY_CHARS: Final[set[str]] = {
+        "0000000a-0000-1000-8000-008025000000",
+        "00000004-0000-1000-8000-008025000000",
+    }
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
     _FIELDS: Final[tuple[BMSDp, ...]] = (
@@ -76,11 +80,22 @@ class BMS(BaseBMS):
     # def _raw_values() -> frozenset[BMSValue]:
     #     return frozenset({"runtime"})  # never calculate, e.g. runtime
 
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        await super()._init_connection(char_notify)
+        # subscribe to further notify characteristic
+        for char in BMS._NOTIFY_CHARS:
+            self._log.debug("Subscribing to notify characteristic %s", char)
+            await self._client.start_notify(
+                char, getattr(self, "_notification_handler")
+            )
+
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
-        self._log.debug("RX BLE data: %s", data)
+        self._log.debug("RX BLE data from %s: %s", str(sender)[:8], data)
 
         if not data.startswith(BMS._HEAD):
             self._log.debug("unknown SOF (%s)", data[:2].hex(" "))
