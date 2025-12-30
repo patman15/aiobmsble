@@ -124,12 +124,6 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         return {"serial_number": self.name[10:]}
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {"cycle_capacity", "power", "battery_charging", "delta_voltage"}
-        )
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:

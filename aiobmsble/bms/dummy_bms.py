@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -53,11 +53,9 @@ class BMS(BaseBMS):
             default_manufacturer="Dummy manufacturer", default_model="Dummy BMS"
         )  # TODO: implement query code or remove function to query service 0x180A
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {"power", "battery_charging"}
-        )  # calculate further values from BMS provided set ones
+    # @staticmethod
+    # def _raw_values() -> frozenset[BMSValue]:
+    #     return frozenset({"runtime"})  # never calculate, e.g. runtime
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

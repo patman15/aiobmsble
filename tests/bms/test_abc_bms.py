@@ -110,6 +110,7 @@ async def test_update(
         "cycle_charge": 106.048,
         "cycles": 7,
         "problem_code": 0,
+        "cell_count": 8,
         "cell_voltages": [3.442, 3.496, 3.375, 3.464, 3.457, 3.429, 3.359, 3.42],
         "temp_values": [20],
         "delta_voltage": 0.137,
@@ -191,7 +192,7 @@ async def test_invalid_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = {}
-    with pytest.raises(TimeoutError):
+    with pytest.raises(ValueError, match="BMS data incomplete."):
         result = await bms.async_update()
 
     assert not result
@@ -212,13 +213,14 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request) -> tuple[bytearray, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response: tuple[bytearray, str]
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: tuple[bytearray, str]
 ) -> None:
     """Test data update with BMS returning error flags."""
 

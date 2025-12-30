@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, barr2str, crc_xmodem
 
 
@@ -27,7 +27,7 @@ class BMS(BaseBMS):
     _MAX_SUBS: Final[int] = 0xF
     _CELL_POS: Final[int] = 9
     _PRB_MAX: Final[int] = 8  # max number of alarm event bytes
-    _PRB_MASK: Final[int] = ~0x82FFFF  # ignore byte 7-8 + byte 6 (bit 7,2)
+    _PRB_MASK: Final[int] = 0x7DFFFFFFFFFF  # ignore byte 7-8 + byte 6 (bit 7,2)
     _PFIELDS: Final[tuple[BMSDp, ...]] = (  # Seplos V2: single machine data
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),
         BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
@@ -77,24 +77,11 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         self._exp_reply = {0x51}
         await self._await_reply(BMS._cmd(0x51))
-        _dat = self._data_final[0x51]
+        _dat: Final[bytearray] = self._data_final[0x51]
         return {
             "model": barr2str(_dat[26:36]),
             "sw_version": f"{int(_dat[37])}.{int(_dat[38])}",
         }
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "runtime",
-                "temperature",
-            }
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

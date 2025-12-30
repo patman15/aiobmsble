@@ -38,6 +38,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_level": 98,
         "cycles": 407,
         "cycle_charge": 194.86,
+        "cell_count": 4,
         "cell_voltages": [3.422, 3.441, 3.429, 3.422],
         "delta_voltage": 0.019,
         "temperature": 31.0,
@@ -54,6 +55,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_level": 98,
         "cycles": 22,
         "cycle_charge": 101,
+        "cell_count": 4,
         "cell_voltages": [3.35, 3.351, 3.353, 3.356],
         "delta_voltage": 0.006,
         "temperature": 16.8,
@@ -71,8 +73,9 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
     name="protocol_type",
     params=[0x5E, 0x83],
 )
-def proto(request: pytest.FixtureRequest) -> str:
+def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
+    assert isinstance(request.param, int)
     return request.param
 
 
@@ -203,13 +206,17 @@ async def test_tx_notimplemented(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def response(request) -> bytearray:
+def response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytes)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -282,6 +289,7 @@ async def test_problem_response(
         "battery_level": 98,
         "cycles": 407,
         "cycle_charge": 194.86,
+        "cell_count": 4,
         "cell_voltages": [
             3.422,
             3.441,

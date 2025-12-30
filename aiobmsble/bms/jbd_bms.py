@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, barr2str, swap32
 
 
@@ -64,7 +64,14 @@ class BMS(BaseBMS):
             MatcherPattern(
                 oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True
             )
-            for oui in ("A4:C1:37", "A4:C1:38", "A5:C2:37", "AA:C2:37", "70:3E:97")
+            for oui in (
+                "10:A5:62",  # CHINS
+                "A4:C1:37",
+                "A4:C1:38",
+                "A5:C2:37",
+                "AA:C2:37",
+                "70:3E:97",
+            )
         ]
 
     @staticmethod
@@ -89,19 +96,6 @@ class BMS(BaseBMS):
         return {
             "hw_version": barr2str(self._data_final[4 : length + 4]),
         }
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "power",
-                "battery_charging",
-                "cycle_capacity",
-                "runtime",
-                "delta_voltage",
-                "temperature",
-            }
-        )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

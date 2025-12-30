@@ -81,10 +81,6 @@ class BMS(BaseBMS):
             "sw_version": barr2str(self._data_final[32:40]),
         }
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset({"temperature"})
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:

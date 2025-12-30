@@ -29,12 +29,13 @@ _RESULT_DEFS: Final[BMSSample] = {
     "power": -44.772,
     "battery_charging": False,
     "runtime": 6246,
+    "cell_count": 4,
     "cell_voltages": [3.43, 3.425, 3.432, 3.417],
     "temp_values": [22.4, 22.3, 21.7],
     "delta_voltage": 0.015,
     "problem": False,
     "problem_code": 0,
-    "balancer": False,
+    "balancer": 0,
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
 }
@@ -48,7 +49,7 @@ class MockJBDBleakClient(MockBleakClient):
     CMD_CELL = bytearray(b"\xa5\x04")
     HW_INFO = bytearray(b"\xa5\x05")
 
-    _tasks: set[asyncio.Task] = set()
+    _tasks: set[asyncio.Task[None]] = set()
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
@@ -98,7 +99,7 @@ class MockJBDBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        _task: asyncio.Task = asyncio.create_task(self._send_data(char_specifier, data))
+        _task: asyncio.Task[None] = asyncio.create_task(self._send_data(char_specifier, data))
         self._tasks.add(_task)
         _task.add_done_callback(self._tasks.discard)
 
@@ -140,7 +141,7 @@ class MockOversizedBleakClient(MockJBDBleakClient):
         raise BleakError
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test JBD BMS data update."""
 
     patch_bleak_client(MockJBDBleakClient)
@@ -179,6 +180,7 @@ async def test_device_info(patch_bleak_client) -> None:
 )
 def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytearray)
     return request.param[0]
 
 
@@ -186,7 +188,7 @@ async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response,
+    wrong_response: bytearray,
 ) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
@@ -234,13 +236,16 @@ async def test_oversized_response(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request: pytest.FixtureRequest) -> bytearray:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 

@@ -19,8 +19,9 @@ from tests.conftest import MockBleakClient
     params=["TBA-MockBLEDevice_C0FE", "DXB-MockBLEDevice_C0FE", "invalid"],
     ids=["TBA", "DXB", "wrong"],
 )
-def patch_dev_name(request) -> str:
+def patch_dev_name(request: pytest.FixtureRequest) -> str:
     """Provide device name variants."""
+    assert isinstance(request.param, str)
     return request.param
 
 
@@ -149,7 +150,9 @@ class MockProblemBleakClient(MockDPwrcoreBleakClient):
         return super()._response(char_specifier, data)
 
 
-async def test_update(patch_bleak_client, dev_name, keep_alive_fixture) -> None:
+async def test_update(
+    patch_bleak_client, dev_name: str, keep_alive_fixture: bool
+) -> None:
     """Test D-pwercore BMS data update."""
 
     patch_bleak_client(MockDPwrcoreBleakClient)
@@ -196,7 +199,7 @@ async def test_update(patch_bleak_client, dev_name, keep_alive_fixture) -> None:
 
 
 async def test_invalid_response(
-    patch_bleak_client, patch_bms_timeout, dev_name
+    patch_bleak_client, patch_bms_timeout, dev_name: str
 ) -> None:
     """Test data update with BMS returning invalid data."""
 
@@ -214,7 +217,7 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_wrong_crc(patch_bleak_client, patch_bms_timeout, dev_name) -> None:
+async def test_wrong_crc(patch_bleak_client, patch_bms_timeout, dev_name: str) -> None:
     """Test data update with BMS returning invalid data."""
 
     patch_bms_timeout()
@@ -231,7 +234,7 @@ async def test_wrong_crc(patch_bleak_client, patch_bms_timeout, dev_name) -> Non
     await bms.disconnect()
 
 
-async def test_problem_response(patch_bleak_client, dev_name) -> None:
+async def test_problem_response(patch_bleak_client, dev_name: str) -> None:
     """Test D-pwercore BMS data update."""
 
     patch_bleak_client(MockProblemBleakClient)
@@ -273,7 +276,7 @@ async def test_problem_response(patch_bleak_client, dev_name) -> None:
     await bms.disconnect()
 
 
-async def test_incomplete_msgs(monkeypatch, patch_bleak_client, dev_name) -> None:
+async def test_incomplete_msgs(monkeypatch, patch_bleak_client, dev_name: str) -> None:
     """Test D-pwercore BMS data update."""
 
     def _stuck_response(
@@ -292,7 +295,7 @@ async def test_incomplete_msgs(monkeypatch, patch_bleak_client, dev_name) -> Non
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), False)
 
     result: BMSSample = {}
-    with pytest.raises(ValueError, match="incomplete response set"):
+    with pytest.raises(ValueError, match="BMS data incomplete."):
         result = await bms.async_update()
 
     assert not result
