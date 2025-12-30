@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import contextlib
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -23,7 +24,7 @@ class BMS(BaseBMS):
     }
     _HEAD_LEN: Final[int] = 3
     _MAX_CELLS: Final[int] = 16
-    _MAX_TEMP: Final[int] = 3
+    _MAX_TEMP: Final[int] = 5
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 12, 2, False, lambda x: x / 1000),
         BMSDp("current", 48, 4, True, lambda x: x / 1000),
@@ -40,6 +41,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
+        self._temp_sensors: int = 1  # default to 1 temp sensor
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -106,7 +108,7 @@ class BMS(BaseBMS):
             self._log.debug("invalid checksum 0x%X != 0x%X", data[len(data) - 1], crc)
             return
 
-        self._data = data
+        self._data = data.copy()
         self._data_event.set()
 
     async def _async_update(self) -> BMSSample:
@@ -122,5 +124,17 @@ class BMS(BaseBMS):
         result["temp_values"] = BMS._temp_values(
             self._data, values=BMS._MAX_TEMP, start=52, byteorder="little"
         )
+        # Determine number of temp sensors by checking if value is persistently 0
+        with contextlib.suppress(StopIteration):
+            self._temp_sensors = max(
+                self._temp_sensors,
+                next(
+                    i
+                    for i in range(BMS._MAX_TEMP, 1, -1)
+                    if result["temp_values"][i - 1] != 0
+                ),
+            )
+        result["temp_values"] = result["temp_values"][: self._temp_sensors]
+        result["temp_sensors"] = self._temp_sensors
 
         return result
