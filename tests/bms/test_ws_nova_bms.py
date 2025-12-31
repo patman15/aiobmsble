@@ -1,8 +1,6 @@
 """Test the Wattstunde Nova BMS implementation."""
 
-import asyncio
-from collections.abc import Awaitable, Buffer, Callable
-import contextlib
+from collections.abc import Buffer
 from typing import Final, cast
 from uuid import UUID
 
