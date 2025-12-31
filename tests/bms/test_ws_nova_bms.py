@@ -1,7 +1,9 @@
 """Test the Wattstunde Nova BMS implementation."""
 
-from collections.abc import Awaitable, Callable
-from typing import Final
+import asyncio
+from collections.abc import Awaitable, Buffer, Callable
+import contextlib
+from typing import Final, cast
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -48,6 +50,8 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.257,
         3.252,
     ],
+    "cell_count": 4,
+    "cycle_capacity": 1442.7,
     "heater": False,
     "problem": False,
 }
@@ -58,36 +62,36 @@ class MockWSNovaBleakClient(MockBleakClient):
 
     _RESP: bytearray = _PROTO_DEFS
 
-    def _send_info(self) -> None:
-        assert self._notify_callback is not None
-        for notify_data in [
-            self._RESP[i : i + BT_FRAME_SIZE]
-            for i in range(0, len(self._RESP), BT_FRAME_SIZE)
-        ]:
-            self._notify_callback("MockWSNovaBleakClient", notify_data)
-
-    @property
-    def is_connected(self) -> bool:
-        """Mock connected."""
-        if self._connected:
-            self._send_info()  # patch to provide data when not reconnecting
-        return self._connected
-
-    async def start_notify(
+    async def write_gatt_char(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[
-            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-        ],
-        **kwargs,
+        data: Buffer,
+        response: bool | None = None,
     ) -> None:
-        """Mock start_notify."""
-        await super().start_notify(char_specifier, callback)
-        if char_specifier == "FFF6":
-            self._send_info()
+        """Issue write command to GATT."""
+        await super().write_gatt_char(char_specifier, data, response)
+        assert self._notify_callback is not None
+        if char_specifier == "FFF1":
+            self._notify_callback("MockVatrerBleakClient", self._RESP)
 
 
-async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> None:
+class MockStreamBleakClient(MockWSNovaBleakClient):
+    """Emulate a Wattstunde Nova BMS BleakClient sending data in stream mode."""
+
+    _RESP_NOTIFY: bytearray = _PROTO_DEFS
+
+    async def _notify(self) -> None:
+        assert self._notify_callback is not None
+        for notify_data in [
+            self._RESP_NOTIFY[i : i + BT_FRAME_SIZE]
+            for i in range(0, len(self._RESP_NOTIFY), BT_FRAME_SIZE)
+        ]:
+            self._notify_callback("MockStreamBleakClient", notify_data)
+
+
+async def test_update(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, keep_alive_fixture: bool
+) -> None:
     """Test Wattstunde Nova BMS data update."""
 
     monkeypatch.setattr(MockWSNovaBleakClient, "_RESP", _PROTO_DEFS)
@@ -104,27 +108,41 @@ async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> No
     await bms.disconnect()
 
 
-# async def test_update_chrg(monkeypatch, patch_bleak_client) -> None:
-#     """Test Wattstunde Nova BMS data update with positive current (charging)."""
+async def test_stream_update(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test Wattstunde Nova BMS stream data update."""
 
-#     monkeypatch.setattr(
-#         MockWSNovaBleakClient,
-#         "_RESP",
-#         bytearray(
-#             b"\x00\x75\x5e\x64\x00\x00\x01\xa4\x3e\xcc\xcc\xcd\x41\x62\x89\xc5\x00\x00\x00\x00"
-#         ),
-#     )
-#     patch_bleak_client(MockWSNovaBleakClient)
+    patch_bleak_client(MockStreamBleakClient)
 
-#     bms = BMS(generate_ble_device())
+    bms = BMS(generate_ble_device())
 
-#     result = _RESULT_DEFS.copy() | {
-#         "current": 0.4,
-#         "battery_charging": True,
-#         "power": 5.664,
-#     }
-#     del result["runtime"]
-#     assert await bms.async_update() == result
+    assert await bms.async_update() == _RESULT_DEFS
+    assert bms._data_event.is_set() is False, "BMS does not request fresh data"
+    assert "requesting BMS data" in caplog.text
+
+    _client = cast(MockStreamBleakClient, bms._client)
+    caplog.clear()
+    _frame: bytearray = _PROTO_DEFS.copy()
+    _frame[135:139] = b"2029"  # change cycles from 5 to 9
+    monkeypatch.setattr(_client, "_RESP_NOTIFY", _frame)
+    await _client._notify()
+
+    # query again to see if updated streaming data is used
+    assert await bms.async_update() == _RESULT_DEFS | {"cycles": 0x9}
+    assert "requesting BMS data" not in caplog.text, "BMS did not use streaming data"
+
+    caplog.clear()
+    # do not automatically send data this time
+    _frame = _PROTO_DEFS.copy()
+    _frame[135:139] = b"2429"  # change cycles from 9 to 73
+    monkeypatch.setattr(_client, "_RESP_NOTIFY", _frame)
+
+    # query again to see if BMS recovers if no data is sent
+    assert await bms.async_update() == _RESULT_DEFS
+    assert "requesting BMS data" in caplog.text, "BMS did not use streaming data"
 
 
 async def test_device_info(patch_bleak_client) -> None:
@@ -135,42 +153,38 @@ async def test_device_info(patch_bleak_client) -> None:
         "serial_number": "5500724211093",
     }
 
-# async def test_tx_notimplemented(patch_bleak_client) -> None:
-#     """Test Wattstunde Nova BMS uuid_tx not implemented for coverage."""
 
-#     patch_bleak_client(MockWSNovaBleakClient)
+@pytest.mark.parametrize(
+    ("wrong_response"),
+    [
+        b"",
+        b"-" + _PROTO_DEFS[1:],
+        _PROTO_DEFS[:-2] + b"#",
+        b":" + _PROTO_DEFS[2:],
+        b":z" + _PROTO_DEFS[2:],
+    ],
+    ids=["empty", "wrong_SOF", "wrong_EOF", "wrong_length", "wrong_encoding"],
+)
+async def test_invalid_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
+) -> None:
+    """Test data up date with BMS returning invalid data."""
 
-#     bms = BMS(generate_ble_device(), False)
+    patch_bms_timeout()
+    monkeypatch.setattr(MockWSNovaBleakClient, "_RESP", bytearray(wrong_response))
+    patch_bleak_client(MockWSNovaBleakClient)
 
-#     with pytest.raises(NotImplementedError):
-#         _ret = bms.uuid_tx()
+    bms = BMS(generate_ble_device())
 
+    result: BMSSample = {}
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
 
-# @pytest.mark.parametrize(
-#     ("wrong_response"),
-#     [
-#         b"",
-#         b"\x00\x72\x5e\x64\x00\x00\x01\xa4\xbe\xcc\xcc\xcd\x41\x62\x89\xc5\x00\x00\x00",
-#     ],
-#     ids=["empty", "too_short"],
-# )
-# async def test_invalid_response(
-#     monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytes
-# ) -> None:
-#     """Test data up date with BMS returning invalid data."""
-
-#     patch_bms_timeout("superws_nova_bms")
-#     monkeypatch.setattr(MockWSNovaBleakClient, "_RESP", bytearray(wrong_response))
-#     patch_bleak_client(MockWSNovaBleakClient)
-
-#     bms = BMS(generate_ble_device())
-
-#     result: BMSSample = {}
-#     with pytest.raises(TimeoutError):
-#         result = await bms.async_update()
-
-#     assert not result
-#     await bms.disconnect()
+    assert not result
+    await bms.disconnect()
 
 
 # @pytest.mark.parametrize(

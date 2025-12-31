@@ -1,10 +1,9 @@
-"""Module to support Dummy BMS.
+"""Module to support Wattstunde Nova BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-import asyncio
 from functools import cache
 from string import hexdigits
 from typing import Final
@@ -13,12 +12,12 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
 
 
 class BMS(BaseBMS):
-    """Dummy BMS implementation."""
+    """Wattstunde Nova Core BMS implementation."""
 
     INFO: BMSInfo = {
         "default_manufacturer": "Wattstunde",
@@ -66,25 +65,20 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_rx() -> str:
         """Return 16-bit UUID of characteristic that provides notification/read property."""
-        return "FFF6"
+        return "FFF1"
 
     @staticmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-        return "FFF6"
+        return "FFF1"
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         await self._await_reply(
             self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45")
         )
+        self._data_event.clear()
         return BMSInfo(serial_number=barr2str(self._data_final[91:107]))
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {"power", "delta_voltage", "temperature", "runtime", "battery_charging"}
-        )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -126,13 +120,13 @@ class BMS(BaseBMS):
     @staticmethod
     @cache
     def _cmd(cmd: bytes) -> bytes:
-        """Assemble a Wattstunde Nova BMS command."""
-
+        """Assemble a Wattstunde Nova BMS command frame."""
         return BMS._HEAD + cmd + BMS._TAIL
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         if not self._data_event.is_set():
+            self._log.debug("requesting BMS data")
             await self._await_reply(
                 self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45")
             )
