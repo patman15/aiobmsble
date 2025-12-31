@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
+from aiobmsble.basebms import BaseBMS, barr2str
 
 
 class BMS(BaseBMS):
