@@ -107,12 +107,15 @@ class BMS(BaseBMS):
             return
 
         decoded = bytearray(
-            b ^ 0x20 for b in bytes.fromhex(self._data[1:-1].decode("ascii"))
+            b ^ int(self._data[7:9], 16)
+            for b in bytes.fromhex(self._data[1:-3].decode("ascii"))
         )
-        self._log.debug("decoded data: %s", decoded)
-        # if (crc := crc_sum(decoded[:-1])) != decoded[-1]:
-        #     self._log.debug("invalid checksum 0x%X != 0x%X", decoded[-1], crc)
-        #     return
+        # incoming frames seem to have invalid checksum, thus not checked here
+
+        if not decoded.startswith(b"\x01\x54"):
+            self._log.debug("incorrect frame type.")
+            self._data.clear()
+            return
 
         self._data_final = decoded.copy()
         self._data_event.set()

@@ -160,8 +160,9 @@ async def test_device_info(patch_bleak_client) -> None:
         _PROTO_DEFS[:-2] + b"#",
         b":" + _PROTO_DEFS[2:],
         b":z" + _PROTO_DEFS[2:],
+        b":2175" + _PROTO_DEFS[5:],
     ],
-    ids=["empty", "wrong_SOF", "wrong_EOF", "wrong_length", "wrong_encoding"],
+    ids=["empty", "wrong_SOF", "wrong_EOF", "wrong_length", "wrong_encoding", "wrong_type"],
 )
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
