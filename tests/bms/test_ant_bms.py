@@ -90,18 +90,6 @@ class MockANTBleakClient(MockBleakClient):
         ),
     }
 
-    async def _notify(self) -> None:
-        """Notify function."""
-
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
-
-        while True:
-            for msg in self.RESP.values():
-                self._notify_callback("MockANTBleakClient", msg)
-                await asyncio.sleep(0.1)
-
     async def write_gatt_char(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
