@@ -9,6 +9,7 @@ from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
+from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
@@ -25,6 +26,7 @@ class BMS(BaseBMS):
     _NOTIFY_CHARS: Final[set[str]] = {
         "0000000a-0000-1000-8000-008025000000",
         "00000004-0000-1000-8000-008025000000",
+        "00002346-0000-1000-8000-00805f9b34fb",
     }
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
@@ -58,7 +60,7 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_services() -> list[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("fefb")]
+        return [normalize_uuid_str("fefb"), normalize_uuid_str("2345")]
 
     @staticmethod
     def uuid_rx() -> str:
@@ -87,9 +89,14 @@ class BMS(BaseBMS):
         # subscribe to further notify characteristic
         for char in BMS._NOTIFY_CHARS:
             self._log.debug("Subscribing to notify characteristic %s", char)
-            await self._client.start_notify(
-                char, getattr(self, "_notification_handler")
-            )
+            try:
+                await self._client.start_notify(
+                    char, getattr(self, "_notification_handler")
+                )
+            except BleakError as ex:
+                self._log.debug(
+                    "Could not subscribe to notify characteristic %s: %s", char, ex
+                )
 
     def _notification_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
