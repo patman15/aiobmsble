@@ -1,10 +1,9 @@
-"""Module to support Dummy BMS.
+"""Module to support Super-B v2 BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-import asyncio
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -15,14 +14,11 @@ from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
-    """Dummy BMS implementation."""
+    """Super-B v2 BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Super-B", "default_model": "Epsilon v2"}
     _NOTIFY_CHAR: Final[str] = "e0fef452-9d2b-4005-a1e3-69fe1102b436"
-    # _HEAD: Final[bytes] = b"\x00"  # beginning of frame
-    # _TAIL: Final[bytes] = b"\xAA"  # end of frame
-    # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
-    # 00 23 04 13 00 00 f6 81 00 00 00 00 00 00 00 00 00 00 12 64 00 01 b1 d7
+    _FRAME_LEN: Final[int] = 24
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 6, 4, True, lambda x: x / 1000, 0x2),
         BMSDp("voltage", 10, 2, False, lambda x: x / 1000, 0x2),
@@ -30,7 +26,6 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 19, 1, False, idx=0x0),
         BMSDp("runtime", 20, 4, False, idx=0x0),
         BMSDp("cycles", 18, 1, False, idx=0x0),
-        # BMSDp("runtime", 4, 4, False, float),
         # BMSDp("problem_code", 1, 1, False, lambda x: (x & 0x1) ^ 0x1),
         # BMSDp("balancer", 1, 1, False, lambda x: bool(x & 0x80)),
     )
@@ -87,7 +82,7 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data from %s: %s", str(sender)[:8], data)
 
-        if len(data) != 24:
+        if len(data) != BMS._FRAME_LEN:
             self._log.debug("incorrect frame length")
             return
 
@@ -102,6 +97,6 @@ class BMS(BaseBMS):
 
         # remove runtime if not discharging
         if result.get("runtime", 0) == 0xFFFFFFFF:
-             result.pop("runtime", None)
+            result.pop("runtime", None)
         self._data_final.clear()
         return result

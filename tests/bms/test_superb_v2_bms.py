@@ -1,4 +1,4 @@
-"""Test the Super-B BMS implementation."""
+"""Test the Super-B v2 BMS implementation."""
 
 from collections.abc import Awaitable, Buffer, Callable
 from typing import Final
@@ -36,8 +36,9 @@ _RESULT_DEFS: Final[BMSSample] = {
 
 
 class MockSuperBv2BleakClient(MockBleakClient):
-    """Emulate a Super-B BMS BleakClient."""
+    """Emulate a Super-B v2 BMS BleakClient."""
 
+    _QUERY_RESP: dict[bytes, bytearray] = RESP
     _NOTIFY_RESP: bytearray = bytearray(
         b"\x02\x0d\x00\x00\x00\x00\xff\xff\xf6\x5f\x33\x97\x00\x00\x09\x64\x00\x00\x00\x00\x00\x00"
         b"\x00\x00"
@@ -59,7 +60,7 @@ class MockSuperBv2BleakClient(MockBleakClient):
         ) != normalize_uuid_str("cf9ccdfa-eee9-43ce-87a5-82b54af5324e"):
             return bytearray()
 
-        return RESP.get(cmd, bytearray())
+        return self._QUERY_RESP.get(cmd, bytearray())
 
     @property
     def is_connected(self) -> bool:
@@ -101,9 +102,8 @@ class MockSuperBv2BleakClient(MockBleakClient):
 async def test_update(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client, keep_alive_fixture: bool
 ) -> None:
-    """Test Super-B BMS data update."""
+    """Test Super-B v2 BMS data update."""
 
-    # monkeypatch.setattr(MockSuperBv2BleakClient, "_RESP", RESP[b"\x21\x54\x00"])
     patch_bleak_client(MockSuperBv2BleakClient)
 
     bms = BMS(generate_ble_device(), keep_alive_fixture)
@@ -117,27 +117,41 @@ async def test_update(
     await bms.disconnect()
 
 
-# async def test_update_chrg(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
-#     """Test Super-B BMS data update with positive current (charging)."""
+async def test_update_chrg(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test Super-B v2 BMS data update while charging."""
 
-#     monkeypatch.setattr(
-#         MockSuperBv2BleakClient,
-#         "_RESP",
-#         bytearray(
-#             b"\x00\x75\x5e\x64\x00\x00\x01\xa4\x3e\xcc\xcc\xcd\x41\x62\x89\xc5\x00\x00\x00\x00"
-#         ),
-#     )
-#     patch_bleak_client(MockSuperBv2BleakClient)
+    monkeypatch.setattr(
+        MockSuperBv2BleakClient,
+        "_QUERY_RESP",
+        {
+            b"\x21\x54\x00": bytearray(
+                b"\x00\x23\x04\x13\x00\x01\xdf\xd9\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x12\x64\xff\xff\xff\xff"
+            )
+        },
+    )
+    monkeypatch.setattr(
+        MockSuperBv2BleakClient,
+        "_NOTIFY_RESP",
+        bytearray(
+            b"\x02\x0e\x00\x00\x00\x00\x00\x00\x24\x12\x33\xd9\x00\x00\x09\x64\x00\x00\x00\x00\x00\x00\x00\x00"
+        ),
+    )
+    patch_bleak_client(MockSuperBv2BleakClient)
 
-#     bms = BMS(generate_ble_device())
+    bms = BMS(generate_ble_device())
 
-#     result: BMSSample = _RESULT_DEFS.copy() | {
-#         "current": 0.4,
-#         "battery_charging": True,
-#         "power": 5.664,
-#     }
-#     del result["runtime"]
-#     assert await bms.async_update() == result
+    assert await bms.async_update() == {
+        "battery_charging": True,
+        "battery_health": 100,
+        "battery_level": 35,
+        "cycles": 18,
+        "current": 9.234,
+        "power": 122.563,
+        "problem": False,
+        "voltage": 13.273,
+    }
+
+    await bms.disconnect()
 
 
 async def test_device_info(patch_bleak_client) -> None:
@@ -152,17 +166,6 @@ async def test_device_info(patch_bleak_client) -> None:
         "model": "mock_model",
         "serial_number": "mock_serial_number",
     }
-
-
-# async def test_tx_notimplemented(patch_bleak_client) -> None:
-#     """Test Super-B BMS uuid_tx not implemented for coverage."""
-
-#     patch_bleak_client(MockSuperBv2BleakClient)
-
-#     bms = BMS(generate_ble_device(), False)
-
-#     with pytest.raises(NotImplementedError):
-#         _ret = bms.uuid_tx()
 
 
 @pytest.mark.parametrize(
