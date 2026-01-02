@@ -12,6 +12,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import verify_device_info
 
 BT_FRAME_SIZE = 27  # ATT maximum is 512, minimal 27
 CHAR_UUID = "fff1"
@@ -289,16 +290,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client(MockSeplosBleakClient)
-    bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "mock_FW_version",
-        "hw_version": "mock_HW_version",
-        "sw_version": "mock_SW_version",
-        "manufacturer": "mock_manufacturer",
-        "model": "mock_model",
-        "serial_number": "mock_serial_number",
-    }
+    await verify_device_info(patch_bleak_client, MockSeplosBleakClient, BMS)
 
 
 async def test_wrong_crc(patch_bleak_client, patch_bms_timeout) -> None:
@@ -368,7 +360,9 @@ async def test_invalid_message(patch_bleak_client, patch_bms_timeout) -> None:
 
 # Alaramflags used: TB02, TB03, TB05, TB06, TB15
 #          skipped: TB09, TB04, TB16, TB07, TB08
-async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+async def test_problem_response(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
     problem_resp: dict[str, bytearray] = MockSeplosBleakClient.RESP.copy()
