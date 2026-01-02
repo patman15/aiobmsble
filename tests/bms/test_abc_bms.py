@@ -12,6 +12,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.abc_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import verify_device_info
 
 
 class MockABCBleakClient(MockBleakClient):
@@ -100,9 +101,7 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), keep_alive_fixture)
 
-    result = await bms.async_update()
-
-    assert result == {
+    assert await bms.async_update() == {
         "temp_sensors": 1,
         "voltage": 27.554,
         "current": 0.0,
@@ -135,16 +134,9 @@ async def test_update(
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client(MockABCBleakClient)
-    bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "mock_FW_version",
-        "hw_version": "mock_HW_version",
-        "sw_version": "mock_SW_version",
-        "manufacturer": "mock_manufacturer",
-        "model": "SOK-BMS",
-        "serial_number": "mock_serial_number",
-    }
+    await verify_device_info(
+        patch_bleak_client, MockABCBleakClient, BMS, {"model": "SOK-BMS"}
+    )
 
 
 @pytest.fixture(
@@ -169,22 +161,23 @@ async def test_device_info(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
     return bytearray(request.param[0])
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
     patch_bms_timeout()
 
     monkeypatch.setattr(
-        MockABCBleakClient,
-        "RESP",
-        MockABCBleakClient.RESP | {0xF0: wrong_response},
+        MockABCBleakClient, "RESP", MockABCBleakClient.RESP | {0xF0: wrong_response}
     )
 
     patch_bleak_client(MockABCBleakClient)
@@ -220,7 +213,9 @@ def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: tuple[bytearray, str]
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 

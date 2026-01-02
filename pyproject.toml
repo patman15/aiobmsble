@@ -43,7 +43,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/patman15/aiobmsble/"
-Documentation = "https://github.com/patman15/aiobmsble/README"
+Documentation = "https://github.com/patman15/aiobmsble/?tab=readme-ov-file#aiobmsble"
 "Source Code" = "https://github.com/patman15/aiobmsble/"
 "Bug Reports" = "https://github.com/patman15/aiobmsble/issues"
 
