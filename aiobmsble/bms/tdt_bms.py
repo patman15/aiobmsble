@@ -41,7 +41,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 12, 2, False, idx=0x8C),
         BMSDp("cycles", 8, 2, False, idx=0x8C),
     )  # problem code, switches are not included in the list, but extra
-    _CMDS: Final[list[int]] = [*list({field.idx for field in _FIELDS}), 0x8D]
+    _CMDS: Final[set[int]] = {field.idx for field in _FIELDS} | {0x8D}
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""

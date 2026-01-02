@@ -37,7 +37,7 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 15, 2, False, lambda x: x / 10),
     )
     _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
-    _CMDS: Final[list[tuple[int, bytes]]] = [(0x51, b""), (0x61, b"\x00"), (0x62, b"")]
+    _CMDS: Final[set[tuple[int, bytes]]] = {(0x51, b""), (0x61, b"\x00"), (0x62, b"")}
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""

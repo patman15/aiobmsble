@@ -38,11 +38,7 @@ class BMS(BaseBMS):
         BMSDp("balancer", 35, 4, False, idx=0x24),
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS}
-    _CMDS: Final[tuple[tuple[int, int], ...]] = (
-        (0x0, 0x14),
-        (0x34, 0x12),
-        (0x15, 0x1F),
-    )
+    _CMDS: Final[set[tuple[int, int]]] = {(0x0, 0x14), (0x34, 0x12), (0x15, 0x1F)}
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
