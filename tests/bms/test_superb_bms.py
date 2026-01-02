@@ -66,7 +66,7 @@ class MockSuperBBleakClient(MockBleakClient):
         self._send_info()
 
 
-async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client, keep_alive_fixture) -> None:
     """Test Super-B BMS data update."""
 
     monkeypatch.setattr(MockSuperBBleakClient, "_RESP", _PROTO_DEFS)
@@ -83,7 +83,7 @@ async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> No
     await bms.disconnect()
 
 
-async def test_update_chrg(monkeypatch, patch_bleak_client) -> None:
+async def test_update_chrg(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test Super-B BMS data update with positive current (charging)."""
 
     monkeypatch.setattr(
@@ -97,7 +97,7 @@ async def test_update_chrg(monkeypatch, patch_bleak_client) -> None:
 
     bms = BMS(generate_ble_device())
 
-    result = _RESULT_DEFS.copy() | {
+    result: BMSSample = _RESULT_DEFS.copy() | {
         "current": 0.4,
         "battery_charging": True,
         "power": 5.664,
@@ -131,7 +131,7 @@ async def test_tx_notimplemented(patch_bleak_client) -> None:
     ids=["empty", "too_short"],
 )
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytes
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytes
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -158,7 +158,7 @@ async def test_invalid_response(
     ids=["chrg_warning", "dischrg_warning"],
 )
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response
 ) -> None:
     """Test data update with BMS returning error flags."""
 
