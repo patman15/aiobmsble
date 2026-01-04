@@ -30,12 +30,12 @@ class BMS(BaseBMS):
         BMSDp(
             "runtime",
             7,
-            6,
+            4,
             False,
-            lambda x: (((x >> 32) * 3600 + ((x >> 16) & 0xFFFF) * 60) * (x & 0xFF)),
+            lambda x: (x >> 16) * BMS._HRS_TO_SECS + (x & 0xFFFF) * 60,
         ),
         BMSDp("cycle_charge", 3, 2, False),
-        # BMSDp("power", 17, 2, False),
+        # BMSDp("power", 17, 2, False),  # disabled, due to precision
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -107,7 +107,9 @@ class BMS(BaseBMS):
         """Update battery status information."""
         for head in self._heads:
             try:
-                await self._await_reply(BMS._cmd(cmd=0x4, addr=0x0, words=0x8, head=head))
+                await self._await_reply(
+                    BMS._cmd(cmd=0x4, addr=0x0, words=0x8, head=head)
+                )
                 if len(self._heads) > 1:
                     self._log.debug("detected frame head: %s", head.hex(" "))
                     self._heads = (head,)  # set to single head for further commands
