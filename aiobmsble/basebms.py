@@ -341,6 +341,9 @@ class BaseBMS(ABC):
         self._data.clear()
         self._data_event.clear()
 
+        self._log.debug(
+            "start notify on RX characteristic %s", str(char_notify or self.uuid_rx())
+        )
         await self._client.start_notify(
             char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
         )

@@ -3,12 +3,11 @@
 from types import ModuleType
 from typing import Any
 
-from bleak.backends.scanner import AdvertisementData
 import pytest
 
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.test_data import BmsAdvList, adv_dict_to_advdata, bms_advertisements
+from aiobmsble.test_data import adv_dict_to_advdata, bms_advertisements
 from aiobmsble.utils import (
     _advertisement_matches,
     bms_cls,
@@ -28,16 +27,6 @@ def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
     """Return module of a BMS."""
     assert isinstance(request.param, ModuleType)
     return request.param
-
-
-def get_advertisement_by_type(
-    advertisements: BmsAdvList, name: str
-) -> AdvertisementData | None:
-    """Return advertisement for a specific BMS type."""
-    for ad_data, ad_name, _type, _comments in advertisements:
-        if ad_name == name:
-            return ad_data
-    return None
 
 
 async def test_bms_identify(plugin: ModuleType) -> None:
@@ -213,4 +202,7 @@ def test_advertisement_matches(
         That advertisement_matches(matcher, adv_data) returns the value specified by expected.
 
     """
-    assert _advertisement_matches(matcher, adv_dict_to_advdata(adv_dict), mac_addr) is expected
+    assert (
+        _advertisement_matches(matcher, adv_dict_to_advdata(adv_dict), mac_addr)
+        is expected
+    )
