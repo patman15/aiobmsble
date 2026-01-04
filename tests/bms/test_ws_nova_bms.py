@@ -168,7 +168,14 @@ async def test_device_info(patch_bleak_client) -> None:
         b":z" + _PROTO_DEFS[2:],
         b":2175" + _PROTO_DEFS[5:],
     ],
-    ids=["empty", "wrong_SOF", "wrong_EOF", "wrong_length", "wrong_encoding", "wrong_type"],
+    ids=[
+        "empty",
+        "wrong_SOF",
+        "wrong_EOF",
+        "wrong_length",
+        "wrong_encoding",
+        "wrong_type",
+    ],
 )
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
@@ -203,8 +210,11 @@ async def test_invalid_response(
     ids=["lowT_dischrg", "overC_chrg", "high", "low"],
 )
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: bytes
-, expected: int) -> None:
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: bytes,
+    expected: int,
+) -> None:
     """Test data update with BMS returning error flags."""
 
     _resp: bytearray = _PROTO_DEFS.copy()
