@@ -28,17 +28,18 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
             "current",
-            2,
+            10,
             4,
             False,
             lambda x: (x & 0x7FFF) / 1000 * (-1 if x >> 15 else 1),
         ),
-        BMSDp("voltage", 10, 2, False, lambda x: x / 1000),
-        BMSDp("cycles", 15, 2, False),
-        BMSDp("battery_level", 17, 1, False),
-        BMSDp("design_capacity", 18, 4, False, lambda x: x // 1000),
-        BMSDp("cycle_charge", 22, 4, False, lambda x: x / 1000),
-        BMSDp("heater", 107, 4, False, lambda x: bool(x)),
+        BMSDp("voltage", 18, 2, False, lambda x: x / 1000),
+        BMSDp("cycles", 23, 2, False),
+        BMSDp("battery_level", 25, 1, False),
+        BMSDp("design_capacity", 26, 4, False, lambda x: x // 1000),
+        BMSDp("cycle_charge", 30, 4, False, lambda x: x / 1000),
+        BMSDp("heater", 115, 4, False, bool),
+        BMSDp("problem_code", 0, 2, False, lambda x: x & 0x0FFC),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -134,7 +135,7 @@ class BMS(BaseBMS):
                 self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45")
             )
 
-        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final, offset=52)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final, offset=44)
         result["cell_voltages"] = BMS._cell_voltages(
             self._data_final, cells=16, start=12
         )

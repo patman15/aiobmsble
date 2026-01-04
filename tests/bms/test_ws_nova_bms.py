@@ -52,6 +52,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycle_capacity": 1442.7,
     "heater": False,
     "problem": False,
+    "problem_code": 0,
 }
 
 
@@ -69,8 +70,13 @@ class MockWSNovaBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
-        if char_specifier == "FFF1":
-            self._notify_callback("MockVatrerBleakClient", self._RESP)
+        if char_specifier != "FFF1":
+            return
+        for notify_data in [
+            self._RESP[i : i + BT_FRAME_SIZE]
+            for i in range(0, len(self._RESP), BT_FRAME_SIZE)
+        ]:
+            self._notify_callback("MockStreamBleakClient", notify_data)
 
 
 class MockStreamBleakClient(MockWSNovaBleakClient):
@@ -121,7 +127,7 @@ async def test_stream_update(
     assert bms._data_event.is_set() is False, "BMS does not request fresh data"
     assert "requesting BMS data" in caplog.text
 
-    _client = cast(MockStreamBleakClient, bms._client)
+    _client: MockStreamBleakClient = cast(MockStreamBleakClient, bms._client)
     caplog.clear()
     _frame: bytearray = _PROTO_DEFS.copy()
     _frame[135:139] = b"2029"  # change cycles from 5 to 9
@@ -186,26 +192,30 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-# @pytest.mark.parametrize(
-#     ("problem_response"),
-#     [
-#         b"\x00\x74\x5e\x64\x00\x00\x01\xa4\xbe\xcc\xcc\xcd\x41\x62\x89\xc5\x00\x00\x00\x00",
-#         b"\x00\x72\x5e\x64\x00\x00\x01\xa4\xbe\xcc\xcc\xcd\x41\x62\x89\xc5\x00\x00\x00\x00",
-#     ],
-#     ids=["chrg_warning", "dischrg_warning"],
-# )
-# async def test_problem_response(
-#     monkeypatch, patch_bleak_client, problem_response
-# ) -> None:
-#     """Test data update with BMS returning error flags."""
+@pytest.mark.parametrize(
+    ("problem_response", "expected"),
+    [
+        (b"\x43\x38\x32\x30", 0x0800),
+        (b"\x45\x30\x33\x30", 0x0010),
+        (b"\x46\x30\x32\x34", 0x0004),
+        (b"\x43\x30\x32\x38", 0x0008),
+    ],
+    ids=["lowT_dischrg", "overC_chrg", "high", "low"],
+)
+async def test_problem_response(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: bytes
+, expected: int) -> None:
+    """Test data update with BMS returning error flags."""
 
-#     monkeypatch.setattr(MockWSNovaBleakClient, "_RESP", bytearray(problem_response))
+    _resp: bytearray = _PROTO_DEFS.copy()
+    _resp[89:93] = problem_response
+    monkeypatch.setattr(MockWSNovaBleakClient, "_RESP", _resp)
 
-#     patch_bleak_client(MockWSNovaBleakClient)
+    patch_bleak_client(MockWSNovaBleakClient)
 
-#     bms = BMS(generate_ble_device())
+    bms = BMS(generate_ble_device())
 
-#     result: BMSSample = await bms.async_update()
-#     assert result == _RESULT_DEFS | {"problem": True, "problem_code": 1}
+    result: BMSSample = await bms.async_update()
+    assert result == _RESULT_DEFS | {"problem": True, "problem_code": expected}
 
-#     await bms.disconnect()
+    await bms.disconnect()
