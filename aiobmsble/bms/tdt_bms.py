@@ -203,7 +203,7 @@ class BMS(BaseBMS):
         idx: Final[int] = result.get("cell_count", 0) + result.get("temp_sensors", 0)
 
         result |= BMS._decode_data(
-            BMS._FIELDS, self._data_final, offset=BMS._CELL_POS + idx * 2 + 2
+            BMS._FIELDS, self._data_final, start=BMS._CELL_POS + idx * 2 + 2
         )
         result["problem_code"] = int.from_bytes(
             self._data_final[0x8D][BMS._CELL_POS + idx + 6 : BMS._CELL_POS + idx + 8]

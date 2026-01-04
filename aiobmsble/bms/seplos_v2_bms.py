@@ -173,7 +173,7 @@ class BMS(BaseBMS):
             raise ValueError("message too short to decode data")
 
         result |= BMS._decode_data(
-            BMS._PFIELDS, self._data_final[0x61], offset=BMS._CELL_POS + ct_blk_len
+            BMS._PFIELDS, self._data_final[0x61], start=BMS._CELL_POS + ct_blk_len
         )
 
         # get extension pack count from parallel data (main pack)

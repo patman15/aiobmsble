@@ -236,7 +236,7 @@ class BMS(BaseBMS):
         """Return BMS data from status message."""
 
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, data, byteorder="little", offset=offs
+            BMS._FIELDS, data, byteorder="little", start=offs
         )
         result["cell_count"] = int.from_bytes(
             data[70 + (offs >> 1) : 74 + (offs >> 1)], byteorder="little"

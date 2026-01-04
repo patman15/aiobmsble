@@ -508,7 +508,7 @@ class BaseBMS(ABC):
         data: bytearray | dict[int, bytearray],
         *,
         byteorder: Literal["little", "big"] = "big",
-        offset: int = 0,
+        start: int = 0,
     ) -> BMSSample:
         result: BMSSample = {}
         for field in fields:
@@ -517,7 +517,7 @@ class BaseBMS(ABC):
             msg: bytearray = data[field.idx] if isinstance(data, dict) else data
             result[field.key] = field.fct(
                 int.from_bytes(
-                    msg[offset + field.pos : offset + field.pos + field.size],
+                    msg[start + field.pos : start + field.pos + field.size],
                     byteorder=byteorder,
                     signed=field.signed,
                 )
