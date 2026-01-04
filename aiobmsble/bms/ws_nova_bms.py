@@ -135,7 +135,7 @@ class BMS(BaseBMS):
                 self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45")
             )
 
-        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final, offset=44)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final, start=44)
         result["cell_voltages"] = BMS._cell_voltages(
             self._data_final, cells=16, start=12
         )

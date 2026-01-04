@@ -140,7 +140,7 @@ class BMS(BaseBMS):
 
         _data: bytearray = self._data_final
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, _data, byteorder="big", offset=0
+            BMS._FIELDS, _data, byteorder="big", start=0
         )
 
         result["cell_voltages"] = BMS._cell_voltages(

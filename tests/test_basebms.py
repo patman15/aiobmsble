@@ -768,7 +768,7 @@ def test_temp_values(
 def test_decode_data(fields, data, byteorder, offset, expected) -> None:
     """Test the _decode_data method of BaseBMS with various input parameters."""
     result: BMSSample = BaseBMS._decode_data(
-        fields, data, byteorder=byteorder, offset=offset
+        fields, data, byteorder=byteorder, start=offset
     )
     assert result == expected
 
