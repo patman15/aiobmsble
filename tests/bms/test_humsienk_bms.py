@@ -108,10 +108,7 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockHumsienkBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "hw_version": "V02",
-        "model": "BMC-04S001",
-    }
+    assert await bms.device_info() == {"hw_version": "V02", "model": "BMC-04S001"}
 
 
 @pytest.mark.parametrize(

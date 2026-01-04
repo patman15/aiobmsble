@@ -5,6 +5,7 @@ from logging import DEBUG
 from typing import Any, Final, Literal, NoReturn
 from uuid import UUID
 
+from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -161,6 +162,29 @@ class WMTestBMS(MinTestBMS):
         await self._await_reply(b"mock_command")
 
         return {"problem_code": int.from_bytes(self._data, "big", signed=False)}
+
+
+async def verify_device_info(
+    patch_bleak_client,
+    bleak_client: type[BleakClient],
+    bms_class: type[BaseBMS],
+    result_patch: dict[str, str] = {},
+) -> None:
+    """Test function for subclasses that the BMS returns device info from default characteristics."""
+    patch_bleak_client(bleak_client)
+    bms: BaseBMS = bms_class(generate_ble_device())
+    assert (
+        await bms.device_info()
+        == {
+            "fw_version": "mock_FW_version",
+            "hw_version": "mock_HW_version",
+            "sw_version": "mock_SW_version",
+            "manufacturer": "mock_manufacturer",
+            "model": "mock_model",
+            "serial_number": "mock_serial_number",
+        }
+        | result_patch
+    )
 
 
 @pytest.mark.parametrize(

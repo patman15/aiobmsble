@@ -193,7 +193,7 @@ class BaseBMS(ABC):
             ("2a25", "serial_number"),
             ("2a26", "fw_version"),
             ("2a27", "hw_version"),
-            ("2a28", "sw_version"),  # overwrite FW with SW version
+            ("2a28", "sw_version"),
             ("2a29", "manufacturer"),
         )
 
