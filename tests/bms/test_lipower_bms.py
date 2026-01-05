@@ -134,7 +134,9 @@ async def test_invalid_response(
     """Test data up date with BMS returning invalid data."""
 
     patch_bms_timeout()
-    monkeypatch.setattr(MockLiPwrBleakClient, "_RESP", bytearray(wrong_response))
+    monkeypatch.setattr(
+        MockLiPwrBleakClient, "_response", lambda x, y, z: bytearray(wrong_response)
+    )
     patch_bleak_client(MockLiPwrBleakClient)
 
     bms = BMS(generate_ble_device())
