@@ -1,4 +1,4 @@
-"""Test the E&J technology BMS implementation."""
+"""Test the Dummy BMS implementation."""
 
 from collections.abc import Buffer
 from uuid import UUID
@@ -28,7 +28,7 @@ class MockDummyBleakClient(MockBleakClient):
         )
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Dummy BMS data update."""
 
     patch_bleak_client(MockDummyBleakClient)

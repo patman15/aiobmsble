@@ -145,10 +145,7 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockSeplosv2BleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "sw_version": "16.6",
-        "model": "B1101-SP76",
-    }
+    assert await bms.device_info() == {"sw_version": "16.6", "model": "B1101-SP76"}
 
 
 async def test_short_message(

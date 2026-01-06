@@ -11,6 +11,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.ej_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import verify_device_info
 
 BT_FRAME_SIZE = 20
 
@@ -84,6 +85,7 @@ class MockEJsfBleakClient(MockEJBleakClient):
             "cell_voltages": [3.263, 3.264, 3.306, 3.285],
             "delta_voltage": 0.043,
             "temperature": 25,
+            "temp_values": [25],
             "cycle_capacity": 1442.98,
             "power": 18.365,
             "battery_charging": True,
@@ -151,6 +153,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         ],
         "delta_voltage": 0.193,
         "temperature": 32,
+        "temp_values": [32],
         "cycle_capacity": 7.903,
         "power": -0.79,
         "runtime": 36000,
@@ -171,19 +174,12 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client(MockEJBleakClient)
-    bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "mock_FW_version",
-        "hw_version": "mock_HW_version",
-        "sw_version": "mock_SW_version",
-        "manufacturer": "mock_manufacturer",
-        "model": "mock_model",
-        "serial_number": "mock_serial_number",
-    }
+    await verify_device_info(patch_bleak_client, MockEJBleakClient, BMS)
 
 
-async def test_update_single_frame(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update_single_frame(
+    patch_bleak_client, keep_alive_fixture: bool
+) -> None:
     """Test E&J technology BMS data update."""
 
     patch_bleak_client(MockEJsfBleakClient)
@@ -285,13 +281,15 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request):
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 

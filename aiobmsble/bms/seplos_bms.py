@@ -193,7 +193,7 @@ class BMS(BaseBMS):
             await self._await_reply(BMS._cmd(0x0, *block))
 
         data: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data_final, offset=BMS.HEAD_LEN
+            BMS._FIELDS, self._data_final, start=BMS.HEAD_LEN
         )
 
         self._pack_count = min(data.get("pack_count", 0), 0x10)

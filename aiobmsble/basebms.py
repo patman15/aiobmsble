@@ -193,7 +193,7 @@ class BaseBMS(ABC):
             ("2a25", "serial_number"),
             ("2a26", "fw_version"),
             ("2a27", "hw_version"),
-            ("2a28", "sw_version"),  # overwrite FW with SW version
+            ("2a28", "sw_version"),
             ("2a29", "manufacturer"),
         )
 
@@ -341,6 +341,9 @@ class BaseBMS(ABC):
         self._data.clear()
         self._data_event.clear()
 
+        self._log.debug(
+            "start notify on RX characteristic %s", str(char_notify or self.uuid_rx())
+        )
         await self._client.start_notify(
             char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
         )
@@ -505,7 +508,7 @@ class BaseBMS(ABC):
         data: bytearray | dict[int, bytearray],
         *,
         byteorder: Literal["little", "big"] = "big",
-        offset: int = 0,
+        start: int = 0,
     ) -> BMSSample:
         result: BMSSample = {}
         for field in fields:
@@ -514,7 +517,7 @@ class BaseBMS(ABC):
             msg: bytearray = data[field.idx] if isinstance(data, dict) else data
             result[field.key] = field.fct(
                 int.from_bytes(
-                    msg[offset + field.pos : offset + field.pos + field.size],
+                    msg[start + field.pos : start + field.pos + field.size],
                     byteorder=byteorder,
                     signed=field.signed,
                 )

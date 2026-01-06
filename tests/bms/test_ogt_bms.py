@@ -19,7 +19,8 @@ base_result: BMSSample = {
     "battery_level": 14,
     "cycles": 99,
     "cycle_charge": 8.0,
-    "temperature": 21.8,
+    "temperature": 21.75,
+    "temp_values": [21.75],
     "cycle_capacity": 365.448,
     "power": 56.188,
     "problem": False,
@@ -218,7 +219,10 @@ def fix_response(request: pytest.FixtureRequest) -> bytearray:
 
 
 async def test_invalid_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 

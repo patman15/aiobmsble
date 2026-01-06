@@ -45,11 +45,11 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 14, 1, False, idx=Cmd.LEGINFO1),
         BMSDp("cycle_charge", 12, 2, False, lambda x: x / 1000, Cmd.LEGINFO1),
         BMSDp(
-            "temperature",
+            "temp_values",
             12,
             2,
             False,
-            lambda x: round(x * 0.1 - 273.15, 1),
+            lambda x: [round(x / 10 - 273.15, 3)],
             Cmd.LEGINFO2,
         ),
         BMSDp(

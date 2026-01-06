@@ -13,6 +13,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.ecoworthy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import verify_device_info
 
 _PROTO_DEFS: Final[dict[int, dict[int, bytearray]]] = {
     0x1: {  # protocol version 1
@@ -172,16 +173,7 @@ async def test_update(
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client(MockECOWBleakClient)
-    bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "mock_FW_version",
-        "hw_version": "mock_HW_version",
-        "sw_version": "mock_SW_version",
-        "manufacturer": "mock_manufacturer",
-        "model": "mock_model",
-        "serial_number": "mock_serial_number",
-    }
+    await verify_device_info(patch_bleak_client, MockECOWBleakClient, BMS)
 
 
 @pytest.fixture(

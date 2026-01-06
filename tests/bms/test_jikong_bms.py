@@ -483,25 +483,6 @@ class MockStreamBleakClient(MockJikongBleakClient):
             self._notify_callback("MockJikongBleakClient", resp)
             await asyncio.sleep(0)
 
-    # async def write_gatt_char(
-    #     self,
-    #     char_specifier: BleakGATTCharacteristic | int | str | UUID,
-    #     data: Buffer,
-    #     response: bool | None = None,
-    # ) -> None:
-    #     """Issue write command to GATT."""
-
-    #     assert (
-    #         self._notify_callback
-    #     ), "write to characteristics but notification not enabled"
-    #     self._notify_callback(
-    #         "MockJikongBleakClient", bytearray(b"\x41\x54\x0d\x0a")
-    #     )  # interleaved AT\r\n command
-    #     if bytearray(data).startswith(
-    #         self.HEAD_CMD + self.CMD_INFO
-    #     ):  # send all responses as a series
-    #         self._task = asyncio.create_task(self._send_all())
-
 
 class MockWrongBleakClient(MockBleakClient):
     """Mock invalid service for JiKong BMS."""

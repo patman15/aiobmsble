@@ -208,7 +208,7 @@ class BMS(BaseBMS):
                 BMS._FIELDS,
                 self._data_final,
                 byteorder="little",
-                offset=(result["temp_sensors"] + result["cell_count"]) * 2,
+                start=(result["temp_sensors"] + result["cell_count"]) * 2,
             )
         )
 
