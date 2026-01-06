@@ -108,11 +108,8 @@ class BMS(BaseBMS):
     def _cmd(addr: int, words: int) -> bytes:
         """Assemble a Renogy BMS command (MODBUS)."""
         frame: bytearray = (
-            bytearray(BMS._HEAD)
-            + int.to_bytes(addr, 2, byteorder="big")
-            + int.to_bytes(words, 2, byteorder="big")
+            bytearray(BMS._HEAD) + addr.to_bytes(2, "big") + words.to_bytes(2, "big")
         )
-
         frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
         return bytes(frame)
 
