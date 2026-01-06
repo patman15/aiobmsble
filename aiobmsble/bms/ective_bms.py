@@ -30,7 +30,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 29, 4, False),
         BMSDp("cycle_charge", 17, 8, False, lambda x: x / 1000),
         BMSDp("cycles", 25, 4, False),
-        BMSDp("temperature", 33, 4, False, lambda x: round(x * 0.1 - 273.15, 1)),
+        BMSDp("temp_values", 33, 4, False, lambda x: [round(x / 10 - 273.15, 3)]),
         BMSDp("problem_code", 37, 2, False),
     )
 

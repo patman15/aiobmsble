@@ -41,11 +41,11 @@ class BMS(BaseBMS):
         ),
         BMSDp("problem_code", 15, 4, False, lambda x: x & 0x7F),
         BMSDp(
-            "temperature",
+            "temp_values",
             16,
             3,
             False,
-            lambda x: ((x & 0xFFFF) / 10) * (-1 if x >> 16 else 1),
+            lambda x: [((x & 0xFFFF) / 10) * (-1 if x >> 16 else 1)],
         ),
         BMSDp("cycle_charge", 20, 4, False, lambda x: x / 100),
         BMSDp("battery_level", 24, 1, False),

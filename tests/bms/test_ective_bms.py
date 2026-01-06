@@ -42,7 +42,8 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cell_count": 4,
         "cell_voltages": [3.422, 3.441, 3.429, 3.422],
         "delta_voltage": 0.019,
-        "temperature": 31.0,
+        "temperature": 30.95,
+        "temp_values": [30.95],
         "cycle_capacity": 2669.582,
         "power": -175.47,
         "runtime": 54770,
@@ -59,7 +60,8 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cell_count": 4,
         "cell_voltages": [3.35, 3.351, 3.353, 3.356],
         "delta_voltage": 0.006,
-        "temperature": 16.8,
+        "temperature": 16.75,
+        "temp_values": [16.75],
         "cycle_capacity": 1354.41,
         "power": -5.284,
         "runtime": 922842,
@@ -114,7 +116,7 @@ class MockEctiveBleakClient(MockBleakClient):
 
 
 async def test_update(
-    monkeypatch, patch_bleak_client, protocol_type, keep_alive_fixture
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, protocol_type, keep_alive_fixture
 ) -> None:
     """Test Ective BMS data update."""
 
@@ -264,7 +266,7 @@ def prb_response(request):
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response
 ) -> None:
     """Test data update with BMS returning error flags."""
 
@@ -289,7 +291,8 @@ async def test_problem_response(
             3.422,
         ],
         "delta_voltage": 0.019,
-        "temperature": 31.0,
+        "temperature": 30.95,
+        "temp_values": [30.95],
         "cycle_capacity": 2669.582,
         "power": -178.1,
         "runtime": 53961,
