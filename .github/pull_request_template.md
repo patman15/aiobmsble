@@ -28,8 +28,12 @@
 - [ ] Tests have been added to verify that the new code works.
 - [ ] Tests use recorded data from the BMS, i.e. test data shall not be generated.
 
+### Contributing
+- [ ] Especially, for new BMSs, feel free to add your nickname to the `authors` list in `pyproject.toml`
+- [ ] I agree that the [project license][LICENSE] is used for my contribution
 
 [contribution-guide]: https://github.com/patman15/aiobmsble/tree/main?tab=contributing-ov-file
 [coding-guide]: https://github.com/patman15/aiobmsble/tree/main?tab=contributing-ov-file#coding-style-guidelines
 [architecture-guide]: https://github.com/patman15/aiobmsble/tree/main?tab=contributing-ov-file#architecture-guidelines
 [BMS-type]: https://github.com/patman15/aiobmsble/tree/main?tab=contributing-ov-file#how-to-qualify-as-a-bms
+[LICENSE]: https://github.com/patman15/aiobmsble/blob/main/LICENSE
