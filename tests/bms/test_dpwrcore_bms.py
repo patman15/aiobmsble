@@ -1,6 +1,7 @@
 """Test the D-powercore BMS implementation."""
 
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -23,6 +24,40 @@ def patch_dev_name(request: pytest.FixtureRequest) -> str:
     """Provide device name variants."""
     assert isinstance(request.param, str)
     return request.param
+
+
+_RESULT_DEFS: Final[BMSSample] = {
+    "voltage": 53.1,
+    "current": 0,
+    "battery_level": 61.0,
+    "cycles": 18,
+    "cycle_charge": 17.806,
+    "cell_voltages": [
+        3.799,
+        3.798,
+        3.798,
+        3.797,
+        3.797,
+        3.798,
+        3.793,
+        3.794,
+        3.797,
+        3.798,
+        3.796,
+        3.800,
+        3.799,
+        3.803,
+    ],
+    "cell_count": 14,
+    "delta_voltage": 0.01,
+    "temperature": 21.05,
+    "temp_values": [21.05],
+    "cycle_capacity": 945.499,
+    "power": 0.0,
+    "battery_charging": False,
+    "problem": False,
+    "problem_code": 0,
+}
 
 
 class MockDPwrcoreBleakClient(MockBleakClient):
@@ -159,37 +194,7 @@ async def test_update(
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), keep_alive_fixture)
 
-    assert await bms.async_update() == {
-        "voltage": 53.1,
-        "current": 0,
-        "battery_level": 61.0,
-        "cycles": 18,
-        "cycle_charge": 17.806,
-        "cell_voltages": [
-            3.799,
-            3.798,
-            3.798,
-            3.797,
-            3.797,
-            3.798,
-            3.793,
-            3.794,
-            3.797,
-            3.798,
-            3.796,
-            3.800,
-            3.799,
-            3.803,
-        ],
-        "cell_count": 14,
-        "delta_voltage": 0.01,
-        "temperature": 21.1,
-        "cycle_capacity": 945.499,
-        "power": 0.0,
-        "battery_charging": False,
-        "problem": False,
-        "problem_code": 0,
-    }
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
@@ -241,34 +246,7 @@ async def test_problem_response(patch_bleak_client, dev_name: str) -> None:
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), False)
 
-    assert await bms.async_update() == {
-        "voltage": 53.1,
-        "current": 0,
-        "battery_level": 61.0,
-        "cycles": 18,
-        "cycle_charge": 17.806,
-        "cell_voltages": [
-            3.799,
-            3.798,
-            3.798,
-            3.797,
-            3.797,
-            3.798,
-            3.793,
-            3.794,
-            3.797,
-            3.798,
-            3.796,
-            3.800,
-            3.799,
-            3.803,
-        ],
-        "cell_count": 14,
-        "delta_voltage": 0.01,
-        "temperature": 21.1,
-        "cycle_capacity": 945.499,
-        "power": 0.0,
-        "battery_charging": False,
+    assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 255,
     }

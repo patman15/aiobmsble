@@ -20,8 +20,8 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"default_manufacturer": "TDT", "default_model": "smart BMS"}
     _UUID_CFG: Final[str] = "fffa"
-    _HEAD: Final[int] = 0x7E
-    _CMD_HEADS: list[int] = [0x7E, 0x1E]  # alternative command head
+    _RSP_HEAD: Final[int] = 0x7E
+    _CMD_HEADS: Final[set[int]] = {0x7E, 0x1E}  # alternative command head
     _TAIL: Final[int] = 0x0D
     _CMD_VER: Final[int] = 0x00
     _RSP_VER: Final[frozenset[int]] = frozenset({0x00, 0x04})
@@ -47,7 +47,7 @@ class BMS(BaseBMS):
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
         self._data_final: dict[int, bytearray] = {}
-        self._cmd_heads: list[int] = BMS._CMD_HEADS
+        self._cmd_heads: set[int] = BMS._CMD_HEADS
         self._exp_len: int = 0
 
     @staticmethod
@@ -115,7 +115,7 @@ class BMS(BaseBMS):
 
         if (
             len(data) > BMS._INFO_LEN
-            and data[0] == BMS._HEAD
+            and data[0] == BMS._RSP_HEAD
             and len(self._data) >= self._exp_len
         ):
             self._exp_len = BMS._INFO_LEN + int.from_bytes(data[6:8])
@@ -156,7 +156,9 @@ class BMS(BaseBMS):
 
     @staticmethod
     @cache
-    def _cmd(cmd: int, data: bytearray = bytearray(), cmd_head: int = _HEAD) -> bytes:
+    def _cmd(
+        cmd: int, data: bytearray = bytearray(), cmd_head: int = _RSP_HEAD
+    ) -> bytes:
         """Assemble a TDT BMS command."""
         assert cmd in (0x8C, 0x8D, 0x92)  # allow only read commands
 
@@ -175,7 +177,7 @@ class BMS(BaseBMS):
                     await self._await_reply(BMS._cmd(cmd, cmd_head=head))
                 if len(self._cmd_heads) > 1:
                     self._log.debug("detected command head: 0x%X", head)
-                    self._cmd_heads = [head]  # set to single head for further commands
+                    self._cmd_heads = {head}  # set to single head for further commands
                 break
             except TimeoutError:
                 ...  # try next command head
@@ -203,7 +205,7 @@ class BMS(BaseBMS):
         idx: Final[int] = result.get("cell_count", 0) + result.get("temp_sensors", 0)
 
         result |= BMS._decode_data(
-            BMS._FIELDS, self._data_final, offset=BMS._CELL_POS + idx * 2 + 2
+            BMS._FIELDS, self._data_final, start=BMS._CELL_POS + idx * 2 + 2
         )
         result["problem_code"] = int.from_bytes(
             self._data_final[0x8D][BMS._CELL_POS + idx + 6 : BMS._CELL_POS + idx + 8]

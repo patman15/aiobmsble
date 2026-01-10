@@ -17,6 +17,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import verify_device_info
 
 # Actual recorded packets from device logs
 RECORDED_PACKETS: dict[str, bytearray] = {
@@ -107,6 +108,7 @@ async def test_async_update_discharging(patch_bleak_client) -> None:
         "voltage": 13.08,
         "current": -2.454,  # 0x96090080: discharge
         "temperature": 22.6,
+        "temp_values": [22.6],
         "battery_level": 51,
         "battery_charging": False,
         "cycle_charge": 65.73,
@@ -134,6 +136,7 @@ async def test_async_update_charging(patch_bleak_client) -> None:
         "voltage": 13.39,
         "current": 13.414,
         "temperature": 21.8,
+        "temp_values": [21.8],
         "battery_level": 32,
         "battery_charging": True,
         "cycle_charge": 41.83,
@@ -159,6 +162,7 @@ async def test_async_update_with_protection(patch_bleak_client) -> None:
         "voltage": 13.08,
         "current": -2.454,  # 0x96090080: discharge
         "temperature": 22.6,
+        "temp_values": [22.6],
         "battery_level": 51,
         "battery_charging": False,
         "cycle_charge": 65.73,
@@ -173,16 +177,7 @@ async def test_async_update_with_protection(patch_bleak_client) -> None:
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client(MockProBMSBleakClient)
-    bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "mock_FW_version",
-        "hw_version": "mock_HW_version",
-        "sw_version": "mock_SW_version",
-        "manufacturer": "mock_manufacturer",
-        "model": "mock_model",
-        "serial_number": "mock_serial_number",
-    }
+    await verify_device_info(patch_bleak_client, MockProBMSBleakClient, BMS)
 
 
 @pytest.mark.asyncio
@@ -225,6 +220,7 @@ async def test_async_update_already_streaming(patch_bleak_client) -> None:
         "voltage": 13.39,
         "current": 13.414,
         "temperature": 21.8,
+        "temp_values": [21.8],
         "battery_level": 32,
         "battery_charging": True,
         "cycle_charge": 41.83,
@@ -296,7 +292,11 @@ async def test_async_update_no_data_after_init(
     ],
 )
 async def test_invalid_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout, wrong_response, caplog
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 

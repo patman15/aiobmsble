@@ -39,15 +39,11 @@ class BMS(BaseBMS):
         super().__init__(ble_device, keep_alive)
         self._type: str = (
             self.name[9]
-            if len(self.name) >= 10
-            and set(self.name[10:]).issubset(digits)
+            if len(self.name) >= 10 and set(self.name[10:]).issubset(digits)
             else "?"
         )
         self._key: int = (
-            sum(
-                BMS._CRYPT_SEQ[int(c, 16)]
-                for c in (f"{int(self.name[10:]):0>4X}")
-            )
+            sum(BMS._CRYPT_SEQ[int(c, 16)] for c in (f"{int(self.name[10:]):0>4X}"))
             if self._type in "AB"
             else 0
         ) + (5 if (self._type == "A") else 8)
@@ -68,7 +64,7 @@ class BMS(BaseBMS):
                 4: ("cycle_charge", 3, lambda x: x / 1000),
                 8: ("voltage", 2, lambda x: x / 1000),
                 # MOS temperature
-                12: ("temperature", 2, lambda x: round(x * 0.1 - 273.15, 1)),
+                12: ("temp_values", 2, lambda x: [round(x / 10 - 273.15, 3)]),
                 # 3rd byte of current is 0 (should be 1 as for B version)
                 16: ("current", 3, lambda x: x / 100),
                 24: ("runtime", 2, lambda x: x * 60),
@@ -79,7 +75,7 @@ class BMS(BaseBMS):
         elif self._type == "B":
             self._REGISTERS = {
                 # MOS temperature
-                8: ("temperature", 2, lambda x: round(x * 0.1 - 273.15, 1)),
+                8: ("temp_values", 2, lambda x: [round(x / 10 - 273.15, 3)]),
                 9: ("voltage", 2, lambda x: x / 1000),
                 10: ("current", 3, lambda x: x / 1000),
                 # SOC (State of Charge)
@@ -193,7 +189,7 @@ class BMS(BaseBMS):
             name, _length, func = self._REGISTERS[self._response.reg]
             result[name] = func(self._response.value)
             self._log.debug(
-                "decoded data: reg: %s (#%i), raw: %i, value: %f",
+                "decoded data: reg: %s (#%i), raw: %i, value: %s",
                 name,
                 reg,
                 self._response.value,
