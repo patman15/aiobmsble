@@ -1,7 +1,7 @@
 """Test aiobmsble library via fuzzing."""
 
 from asyncio import iscoroutinefunction
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from types import ModuleType
 from typing import Final
 
@@ -23,16 +23,13 @@ async def test_notification_handler(
     patch_bleak_client,
     pytestconfig: pytest.Config,
     plugin_fixture: ModuleType,
-    data: bytearray,
+    data: bytes,
 ) -> None:
     """Test the notification handler."""
 
     # fuzzing can run from VScode (no coverage) or command line with option --no-cov
-    if {"vscode_pytest"}.issubset(
-        set(pytestconfig.invocation_params.args)
-    ) or (
-        "vscode_pytest" not in pytestconfig.invocation_params.args
-        and not pytestconfig.getoption("--no-cov")
+    if {"vscode_pytest"}.issubset(set(pytestconfig.invocation_params.args)) or (
+        not pytestconfig.getoption("--no-cov")
     ):
         pytest.skip("Skipping fuzzing tests due to coverage generation!")
 
@@ -50,12 +47,12 @@ async def test_notification_handler(
     )  # required for _init_connection overloads, e.g. JK BMS
 
     await bms_instance._connect()
-    notify_handler: Final[Callable] = bms_instance._notification_handler  # type: ignore[attr-defined]
+    notify_handler: Final[Callable[..., None | Awaitable[None]]] = bms_instance._notification_handler  # type: ignore[attr-defined]
     notify_characteristics: Final[BleakGATTCharacteristic] = BleakGATTCharacteristic(
         None, 1, "fff4", ["notify"], lambda: 512, BleakGATTService(None, 0, "fff0")
     )
 
     if iscoroutinefunction(notify_handler):
-        await notify_handler(notify_characteristics, data)
+        await notify_handler(notify_characteristics, bytearray(data))
     else:
-        notify_handler(notify_characteristics, data)
+        notify_handler(notify_characteristics, bytearray(data))

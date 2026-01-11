@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -30,17 +30,17 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 4, False, lambda x: x / 1000, 0x0B),
         BMSDp("current", 8, 4, True, lambda x: x / 1000, 0x0B),
-        BMSDp("temperature", 4, 2, True, lambda x: x, 0x09),
-        BMSDp("battery_level", 4, 1, False, lambda x: x, 0x0A),
-        BMSDp("design_capacity", 4, 2, False, lambda x: x, 0x15),
-        BMSDp("cycles", 6, 2, False, lambda x: x, 0x15),
+        BMSDp("temp_values", 4, 2, True, lambda x: [x], idx=0x09),
+        BMSDp("battery_level", 4, 1, False, idx=0x0A),
+        BMSDp("design_capacity", 4, 2, False, idx=0x15),
+        BMSDp("cycles", 6, 2, False, idx=0x15),
         BMSDp("runtime", 14, 2, False, lambda x: x * BMS._HRS_TO_SECS / 100, 0x0C),
-        BMSDp("problem_code", 4, 4, False, lambda x: x, 0x21),
+        BMSDp("problem_code", 4, 4, False, idx=0x21),
     )
     _CMDS: Final[list[int]] = list({field.idx for field in _FIELDS})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
 
     @staticmethod
@@ -49,8 +49,8 @@ class BMS(BaseBMS):
         return [
             {"service_uuid": BMS.uuid_services()[0], "connectable": True},
             {  # Creabest
+                "local_name": "???[CR]??????",
                 "service_uuid": normalize_uuid_str("fff0"),
-                "manufacturer_id": 0,
                 "connectable": True,
             },
             {
@@ -76,18 +76,6 @@ class BMS(BaseBMS):
         return "ffe9"
 
     # async def _fetch_device_info(self) -> BMSInfo: use default
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "power",
-                "battery_charging",
-                "delta_voltage",
-                "cycle_capacity",
-                "temperature",
-            }
-        )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

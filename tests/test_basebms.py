@@ -2,14 +2,15 @@
 
 from collections.abc import Buffer, Callable
 from logging import DEBUG
-from typing import Final, NoReturn
+from typing import Any, Final, Literal, NoReturn
 from uuid import UUID
 
+from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
-from bleak.exc import BleakError
+from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
@@ -163,6 +164,29 @@ class WMTestBMS(MinTestBMS):
         return {"problem_code": int.from_bytes(self._data, "big", signed=False)}
 
 
+async def verify_device_info(
+    patch_bleak_client,
+    bleak_client: type[BleakClient],
+    bms_class: type[BaseBMS],
+    result_patch: dict[str, str] = {},
+) -> None:
+    """Test function for subclasses that the BMS returns device info from default characteristics."""
+    patch_bleak_client(bleak_client)
+    bms: BaseBMS = bms_class(generate_ble_device())
+    assert (
+        await bms.device_info()
+        == {
+            "fw_version": "mock_FW_version",
+            "hw_version": "mock_HW_version",
+            "sw_version": "mock_SW_version",
+            "manufacturer": "mock_manufacturer",
+            "model": "mock_model",
+            "serial_number": "mock_serial_number",
+        }
+        | result_patch
+    )
+
+
 @pytest.mark.parametrize(
     ("bt_patch", "result_patch"),
     [
@@ -175,11 +199,11 @@ class WMTestBMS(MinTestBMS):
 async def test_device_info(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client: Callable[..., None],
-    bt_patch,
-    result_patch,
+    bt_patch: dict[str, bytes],
+    result_patch: dict[str, str],
 ) -> None:
     """Verify that device_info reads BLE characteristic 180A and provides default values."""
-    defaults = MockBleakClient.BT_INFO.copy()
+    defaults: dict[str, bytes] = MockBleakClient.BT_INFO.copy()
     del defaults["2a28"]
     monkeypatch.setattr(MockBleakClient, "BT_INFO", defaults | bt_patch)
     patch_bleak_client()
@@ -207,31 +231,19 @@ async def test_device_info_fail(
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     await bms.async_update()  # run update to have connection open
-    assert not await bms.device_info()  # if characteristic does not exist, no ouput
+    assert not await bms.device_info()  # if characteristic does not exist, no output
     assert bms.name == "MockBLEDevice"  # name is gathered from BLEDevice
     assert bms._client.is_connected
 
 
-def test_calc_missing_values(bms_data_fixture: BMSSample) -> None:
+def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
     """Check if missing data is correctly calculated."""
     bms_data: BMSSample = bms_data_fixture
     ref: BMSSample = bms_data_fixture.copy()
 
-    BaseBMS._add_missing_values(
-        bms_data,
-        frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "power",
-                "runtime",
-                "delta_voltage",
-                "temperature",
-                "voltage",  # check value is not overwritten
-            }
-        ),
-    )
+    BaseBMS._add_missing_values(bms_data)
     ref = ref | {
+        "cell_count": 2,
         "cycle_capacity": 238,
         "delta_voltage": 0.111,
         "power": (
@@ -250,50 +262,41 @@ def test_calc_missing_values(bms_data_fixture: BMSSample) -> None:
     assert bms_data == ref
 
 
-def test_calc_voltage() -> None:
+@pytest.mark.parametrize(
+    ("sample", "expected"),
+    [
+        (
+            {"cell_voltages": [3.456, 3.567]},
+            {"cell_count": 2, "delta_voltage": 0.111, "voltage": 7.023},
+        ),
+        ({"battery_level": 73, "design_capacity": 125}, {"cycle_charge": 91.25}),
+        ({"cycle_charge": 421, "design_capacity": 983}, {"battery_level": 42.8}),
+        ({"total_charge": 1234567, "design_capacity": 256}, {"cycles": 4822}),
+        (
+            {"current": -1.3, "cycle_charge": 73},
+            {"battery_charging": False, "runtime": 202153},
+        ),
+        ({"current": 1.3, "cycle_charge": 73}, {"battery_charging": True}),
+    ],
+    ids=["voltage", "cycle_charge", "battery_level", "cycles", "runtime", "no_runtime"],
+)
+def test_calc_values(sample: BMSSample, expected: BMSSample) -> None:
     """Check if missing data is correctly calculated."""
-    bms_data: BMSSample = {"cell_voltages": [3.456, 3.567]}
-    ref: BMSSample = bms_data.copy()
-    BaseBMS._add_missing_values(bms_data, frozenset({"voltage"}))
-    assert bms_data == ref | {"voltage": 7.023, "problem": False}
-
-
-def test_calc_cycle_chrg() -> None:
-    """Check if missing data is correctly calculated."""
-    bms_data: BMSSample = {"battery_level": 73, "design_capacity": 125}
-    ref: BMSSample = bms_data.copy()
-    BaseBMS._add_missing_values(bms_data, frozenset({"cycle_charge"}))
-    assert bms_data == ref | {"cycle_charge": 91.25, "problem": False}
-
-
-def test_calc_battery_level() -> None:
-    """Check if missing battery_level is correctly calculated."""
-    bms_data: BMSSample = {"cycle_charge": 421, "design_capacity": 983}
-    ref: BMSSample = bms_data.copy()
-    BaseBMS._add_missing_values(bms_data, frozenset({"battery_level"}))
-    assert bms_data == ref | {"battery_level": 42.8, "problem": False}
-
-
-def test_calc_cycles() -> None:
-    """Check if missing cycle is correctly calculated."""
-    bms_data: BMSSample = {"total_charge": 1234567, "design_capacity": 256}
-    ref: BMSSample = bms_data.copy()
-    BaseBMS._add_missing_values(bms_data, frozenset({"cycles"}))
-    assert bms_data == ref | {"cycles": 4822, "problem": False}
+    ref: BMSSample = sample.copy()
+    BaseBMS._add_missing_values(sample)
+    assert sample == ref | expected | {"problem": False}
 
 
 @pytest.mark.parametrize(
-    ("raw", "expected"),
-    [(True, {}), (False, {"battery_charging": True, "power": 22.1, "problem": True})],
+    ("raw"),
+    [True, False],
     ids=["raw", "ext"],
 )
-async def test_async_update(
-    patch_bleak_client: Callable[..., None], raw: bool, expected: dict
-) -> None:
-    """Check update function of the BMS returns calues."""
+async def test_async_update(patch_bleak_client: Callable[..., None], raw: bool) -> None:
+    """Check update function of the BMS returns values."""
     patch_bleak_client()
     bms: DataTestBMS = DataTestBMS(generate_ble_device())
-    assert await bms.async_update(raw=raw) == BMSSample(
+    base_result: BMSSample = BMSSample(
         {
             "voltage": 13,
             "current": 1.7,
@@ -301,7 +304,17 @@ async def test_async_update(
             "cycles": 23,
             "problem_code": 21,
         }
-    ) | BMSSample(**expected)
+    )
+    if not raw:
+        base_result.update(
+            {
+                "battery_charging": True,
+                "cycle_capacity": 247,
+                "power": 22.1,
+                "problem": True,
+            }
+        )
+    assert await bms.async_update(raw=raw) == base_result
 
 
 @pytest.mark.parametrize(
@@ -322,9 +335,9 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
     """Check if missing data is correctly calculated."""
     bms_data: BMSSample = problem_sample[0].copy()
 
-    BaseBMS._add_missing_values(bms_data, frozenset({"runtime"}))
+    BaseBMS._add_missing_values(bms_data)
 
-    assert bms_data == problem_sample[0] | {"problem": True}
+    assert ("problem", True) in bms_data.items()
 
 
 @pytest.mark.parametrize(
@@ -356,6 +369,11 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
             [0x15, 0x16],
         ),
         (
+            [BleakDeviceNotFoundError("mock_device")],
+            [False],
+            [BleakDeviceNotFoundError("mock_device")],
+        ),
+        (
             [None] * (BaseBMS.MAX_RETRY - 1) + [ValueError()],
             [True] * (BaseBMS.MAX_RETRY),
             [ValueError()],
@@ -367,6 +385,7 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
         "retry_count-1",
         "retry_count",
         "mode_switch",
+        "no-retry-exc",
         "unhandled_exc",
     ],
 )
@@ -403,7 +422,8 @@ async def test_write_mode(
                 await bms.async_update()
         else:
             assert await bms.async_update() == {
-                "problem_code": output
+                "problem": (output != 0),
+                "problem_code": output,
             }, f"{request.node.name} failed!"
 
 
@@ -416,7 +436,7 @@ async def test_wr_mode_reset(
     patch_bleak_client(MockWriteModeBleakClient)
 
     bms: WMTestBMS = WMTestBMS(["write_without"], generate_ble_device())
-    assert await bms.async_update() == {"problem_code": 0x42}
+    assert await bms.async_update() == {"problem": True, "problem_code": 0x42}
     assert bms._inv_wr_mode is False
     await bms.disconnect(True)
     assert bms._inv_wr_mode is None
@@ -438,7 +458,7 @@ async def test_no_notify(
     with caplog.at_level(DEBUG):
         result: BMSSample = await bms.async_update()
     assert "MockBleakClient write_gatt_char afe2, data: b'mock_command'" in caplog.text
-    assert result == {"problem_code": 21}
+    assert result == {"problem": True, "problem_code": 21}
     assert not bms._client.is_connected
 
 
@@ -449,7 +469,7 @@ async def test_disconnect_fail(
 ) -> None:
     """Check that exceptions in connect function for guarding disconnect are ignored."""
 
-    async def _raise_bleak_error(_args) -> NoReturn:
+    async def _raise_bleak_error(*args: Any) -> NoReturn:
         raise BleakError
 
     monkeypatch.setattr(MockBleakClient, "disconnect", _raise_bleak_error)
@@ -458,7 +478,7 @@ async def test_disconnect_fail(
     bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
     with caplog.at_level(DEBUG):
         result: BMSSample = await bms.async_update()
-    assert result == {"problem_code": 21}
+    assert result == {"problem": True, "problem_code": 21}
     assert "failed to disconnect stale connection (BleakError)" in caplog.text
     assert "disconnect failed!" in caplog.text
 
@@ -470,7 +490,7 @@ async def test_init_connect_fail(
 ) -> None:
     """Check that exceptions in connect function for guarding disconnect are ignored."""
 
-    async def _raise_value_error(_args) -> NoReturn:
+    async def _raise_value_error(*args: Any) -> NoReturn:
         raise ValueError("MockValueError")
 
     patch_bleak_client(MockBleakClient)
@@ -493,6 +513,7 @@ async def test_context_mgr(
             "current": 1.7,
             "battery_charging": True,
             "power": 22.1,
+            "cycle_capacity": 247,
             "cycle_charge": 19,
             "cycles": 23,
             "problem": True,
@@ -665,7 +686,15 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
     ],
 )
 def test_temp_values(
-    data, values, start, size, byteorder, signed, offset, divider, expected
+    data: bytearray,
+    values: int,
+    start: int,
+    size: int,
+    byteorder: Literal["little", "big"],
+    signed: bool,
+    offset: float,
+    divider: int,
+    expected: list[int | float],
 ) -> None:
     """Test the _temp_values method of BaseBMS with various input parameters."""
     result: list[int | float] = BaseBMS._temp_values(
@@ -739,7 +768,7 @@ def test_temp_values(
 def test_decode_data(fields, data, byteorder, offset, expected) -> None:
     """Test the _decode_data method of BaseBMS with various input parameters."""
     result: BMSSample = BaseBMS._decode_data(
-        fields, data, byteorder=byteorder, offset=offset
+        fields, data, byteorder=byteorder, start=offset
     )
     assert result == expected
 

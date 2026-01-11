@@ -1,4 +1,8 @@
-"""Test advertisements for aiobmsble package."""
+"""Test advertisements for aiobmsble package.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from functools import cache
 from importlib import resources
@@ -8,24 +12,33 @@ from typing import Any
 
 from bleak.backends.scanner import AdvertisementData
 
-from tests.bluetooth import generate_advertisement_data
-
 type BmsAdvList = list[tuple[AdvertisementData, str, str, list[str]]]
 
 
-def _json_dict_to_advdata(json_dict: dict[str, Any]) -> AdvertisementData:
+def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
     """Generate an AdvertisementData instance from a JSON dictionary."""
+    ADVERTISEMENT_DATA_DEFAULTS: dict[str, Any] = {
+        "local_name": None,
+        "manufacturer_data": {},
+        "service_data": {},
+        "service_uuids": [],
+        "rssi": -127,
+        "platform_data": ((),),
+        "tx_power": None,
+    }
 
-    if "manufacturer_data" in json_dict:
-        json_dict["manufacturer_data"] = {
-            int(k): bytes.fromhex(v) for k, v in json_dict["manufacturer_data"].items()
+    if "manufacturer_data" in adv_dict:
+        adv_dict["manufacturer_data"] = {
+            int(k): bytes.fromhex(v) if isinstance(v, str) else v
+            for k, v in adv_dict["manufacturer_data"].items()
         }
-    if "service_data" in json_dict:
-        json_dict["service_data"] = {
-            k: bytes.fromhex(v) for k, v in json_dict["service_data"].items()
+    if "service_data" in adv_dict:
+        adv_dict["service_data"] = {
+            k: bytes.fromhex(v) if isinstance(v, str) else v
+            for k, v in adv_dict["service_data"].items()
         }
-    if "platform_data" in json_dict:
-        pdata = json_dict.get("platform_data", [])
+    if "platform_data" in adv_dict:
+        pdata = adv_dict.get("platform_data", [])
         assert isinstance(
             pdata[0], str
         ), "first entry of platform_data needs to be string."
@@ -33,9 +46,9 @@ def _json_dict_to_advdata(json_dict: dict[str, Any]) -> AdvertisementData:
         assert len(parts) == 6 and all(
             len(part) == 2 and all(c in hexdigits for c in part) for part in parts
         ), "first entry of platform_data only accepts MAC addresses"
-        json_dict["platform_data"] = tuple(pdata)
+        adv_dict["platform_data"] = tuple(pdata)
 
-    return generate_advertisement_data(**json_dict)
+    return AdvertisementData(**(ADVERTISEMENT_DATA_DEFAULTS | adv_dict))
 
 
 @cache
@@ -67,7 +80,7 @@ def bms_advertisements(bms_filter: str | None = None) -> BmsAdvList:
             for entry in raw_data:
                 assert isinstance(entry, dict)
                 assert {"advertisement", "type"}.issubset(set(entry.keys()))
-                adv: AdvertisementData = _json_dict_to_advdata(entry["advertisement"])
+                adv: AdvertisementData = adv_dict_to_advdata(entry["advertisement"])
                 mac_addr: str = (
                     adv.platform_data[0]
                     if isinstance(adv.platform_data, tuple)
@@ -110,7 +123,7 @@ def ignore_advertisements() -> BmsAdvList:
         for entry in raw_data:
             assert isinstance(entry, dict)
             assert {"advertisement", "reason"}.issubset(set(entry.keys()))
-            adv: AdvertisementData = _json_dict_to_advdata(entry["advertisement"])
+            adv: AdvertisementData = adv_dict_to_advdata(entry["advertisement"])
             mac_addr: str = adv.platform_data[0] if "platform" in adv else ""
             reason: str = entry["reason"]
             comments: list[str] = entry["_comments"]

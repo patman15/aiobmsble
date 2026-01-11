@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 
 
@@ -30,7 +30,7 @@ class BMS(BaseBMS):
         BMSDp("current", 3, 2, True, lambda x: x / 100),
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000),
-        BMSDp("cycles", 15, 2, False, lambda x: x),
+        BMSDp("cycles", 15, 2, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -42,8 +42,8 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
+                "local_name": "BT-TH-*",
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": 0x9860,
                 "connectable": True,
             },
         ]
@@ -71,20 +71,6 @@ class BMS(BaseBMS):
             "name": barr2str(self._data[39:55]),
             "sw_version": barr2str(self._data[55:59]),
         }
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "power",
-                "battery_charging",
-                "temperature",
-                "cycle_capacity",
-                "battery_level",
-                "runtime",
-                "delta_voltage",
-            }
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -122,11 +108,8 @@ class BMS(BaseBMS):
     def _cmd(addr: int, words: int) -> bytes:
         """Assemble a Renogy BMS command (MODBUS)."""
         frame: bytearray = (
-            bytearray(BMS._HEAD)
-            + int.to_bytes(addr, 2, byteorder="big")
-            + int.to_bytes(words, 2, byteorder="big")
+            bytearray(BMS._HEAD) + addr.to_bytes(2, "big") + words.to_bytes(2, "big")
         )
-
         frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
         return bytes(frame)
 
@@ -154,9 +137,12 @@ class BMS(BaseBMS):
             divider=10,
         )
 
-        await self._await_reply(self._cmd(0x13EC, 0x7))
-        result["problem_code"] = int.from_bytes(self._data[3:-2], byteorder="big") & (
+        await self._await_reply(self._cmd(0x13EC, 0x8))
+        result["problem_code"] = int.from_bytes(self._data[3:17], byteorder="big") & (
             ~0xE
         )
+        result["chrg_mosfet"] = bool(self._data[16] & 0x2)
+        result["dischrg_mosfet"] = bool(self._data[16] & 0x4)
+        result["heater"] = bool(self._data[17] & 0x20)
 
         return result

@@ -9,10 +9,11 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.ecoworthy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import verify_device_info
 
 _PROTO_DEFS: Final[dict[int, dict[int, bytearray]]] = {
     0x1: {  # protocol version 1
@@ -55,6 +56,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "voltage": 13.29,
         "current": -1.14,
         "battery_level": 72,
+        "battery_health": 100,
         "cycle_charge": 72.0,
         "design_capacity": 100,
         #        "cycles": 8,
@@ -75,6 +77,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "voltage": 13.28,
         "current": -6.0,
         "battery_level": 98,
+        "battery_health": 100,
         "cycle_charge": 98.0,
         "design_capacity": 100,
         "temperature": 21.7,
@@ -95,8 +98,9 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
     name="protocol_type",
     params=[0x1, 0x2],
 )
-def proto(request: pytest.FixtureRequest) -> str:
+def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
+    assert isinstance(request.param, int)
     return request.param
 
 
@@ -109,7 +113,7 @@ class MockECOWBleakClient(MockBleakClient):
     }
     RESP: Final[dict[int, bytearray]] = {}
 
-    _task: asyncio.Task | None = None
+    _task: asyncio.Task[None] | None = None
 
     async def _notify(self) -> None:
         """Notify function."""
@@ -146,7 +150,10 @@ class MockECOWBleakClient(MockBleakClient):
 
 
 async def test_update(
-    monkeypatch, patch_bleak_client, protocol_type, keep_alive_fixture
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    protocol_type: int,
+    keep_alive_fixture: bool,
 ) -> None:
     """Test ECO-WORTHY BMS data update."""
 
@@ -159,23 +166,14 @@ async def test_update(
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client(MockECOWBleakClient)
-    bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "mock_FW_version",
-        "hw_version": "mock_HW_version",
-        "sw_version": "mock_SW_version",
-        "manufacturer": "mock_manufacturer",
-        "model": "mock_model",
-        "serial_number": "mock_serial_number",
-    }
+    await verify_device_info(patch_bleak_client, MockECOWBleakClient, BMS)
 
 
 @pytest.fixture(
@@ -236,7 +234,11 @@ async def test_tx_notimplemented(patch_bleak_client) -> None:
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, protocol_type, wrong_response
+    monkeypatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    protocol_type: int,
+    wrong_response,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -287,13 +289,16 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request) -> tuple[bytearray, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 

@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
 
     steps:
     - uses: actions/checkout@v4
@@ -33,7 +33,10 @@ jobs:
     - name: "Lint with ruff"
       run: python3 -m ruff check .        
     - name: "Lint using mypy"
-      run: mypy .
+      run: | 
+        mypy .
+        mypy aiobmsble --strict
     - name: Test with pytest
-      run: |
-        pytest
+      run: pytest
+    - name: "Spell checking"
+      run: codespell

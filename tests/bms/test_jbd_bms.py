@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -9,11 +10,35 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
+from aiobmsble import BMSSample
 from aiobmsble.bms.jbd_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
 BT_FRAME_SIZE = 20
+
+_RESULT_DEFS: Final[BMSSample] = {
+    "temp_sensors": 3,
+    "voltage": 15.6,
+    "current": -2.87,
+    "battery_level": 100,
+    "cycle_charge": 4.98,
+    "cycles": 42,
+    "temperature": 22.133,
+    "cycle_capacity": 77.688,
+    "power": -44.772,
+    "battery_charging": False,
+    "runtime": 6246,
+    "cell_count": 4,
+    "cell_voltages": [3.43, 3.425, 3.432, 3.417],
+    "temp_values": [22.4, 22.3, 21.7],
+    "delta_voltage": 0.015,
+    "problem": False,
+    "problem_code": 0,
+    "balancer": 0,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
+}
 
 
 class MockJBDBleakClient(MockBleakClient):
@@ -22,8 +47,9 @@ class MockJBDBleakClient(MockBleakClient):
     HEAD_CMD = 0xDD
     CMD_INFO = bytearray(b"\xa5\x03")
     CMD_CELL = bytearray(b"\xa5\x04")
+    HW_INFO = bytearray(b"\xa5\x05")
 
-    _tasks: set[asyncio.Task] = set()
+    _tasks: set[asyncio.Task[None]] = set()
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
@@ -43,7 +69,10 @@ class MockJBDBleakClient(MockBleakClient):
                 return bytearray(
                     b"\xdd\x04\x00\x08\x0d\x66\x0d\x61\x0d\x68\x0d\x59\xfe\x3c\x77"
                 )  # {'cell#0': 3.43, 'cell#1': 3.425, 'cell#2': 3.432, 'cell#3': 3.417}
-
+            if bytearray(data)[1:3] == self.HW_INFO:
+                return bytearray(
+                    b"\xdd\x05\x00\x0a\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\xfd\xe9\x77"
+                )  # hardware version 0123456789
         return bytearray()
 
     async def _send_data(self, char_specifier, data) -> None:
@@ -70,7 +99,7 @@ class MockJBDBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        _task: asyncio.Task = asyncio.create_task(self._send_data(char_specifier, data))
+        _task: asyncio.Task[None] = asyncio.create_task(self._send_data(char_specifier, data))
         self._tasks.add(_task)
         _task.add_done_callback(self._tasks.discard)
 
@@ -112,37 +141,27 @@ class MockOversizedBleakClient(MockJBDBleakClient):
         raise BleakError
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test JBD BMS data update."""
 
     patch_bleak_client(MockJBDBleakClient)
 
     bms = BMS(generate_ble_device(), keep_alive_fixture)
 
-    assert await bms.async_update() == {
-        "temp_sensors": 3,
-        "voltage": 15.6,
-        "current": -2.87,
-        "battery_level": 100,
-        "cycle_charge": 4.98,
-        "cycles": 42,
-        "temperature": 22.133,
-        "cycle_capacity": 77.688,
-        "power": -44.772,
-        "battery_charging": False,
-        "runtime": 6246,
-        "cell_voltages": [3.43, 3.425, 3.432, 3.417],
-        "temp_values": [22.4, 22.3, 21.7],
-        "delta_voltage": 0.015,
-        "problem": False,
-        "problem_code": 0,
-    }
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
+
+
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockJBDBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {"hw_version": "0123456789"}
 
 
 @pytest.fixture(
@@ -159,13 +178,17 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytearray)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
@@ -180,37 +203,16 @@ async def test_invalid_response(
     bms = BMS(generate_ble_device())
 
     with pytest.raises(TimeoutError):
-        _result = await bms.async_update()
+        _result: BMSSample = await bms.async_update()
 
     await bms.disconnect()
 
 
 async def test_oversized_response(patch_bleak_client) -> None:
     """Test data update with BMS returning oversized data, result shall still be ok."""
-
     patch_bleak_client(MockOversizedBleakClient)
-
     bms = BMS(generate_ble_device())
-
-    assert await bms.async_update() == {
-        "temp_sensors": 3,
-        "voltage": 15.6,
-        "current": -2.87,
-        "battery_level": 100,
-        "cycle_charge": 4.98,
-        "cycles": 42,
-        "temperature": 22.133,
-        "cycle_capacity": 77.688,
-        "power": -44.772,
-        "battery_charging": False,
-        "runtime": 6246,
-        "cell_voltages": [3.43, 3.425, 3.432, 3.417],
-        "temp_values": [22.4, 22.3, 21.7],
-        "delta_voltage": 0.015,
-        "problem": False,
-        "problem_code": 0,
-    }
-
+    assert await bms.async_update() == _RESULT_DEFS
     await bms.disconnect()
 
 
@@ -234,13 +236,16 @@ async def test_oversized_response(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request) -> bytearray:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
@@ -265,26 +270,10 @@ async def test_problem_response(
         return bytearray()
 
     monkeypatch.setattr(MockJBDBleakClient, "_response", _response)
-
     patch_bleak_client(MockJBDBleakClient)
-
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == {
-        "temp_sensors": 3,
-        "voltage": 15.6,
-        "current": -2.87,
-        "battery_level": 100,
-        "cycle_charge": 4.98,
-        "cycles": 42,
-        "temperature": 22.133,
-        "cycle_capacity": 77.688,
-        "power": -44.772,
-        "battery_charging": False,
-        "runtime": 6246,
-        "cell_voltages": [3.43, 3.425, 3.432, 3.417],
-        "temp_values": [22.4, 22.3, 21.7],
-        "delta_voltage": 0.015,
+    assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 15),
     }

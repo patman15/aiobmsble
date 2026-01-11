@@ -10,10 +10,11 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample, BMSValue
+from aiobmsble import BMSSample
 from aiobmsble.bms.roypow_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import verify_device_info
 
 BT_FRAME_SIZE = 20
 BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module
@@ -32,11 +33,14 @@ def ref_value() -> BMSSample:
         "cycle_capacity": 1321.795,
         "power": 4.718,
         "battery_charging": True,
+        "cell_count": 4,
         "cell_voltages": [3.375, 3.370, 3.369, 3.372],
         "temp_values": [19, 19, 19, 20],
         "delta_voltage": 0.006,
         "problem": False,
         "problem_code": 0,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
     }
 
 
@@ -111,24 +115,15 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
 
-
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client(MockRoyPowBleakClient)
-    bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "mock_FW_version",
-        "hw_version": "mock_HW_version",
-        "sw_version": "mock_SW_version",
-        "manufacturer": "mock_manufacturer",
-        "model": "mock_model",
-        "serial_number": "mock_serial_number",
-    }
+    await verify_device_info(patch_bleak_client, MockRoyPowBleakClient, BMS)
+
 
 async def test_update_dischrg(monkeypatch, patch_bleak_client) -> None:
     """Test RoyPow BMS data update."""
@@ -187,13 +182,17 @@ async def test_update_dischrg(monkeypatch, patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytearray)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -218,7 +217,7 @@ async def test_invalid_response(
 
 
 async def test_missing_message(
-    monkeypatch, patch_bleak_client, patch_bms_timeout
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
 ) -> None:
     """Test data up date with BMS returning no message type 4 but 8."""
 
@@ -239,19 +238,8 @@ async def test_missing_message(
 
     bms = BMS(generate_ble_device())
 
-    # remove values from reference that are in 0x4 response (and dependent)
-    ref: BMSSample = ref_value()
-    key: BMSValue
-    for key in (
-        "battery_level",
-        "cycle_capacity",
-        "cycle_charge",
-        "cycles",
-        "power",
-        "voltage",
-    ):
-        ref.pop(key)
-    assert await bms.async_update() == ref
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        assert await bms.async_update() == {}
     await bms.disconnect()
 
 
@@ -281,7 +269,9 @@ def prb_response(request):
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response: tuple[bytearray, str]
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 

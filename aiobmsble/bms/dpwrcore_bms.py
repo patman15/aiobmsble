@@ -13,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -41,27 +41,27 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 32
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 6, 2, False, lambda x: x / 10, Cmd.LEGINFO1),
-        BMSDp("current", 8, 2, True, lambda x: x, Cmd.LEGINFO1),
-        BMSDp("battery_level", 14, 1, False, lambda x: x, Cmd.LEGINFO1),
+        BMSDp("current", 8, 2, True, idx=Cmd.LEGINFO1),
+        BMSDp("battery_level", 14, 1, False, idx=Cmd.LEGINFO1),
         BMSDp("cycle_charge", 12, 2, False, lambda x: x / 1000, Cmd.LEGINFO1),
         BMSDp(
-            "temperature",
+            "temp_values",
             12,
             2,
             False,
-            lambda x: round(x * 0.1 - 273.15, 1),
+            lambda x: [round(x / 10 - 273.15, 3)],
             Cmd.LEGINFO2,
         ),
         BMSDp(
             "cell_count", 6, 1, False, lambda x: min(x, BMS._MAX_CELLS), Cmd.CELLVOLT
         ),
-        BMSDp("cycles", 8, 2, False, lambda x: x, Cmd.LEGINFO2),
+        BMSDp("cycles", 8, 2, False, idx=Cmd.LEGINFO2),
         BMSDp("problem_code", 15, 1, False, lambda x: x & 0xFF, Cmd.LEGINFO1),
     )
     _CMDS: Final[set[Cmd]] = {Cmd(field.idx) for field in _FIELDS}
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         assert self._ble_device.name is not None  # required for unlock
         self._data_final: dict[int, bytearray] = {}
@@ -94,18 +94,6 @@ class BMS(BaseBMS):
         return "fff3"
 
     # async def _fetch_device_info(self) -> BMSInfo: use default
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "runtime",
-            }
-        )
 
     async def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -201,7 +189,8 @@ class BMS(BaseBMS):
             await self._await_reply(self._cmd(request, b""))
 
         if not BMS._CMDS.issubset(set(self._data_final.keys())):
-            raise ValueError("incomplete response set")
+            self._log.debug("Incomplete data set %s", self._data_final.keys())
+            raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
         result["cell_voltages"] = BMS._cell_voltages(

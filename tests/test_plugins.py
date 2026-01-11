@@ -15,8 +15,7 @@ def test_bms_id(plugin_fixture: ModuleType) -> None:
     """Test that the BMS returns default information."""
     bms_class: type[BaseBMS] = plugin_fixture.BMS
     for key in ("default_manufacturer", "default_model"):
-        assert key in bms_class.INFO
-        assert bms_class.INFO[key].strip()
+        assert str(bms_class.INFO.get(key, "")).strip()
     assert len(bms_class.bms_id().strip())
 
 
@@ -40,7 +39,7 @@ def test_matcher_dict(plugin_fixture: ModuleType) -> None:
             ), "manufacturer_data_start needs to contain Byte values!"
 
         if oui := matcher.get("oui"):
-            parts = oui.split(":")
+            parts: list[str] = oui.split(":")
             assert len(parts) == 3 and all(
                 len(part) == 2 and all(c in hexdigits for c in part) for part in parts
             ), f"incorrect {oui=}"

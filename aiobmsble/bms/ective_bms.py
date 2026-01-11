@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -27,11 +27,11 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 1, 8, False, lambda x: x / 1000),
         BMSDp("current", 9, 8, True, lambda x: x / 1000),
-        BMSDp("battery_level", 29, 4, False, lambda x: x),
+        BMSDp("battery_level", 29, 4, False),
         BMSDp("cycle_charge", 17, 8, False, lambda x: x / 1000),
-        BMSDp("cycles", 25, 4, False, lambda x: x),
-        BMSDp("temperature", 33, 4, False, lambda x: round(x * 0.1 - 273.15, 1)),
-        BMSDp("problem_code", 37, 2, False, lambda x: x),
+        BMSDp("cycles", 25, 4, False),
+        BMSDp("temp_values", 33, 4, False, lambda x: [round(x / 10 - 273.15, 3)]),
+        BMSDp("problem_code", 37, 2, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -65,19 +65,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "cycle_charge",
-                "delta_voltage",
-                "power",
-                "runtime",
-            }
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -135,6 +122,7 @@ class BMS(BaseBMS):
         cells: int,
         start: int,
         size: int = 2,
+        gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         divider: int = 1000,
     ) -> list[float]:

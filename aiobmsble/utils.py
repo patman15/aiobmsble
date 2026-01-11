@@ -1,4 +1,4 @@
-"""Utilitiy/Support functions for aiobmsble.
+"""Utility/Support functions for aiobmsble.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -11,7 +11,7 @@ import importlib
 import pkgutil
 import re
 from types import ModuleType
-from typing import Final
+from typing import Final, cast
 
 from bleak.backends.scanner import AdvertisementData
 
@@ -54,7 +54,7 @@ def _advertisement_matches(
     ) and service_data_uuid not in adv_data.service_data:
         return False
 
-    if (oui := matcher.get("oui")) and not mac_addr.startswith(oui[:8]):
+    if (oui := matcher.get("oui")) and not mac_addr.lower().startswith(oui.lower()[:8]):
         return False
 
     if (manufacturer_id := matcher.get("manufacturer_id")) is not None:
@@ -108,14 +108,15 @@ async def bms_cls(name: str) -> type[BaseBMS] | None:
     """
     if not name.endswith(_MODULE_POSTFIX):
         return None
-    loop = asyncio.get_running_loop()
+    loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
     try:
         bms_module: ModuleType = await loop.run_in_executor(
             None, importlib.import_module, f"aiobmsble.bms.{name}"
         )
     except ModuleNotFoundError:
         return None
-    return bms_module.BMS
+
+    return cast(type[BaseBMS], bms_module.BMS)
 
 
 async def bms_matching(
@@ -132,11 +133,11 @@ async def bms_matching(
         mac_addr (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
     Returns:
-        list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwhise.
+        list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwise.
 
     """
-    loop = asyncio.get_running_loop()
-    bms_plugins = await loop.run_in_executor(None, load_bms_plugins)
+    loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
+    bms_plugins: set[ModuleType] = await loop.run_in_executor(None, load_bms_plugins)
 
     for bms_module in bms_plugins:
         if bms_supported(bms_module.BMS, adv_data, mac_addr):
@@ -154,7 +155,7 @@ async def bms_identify(
         mac_addr (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
     Returns:
-        type[BaseBMS] | None: The identified BMS class if a match is found, None otherwhise
+        type[BaseBMS] | None: The identified BMS class if a match is found, None otherwise
 
     """
 

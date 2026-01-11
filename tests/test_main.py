@@ -1,10 +1,11 @@
 """Test the package main script."""
 
 import argparse
+import asyncio
 from collections.abc import Callable
 from logging import DEBUG, INFO
 import sys
-from typing import Final
+from typing import Any, Final
 from unittest import mock
 
 from bleak.backends.device import BLEDevice
@@ -14,24 +15,23 @@ import pytest
 
 from aiobmsble import BMSSample
 import aiobmsble.__main__ as main_mod
-
-from .bluetooth import generate_advertisement_data
+from aiobmsble.test_data import adv_dict_to_advdata
 
 
 async def mock_discover(
-    timeout: float = 5.0, *, return_adv: bool = False, **_kwargs
+    timeout: float = 5.0, *, return_adv: bool = False, **kwargs: Any
 ) -> dict[str, tuple[BLEDevice, AdvertisementData]]:
     """Mock BleakScanner to avoid actual BLE scanning."""
     mock_mac_unknown: Final[str] = "00:00:00:00:00:00"
     mock_mac: Final[str] = "11:22:33:44:55:66"
     mock_device: BLEDevice = BLEDevice(mock_mac, "Dummy BMS", None)
-    mock_adv: AdvertisementData = generate_advertisement_data(local_name="dummy")
+    mock_adv: AdvertisementData = adv_dict_to_advdata({"local_name":"dummy"})
     assert timeout >= 0, "timeout cannot be negative."
     assert return_adv, "mock only works with advertisement info."
     return {
         mock_mac_unknown: (
             BLEDevice(mock_mac_unknown, "Unknown Device", None),
-            generate_advertisement_data(local_name="unknown_device"),
+            adv_dict_to_advdata({"local_name":"unknown_device"}),
         ),
         mock_mac: (mock_device, mock_adv),
     }
@@ -48,13 +48,7 @@ def setup_logging():
 def asyncio_run():
     """Unittest mock for asyncio_run to check calls to it."""
     with mock.patch("asyncio.run") as m:
-        yield m
-
-
-@pytest.fixture(name="mock_detect_bms")
-def detect_bms():
-    """Unittest mock for detect_bms to check calls to it."""
-    with mock.patch.object(main_mod, "detect_bms") as m:
+        m.side_effect = lambda coro: asyncio.new_event_loop().run_until_complete(coro)
         yield m
 
 
@@ -63,7 +57,7 @@ async def test_detect_bms(
     patch_bleak_client: Callable[..., None],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Verify log ouput for working BMS update query."""
+    """Verify log output for working BMS update query."""
 
     monkeypatch.setattr("aiobmsble.__main__.BleakScanner.discover", mock_discover)
     patch_bleak_client()
@@ -80,10 +74,10 @@ async def test_detect_bms(
 async def test_scan_devices_fail(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Verify log ouput for working BMS update query."""
+    """Verify log output for working BMS update query."""
 
     async def mock_discover_fail(
-        timeout: float = 5.0, *, return_adv: bool = False, **_kwargs
+        timeout: float = 5.0, *, return_adv: bool = False, **kwargs: Any
     ) -> dict[str, tuple[BLEDevice, AdvertisementData]]:
         raise BleakError("No BT adapters.")
 
@@ -110,7 +104,7 @@ async def test_bms_fail(
     with caplog.at_level(INFO):
         await main_mod.detect_bms()
     assert "Found matching BMS type: Dummy Manufacturer dummy model" in caplog.text
-    assert "Failed to update BMS: TimeoutError" in caplog.text
+    assert "Failed to query BMS: TimeoutError" in caplog.text
 
 
 def test_main_parses_logfile_and_verbose(

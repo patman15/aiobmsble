@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import Buffer
 from copy import deepcopy
-from typing import Final
+from typing import Final, Literal, cast
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -12,8 +12,9 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSInfo, BMSSample
-from aiobmsble.bms.jikong_bms import BMS, BMSMode, crc_sum
+from aiobmsble import BMSInfo, BMSMode, BMSSample
+from aiobmsble.basebms import crc_sum, lstr2int
+from aiobmsble.bms.jikong_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
 
@@ -189,6 +190,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "current": 2.329,
         "balance_current": 0.002,
         "battery_level": 56,
+        "battery_health": 100,
         "cycle_charge": 113.245,
         "cycles": 60,
         "cell_voltages": [
@@ -216,6 +218,9 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "temp_sensors": 7,
         "problem": False,
         "problem_code": 0,
+        "balancer": True,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
     },
     "JK02_32S": {
         "cell_count": 8,
@@ -223,6 +228,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "voltage": 26.509,
         "current": -7.063,
         "battery_level": 68,
+        "battery_health": 100,
         "cycle_charge": 142.464,
         "cycles": 21,
         "balance_current": 0.0,
@@ -236,6 +242,9 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "runtime": 72613,
         "temperature": 29.9,
         "problem": False,
+        "balancer": False,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
     },
     "JK02_32S_v15": {
         "cell_count": 16,
@@ -244,6 +253,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "voltage": 53.224,
         "current": 31.881,
         "battery_level": 25,
+        "battery_health": 100,
         "cycle_charge": 49.286,
         "cycles": 9,
         "balance_current": 0.0,
@@ -273,6 +283,9 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "battery_charging": True,
         "temperature": 16.367,
         "problem": False,
+        "balancer": False,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
     },
     "JK02_32S_v19": {
         "cell_count": 16,
@@ -281,6 +294,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "voltage": 53.224,
         "current": 31.881,
         "battery_level": 25,
+        "battery_health": 100,
         "cycle_charge": 49.286,
         "cycles": 9,
         "balance_current": 0.0,
@@ -310,6 +324,9 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "battery_charging": True,
         "temperature": 16.367,
         "problem": False,
+        "balancer": False,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
     },
 }
 
@@ -351,6 +368,7 @@ _DEV_DEFS: Final[dict[str, BMSInfo]] = {
 )
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
+    assert isinstance(request.param, str)
     return request.param
 
 
@@ -362,7 +380,7 @@ class MockJikongBleakClient(MockBleakClient):
     DEV_INFO: Final = bytearray(b"\x97")
     _FRAME: dict[str, bytearray] = {}
 
-    _task: asyncio.Task | None = None
+    _task: asyncio.Task[None] | None = None
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
@@ -371,18 +389,18 @@ class MockJikongBleakClient(MockBleakClient):
         if char_specifier != 3 or crc_sum(frame[:-1]) != frame[19]:
             return bytearray()
 
-        if frame[0:5] == self.HEAD_CMD + self.CMD_INFO:
+        if frame.startswith(self.HEAD_CMD + self.CMD_INFO):
             return (
                 bytearray(b"\x41\x54\x0d\x0a") + self._FRAME["cell"]
             )  # added AT\r\n command
-        if frame[0:5] == self.HEAD_CMD + self.DEV_INFO:
+        if frame.startswith(self.HEAD_CMD + self.DEV_INFO):
             return self._FRAME["dev"]
 
         return bytearray()
 
     async def _send_confirm(self) -> None:
         assert self._notify_callback, "send confirm called but notification not enabled"
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0)
         self._notify_callback(
             "MockJikongBleakClient", self._FRAME.get("ack", bytearray())
         )
@@ -406,8 +424,8 @@ class MockJikongBleakClient(MockBleakClient):
             resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockJikongBleakClient", notify_data)
-        if (
-            bytearray(data)[0:5] == self.HEAD_CMD + self.DEV_INFO
+        if bytes(data).startswith(
+            self.HEAD_CMD + self.DEV_INFO
         ):  # JK BMS confirms commands with a command in reply
             self._task = asyncio.create_task(self._send_confirm())
 
@@ -463,26 +481,7 @@ class MockStreamBleakClient(MockJikongBleakClient):
         ), "send_all frames called but notification not enabled"
         for resp in self._FRAME.values():
             self._notify_callback("MockJikongBleakClient", resp)
-            await asyncio.sleep(0.01)
-
-    async def write_gatt_char(
-        self,
-        char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        data: Buffer,
-        response: bool | None = None,
-    ) -> None:
-        """Issue write command to GATT."""
-
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
-        self._notify_callback(
-            "MockJikongBleakClient", bytearray(b"\x41\x54\x0d\x0a")
-        )  # interleaved AT\r\n command
-        if bytearray(data).startswith(
-            self.HEAD_CMD + self.DEV_INFO
-        ):  # send all responses as a series
-            self._task = asyncio.create_task(self._send_all())
+            await asyncio.sleep(0)
 
 
 class MockWrongBleakClient(MockBleakClient):
@@ -525,7 +524,10 @@ class MockOversizedBleakClient(MockJikongBleakClient):
 
 
 async def test_update(
-    monkeypatch, patch_bleak_client, protocol_type, keep_alive_fixture
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    protocol_type: str,
+    keep_alive_fixture,
 ) -> None:
     """Test Jikong BMS data update."""
 
@@ -539,12 +541,14 @@ async def test_update(
 
     # query again to check already connected state
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
 
-async def test_device_info(monkeypatch, patch_bleak_client, protocol_type) -> None:
+async def test_device_info(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, protocol_type: str
+) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     monkeypatch.setattr(MockJikongBleakClient, "_FRAME", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockJikongBleakClient)
@@ -553,7 +557,7 @@ async def test_device_info(monkeypatch, patch_bleak_client, protocol_type) -> No
 
 
 async def test_hide_temp_sensors(
-    monkeypatch, patch_bleak_client, protocol_type
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, protocol_type: str
 ) -> None:
     """Test Jikong BMS data update with not connected temperature sensors."""
 
@@ -595,29 +599,50 @@ async def test_hide_temp_sensors(
 
 
 async def test_stream_update(
-    monkeypatch, patch_bleak_client, protocol_type, keep_alive_fixture
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    protocol_type: str,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test Jikong BMS data update."""
 
-    monkeypatch.setattr(MockStreamBleakClient, "_FRAME", _PROTO_DEFS[protocol_type])
-    patch_bleak_client(MockStreamBleakClient)
-    monkeypatch.setattr(  # mock that response has already been received
-        "aiobmsble.basebms.asyncio.Event.is_set", lambda _: True
+    _frames: dict[str, bytearray] = deepcopy(_PROTO_DEFS[protocol_type])
+    _prot_offset: Literal[-32, 0] = (
+        -32 if lstr2int(_frames["dev"][30:38].decode()) < 11 else 0
     )
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    monkeypatch.setattr(MockStreamBleakClient, "_FRAME", _frames)
+    patch_bleak_client(MockStreamBleakClient)
+
+    bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert bms._data_event.is_set() is False, "BMS does not request fresh data"
+    assert "requesting cell info" in caplog.text
 
-    # query again to check already connected state
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    _client = cast(MockStreamBleakClient, bms._client)
+    _cell_frame: bytearray = _frames["cell"]
+    _cell_frame[_prot_offset + 182] = 0x73  # modify data to ensure new read
+    _cell_frame[-1] = crc_sum(_cell_frame[:-1])
+    caplog.clear()
+    await _client._send_all()
 
-    await bms.disconnect()
+    # query again to see if updated streaming data is used
+    assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {"cycles": 0x73}
+    assert "requesting cell info" not in caplog.text, "BMS did not use streaming data"
+
+    _cell_frame[_prot_offset + 182] = 0x37  # modify data to ensure new read
+    _cell_frame[-1] = crc_sum(_cell_frame[:-1])
+    caplog.clear()
+    # do not automatically send data this time
+
+    # query again to see if BMS recovers if no data is sent
+    assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {"cycles": 0x37}
+    assert "requesting cell info" in caplog.text, "BMS did not use streaming data"
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
 ) -> None:
     """Test data update with BMS returning invalid data."""
 
@@ -643,7 +668,7 @@ async def test_invalid_response(
 
 
 async def test_invalid_frame_type(
-    monkeypatch, patch_bleak_client, patch_bms_timeout
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
 ) -> None:
     """Test data update with BMS returning invalid data."""
 
@@ -669,7 +694,7 @@ async def test_invalid_frame_type(
 
 
 async def test_oversized_response(
-    monkeypatch, patch_bleak_client, protocol_type
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, protocol_type
 ) -> None:
     """Test data update with BMS returning oversized data, result shall still be ok."""
 
@@ -704,7 +729,7 @@ async def test_invalid_device(patch_bleak_client) -> None:
 
 
 async def test_non_stale_data(
-    monkeypatch, patch_bleak_client, patch_bms_timeout
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
 ) -> None:
     """Test if BMS class is reset if connection is reset."""
 
@@ -745,13 +770,17 @@ async def test_non_stale_data(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request) -> bytearray:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, protocol_type: str, problem_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    protocol_type: str,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning system problem flags."""
 

@@ -4,35 +4,44 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import contextlib
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class BMS(BaseBMS):
     """Redodo BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Redodo", "default_model": "Bluetooth battery"}
+    INFO: BMSInfo = {
+        "default_manufacturer": "Redodo",
+        "default_model": "Bluetooth battery",
+    }
     _HEAD_LEN: Final[int] = 3
     _MAX_CELLS: Final[int] = 16
-    _MAX_TEMP: Final[int] = 3
+    _MAX_TEMP: Final[int] = 5
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 12, 2, False, lambda x: x / 1000),
         BMSDp("current", 48, 4, True, lambda x: x / 1000),
-        BMSDp("battery_level", 90, 2, False, lambda x: x),
+        BMSDp("battery_level", 90, 2, False),
+        BMSDp("battery_health", 92, 4, False),
         BMSDp("cycle_charge", 62, 2, False, lambda x: x / 100),
-        BMSDp("cycles", 96, 4, False, lambda x: x),
-        BMSDp("problem_code", 76, 4, False, lambda x: x),
+        BMSDp("design_capacity", 64, 4, False, lambda x: x // 100),
+        BMSDp("cycles", 96, 4, False),
+        BMSDp("balancer", 84, 4, False, int),
+        BMSDp("heater", 68, 4, False, bool),
+        BMSDp("problem_code", 76, 4, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
+        self._temp_sensors: int = 1  # default to 1 temp sensor
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -56,7 +65,7 @@ class BMS(BaseBMS):
                 "L-12*",  # vv *** LiTime *** vv
                 "L-24*",
                 "L-51*",
-                "LT-12???BG-A0[7-9]*",  # LiTime based on ser#
+                "LT-12???BG-A0[7-9]*",  # LiTime based on serial #
                 "LT-24???B-A00[3-9]*",
                 "LT-24???B-A0[1-9]*",
                 "LT-24???B-A[1-9]*",
@@ -81,19 +90,6 @@ class BMS(BaseBMS):
 
     # async def _fetch_device_info(self) -> BMSInfo: use default
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "delta_voltage",
-                "cycle_capacity",
-                "power",
-                "runtime",
-                "temperature",
-            }
-        )  # calculate further values from BMS provided set ones
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -112,7 +108,7 @@ class BMS(BaseBMS):
             self._log.debug("invalid checksum 0x%X != 0x%X", data[len(data) - 1], crc)
             return
 
-        self._data = data
+        self._data = data.copy()
         self._data_event.set()
 
     async def _async_update(self) -> BMSSample:
@@ -128,5 +124,17 @@ class BMS(BaseBMS):
         result["temp_values"] = BMS._temp_values(
             self._data, values=BMS._MAX_TEMP, start=52, byteorder="little"
         )
+        # Determine number of temp sensors by checking if value is persistently 0
+        with contextlib.suppress(StopIteration):
+            self._temp_sensors = max(
+                self._temp_sensors,
+                next(
+                    i
+                    for i in range(BMS._MAX_TEMP, 1, -1)
+                    if result["temp_values"][i - 1] != 0
+                ),
+            )
+        result["temp_values"] = result["temp_values"][: self._temp_sensors]
+        result["temp_sensors"] = self._temp_sensors
 
         return result

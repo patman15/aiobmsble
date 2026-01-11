@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 
 
@@ -33,19 +33,23 @@ class BMS(BaseBMS):
         BMSDp("voltage", 38, 2, False, lambda x: x / 100),
         BMSDp("current", 40, 2, True, lambda x: x / 10),
         BMSDp("design_capacity", 50, 4, False, lambda x: x // 1e6),
-        BMSDp("battery_level", 42, 2, False, lambda x: x),
+        BMSDp("battery_level", 42, 2, False),
+        BMSDp("battery_health", 44, 2, False),
         BMSDp(
             "problem_code",
             46,
             2,
             False,
-            lambda x: ((x & 0xF00) if (x >> 8) not in (0x1, 0x4, 0xB, 0xF) else 0)
-            | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB, 0xC, 0xF) else 0),
+            lambda x: ((x & 0xF00) if (x >> 8) not in (0x1, 0x4, 0xF) else 0)
+            | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB, 0xF) else 0),
         ),
         BMSDp("cycle_charge", 54, 4, False, lambda x: x / 1e6),
         BMSDp("total_charge", 58, 4, False, lambda x: x // 1000),
         BMSDp("delta_voltage", 82, 2, False, lambda x: x / 1000),
-        BMSDp("power", 62, 4, True, lambda x: x / 1),
+        BMSDp("power", 62, 4, True, float),
+        BMSDp("chrg_mosfet", 46, 1, False, lambda x: x == 0x1),
+        BMSDp("dischrg_mosfet", 47, 1, False, lambda x: x == 0x1),
+        BMSDp("balancer", 48, 1, False, lambda x: bool(x & 0x4)),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -90,12 +94,6 @@ class BMS(BaseBMS):
             hw_version=barr2str(self._data_final[6:22]),
             sw_version=barr2str(self._data_final[22:38]),
         )
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {"cycle_capacity", "cycles", "temperature"}
-        )  # calculate further values from BMS provided set ones
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -210,7 +208,7 @@ class BMS(BaseBMS):
                 BMS._FIELDS,
                 self._data_final,
                 byteorder="little",
-                offset=(result["temp_sensors"] + result["cell_count"]) * 2,
+                start=(result["temp_sensors"] + result["cell_count"]) * 2,
             )
         )
 

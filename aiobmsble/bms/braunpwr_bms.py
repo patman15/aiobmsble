@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, barr2str
 
 
@@ -25,15 +25,17 @@ class BMS(BaseBMS):
     _TAIL: Final[int] = 0x7D  # tail for command
     _MIN_LEN: Final[int] = 4  # minimum frame size
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("cell_count", 3, 1, False, lambda x: x, 0x2),
-        BMSDp("temp_sensors", 3, 1, False, lambda x: x, 0x3),
+        BMSDp("cell_count", 3, 1, False, idx=0x2),
+        BMSDp("temp_sensors", 3, 1, False, idx=0x3),
         BMSDp("voltage", 5, 2, False, lambda x: x / 100, 0x1),
         BMSDp("current", 13, 2, True, lambda x: x / 100, 0x1),
-        BMSDp("battery_level", 4, 1, False, lambda x: x, 0x1),
+        BMSDp("battery_level", 4, 1, False, idx=0x1),
+        BMSDp("battery_health", 34, 1, False, idx=0x1),
         BMSDp("cycle_charge", 15, 2, False, lambda x: x / 100, 0x1),
         BMSDp("design_capacity", 17, 2, False, lambda x: x // 100, 0x1),
-        BMSDp("cycles", 23, 2, False, lambda x: x, 0x1),
-        BMSDp("problem_code", 31, 2, False, lambda x: x, 0x1),
+        BMSDp("cycles", 23, 2, False, idx=0x1),
+        BMSDp("problem_code", 31, 2, False, idx=0x1),
+        BMSDp("balancer", 25, 2, False, idx=0x1),
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS}
     _INIT_CMDS: Final[set[int]] = {
@@ -43,7 +45,7 @@ class BMS(BaseBMS):
     }
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._data_final: dict[int, bytearray] = {}
         self._exp_reply: tuple[int] = (0x01,)
@@ -82,22 +84,9 @@ class BMS(BaseBMS):
             self._exp_reply = (cmd,)
             await self._await_reply(BMS._cmd(cmd))
         return {
-            "sw_version": '.'.join(str(x) for x in self._data_final[0xF4][3:6]),
+            "sw_version": ".".join(str(x) for x in self._data_final[0xF4][3:6]),
             "hw_version": barr2str(self._data_final[0x74][3:-1]),
         }
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "power",
-                "battery_charging",
-                "cycle_capacity",
-                "runtime",
-                "delta_voltage",
-                "temperature",
-            }
-        )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

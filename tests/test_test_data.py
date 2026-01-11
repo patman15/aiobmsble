@@ -3,7 +3,7 @@
 from bleak.backends.scanner import AdvertisementData
 
 from aiobmsble.test_data import (
-    _json_dict_to_advdata,
+    adv_dict_to_advdata,
     bms_advertisements,
     ignore_advertisements,
 )
@@ -29,7 +29,7 @@ def test_json_dict_to_advdata() -> None:
         "tx_power": 21,
         "platform_data": ("00:11:22:aa:bb:cc", 123, "test", {"check": "ok"}),
     }
-    assert _json_dict_to_advdata(data) == AdvertisementData(
+    assert adv_dict_to_advdata(data) == AdvertisementData(
         local_name="dummy_bms",
         rssi=-73,
         manufacturer_data={

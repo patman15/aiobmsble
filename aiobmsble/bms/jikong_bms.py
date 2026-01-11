@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, barr2str, crc_sum, lstr2int
 
 
@@ -21,7 +21,7 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"default_manufacturer": "Jikong", "default_model": "smart BMS"}
     HEAD_RSP: Final = bytes([0x55, 0xAA, 0xEB, 0x90])  # header for responses
-    HEAD_CMD: Final = bytes([0xAA, 0x55, 0x90, 0xEB])  # header for commands (endiness!)
+    HEAD_CMD: Final = bytes([0xAA, 0x55, 0x90, 0xEB])  # cmd header (endianness!)
     _READY_MSG: Final = HEAD_CMD + bytes([0xC8, 0x01, 0x01] + [0x00] * 12 + [0x44])
     _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
     TYPE_POS: Final[int] = 4  # frame type is right after the header
@@ -29,16 +29,20 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (  # Protocol: JK02_32S; JK02_24S has offset -32
         BMSDp("voltage", 150, 4, False, lambda x: x / 1000),
         BMSDp("current", 158, 4, True, lambda x: x / 1000),
-        BMSDp("battery_level", 173, 1, False, lambda x: x),
-        BMSDp("cycle_charge", 174, 4, False, lambda x: x / 1000),
-        BMSDp("cycles", 182, 4, False, lambda x: x),
+        BMSDp("problem_code", 166, 4, False),
         BMSDp("balance_current", 170, 2, True, lambda x: x / 1000),
-        BMSDp("temp_sensors", 214, 2, True, lambda x: x),
-        BMSDp("problem_code", 166, 4, False, lambda x: x),
+        BMSDp("balancer", 201, 1, False, bool),
+        BMSDp("battery_level", 173, 1, False),
+        BMSDp("cycle_charge", 174, 4, False, lambda x: x / 1000),
+        BMSDp("cycles", 182, 4, False),
+        BMSDp("battery_health", 190, 1, False),
+        BMSDp("chrg_mosfet", 198, 1, False, bool),
+        BMSDp("dischrg_mosfet", 199, 1, False, bool),
+        BMSDp("temp_sensors", 214, 2, True),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._data_final: bytearray = bytearray()
         self._char_write_handle: int = -1
@@ -77,6 +81,7 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         self._valid_reply = 0x03
         await self._await_reply(self._cmd(b"\x97"), char=self._char_write_handle)
+        self._valid_reply = 0x02
         return {
             "model": barr2str(self._data_final[6:22]),
             "hw_version": barr2str(self._data_final[22:30]),
@@ -84,18 +89,6 @@ class BMS(BaseBMS):
             "name": barr2str(self._data_final[46:62]),
             "serial_number": barr2str(self._data_final[86:94]),
         }
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "power",
-                "battery_charging",
-                "cycle_capacity",
-                "runtime",
-                "temperature",
-            }
-        )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -243,7 +236,7 @@ class BMS(BaseBMS):
         """Return BMS data from status message."""
 
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, data, byteorder="little", offset=offs
+            BMS._FIELDS, data, byteorder="little", start=offs
         )
         result["cell_count"] = int.from_bytes(
             data[70 + (offs >> 1) : 74 + (offs >> 1)], byteorder="little"
@@ -293,5 +286,6 @@ class BMS(BaseBMS):
             start=6,
             byteorder="little",
         )
-
+        self._data_final.clear()
+        self._data_event.clear()
         return data

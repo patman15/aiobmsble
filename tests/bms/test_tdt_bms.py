@@ -9,7 +9,7 @@ from bleak.exc import BleakDeviceNotFoundError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSSample
 from aiobmsble.bms.tdt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -27,6 +27,12 @@ _PROTO_DEFS: Final[dict[str, dict[int, bytearray]]] = {
             b"\x7e\x00\x41\x03\x00\x8d\x00\x18\x04\x00\x00\x00\x00\x04\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x06\x09\x00\x00\x18\x00\x00\x00"
             b"\xdf\x68\x0d"
+        ),
+        0x95: bytearray(
+            b"\x0e\x2c\x00\x03\xa1\xde\x06\x0a\x03\x20\x3d\x31\x00\x7d\xdf\xc5"
+            b"\xa5\x6f\x9b\x9a\xaf\x0e\x19\x15\x00\x04\x00\x12\x14\x00\x7e\x00"
+            b"\x01\x06\x00\x95\x00\x07\x07\xe8\x0b\x16\x0e\x07\x08\xc9\x41\x0d"
+            b"\x79\xf7\x25"
         ),
     },
     "16S6Tv0.0": {
@@ -64,7 +70,7 @@ _PROTO_DEFS: Final[dict[str, dict[int, bytearray]]] = {
 }
 
 
-def ref_value() -> dict:
+def ref_value() -> dict[str, BMSSample]:
     """Return reference value for mock Seplos BMS."""
     return {
         "4S4Tv0.0": {
@@ -82,6 +88,8 @@ def ref_value() -> dict:
             "cell_voltages": [3.297, 3.295, 3.297, 3.292],
             "temp_values": [23.2, 24.0, 22.6, 22.5],
             "delta_voltage": 0.005,
+            "chrg_mosfet": True,
+            "dischrg_mosfet": True,
             "problem": False,
             "problem_code": 0,
         },
@@ -118,6 +126,8 @@ def ref_value() -> dict:
             "temp_values": [17.9, 19.6, 17.9, 17.9, 17.9, 18.7],
             "delta_voltage": 0.012,
             "runtime": 62589,
+            "chrg_mosfet": True,
+            "dischrg_mosfet": True,
             "problem": False,
             "problem_code": 0,
         },
@@ -155,6 +165,8 @@ def ref_value() -> dict:
             "battery_charging": False,
             "runtime": 14333,
             "temperature": 26.4,
+            "chrg_mosfet": True,
+            "dischrg_mosfet": True,
             "problem": False,
         },
     }
@@ -166,6 +178,7 @@ def ref_value() -> dict:
 )
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
+    assert isinstance(request.param, str)
     return request.param
 
 
@@ -186,7 +199,6 @@ class MockTDTBleakClient(MockBleakClient):
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("fff2")
@@ -194,7 +206,7 @@ class MockTDTBleakClient(MockBleakClient):
             and bytearray(data)[-1] == self.TAIL_CMD
         ):
             for k, v in self.CMDS.items():
-                if bytearray(data)[1:].startswith(v):
+                if bytearray(data)[1:].startswith(v) and k in self.RESP:
                     return self.RESP[k]
 
         return bytearray()
@@ -244,8 +256,8 @@ class MockTDTBleakClient(MockBleakClient):
 async def test_update(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    protocol_type,
-    keep_alive_fixture,
+    protocol_type: str,
+    keep_alive_fixture: bool,
 ) -> None:
     """Test TDT BMS data update."""
 
@@ -258,13 +270,16 @@ async def test_update(
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
 
 async def test_update_0x1e_head(
-    monkeypatch, patch_bms_timeout, patch_bleak_client, keep_alive_fixture
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bms_timeout,
+    patch_bleak_client,
+    keep_alive_fixture: bool,
 ) -> None:
     """Test TDT BMS data update."""
 
@@ -292,9 +307,40 @@ async def test_update_0x1e_head(
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms._client and bms._client.is_connected is keep_alive_fixture
+    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
+
+
+@pytest.mark.parametrize(("header"), [0x7E, 0x1E], ids=["7e", "1e"])
+async def test_device_info(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    protocol_type: str,
+    header: int,
+) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    monkeypatch.setattr(MockTDTBleakClient, "RESP", _PROTO_DEFS[protocol_type])
+    monkeypatch.setattr(MockTDTBleakClient, "HEAD_CMD", header)
+    patch_bms_timeout()
+    patch_bleak_client(MockTDTBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == (
+        {
+            "fw_version": "mock_FW_version",
+            "hw_version": "mock_HW_version",
+            "manufacturer": "mock_manufacturer",
+            "model": "mock_model",
+            "serial_number": "mock_serial_number",
+            "sw_version": "mock_SW_version",
+        }
+        if protocol_type in ("4S4Tv0.0", "16S6Tv0.4")
+        else {
+            "sw_version": "6032_10016S000_L_41",
+            "serial_number": "60326016207270001",
+        }
+    )
 
 
 @pytest.fixture(
@@ -340,13 +386,11 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-# FIXME! put parameter for throw_exception
+@pytest.mark.parametrize(("throw_exception"), [True, False], ids=("throw", "error"))
 async def test_init_fail(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, bool_fixture
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, throw_exception: bool
 ) -> None:
     """Test that failing to initialize simply continues and tries to read data."""
-
-    throw_exception: bool = bool_fixture
 
     async def error_repsonse(*_args, **_kwargs) -> bytearray:
         return bytearray(b"\x00")
@@ -365,7 +409,7 @@ async def test_init_fail(
 
     bms = BMS(generate_ble_device())
 
-    if bool_fixture:
+    if throw_exception:
         with pytest.raises(BleakDeviceNotFoundError):
             assert not await bms.async_update()
     else:
@@ -409,7 +453,7 @@ async def test_init_fail(
         ),
         (
             {
-                0x8C: bytearray(  # 16 celll message
+                0x8C: bytearray(  # 16 cell message
                     b"\x7e\x00\x01\x03\x00\x8c\x00\x3c\x10\x0c\xe3\x0c\xe6\x0c\xde\x0c\xde\x0c\xdd"
                     b"\x0c\xde\x0c\xdd\x0c\xdc\x0c\xdc\x0c\xda\x0c\xde\x0c\xde\x0c\xde\x0c\xdd\x0c"
                     b"\xdf\x0c\xde\x06\x0b\x5e\x0b\x6f\x0b\x5e\x0b\x5e\x0b\x5e\x0b\x66\xc0\x39\x14"
@@ -425,7 +469,7 @@ async def test_init_fail(
         ),
         (
             {
-                0x8C: bytearray(  # 16 celll message
+                0x8C: bytearray(  # 16 cell message
                     b"\x7e\x00\x01\x03\x00\x8c\x00\x3c\x10\x0c\xe3\x0c\xe6\x0c\xde\x0c\xde\x0c\xdd"
                     b"\x0c\xde\x0c\xdd\x0c\xdc\x0c\xdc\x0c\xda\x0c\xde\x0c\xde\x0c\xde\x0c\xdd\x0c"
                     b"\xdf\x0c\xde\x06\x0b\x5e\x0b\x6f\x0b\x5e\x0b\x5e\x0b\x5e\x0b\x66\xc0\x39\x14"
@@ -444,13 +488,14 @@ async def test_init_fail(
 )
 def prb_response(
     request: pytest.FixtureRequest,
-) -> list[tuple[dict[int, bytearray], str]]:
+) -> tuple[dict[int, bytearray], str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: tuple[dict[int, bytearray], str]
 ) -> None:
     """Test data update with BMS returning error flags."""
 

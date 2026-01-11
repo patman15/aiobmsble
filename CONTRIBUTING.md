@@ -5,7 +5,7 @@
  1. Fork the repository and create a branch with the name of the new BMS to add.
  2. Add a new file to the `bms` folder called, e.g. `my_bms.py`
  3. Populate the file with class called `BMS` derived from `BaseBMS` (see basebms.py). A dummy implementation without the actual functionality to query the BMS can be found below in section [Dummy BMS Example](#dummy-bms-example).
- 4. Make sure that the dictionary returned by `async_update()` has the keys listed in `BMSsample` class before the comment for *detailed information*.
+ 4. Make sure that the dictionary returned by `async_update()` has the keys listed in `BMSSample` class before the comment for *detailed information*.
  5. Test and commit the changes to the branch and create a pull request to the main repository.
  6. Please check if you follow the [architecture guidelines](#architecture-guidelines)
  7. If you like, add yourself to the `pyproject.toml` `author` array.
@@ -26,6 +26,7 @@ In general I use guidelines very close to the ones that Home Assistant uses for 
 - The code shall pass the automated linting checks:
   - `ruff check .`
   - `mypy .`
+  - `codespell .`
 - Keep names and any comments in English language.
 
 ## Architecture Guidelines

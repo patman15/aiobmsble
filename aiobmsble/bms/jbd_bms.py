@@ -11,8 +11,8 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble.basebms import BaseBMS, barr2str, swap32
 
 
 class BMS(BaseBMS):
@@ -25,17 +25,20 @@ class BMS(BaseBMS):
     INFO_LEN: Final[int] = 7  # minimum frame size
     BASIC_INFO: Final[int] = 23  # basic info data length
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("temp_sensors", 26, 1, False, lambda x: x),  # count is not limited
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
-        BMSDp("battery_level", 23, 1, False, lambda x: x),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),
-        BMSDp("cycles", 12, 2, False, lambda x: x),
-        BMSDp("problem_code", 20, 2, False, lambda x: x),
+        BMSDp("cycles", 12, 2, False),
+        BMSDp("balancer", 16, 4, False, lambda x: swap32(x)),
+        BMSDp("problem_code", 20, 2, False),
+        BMSDp("battery_level", 23, 1, False),
+        BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x1)),
+        BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2)),
+        BMSDp("temp_sensors", 26, 1, False),  # count is not limited
     )  # general protocol v4
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._valid_reply: int = 0x00
         self._data_final: bytearray = bytearray()
@@ -52,7 +55,7 @@ class BMS(BaseBMS):
             for pattern in (
                 "JBD-*",
                 "SX1*",  # Supervolt v3
-                "SX60*", # Supervolt Ultra
+                "SX60*",  # Supervolt Ultra
                 "SBL-*",  # SBL
                 "OGR-*",  # OGRPHY
                 "TZ-H*",  # CERRNSS battery
@@ -61,7 +64,14 @@ class BMS(BaseBMS):
             MatcherPattern(
                 oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True
             )
-            for oui in ("A4:C1:37", "A4:C1:38", "A5:C2:37", "AA:C2:37", "70:3E:97")
+            for oui in (
+                "10:A5:62",  # CHINS
+                "A4:C1:37",
+                "A4:C1:38",
+                "A5:C2:37",
+                "AA:C2:37",
+                "70:3E:97",
+            )
         ]
 
     @staticmethod
@@ -79,20 +89,13 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ff02"
 
-    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "power",
-                "battery_charging",
-                "cycle_capacity",
-                "runtime",
-                "delta_voltage",
-                "temperature",
-            }
-        )
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        await self._await_cmd_resp(0x05)
+        length: Final[int] = self._data_final[3]
+        return {
+            "hw_version": barr2str(self._data_final[4 : length + 4]),
+        }
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -101,7 +104,7 @@ class BMS(BaseBMS):
         if (
             data.startswith(self.HEAD_RSP)
             and len(self._data) > self.INFO_LEN
-            and data[1] in (0x03, 0x04)
+            and data[1] in (0x03, 0x04, 0x05)
             and data[2] == 0x00
             and len(self._data) >= self.INFO_LEN + self._data[3]
         ):
