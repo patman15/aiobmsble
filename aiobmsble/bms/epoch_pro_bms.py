@@ -151,7 +151,7 @@ class BMS(BaseBMS):
         await self._await_reply(BMS._cmd(1, 0xF3, 0x7654, 0x37))
 
         data: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data_final[0x016E], offset=BMS._HEAD_LEN
+            BMS._FIELDS, self._data_final[0x016E], start=BMS._HEAD_LEN
         )
 
         for pack in range(1, 1 + data.get("pack_count", 0)):
