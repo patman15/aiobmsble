@@ -82,7 +82,7 @@
   },
   {
     "advertisement": {
-      "local_name": "xxxxxxx20126\f",
+      "local_name": "NWJ20221223020126\f",
       "manufacturer_data": {
         "65535": "3055443792f2"
       },
@@ -97,7 +97,7 @@
     "type": "ective_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/276)",
-      "renamed",
+      "can be renamed",
       "value: MAC address"
     ]
   }
