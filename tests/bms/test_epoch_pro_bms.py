@@ -16,6 +16,7 @@ BT_FRAME_SIZE = 32  # ATT maximum is 512, minimal 27
 REF_VALUE: BMSSample = {
     "voltage": 53.21,
     "current": 0,
+    "battery_health": 100,
     "battery_level": 91,
     # "cycle_charge": 134.12,
     # "cycles": 9,
@@ -25,6 +26,7 @@ REF_VALUE: BMSSample = {
     "battery_charging": False,
     # "runtime": 72064,
     "pack_count": 2,
+    "cell_count": 32,
     "cell_voltages": [
         3.326,
         3.325,
@@ -66,7 +68,6 @@ REF_VALUE: BMSSample = {
     "pack_cycles": [10, 10],
     "pack_voltages": [53.21, 53.21],
     "problem": False,
-    "problem_code": 0,
 }
 
 
@@ -143,7 +144,7 @@ class MockEpochProBleakClient(MockBleakClient):
         await self.send_frag_response(data)
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Epoch Pro BMS data update."""
 
     patch_bleak_client(MockEpochProBleakClient)
@@ -197,7 +198,10 @@ def fix_response(request) -> bytearray:
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -222,7 +226,9 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_wrong_length(monkeypatch, patch_bleak_client, patch_bms_timeout) -> None:
+async def test_wrong_length(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
+) -> None:
     """Test data up date with BMS returning incorrect length, but valid data."""
 
     patch_bms_timeout()
@@ -247,58 +253,47 @@ async def test_wrong_length(monkeypatch, patch_bleak_client, patch_bms_timeout) 
     await bms.disconnect()
 
 
-@pytest.fixture(
-    name="problem_response",
-    params=[
-        (
-            bytearray(
-                b"\xfa\xf3\x16\x01\x6e\x00\x00\x00\x00\x04\xb0\x00\x00\x00\x5b\x00\x64\x23\x8c\x14"
-                b"\xc9\x00\x00\x01\x0e\x00\x00\x00\x00\x18\x7a\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-                b"\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x0c\xfd\x0c\xff\x00"
-                b"\x1b\x00\x1b\x32\x30\x31\x2d\x00\x31\x00\x00\x32\x30\x31\x2d\x00\x34\x00\x00\x31"
-                b"\x30\x30\x2d\x00\x31\x00\x00\x31\x30\x30\x2d\x00\x31\x00\x00\x00\x00\x00\x00\x00"
-                b"\x00\x00\x00\x00\x38\xaa\xa8\x02\xaa\xaa\xa8\x00\x82\x00\x3c\x6b\x2f"
-            ),
-            "first_bit",
-        ),
-        (
-            bytearray(
-                b"\xfa\xf3\x16\x01\x6e\x00\x00\x00\x00\x04\xb0\x00\x00\x00\x5b\x00\x64\x23\x8c\x14"
-                b"\xc9\x00\x00\x01\x0e\x00\x00\x00\x00\x18\x7a\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-                b"\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x0c\xfd\x0c\xff\x00"
-                b"\x1b\x00\x1b\x32\x30\x31\x2d\x00\x31\x00\x00\x32\x30\x31\x2d\x00\x34\x00\x00\x31"
-                b"\x30\x30\x2d\x00\x31\x00\x00\x31\x30\x30\x2d\x00\x31\x00\x00\x00\x00\x00\x00\x00"
-                b"\x00\x00\x00\x00\x38\xaa\xa8\x02\xaa\xaa\xa8\x00\x82\x00\x3c\x6b\x2f"
-            ),
-            "last_bit",
-        ),
-    ],
-    ids=lambda param: param[1],
-)
-def prb_response(request) -> bytearray:
-    """Return faulty response frame."""
-    return request.param
+# @pytest.mark.parametrize(
+#     ("problem_response"),
+#     [
+#         bytearray(
+#             b"\xfa\xf3\x16\x01\x6e\x00\x00\x00\x00\x04\xb0\x00\x00\x00\x5b\x00\x64\x23\x8c\x14"
+#             b"\xc9\x00\x00\x01\x0e\x00\x00\x00\x00\x18\x7a\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+#             b"\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x0c\xfd\x0c\xff\x00"
+#             b"\x1b\x00\x1b\x32\x30\x31\x2d\x00\x31\x00\x00\x32\x30\x31\x2d\x00\x34\x00\x00\x31"
+#             b"\x30\x30\x2d\x00\x31\x00\x00\x31\x30\x30\x2d\x00\x31\x00\x00\x00\x00\x00\x00\x00"
+#             b"\x00\x00\x00\x00\x38\xaa\xa8\x02\xaa\xaa\xa8\x00\x82\x00\x3c\x6b\x2f"
+#         ),
+#         bytearray(
+#             b"\xfa\xf3\x16\x01\x6e\x00\x00\x00\x00\x04\xb0\x00\x00\x00\x5b\x00\x64\x23\x8c\x14"
+#             b"\xc9\x00\x00\x01\x0e\x00\x00\x00\x00\x18\x7a\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+#             b"\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x0c\xfd\x0c\xff\x00"
+#             b"\x1b\x00\x1b\x32\x30\x31\x2d\x00\x31\x00\x00\x32\x30\x31\x2d\x00\x34\x00\x00\x31"
+#             b"\x30\x30\x2d\x00\x31\x00\x00\x31\x30\x30\x2d\x00\x31\x00\x00\x00\x00\x00\x00\x00"
+#             b"\x00\x00\x00\x00\x38\xaa\xa8\x02\xaa\xaa\xa8\x00\x82\x00\x3c\x6b\x2f"
+#         ),
+#     ],
+#     ids=["first_bit", "last_bit"],
+# )
+# async def test_problem_response(
+#     monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: bytearray
+# ) -> None:
+#     """Test data update with BMS returning invalid data (wrong CRC)."""
 
+#     monkeypatch.setattr(
+#         MockEpochProBleakClient,
+#         "RESP",
+#         MockEpochProBleakClient.RESP
+#         | {b"\xfa\xf3\x16\x76\x54\x01\x00\x37\xc7\x24": problem_response},
+#     )
 
-async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response
-) -> None:
-    """Test data update with BMS returning invalid data (wrong CRC)."""
+#     patch_bleak_client(MockEpochProBleakClient)
 
-    monkeypatch.setattr(
-        MockEpochProBleakClient,
-        "RESP",
-        MockEpochProBleakClient.RESP
-        | {b"\xfa\xf3\x16\x76\x54\x01\x00\x37\xc7\x24": problem_response},
-    )
+#     bms = BMS(generate_ble_device())
 
-    patch_bleak_client(MockEpochProBleakClient)
+#     assert await bms.async_update() == REF_VALUE | {
+#         "problem": True,
+#         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 15),
+#     }
 
-    bms = BMS(generate_ble_device())
-
-    assert await bms.async_update() == REF_VALUE | {
-        "problem": True,
-        "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 15),
-    }
-
-    await bms.disconnect()
+#     await bms.disconnect()

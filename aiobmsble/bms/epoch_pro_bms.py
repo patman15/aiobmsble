@@ -7,14 +7,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSpackvalue, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSpackvalue, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
     """Epoch Pro BMS implementation."""
 
-    INFO = {"default_manufacturer": "Epoch", "default_model": "Pro"}
+    INFO: BMSInfo = {"default_manufacturer": "Epoch", "default_model": "Pro"}
     _HEAD: Final[bytes] = b"\xfa"
     _CMDS: Final[set[int]] = {0xF3}
     _VER: Final[bytes] = b"\x16"  # version 1.6?
@@ -28,13 +28,14 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("temperature", 18, 2, True, lambda x: x / 10),
         BMSDp("voltage", 14, 2, False, lambda x: x / 100),
-        BMSDp("current", 16, 2, True, lambda x: x),
-        BMSDp("pack_count", 42, 2, False, lambda x: x),
-        # BMSdp("cycle_charge", 8, 4, False, lambda x: x),
-        # BMSdp("cycles", 46, 2, False, lambda x: x),
-        # BMSdp("design_capacity", 4, 4, False, lambda x: x),
-        BMSDp("battery_level", 8, 2, False, lambda x: x),
-        BMSDp("problem_code", 100, 8, False, lambda x: x),
+        BMSDp("current", 16, 2, True),
+        BMSDp("pack_count", 42, 2, False),
+        # BMSdp("cycle_charge", 8, 4, False),
+        # BMSdp("cycles", 46, 2, False),
+        # BMSdp("design_capacity", 4, 4, False),
+        BMSDp("battery_level", 8, 2, False),
+        BMSDp("battery_health", 10, 2, False),
+        # BMSDp("problem_code", 100, 8, False), # not verified
     )
 
     _PFIELDS: Final[list[tuple[BMSpackvalue, int, bool, Callable[[int], Any]]]] = [
@@ -165,7 +166,6 @@ class BMS(BaseBMS):
                             pack_response[
                                 BMS._HEAD_LEN + idx : BMS._HEAD_LEN + idx + 2
                             ],
-                            byteorder="big",
                             signed=sign,
                         )
                     )
