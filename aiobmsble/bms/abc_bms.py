@@ -142,7 +142,7 @@ class BMS(BaseBMS):
             with contextlib.suppress(TimeoutError):
                 await self._await_reply(BMS._cmd(bytes([cmd])))
 
-        # check all repsonses are here, 0xF9 is not mandatory (not all BMS report it)
+        # check all responses are here, 0xF9 is not mandatory (not all BMS report it)
         if not BMS._RESPS.issubset(set(self._data_final.keys()) | {0xF9}):
             self._log.debug("Incomplete data set %s", self._data_final.keys())
             raise ValueError("BMS data incomplete.")
