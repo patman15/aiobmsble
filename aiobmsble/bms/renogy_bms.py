@@ -138,8 +138,8 @@ class BMS(BaseBMS):
             divider=10,
         )
 
-        await self._await_reply(self._cmd(0x13EC, 0x7))
-        result["problem_code"] = int.from_bytes(self._data_final[3:-2], byteorder="big") & (
+        await self._await_reply(self._cmd(0x13EC, 0x8))
+        result["problem_code"] = int.from_bytes(self._data_final[3:17], byteorder="big") & (
             ~0xE
         )
         result["chrg_mosfet"] = bool(self._data_final[16] & 0x2)
