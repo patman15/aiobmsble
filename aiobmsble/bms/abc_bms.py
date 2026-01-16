@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc8
+from aiobmsble.basebms import BaseBMS, b2str, crc8
 
 
 class BMS(BaseBMS):
@@ -94,7 +94,7 @@ class BMS(BaseBMS):
         info: BMSInfo = await super()._fetch_device_info()
         self._exp_reply = BMS._EXP_REPLY[0xC0]
         await self._await_reply(BMS._cmd(bytes([0xC0])))
-        info |= {"model": barr2str(self._data_final[0xF1][2:-1])}
+        info |= {"model": b2str(self._data_final[0xF1][2:-1])}
         return info
 
     def _notification_handler(

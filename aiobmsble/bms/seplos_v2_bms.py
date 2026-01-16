@@ -12,7 +12,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_xmodem
+from aiobmsble.basebms import BaseBMS, b2str, crc_xmodem
 
 
 class BMS(BaseBMS):
@@ -79,7 +79,7 @@ class BMS(BaseBMS):
         await self._await_reply(BMS._cmd(0x51))
         _dat: Final[bytes] = self._data_final[0x51]
         return {
-            "model": barr2str(_dat[26:36]),
+            "model": b2str(_dat[26:36]),
             "sw_version": f"{int(_dat[37])}.{int(_dat[38])}",
         }
 

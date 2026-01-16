@@ -17,7 +17,7 @@ import pytest
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import (
     BaseBMS,
-    barr2str,
+    b2str,
     crc8,
     crc_modbus,
     crc_sum,
@@ -767,4 +767,4 @@ def test_decode_data(
 )
 def test_barr2str(data: bytes, expected: str) -> None:
     """Test bytearray to string conversion function."""
-    assert barr2str(data) == expected
+    assert b2str(data) == expected

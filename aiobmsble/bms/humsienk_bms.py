@@ -12,7 +12,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
+from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
 class BMS(BaseBMS):
@@ -71,8 +71,8 @@ class BMS(BaseBMS):
         for cmd in (b"\x11", b"\xf5"):
             await self._await_reply(BMS._cmd(cmd))
         return {
-            "model": barr2str(self._data_final[0x11][3:-2]),
-            "hw_version": barr2str(self._data_final[0xF5][3:-2]),
+            "model": b2str(self._data_final[0x11][3:-2]),
+            "hw_version": b2str(self._data_final[0xF5][3:-2]),
         }
 
     async def _init_connection(

@@ -12,7 +12,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
+from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -71,10 +71,10 @@ class BMS(BaseBMS):
         result: BMSInfo = BMSInfo()
         await self._await_reply(self._cmd(b"\x00\x00\x00\x02\x00\x00"))
         length: int = self._data_final[8]
-        result["serial_number"] = barr2str(self._data_final[9 : 9 + length])
+        result["serial_number"] = b2str(self._data_final[9 : 9 + length])
         await self._await_reply(self._cmd(b"\x00\x00\x00\x01\x00\x00"))
-        result["sw_version"] = barr2str(self._data_final[10 : 10 + self._data_final[9]])
-        result["hw_version"] = barr2str(self._data_final[65 : 65 + self._data_final[64]])
+        result["sw_version"] = b2str(self._data_final[10 : 10 + self._data_final[9]])
+        result["hw_version"] = b2str(self._data_final[65 : 65 + self._data_final[64]])
         return result
 
     def _notification_handler(

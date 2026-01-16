@@ -11,7 +11,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
+from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -85,8 +85,8 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         await self._await_reply(BMS.HEAD_READ + BMS.VER_INFO)
         return {
-            "sw_version": barr2str(self._data_final[3:19]),
-            "hw_version": barr2str(self._data_final[19:35]),
+            "sw_version": b2str(self._data_final[3:19]),
+            "hw_version": b2str(self._data_final[19:35]),
             # "manuf.date": barr2str(self._data_final[35:51]),
         }
 

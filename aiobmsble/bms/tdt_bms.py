@@ -12,7 +12,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
+from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -86,9 +86,9 @@ class BMS(BaseBMS):
         ret: dict[str, str] = {
             k: v
             for k, v in {
-                "sw_version": barr2str(self._data_final[0x92][8:28]),
-                "manufacturer": barr2str(self._data_final[0x92][28:48]),
-                "serial_number": barr2str(self._data_final[0x92][48:68]),
+                "sw_version": b2str(self._data_final[0x92][8:28]),
+                "manufacturer": b2str(self._data_final[0x92][28:48]),
+                "serial_number": b2str(self._data_final[0x92][48:68]),
             }.items()
             if len(v) > 0
         }

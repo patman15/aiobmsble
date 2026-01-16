@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str
+from aiobmsble.basebms import BaseBMS, b2str
 
 
 class BMS(BaseBMS):
@@ -79,7 +79,7 @@ class BMS(BaseBMS):
             self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45")
         )
         self._data_event.clear()
-        return BMSInfo(serial_number=barr2str(self._data_final[91:107]))
+        return BMSInfo(serial_number=b2str(self._data_final[91:107]))
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

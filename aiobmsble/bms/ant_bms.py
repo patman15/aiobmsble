@@ -12,7 +12,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
+from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -91,8 +91,8 @@ class BMS(BaseBMS):
 
         await self._await_reply(BMS._cmd(BMS._CMD_DEV, 0x026C, 0x20))
         return BMSInfo(
-            hw_version=barr2str(self._data_final[6:22]),
-            sw_version=barr2str(self._data_final[22:38]),
+            hw_version=b2str(self._data_final[6:22]),
+            sw_version=b2str(self._data_final[22:38]),
         )
 
     async def _init_connection(

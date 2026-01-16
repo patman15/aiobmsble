@@ -11,7 +11,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
+from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -68,9 +68,9 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         await self._await_reply(self._cmd(0x13F0, 0x1C))
         return {
-            "serial_number": barr2str(self._data_final[15:31]),
-            "name": barr2str(self._data_final[39:55]),
-            "sw_version": barr2str(self._data_final[55:59]),
+            "serial_number": b2str(self._data_final[15:31]),
+            "name": b2str(self._data_final[39:55]),
+            "sw_version": b2str(self._data_final[55:59]),
         }
 
     def _notification_handler(
