@@ -42,6 +42,7 @@ class BMS(BaseBMS):
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
         self._heads: tuple[bytes, ...] = BMS._HEADS
+        self._data_final: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -87,7 +88,7 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data = data.copy()
+        self._data_final = bytes(data)
         self._data_event.set()
 
     @staticmethod
@@ -119,4 +120,4 @@ class BMS(BaseBMS):
         else:
             raise TimeoutError
 
-        return BMS._decode_data(BMS._FIELDS, self._data)
+        return BMS._decode_data(BMS._FIELDS, self._data_final)

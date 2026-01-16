@@ -149,7 +149,7 @@ class BMS(BaseBMS):
         self._data_event.set()
 
     @staticmethod
-    def _crc(frame: bytes) -> int:
+    def _crc(frame: bytearray) -> int:
         """Calculate JBD frame CRC."""
         return 0x10000 - sum(frame)
 

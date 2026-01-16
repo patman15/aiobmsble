@@ -45,7 +45,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._data_final: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -107,7 +107,7 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        decoded = bytearray(
+        decoded = bytes(
             b ^ int(self._data[7:9], 16)
             for b in bytes.fromhex(self._data[1:-3].decode("ascii"))
         )
@@ -118,7 +118,7 @@ class BMS(BaseBMS):
             self._data.clear()
             return
 
-        self._data_final = decoded.copy()
+        self._data_final = decoded
         self._data_event.set()
 
     @staticmethod

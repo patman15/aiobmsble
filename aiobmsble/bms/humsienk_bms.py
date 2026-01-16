@@ -37,7 +37,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._data_final: dict[int, bytes] = {}
         self._valid_reply: int = 0x00
 
     @staticmethod
@@ -71,8 +71,8 @@ class BMS(BaseBMS):
         for cmd in (b"\x11", b"\xf5"):
             await self._await_reply(BMS._cmd(cmd))
         return {
-            "model": barr2str(bytearray(self._data_final[0x11][3:-2])),
-            "hw_version": barr2str(bytearray(self._data_final[0xF5][3:-2])),
+            "model": barr2str(self._data_final[0x11][3:-2]),
+            "hw_version": barr2str(self._data_final[0xF5][3:-2]),
         }
 
     async def _init_connection(
@@ -110,7 +110,7 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data_final[data[1]] = data.copy()
+        self._data_final[data[1]] = bytes(data)
         self._data_event.set()
 
     @staticmethod

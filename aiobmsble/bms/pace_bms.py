@@ -44,6 +44,7 @@ class BMS(BaseBMS):
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
         self._valid_reply: bytes = b""  # expected reply type
+        self._data_final: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -69,11 +70,11 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         result: BMSInfo = BMSInfo()
         await self._await_reply(self._cmd(b"\x00\x00\x00\x02\x00\x00"))
-        length: int = self._data[8]
-        result["serial_number"] = barr2str(self._data[9 : 9 + length])
+        length: int = self._data_final[8]
+        result["serial_number"] = barr2str(self._data_final[9 : 9 + length])
         await self._await_reply(self._cmd(b"\x00\x00\x00\x01\x00\x00"))
-        result["sw_version"] = barr2str(self._data[10 : 10 + self._data[9]])
-        result["hw_version"] = barr2str(self._data[65 : 65 + self._data[64]])
+        result["sw_version"] = barr2str(self._data_final[10 : 10 + self._data_final[9]])
+        result["hw_version"] = barr2str(self._data_final[65 : 65 + self._data_final[64]])
         return result
 
     def _notification_handler(
@@ -104,7 +105,7 @@ class BMS(BaseBMS):
             self._log.debug("unexpected response")
             return
 
-        self._data = data.copy()
+        self._data_final = bytes(data)
         self._data_event.set()
 
     @staticmethod
@@ -130,14 +131,16 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_reply(BMS._cmd(b"\x00\x00\x0a\x00\x00\x00"))
-        result = BMS._decode_data(BMS._FIELDS, self._data, byteorder="big", start=8)
+        result: BMSSample = BMS._decode_data(
+            BMS._FIELDS, self._data_final, byteorder="big", start=8
+        )
         await self._await_reply(BMS._cmd(b"\x00\x00\x0a\x02\x00\x00", b"\x01\x01"))
-        result["cell_count"] = self._data[11]
+        result["cell_count"] = self._data_final[11]
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data, cells=result["cell_count"], start=12, gap=2
+            self._data_final, cells=result["cell_count"], start=12, gap=2
         )
         result["temp_values"] = BMS._temp_values(
-            self._data,
+            self._data_final,
             values=result["cell_count"],
             start=14,
             gap=2,

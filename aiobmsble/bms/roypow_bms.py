@@ -135,7 +135,7 @@ class BMS(BaseBMS):
         self._data_event.set()
 
     @staticmethod
-    def _crc(frame: bytes) -> int:
+    def _crc(frame: bytes | bytearray) -> int:
         """Calculate XOR of all frame bytes."""
         crc: int = 0
         for b in frame:

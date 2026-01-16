@@ -36,6 +36,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
+        self._data_final: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -141,8 +142,8 @@ class BMS(BaseBMS):
         result["problem_code"] = int.from_bytes(self._data_final[3:-2], byteorder="big") & (
             ~0xE
         )
-        result["chrg_mosfet"] = bool(self._data[16] & 0x2)
-        result["dischrg_mosfet"] = bool(self._data[16] & 0x4)
-        result["heater"] = bool(self._data[17] & 0x20)
+        result["chrg_mosfet"] = bool(self._data_final[16] & 0x2)
+        result["dischrg_mosfet"] = bool(self._data_final[16] & 0x4)
+        result["heater"] = bool(self._data_final[17] & 0x20)
 
         return result

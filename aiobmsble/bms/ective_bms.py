@@ -112,7 +112,7 @@ class BMS(BaseBMS):
         self._data_event.set()
 
     @staticmethod
-    def _crc(data: bytes) -> int:
+    def _crc(data: bytearray) -> int:
         return sum(int(data[idx : idx + 2], 16) for idx in range(0, len(data), 2))
 
     @staticmethod

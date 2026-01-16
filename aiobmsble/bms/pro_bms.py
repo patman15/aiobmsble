@@ -56,6 +56,7 @@ class BMS(BaseBMS):
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._valid_reply: int = BMS._RT_DATA
+        self._data_final: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -103,7 +104,7 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length: %i != %i).", len(data), _exp_len)
             return
 
-        self._data = data.copy()
+        self._data_final = bytes(data)
         self._data_event.set()
 
     async def _init_connection(
@@ -131,7 +132,7 @@ class BMS(BaseBMS):
             raise
 
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data, byteorder="little"
+            BMS._FIELDS, self._data_final, byteorder="little"
         )
         result["power"] = result.get("power", 0) * (
             -1 if result.get("current", 0) < 0 else 1
