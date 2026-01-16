@@ -139,7 +139,7 @@ class BMS(BaseBMS):
         await self._await_reply(BMS._cmd(BMS.CMD.GET, BMS.ADR.STATUS))
 
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data_final, byteorder="big", offset=0
+            BMS._FIELDS, self._data_final, byteorder="big"
         )
 
         result["cell_voltages"] = BMS._cell_voltages(

@@ -146,7 +146,7 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length: %i", len(self._data_final))
             return {}
 
-        result |= BMS._decode_data(BMS._FIELDS, self._data_final, offset=BMS.HEAD_LEN)
+        result |= BMS._decode_data(BMS._FIELDS, self._data_final, start=BMS.HEAD_LEN)
 
         # add temperature sensors
         result.setdefault("temp_values", []).extend(
