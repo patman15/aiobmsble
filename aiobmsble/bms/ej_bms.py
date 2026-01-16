@@ -11,7 +11,7 @@ from typing import Final, Literal
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -38,18 +38,18 @@ class BMS(BaseBMS):
         BMSDp(
             "current", 89, 8, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
         ),
-        BMSDp("battery_level", 123, 2, False, lambda x: x, Cmd.RT),
+        BMSDp("battery_level", 123, 2, False, idx=Cmd.RT),
         BMSDp("cycle_charge", 15, 4, False, lambda x: x / 10, Cmd.CAP),
         BMSDp(
-            "temperature", 97, 2, False, lambda x: x - 40, Cmd.RT
+            "temp_values", 97, 2, False, lambda x: [x - 40], Cmd.RT
         ),  # only 1st sensor relevant
-        BMSDp("cycles", 115, 4, False, lambda x: x, Cmd.RT),
+        BMSDp("cycles", 115, 4, False, idx=Cmd.RT),
         BMSDp(
             "problem_code", 105, 4, False, lambda x: x & 0x0FFC, Cmd.RT
         ),  # mask status bits
-        BMSDp("sw_dischrg_mosfet", 105, 1, False, lambda x: bool(x & 0x1), Cmd.RT),
-        BMSDp("sw_chrg_mosfet", 105, 1, False, lambda x: bool(x & 0x2), Cmd.RT),
-        BMSDp("balancer", 111, 4, False, lambda x: x, Cmd.RT)
+        BMSDp("dischrg_mosfet", 105, 1, False, lambda x: bool(x & 0x1), Cmd.RT),
+        BMSDp("chrg_mosfet", 105, 1, False, lambda x: bool(x & 0x2), Cmd.RT),
+        BMSDp("balancer", 111, 4, False, int, idx=Cmd.RT)
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -74,14 +74,14 @@ class BMS(BaseBMS):
                 {"local_name": "SV12V*", "manufacturer_id": 33384, "connectable": True},
             ]
             + [  # LiTime
-                MatcherPattern(  # LiTime based on ser#
+                MatcherPattern(  # LiTime based on serial #
                     local_name="LT-12???BG-A0[0-6]*",
                     manufacturer_id=m_id,
                     connectable=True,
                 )
                 for m_id in (33384, 22618)
             ]
-            + [  # LiTime based on ser#
+            + [  # LiTime based on serial #
                 {
                     "local_name": "LT-24???B-A00[0-2]*",
                     "manufacturer_id": 22618,
@@ -104,19 +104,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 128-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "runtime",
-                "voltage",
-            }
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

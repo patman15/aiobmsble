@@ -10,6 +10,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.vatrer_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import verify_device_info
 
 
 def ref_value() -> BMSSample:
@@ -18,6 +19,7 @@ def ref_value() -> BMSSample:
         "voltage": 52.67,
         "current": -4.96,
         "battery_level": 40,
+        "battery_health": 100,
         "cycle_charge": 39.7,
         "cycle_capacity": 2090.999,
         "cycles": 27,
@@ -30,8 +32,8 @@ def ref_value() -> BMSSample:
         "battery_charging": False,
         "power": -261.243,
         "balancer": False,
-        "sw_chrg_mosfet": True,
-        "sw_dischrg_mosfet": True,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
         "problem": False,
         "cell_voltages": [
             3.295,
@@ -89,7 +91,7 @@ class MockVatrerBleakClient(MockBleakClient):
         )
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Vatrer BMS data update."""
 
     patch_bleak_client(MockVatrerBleakClient)
@@ -107,16 +109,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client(MockVatrerBleakClient)
-    bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "mock_FW_version",
-        "hw_version": "mock_HW_version",
-        "sw_version": "mock_SW_version",
-        "manufacturer": "mock_manufacturer",
-        "model": "mock_model",
-        "serial_number": "mock_serial_number",
-    }
+    await verify_device_info(patch_bleak_client, MockVatrerBleakClient, BMS)
 
 
 @pytest.fixture(
@@ -130,13 +123,17 @@ async def test_device_info(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytearray)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -181,13 +178,15 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request):
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response: tuple[bytearray, str]
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 

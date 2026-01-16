@@ -1,6 +1,7 @@
 """Test the D-powercore BMS implementation."""
 
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -19,9 +20,44 @@ from tests.conftest import MockBleakClient
     params=["TBA-MockBLEDevice_C0FE", "DXB-MockBLEDevice_C0FE", "invalid"],
     ids=["TBA", "DXB", "wrong"],
 )
-def patch_dev_name(request) -> str:
+def patch_dev_name(request: pytest.FixtureRequest) -> str:
     """Provide device name variants."""
+    assert isinstance(request.param, str)
     return request.param
+
+
+_RESULT_DEFS: Final[BMSSample] = {
+    "voltage": 53.1,
+    "current": 0,
+    "battery_level": 61.0,
+    "cycles": 18,
+    "cycle_charge": 17.806,
+    "cell_voltages": [
+        3.799,
+        3.798,
+        3.798,
+        3.797,
+        3.797,
+        3.798,
+        3.793,
+        3.794,
+        3.797,
+        3.798,
+        3.796,
+        3.800,
+        3.799,
+        3.803,
+    ],
+    "cell_count": 14,
+    "delta_voltage": 0.01,
+    "temperature": 21.05,
+    "temp_values": [21.05],
+    "cycle_capacity": 945.499,
+    "power": 0.0,
+    "battery_charging": False,
+    "problem": False,
+    "problem_code": 0,
+}
 
 
 class MockDPwrcoreBleakClient(MockBleakClient):
@@ -149,44 +185,16 @@ class MockProblemBleakClient(MockDPwrcoreBleakClient):
         return super()._response(char_specifier, data)
 
 
-async def test_update(patch_bleak_client, dev_name, keep_alive_fixture) -> None:
+async def test_update(
+    patch_bleak_client, dev_name: str, keep_alive_fixture: bool
+) -> None:
     """Test D-pwercore BMS data update."""
 
     patch_bleak_client(MockDPwrcoreBleakClient)
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), keep_alive_fixture)
 
-    assert await bms.async_update() == {
-        "voltage": 53.1,
-        "current": 0,
-        "battery_level": 61.0,
-        "cycles": 18,
-        "cycle_charge": 17.806,
-        "cell_voltages": [
-            3.799,
-            3.798,
-            3.798,
-            3.797,
-            3.797,
-            3.798,
-            3.793,
-            3.794,
-            3.797,
-            3.798,
-            3.796,
-            3.800,
-            3.799,
-            3.803,
-        ],
-        "cell_count": 14,
-        "delta_voltage": 0.01,
-        "temperature": 21.1,
-        "cycle_capacity": 945.499,
-        "power": 0.0,
-        "battery_charging": False,
-        "problem": False,
-        "problem_code": 0,
-    }
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
@@ -196,7 +204,7 @@ async def test_update(patch_bleak_client, dev_name, keep_alive_fixture) -> None:
 
 
 async def test_invalid_response(
-    patch_bleak_client, patch_bms_timeout, dev_name
+    patch_bleak_client, patch_bms_timeout, dev_name: str
 ) -> None:
     """Test data update with BMS returning invalid data."""
 
@@ -214,7 +222,7 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_wrong_crc(patch_bleak_client, patch_bms_timeout, dev_name) -> None:
+async def test_wrong_crc(patch_bleak_client, patch_bms_timeout, dev_name: str) -> None:
     """Test data update with BMS returning invalid data."""
 
     patch_bms_timeout()
@@ -231,41 +239,14 @@ async def test_wrong_crc(patch_bleak_client, patch_bms_timeout, dev_name) -> Non
     await bms.disconnect()
 
 
-async def test_problem_response(patch_bleak_client, dev_name) -> None:
+async def test_problem_response(patch_bleak_client, dev_name: str) -> None:
     """Test D-pwercore BMS data update."""
 
     patch_bleak_client(MockProblemBleakClient)
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), False)
 
-    assert await bms.async_update() == {
-        "voltage": 53.1,
-        "current": 0,
-        "battery_level": 61.0,
-        "cycles": 18,
-        "cycle_charge": 17.806,
-        "cell_voltages": [
-            3.799,
-            3.798,
-            3.798,
-            3.797,
-            3.797,
-            3.798,
-            3.793,
-            3.794,
-            3.797,
-            3.798,
-            3.796,
-            3.800,
-            3.799,
-            3.803,
-        ],
-        "cell_count": 14,
-        "delta_voltage": 0.01,
-        "temperature": 21.1,
-        "cycle_capacity": 945.499,
-        "power": 0.0,
-        "battery_charging": False,
+    assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 255,
     }
@@ -273,7 +254,7 @@ async def test_problem_response(patch_bleak_client, dev_name) -> None:
     await bms.disconnect()
 
 
-async def test_incomplete_msgs(monkeypatch, patch_bleak_client, dev_name) -> None:
+async def test_incomplete_msgs(monkeypatch, patch_bleak_client, dev_name: str) -> None:
     """Test D-pwercore BMS data update."""
 
     def _stuck_response(
@@ -292,7 +273,7 @@ async def test_incomplete_msgs(monkeypatch, patch_bleak_client, dev_name) -> Non
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), False)
 
     result: BMSSample = {}
-    with pytest.raises(ValueError, match="incomplete response set"):
+    with pytest.raises(ValueError, match="BMS data incomplete."):
         result = await bms.async_update()
 
     assert not result

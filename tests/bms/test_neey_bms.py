@@ -53,6 +53,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "temperature": 50.24,
     "voltage": 52.313,
     "balance_current": -4.082,
+    "cell_count": 16,
     "cell_voltages": [
         3.265,
         3.266,
@@ -87,7 +88,7 @@ class MockNeeyBleakClient(MockBleakClient):
     TAIL: Final = 0xFF
     _FRAME: dict[str, bytearray] = {}
 
-    _task: asyncio.Task | None = None
+    _task: asyncio.Task[None] | None = None
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
@@ -122,9 +123,9 @@ class MockNeeyBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert self._notify_callback, (
-            "write to characteristics but notification not enabled"
-        )
+        assert (
+            self._notify_callback
+        ), "write to characteristics but notification not enabled"
 
         resp: Final[bytearray] = self._response(char_specifier, data)
         for notify_data in [
@@ -137,9 +138,9 @@ class MockStreamBleakClient(MockNeeyBleakClient):
     """Mock Neey BMS that already sends battery data (no request required)."""
 
     async def _send_all(self) -> None:
-        assert self._notify_callback, (
-            "send_all frames called but notification not enabled"
-        )
+        assert (
+            self._notify_callback
+        ), "send_all frames called but notification not enabled"
         for resp in self._FRAME.values():
             self._notify_callback("MockNeeyBleakClient", resp)
             await asyncio.sleep(0)
@@ -152,9 +153,9 @@ class MockStreamBleakClient(MockNeeyBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert self._notify_callback, (
-            "write to characteristics but notification not enabled"
-        )
+        assert (
+            self._notify_callback
+        ), "write to characteristics but notification not enabled"
         if bytearray(data).startswith(
             self.HEAD_CMD + self.DEV_INFO
         ):  # send all responses as a series
@@ -177,7 +178,9 @@ class MockOversizedBleakClient(MockNeeyBleakClient):
         return super()._response(char_specifier, data) + bytearray(6)
 
 
-async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, keep_alive_fixture: bool
+) -> None:
     """Test Neey BMS data update."""
 
     monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", _PROTO_DEFS)
@@ -239,18 +242,22 @@ async def test_stream_update(monkeypatch, patch_bleak_client, caplog) -> None:
     name="wrong_response",
     params=[
         (_PROTO_DEFS["dev"][:-2] + b"\x00\xff", "wrong_CRC"),
-        (b"\x55\xaa\xeb\x90\x05" + bytes(295), "wrong_frame_type"),
+        (bytearray(b"\x55\xaa\xeb\x90\x05") + bytes(295), "wrong_frame_type"),
         (_PROTO_DEFS["dev"][:-1] + b"\x00", "wrong_EOF"),
     ],
     ids=lambda param: param[1],
 )
-def faulty_response(request) -> bytearray:
+def faulty_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytearray)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -270,7 +277,9 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_oversized_response(monkeypatch, patch_bleak_client) -> None:
+async def test_oversized_response(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
     """Test data update with BMS returning oversized data, result shall still be ok."""
 
     monkeypatch.setattr(MockOversizedBleakClient, "_FRAME", _PROTO_DEFS)
@@ -335,13 +344,16 @@ async def test_non_stale_data(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request) -> bytearray:
+def prb_response(request: pytest.FixtureRequest) -> tuple[int, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[int, str],
 ) -> None:
     """Test data update with BMS returning system problem flags."""
 

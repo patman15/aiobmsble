@@ -11,7 +11,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -52,12 +52,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {"battery_charging", "power"}
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

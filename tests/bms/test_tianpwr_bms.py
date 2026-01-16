@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, BMSValue
+from aiobmsble import BMSSample
 from aiobmsble.bms.tianpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -21,6 +21,7 @@ def ref_value() -> BMSSample:
         "voltage": 54.74,
         "current": 0.0,
         "battery_level": 60,
+        "battery_health": 100,
         "cycle_charge": 138.96,
         "cycles": 0,
         "temperature": 24.167,
@@ -50,8 +51,8 @@ def ref_value() -> BMSSample:
         "temp_values": [28.0, 25.0, 23.0, 23.0, 23.0, 23.0],
         "delta_voltage": 0.014,
         "balancer": False,
-        "sw_chrg_mosfet": True,
-        "sw_dischrg_mosfet": True,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
         "problem": False,
         "problem_code": 0,
     }
@@ -168,13 +169,14 @@ async def test_device_info(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytearray)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -219,22 +221,8 @@ async def test_missing_message(
 
     bms = BMS(generate_ble_device())
 
-    # remove values from reference that are in 0x84 response (and dependent)
-    ref: BMSSample = ref_value()
-    key: BMSValue
-    for key in (
-        "battery_level",
-        "battery_charging",
-        "cycle_capacity",
-        "power",
-        "voltage",
-        "current",
-        "temp_values",
-        "temperature",
-    ):
-        ref.pop(key)
-    assert await bms.async_update() == ref
-    await bms.disconnect()
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.async_update()
 
 
 @pytest.fixture(

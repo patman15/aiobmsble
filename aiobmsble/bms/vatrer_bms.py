@@ -10,7 +10,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -26,15 +26,16 @@ class BMS(BaseBMS):
         BMSDp("voltage", 3, 2, False, lambda x: x / 100, 0x28),
         BMSDp("current", 5, 4, True, lambda x: x / 100, 0x28),
         BMSDp("battery_level", 9, 2, False, idx=0x28),
+        BMSDp("battery_health", 17, 2, False, idx=0x28),
         BMSDp("cycle_charge", 11, 2, False, lambda x: x / 100, 0x28),
         BMSDp("cell_count", 3, 2, False, lambda x: min(x, BMS._MAX_CELLS), 0x3E),
         BMSDp("temp_sensors", 3, 2, False, lambda x: min(x, BMS._MAX_TEMP), 0x24),
-        BMSDp("cycles", 15, 2, False, lambda x: x, 0x28),
+        BMSDp("cycles", 15, 2, False, idx=0x28),
         BMSDp("delta_voltage", 29, 2, False, lambda x: x / 1000, 0x28),
         BMSDp("problem", 17, 15, False, lambda x: (x != 0), 0x24),
-        BMSDp("sw_chrg_mosfet", 32, 1, False, lambda x: bool(x & 0x10), 0x24),
-        BMSDp("sw_dischrg_mosfet", 32, 1, False, lambda x: bool(x & 0x20), 0x24),
-        BMSDp("balancer", 35, 4, False, lambda x: x, 0x24),
+        BMSDp("chrg_mosfet", 32, 1, False, lambda x: bool(x & 0x10), 0x24),
+        BMSDp("dischrg_mosfet", 32, 1, False, lambda x: bool(x & 0x20), 0x24),
+        BMSDp("balancer", 35, 4, False, idx=0x24),
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS}
     _CMDS: Final[tuple[tuple[int, int], ...]] = (
@@ -75,12 +76,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {"power", "battery_charging", "temperature", "runtime", "cycle_capacity"}
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

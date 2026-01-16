@@ -38,9 +38,9 @@ def ref_value() -> BMSSample:
         "temp_sensors": 3,
         "temperature": 27.2,
         "voltage": 13.3,
-        "sw_chrg_mosfet": True,
-        "sw_dischrg_mosfet": True,
-        "sw_heater": False,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
+        "heater": False,
     }
 
 

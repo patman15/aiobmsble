@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -23,14 +23,15 @@ class BMS(BaseBMS):
     _CELL_POS: Final[int] = 14
     _TEMP_POS: Final[int] = 80
     _FIELDS_V1: Final[tuple[BMSDp, ...]] = (
-        BMSDp("battery_level", 16, 2, False, lambda x: x, 0xA1),
+        BMSDp("battery_level", 16, 2, False, idx=0xA1),
+        BMSDp("battery_health", 18, 2, False, idx=0xA1),
         BMSDp("voltage", 20, 2, False, lambda x: x / 100, 0xA1),
         BMSDp("current", 22, 2, True, lambda x: x / 100, 0xA1),
-        BMSDp("problem_code", 51, 2, False, lambda x: x, 0xA1),
+        BMSDp("problem_code", 51, 2, False, idx=0xA1),
         BMSDp("design_capacity", 26, 2, False, lambda x: x // 100, 0xA1),
-        BMSDp("cell_count", _CELL_POS, 2, False, lambda x: x, 0xA2),
-        BMSDp("temp_sensors", _TEMP_POS, 2, False, lambda x: x, 0xA2),
-        # ("cycles", 0xA1, 8, 2, False, lambda x: x),
+        BMSDp("cell_count", _CELL_POS, 2, False, idx=0xA2),
+        BMSDp("temp_sensors", _TEMP_POS, 2, False, idx=0xA2),
+        # ("cycles", 0xA1, 8, 2, False,
     )
     _FIELDS_V2: Final[tuple[BMSDp, ...]] = tuple(
         BMSDp(
@@ -78,20 +79,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_charge",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "runtime",
-                "temperature",
-            }
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

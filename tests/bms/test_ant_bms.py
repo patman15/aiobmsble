@@ -1,6 +1,5 @@
 """Test the ANT implementation."""
 
-import asyncio
 from collections.abc import Buffer
 from typing import Final
 from uuid import UUID
@@ -21,6 +20,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 50.88,
     "current": 2.1,
     "battery_level": 10,
+    "battery_health": 100,
     "cycle_charge": 9.957766,
     "design_capacity": 80,
     "total_charge": 15265,
@@ -58,8 +58,8 @@ _RESULT_DEFS: Final[BMSSample] = {
     "problem": False,
     "problem_code": 0,
     "balancer": False,
-    "sw_chrg_mosfet": True,
-    "sw_dischrg_mosfet": True,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
 }
 
 
@@ -88,20 +88,6 @@ class MockANTBleakClient(MockBleakClient):
             b"\xff\x0b\x00\x00\x41\xf2\xaa\x55"
         ),
     }
-
-    _task: asyncio.Task
-
-    async def _notify(self) -> None:
-        """Notify function."""
-
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
-
-        while True:
-            for msg in self.RESP.values():
-                self._notify_callback("MockANTBleakClient", msg)
-                await asyncio.sleep(0.1)
 
     async def write_gatt_char(
         self,
@@ -232,8 +218,9 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request) -> tuple[bytearray, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
@@ -241,7 +228,7 @@ async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bms_timeout,
     patch_bleak_client,
-    problem_response,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
@@ -260,8 +247,8 @@ async def test_problem_response(
     assert result == _RESULT_DEFS | {
         "problem": True,
         "problem_code": (0x202 if problem_response[1] == "low_value" else 0xE0E),
-        "sw_chrg_mosfet": False,
-        "sw_dischrg_mosfet": False,
+        "chrg_mosfet": False,
+        "dischrg_mosfet": False,
     }
 
     await bms.disconnect()

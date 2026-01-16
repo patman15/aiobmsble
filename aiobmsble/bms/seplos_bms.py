@@ -12,8 +12,8 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSpackvalue, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble import BMSDp, BMSInfo, BMSpackvalue, BMSSample, MatcherPattern
+from aiobmsble.basebms import BaseBMS, crc_modbus, swap32
 
 
 class BMS(BaseBMS):
@@ -41,22 +41,24 @@ class BMS(BaseBMS):
     }
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("temperature", 20, 2, True, lambda x: x / 10, EIB_LEN),  # avg. ctemp
-        BMSDp("voltage", 0, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
-        BMSDp("current", 4, 4, True, lambda x: BMS._swap32(x, True) / 10, EIA_LEN),
-        BMSDp("cycle_charge", 8, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
-        BMSDp("pack_count", 44, 2, False, lambda x: x, EIA_LEN),
-        BMSDp("cycles", 46, 2, False, lambda x: x, EIA_LEN),
+        BMSDp("voltage", 0, 4, False, lambda x: swap32(x) / 100, EIA_LEN),
+        BMSDp("current", 4, 4, True, lambda x: swap32(x, True) / 10, EIA_LEN),
+        BMSDp("cycle_charge", 8, 4, False, lambda x: swap32(x) / 100, EIA_LEN),
+        BMSDp("pack_count", 44, 2, False, idx=EIA_LEN),
+        BMSDp("cycles", 46, 2, False, idx=EIA_LEN),
         BMSDp("battery_level", 48, 2, False, lambda x: x / 10, EIA_LEN),
+        BMSDp("battery_health", 50, 2, False, lambda x: x / 10, EIA_LEN),
         BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
-        BMSDp("sw_dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), EIC_LEN),
-        BMSDp("sw_chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), EIC_LEN),
-        BMSDp("sw_heater", 7, 1, False, lambda x: bool(x & 8), EIC_LEN),
+        BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), EIC_LEN),
+        BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), EIC_LEN),
+        BMSDp("heater", 7, 1, False, lambda x: bool(x & 8), EIC_LEN),
         BMSDp("balancer", 7, 1, False, lambda x: bool(x & 4), EIC_LEN),  # limit FET
     )  # Protocol Seplos V3
     _PFIELDS: Final[list[tuple[BMSpackvalue, int, bool, Callable[[int], Any]]]] = [
         ("pack_voltages", 0, False, lambda x: x / 100),
         ("pack_currents", 2, True, lambda x: x / 100),
         ("pack_battery_levels", 10, False, lambda x: x / 10),
+        ("pack_battery_health", 12, False, lambda x: x / 10),
         ("pack_cycles", 14, False, lambda x: x),
     ]  # Protocol Seplos V3
     _CMDS: Final[set[int]] = {field[2] for field in QUERY.values()} | {
@@ -64,7 +66,7 @@ class BMS(BaseBMS):
     }
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._data_final: dict[int, bytes] = {}
         self._pack_count: int = 0  # number of battery packs
@@ -79,7 +81,7 @@ class BMS(BaseBMS):
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
             }
-            for pattern in {f"SP{num}?B*" for num in range(10)} | {"CSY*"} | {"SP1??B*"}
+            for pattern in ("SP??B*", "XZHX*", "CSY*", "SP1??B*")
         ]
 
     # setup UUIDs
@@ -102,10 +104,6 @@ class BMS(BaseBMS):
         return "fff2"
 
     # async def _fetch_device_info(self) -> BMSInfo: use default, VIA msg useless
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset({"power", "battery_charging", "cycle_capacity", "runtime"})
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -177,15 +175,6 @@ class BMS(BaseBMS):
         self._pkglen = 0
 
     @staticmethod
-    def _swap32(value: int, signed: bool = False) -> int:
-        """Swap high and low 16bit in 32bit integer."""
-
-        value = ((value >> 16) & 0xFFFF) | (value & 0xFFFF) << 16
-        if signed and value & 0x80000000:
-            value = -0x100000000 + value
-        return value
-
-    @staticmethod
     @cache
     def _cmd(device: int, cmd: int, start: int, count: int) -> bytes:
         """Assemble a Seplos BMS command."""
@@ -204,7 +193,7 @@ class BMS(BaseBMS):
             await self._await_reply(BMS._cmd(0x0, *block))
 
         data: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data_final, offset=BMS.HEAD_LEN
+            BMS._FIELDS, self._data_final, start=BMS.HEAD_LEN
         )
 
         self._pack_count = min(data.get("pack_count", 0), 0x10)
@@ -247,6 +236,8 @@ class BMS(BaseBMS):
                     divider=10,
                 )
             )
+            # calculate cell_count instead of querying SPA
+            data["cell_count"] = len(data.get("cell_voltages", [])) // self._pack_count
 
         self._data_final.clear()
 

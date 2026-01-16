@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, lrc_modbus
 
 
@@ -48,8 +48,8 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {  # Creabest
+                "local_name": "VB?????????",
                 "service_uuid": normalize_uuid_str("fff0"),
-                "manufacturer_id": 16963,
                 "connectable": True,
             },
         ]
@@ -73,20 +73,6 @@ class BMS(BaseBMS):
         return "ffe9"
 
     # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "delta_voltage",
-                "temperature",
-                "power",
-                "runtime",
-                "cycle_capacity",
-                "cycle_charge",
-            }
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

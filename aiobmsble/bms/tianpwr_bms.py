@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, barr2str
 
 
@@ -26,18 +26,19 @@ class BMS(BaseBMS):
     _MIN_LEN: Final[int] = 4
     _DEF_LEN: Final[int] = 20
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("battery_level", 3, 2, False, lambda x: x, 0x83),
+        BMSDp("battery_level", 3, 2, False, idx=0x83),
         BMSDp("voltage", 5, 2, False, lambda x: x / 100, 0x83),
         BMSDp("current", 13, 2, True, lambda x: x / 100, 0x83),
-        BMSDp("problem_code", 11, 8, False, lambda x: x, 0x84),
-        BMSDp("cell_count", 3, 1, False, lambda x: x, 0x84),
-        BMSDp("temp_sensors", 4, 1, False, lambda x: x, 0x84),
+        BMSDp("battery_health", 17, 2, False, idx=0x83),
+        BMSDp("problem_code", 11, 8, False, idx=0x84),
+        BMSDp("cell_count", 3, 1, False, idx=0x84),
+        BMSDp("temp_sensors", 4, 1, False, idx=0x84),
         BMSDp("design_capacity", 5, 2, False, lambda x: x // 100, 0x84),
         BMSDp("cycle_charge", 7, 2, False, lambda x: x / 100, 0x84),
-        BMSDp("cycles", 9, 2, False, lambda x: x, 0x84),
-        BMSDp("balancer", 13, 2, False, lambda x: x, 0x85),
-        BMSDp("sw_chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
-        BMSDp("sw_dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
+        BMSDp("cycles", 9, 2, False, idx=0x84),
+        BMSDp("balancer", 13, 2, False, idx=0x85),
+        BMSDp("chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
+        BMSDp("dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
     )
     _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS}) | set({0x87})
 
@@ -75,18 +76,6 @@ class BMS(BaseBMS):
             "hw_version": barr2str(self._data_final[0x82][3:-1]),
         }
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "temperature",
-            }
-        )  # calculate further values from BMS provided set ones
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -120,6 +109,10 @@ class BMS(BaseBMS):
         self._data_final.clear()
         for cmd in BMS._CMDS:
             await self._await_reply(BMS._cmd(cmd))
+
+        if not BMS._CMDS.issubset(self._data_final):
+            self._log.debug("Incomplete data set %s", self._data_final.keys())
+            raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
 

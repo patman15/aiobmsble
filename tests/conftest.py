@@ -1,6 +1,7 @@
 """Common fixtures for the aiobmsble library tests.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from collections.abc import Awaitable, Buffer, Callable, Iterable
@@ -29,7 +30,7 @@ LOGGER: logging.Logger = logging.getLogger(__package__)
 pytest_plugins: list[str] = ["aiobmsble.test_data"]
 
 
-def pytest_addoption(parser) -> None:
+def pytest_addoption(parser: pytest.Parser) -> None:
     """Add custom command-line option for max_examples."""
     parser.addoption(
         "--max-examples",
@@ -59,12 +60,7 @@ def pytest_configure(config: pytest.Config) -> None:
 )
 def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
     """Return module of a BMS."""
-    return request.param
-
-
-@pytest.fixture(params=[False, True])
-def bool_fixture(request) -> bool:
-    """Return False, True for tests."""
+    assert isinstance(request.param, ModuleType)
     return request.param
 
 
@@ -85,7 +81,7 @@ class MockBleakClient(BleakClient):
         address_or_ble_device: BLEDevice,
         disconnected_callback: Callable[[BleakClient], None] | None,
         services: Iterable[str] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Mock init."""
         LOGGER.debug("MockBleakClient init")
@@ -117,7 +113,7 @@ class MockBleakClient(BleakClient):
         _services.add_service(BleakGATTService(None, 0, normalize_uuid_str("180a")))
         return _services
 
-    async def connect(self, **_kwargs) -> None:
+    async def connect(self, **_kwargs: Any) -> None:
         """Mock connect."""
         assert not self._connected, "connect called, but client already connected."
         LOGGER.debug("MockBleakClient connecting %s", self._ble_device.address)
@@ -129,7 +125,7 @@ class MockBleakClient(BleakClient):
         callback: Callable[
             [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
         ],
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Mock start_notify."""
         LOGGER.debug("MockBleakClient start_notify for %s", char_specifier)
@@ -151,7 +147,7 @@ class MockBleakClient(BleakClient):
     async def read_gatt_char(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        **kwargs,
+        **kwargs: Any,
     ) -> bytearray:
         """Mock read GATT characteristics."""
 
@@ -176,7 +172,7 @@ class MockBleakClient(BleakClient):
 
 
 @pytest.fixture(params=[-13, 0, 21], ids=["neg_current", "zero_current", "pos_current"])
-def bms_data_fixture(request) -> BMSSample:
+def bms_data_fixture(request: pytest.FixtureRequest) -> BMSSample:
     """Return a fake BMS data dictionary."""
 
     return {
@@ -189,7 +185,9 @@ def bms_data_fixture(request) -> BMSSample:
 
 
 @pytest.fixture
-def patch_bms_timeout(monkeypatch):
+def patch_bms_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Callable[[str | None, float], None]:
     """Fixture to patch BMS.TIMEOUT for different BMS classes."""
 
     def _patch_timeout(bms_class: str | None = None, timeout: float = 0.001) -> None:
@@ -204,10 +202,12 @@ def patch_bms_timeout(monkeypatch):
 
 
 @pytest.fixture
-def patch_bleak_client(monkeypatch):
+def patch_bleak_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Callable[[type[BleakClient]], None]:
     """Fixture to patch BleakClient with a given MockClient."""
 
-    def _patch(mock_client=MockBleakClient) -> None:
+    def _patch(mock_client: type[BleakClient] = MockBleakClient) -> None:
         monkeypatch.setattr(
             "aiobmsble.basebms.BleakClient",
             mock_client,
@@ -219,6 +219,7 @@ def patch_bleak_client(monkeypatch):
 @pytest.fixture(params=[True, False], ids=["keep_alive", "reconnect"])
 def keep_alive_fixture(request: pytest.FixtureRequest) -> bool:
     """Return True, False for keep_alive test."""
+    assert isinstance(request.param, bool)
     return request.param
 
 

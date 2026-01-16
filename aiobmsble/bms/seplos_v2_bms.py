@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, barr2str, crc_xmodem
 
 
@@ -27,13 +27,14 @@ class BMS(BaseBMS):
     _MAX_SUBS: Final[int] = 0xF
     _CELL_POS: Final[int] = 9
     _PRB_MAX: Final[int] = 8  # max number of alarm event bytes
-    _PRB_MASK: Final[int] = ~0x82FFFF  # ignore byte 7-8 + byte 6 (bit 7,2)
+    _PRB_MASK: Final[int] = 0x7DFFFFFFFFFF  # ignore byte 7-8 + byte 6 (bit 7,2)
     _PFIELDS: Final[tuple[BMSDp, ...]] = (  # Seplos V2: single machine data
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),
         BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 100),  # /10 for 0x62
-        BMSDp("cycles", 13, 2, False, lambda x: x),
+        BMSDp("cycles", 13, 2, False),
         BMSDp("battery_level", 9, 2, False, lambda x: x / 10),
+        BMSDp("battery_health", 15, 2, False, lambda x: x / 10),
     )
     _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
     _CMDS: Final[list[tuple[int, bytes]]] = [(0x51, b""), (0x61, b"\x00"), (0x62, b"")]
@@ -76,24 +77,11 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         self._exp_reply = {0x51}
         await self._await_reply(BMS._cmd(0x51))
-        _dat = self._data_final[0x51]
+        _dat: Final[bytearray] = self._data_final[0x51]
         return {
             "model": barr2str(_dat[26:36]),
             "sw_version": f"{int(_dat[37])}.{int(_dat[38])}",
         }
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "runtime",
-                "temperature",
-            }
-        )  # calculate further values from BMS provided set ones
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -185,19 +173,19 @@ class BMS(BaseBMS):
             raise ValueError("message too short to decode data")
 
         result |= BMS._decode_data(
-            BMS._PFIELDS, self._data_final[0x61], offset=BMS._CELL_POS + ct_blk_len
+            BMS._PFIELDS, self._data_final[0x61], start=BMS._CELL_POS + ct_blk_len
         )
 
-        # get extention pack count from parallel data (main pack)
+        # get extension pack count from parallel data (main pack)
         result["pack_count"] = self._data_final[0x51][42]
 
         # get switches from parallel data (main pack)
-        sw_state: Final[int] = self._data_final[0x62][45]
+        states: Final[int] = self._data_final[0x62][45]
         result |= {
-            "sw_dischrg_mosfet": bool(sw_state & 0x1),
-            "sw_chrg_mosfet": bool(sw_state & 0x2),
-            "balancer": bool(sw_state & 0x4),
-            "sw_heater": bool(sw_state & 0x8),
+            "dischrg_mosfet": bool(states & 0x1),
+            "chrg_mosfet": bool(states & 0x2),
+            "balancer": bool(states & 0x4),
+            "heater": bool(states & 0x8),
         }
 
         # get alarms from parallel data (main pack)

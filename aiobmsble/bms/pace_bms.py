@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
 
 
@@ -34,7 +34,7 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 9, 4, False, lambda x: x / 100),
         BMSDp("design_capacity", 13, 4, False, lambda x: x // 100),
         BMSDp("battery_level", 21, 1, False),
-        # BMSDp("battery_health", 22, 1, False, lambda x: x),
+        BMSDp("battery_health", 22, 1, False),
         BMSDp("pack_count", 0, 1, False),
         BMSDp("cycles", 23, 4, False),
         # BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
@@ -75,19 +75,6 @@ class BMS(BaseBMS):
         result["sw_version"] = barr2str(self._data[10 : 10 + self._data[9]])
         result["hw_version"] = barr2str(self._data[65 : 65 + self._data[64]])
         return result
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "delta_voltage",
-                "cycle_capacity",
-                "power",
-                "runtime",
-                "battery_charging",
-                "temperature",
-            }
-        )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -143,7 +130,7 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_reply(BMS._cmd(b"\x00\x00\x0a\x00\x00\x00"))
-        result = BMS._decode_data(BMS._FIELDS, self._data, byteorder="big", offset=8)
+        result = BMS._decode_data(BMS._FIELDS, self._data, byteorder="big", start=8)
         await self._await_reply(BMS._cmd(b"\x00\x00\x0a\x02\x00\x00", b"\x01\x01"))
         result["cell_count"] = self._data[11]
         result["cell_voltages"] = BMS._cell_voltages(

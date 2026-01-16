@@ -23,9 +23,7 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"default_manufacturer": "Neey", "default_model": "Balancer"}
     _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
     _HEAD_RSP: Final = bytes([0x55, 0xAA, 0x11, 0x01])  # start, dev addr, read cmd
-    _HEAD_CMD: Final = bytes(
-        [0xAA, 0x55, 0x11, 0x01]
-    )  # header for commands (endiness!)
+    _HEAD_CMD: Final = bytes([0xAA, 0x55, 0x11, 0x01])  # cmd header (endianness!)
     _TAIL: Final[int] = 0xFF  # end of message
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _MIN_FRAME: Final[int] = 10  # header length
@@ -38,7 +36,7 @@ class BMS(BaseBMS):
     ]
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Intialize private BMS members."""
+        """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._data_final: bytes = b""
         self._bms_info: dict[str, str] = {}
@@ -82,10 +80,6 @@ class BMS(BaseBMS):
             "hw_version": barr2str(self._data_final[24:32]),
             "sw_version": barr2str(self._data_final[32:40]),
         }
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset({"temperature"})
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

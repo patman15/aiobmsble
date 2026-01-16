@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -24,12 +24,11 @@ class BMS(BaseBMS):
     _INIT_RESP: Final[int] = 0x03
     _RT_DATA: Final[int] = 0x04
 
-    # Commands from btsnoop capture
-    _CMD_INIT: Final[bytes] = bytes.fromhex("0a0101558004077f648e682b")
-    _CMD_ACK: Final[bytes] = bytes.fromhex("070101558040000095")
-    _CMD_DATA_STREAM: Final[bytes] = bytes.fromhex("070101558042000097")
-    # command that triggers data streaming (Function 0x43)
-    _CMD_TRIGGER_DATA: Final[bytes] = bytes.fromhex("0901015580430000120084")
+    _CMD_INIT: Final[bytes] = b"\x0a\x01\x01\x55\x80\x04\x07\x7f\x64\x8e\x68\x2b"
+    _CMD_HWID: Final[bytes] = b"\x07\x01\x01\x55\x80\x40\x00\x00\x95"
+    _CMD_DATA_STREAM: Final[bytes] = b"\x07\x01\x01\x55\x80\x42\x00\x00\x97"
+    # command that triggers data streaming (fct. 0x43)
+    _CMD_TRIGGER_DATA: Final[bytes] = b"\x09\x01\x01\x55\x80\x43\x00\x00\x12\x00\x84"
 
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 8, 2, False, lambda x: x / 100),
@@ -42,14 +41,14 @@ class BMS(BaseBMS):
         ),
         BMSDp("problem_code", 15, 4, False, lambda x: x & 0x7F),
         BMSDp(
-            "temperature",
+            "temp_values",
             16,
             3,
             False,
-            lambda x: ((x & 0xFFFF) / 10) * (-1 if x >> 16 else 1),
+            lambda x: [((x & 0xFFFF) / 10) * (-1 if x >> 16 else 1)],
         ),
         BMSDp("cycle_charge", 20, 4, False, lambda x: x / 100),
-        BMSDp("battery_level", 24, 1, False, lambda x: x),
+        BMSDp("battery_level", 24, 1, False),
         BMSDp("power", 32, 4, False, lambda x: x / 100),
     )
 
@@ -86,28 +85,25 @@ class BMS(BaseBMS):
 
     # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset({"battery_charging", "cycle_capacity", "runtime"})
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         self._log.debug("RX BLE data: %s", data)
 
         if len(data) < BMS._MIN_LEN or not data.startswith(BMS._HEAD):
-            self._log.debug("Invalid packet header")
+            self._log.debug("invalid packet header")
             return
 
         if data[3] != self._valid_reply:
             self._log.debug("unexpected response (type 0x%X)", data[3])
             return
 
-        if len(data) != data[2] + BMS._MIN_LEN:
-            self._log.debug("incorrect frame length: %i).", len(self._data))
+        _exp_len: Final[int] = data[2] + BMS._MIN_LEN
+        if len(data) != _exp_len:
+            self._log.debug("incorrect frame length: %i != %i).", len(data), _exp_len)
             return
 
-        self._data = data
+        self._data = data.copy()
         self._data_event.set()
 
     async def _init_connection(
@@ -117,13 +113,9 @@ class BMS(BaseBMS):
         await super()._init_connection()
         self._valid_reply = BMS._INIT_RESP
 
-        # Step 1: Send initialization command and await response
+        # Send initialization command and await response
         await self._await_reply(BMS._HEAD + BMS._CMD_INIT)
-
-        # Step 2: Send ACK command
-        # Step 3: Send data stream command
-        # Step 4: Send trigger data command 0x43 - start RT data stream
-        for cmd in (BMS._CMD_ACK, BMS._CMD_DATA_STREAM, BMS._CMD_TRIGGER_DATA):
+        for cmd in (BMS._CMD_HWID, BMS._CMD_DATA_STREAM, BMS._CMD_TRIGGER_DATA):
             await self._await_reply(BMS._HEAD + cmd, wait_for_notify=False)
 
         self._valid_reply = BMS._RT_DATA
@@ -131,7 +123,6 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        self._data_event.clear()  # Clear the event to ensure fresh data on each update
         try:
             # Wait for new data packet
             await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
@@ -142,5 +133,9 @@ class BMS(BaseBMS):
         result: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._data, byteorder="little"
         )
-        result["power"] *= -1 if result["current"] < 0 else 1
+        result["power"] = result.get("power", 0) * (
+            -1 if result.get("current", 0) < 0 else 1
+        )
+        self._data_event.clear()
+        self._data.clear()
         return result

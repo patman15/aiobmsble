@@ -19,7 +19,8 @@ base_result: BMSSample = {
     "battery_level": 14,
     "cycles": 99,
     "cycle_charge": 8.0,
-    "temperature": 21.8,
+    "temperature": 21.75,
+    "temp_values": [21.75],
     "cycle_capacity": 365.448,
     "power": 56.188,
     "problem": False,
@@ -28,8 +29,9 @@ base_result: BMSSample = {
 
 # all names result in same encryption key for easier testing
 @pytest.fixture(name="ogt_bms_name", params=["SmartBat-A12345", "SmartBat-B12294"])
-def ogt_bms_fixture(request) -> str:
+def ogt_bms_fixture(request: pytest.FixtureRequest) -> str:
     """Return OGT smart BMS names."""
+    assert isinstance(request.param, str)
     return request.param
 
 
@@ -134,6 +136,7 @@ async def test_update(patch_bleak_client, ogt_bms_name, keep_alive_fixture) -> N
             "delta_voltage": 0.003,
             "power": 56.188,
             "battery_charging": True,
+            "cell_count": 4,
             "cell_voltages": [3.306, 3.305, 3.304, 3.303],
         }
 
@@ -166,6 +169,7 @@ async def test_update_16s(monkeypatch, patch_bleak_client) -> None:
         "delta_voltage": 0.003,
         "power": 56.188,
         "battery_charging": True,
+        "cell_count": 16,
         "cell_voltages": [
             3.306,
             3.305,
@@ -208,13 +212,17 @@ async def test_device_info(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytearray)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
