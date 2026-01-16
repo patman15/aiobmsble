@@ -11,7 +11,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str
+from aiobmsble.basebms import BaseBMS, b2str
 
 
 class BMS(BaseBMS):
@@ -72,8 +72,8 @@ class BMS(BaseBMS):
         for cmd in (0x81, 0x82):
             await self._await_reply(BMS._cmd(cmd))
         return {
-            "sw_version": barr2str(self._data_final[0x81][3:-1]),
-            "hw_version": barr2str(self._data_final[0x82][3:-1]),
+            "sw_version": b2str(self._data_final[0x81][3:-1]),
+            "hw_version": b2str(self._data_final[0x82][3:-1]),
         }
 
     def _notification_handler(
@@ -126,18 +126,17 @@ class BMS(BaseBMS):
                 self._data_final.get(cmd, b""), cells=8, start=3
             )
 
-        if {0x83, 0x87}.issubset(self._data_final):
-            result["temp_values"] = [
-                int.from_bytes(
-                    self._data_final[0x83][idx : idx + 2], byteorder="big", signed=True
-                )
-                / 10
-                for idx in (7, 11)  # take ambient and mosfet temperature
-            ] + BMS._temp_values(
-                self._data_final.get(0x87, b""),
-                values=min(BMS._MAX_TEMP, result.get("temp_sensors", 0)),
-                start=3,
-                divider=10,
+        result["temp_values"] = [
+            int.from_bytes(
+                self._data_final[0x83][idx : idx + 2], byteorder="big", signed=True
             )
+            / 10
+            for idx in (7, 11)  # take ambient and mosfet temperature
+        ] + BMS._temp_values(
+            self._data_final.get(0x87, b""),
+            values=min(BMS._MAX_TEMP, result.get("temp_sensors", 0)),
+            start=3,
+            divider=10,
+        )
 
         return result
