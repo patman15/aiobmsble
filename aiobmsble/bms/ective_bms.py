@@ -37,7 +37,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytes = b""
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -77,39 +77,39 @@ class BMS(BaseBMS):
             )
         ) != -1:  # check for beginning of frame
             data = data[start:]
-            self._data.clear()
+            self._frame.clear()
 
-        self._data += data
+        self._frame += data
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        if len(self._data) < BMS._INFO_LEN:
+        if len(self._frame) < BMS._INFO_LEN:
             return
 
-        self._data = self._data[: BMS._INFO_LEN]  # cut off exceeding data
+        self._frame = self._frame[: BMS._INFO_LEN]  # cut off exceeding data
 
         if not (
-            self._data.startswith(BMS._HEAD_RSP)
-            and set(self._data.decode(errors="replace")[1:]).issubset(hexdigits)
+            self._frame.startswith(BMS._HEAD_RSP)
+            and set(self._frame.decode(errors="replace")[1:]).issubset(hexdigits)
         ):
-            self._log.debug("incorrect frame coding: %s", self._data)
-            self._data.clear()
+            self._log.debug("incorrect frame coding: %s", self._frame)
+            self._frame.clear()
             return
 
-        if (crc := BMS._crc(self._data[1 : -BMS._CRC_LEN])) != int(
-            self._data[-BMS._CRC_LEN :], 16
+        if (crc := BMS._crc(self._frame[1 : -BMS._CRC_LEN])) != int(
+            self._frame[-BMS._CRC_LEN :], 16
         ):
             self._log.debug(
                 "invalid checksum 0x%X != 0x%X",
-                int(self._data[-BMS._CRC_LEN :], 16),
+                int(self._frame[-BMS._CRC_LEN :], 16),
                 crc,
             )
-            self._data.clear()
+            self._frame.clear()
             return
 
-        self._data_final = bytes(self._data)
-        self._data_event.set()
+        self._msg = bytes(self._frame)
+        self._msg_event.set()
 
     @staticmethod
     def _crc(data: bytearray) -> int:
@@ -158,8 +158,8 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
-        return self._conv_data(self._data_final) | {
+        return self._conv_data(self._msg) | {
             "cell_voltages": BMS._cell_voltages(
-                self._data_final, cells=BMS._MAX_CELLS, start=45, size=4
+                self._msg, cells=BMS._MAX_CELLS, start=45, size=4
             )
         }

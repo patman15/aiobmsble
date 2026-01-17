@@ -104,8 +104,8 @@ class BaseBMS(ABC):
             disconnected_callback=self._on_disconnect,
             services=[*self.uuid_services(), "180a"],
         )
-        self._data: bytearray = bytearray()
-        self._data_event: Final[asyncio.Event] = asyncio.Event()
+        self._frame: bytearray = bytearray()
+        self._msg_event: Final[asyncio.Event] = asyncio.Event()
         self._connect_lock: Final[asyncio.Lock] = asyncio.Lock()
 
     @final
@@ -338,8 +338,8 @@ class BaseBMS(ABC):
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         # reset any stale data from BMS
-        self._data.clear()
-        self._data_event.clear()
+        self._frame.clear()
+        self._msg_event.clear()
 
         self._log.debug(
             "start notify on RX characteristic %s", str(char_notify or self.uuid_rx())
@@ -416,7 +416,7 @@ class BaseBMS(ABC):
                 response=(self._wr_response(char) != inv_wr_mode),
             )
 
-    async def _await_reply(
+    async def _await_msg(
         self,
         data: bytes,
         char: int | str | None = None,
@@ -429,7 +429,7 @@ class BaseBMS(ABC):
             [False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]
         ):
             try:
-                self._data_event.clear()  # clear event before requesting new data
+                self._msg_event.clear()  # clear event before requesting new data
                 for attempt in range(BaseBMS.MAX_RETRY):
                     await self._send_msg(
                         data, max_size, char or self.uuid_tx(), attempt, inv_wr_mode
@@ -461,7 +461,7 @@ class BaseBMS(ABC):
 
         self._log.debug("disconnecting BMS (%s)", str(self._client.is_connected))
         try:
-            self._data_event.clear()
+            self._msg_event.clear()
             if reset:
                 self._inv_wr_mode = None  # reset write mode
             await self._client.disconnect()
@@ -471,8 +471,8 @@ class BaseBMS(ABC):
     @final
     async def _wait_event(self) -> None:
         """Wait for data event and clear it."""
-        await self._data_event.wait()
-        self._data_event.clear()
+        await self._msg_event.wait()
+        self._msg_event.clear()
 
     @abstractmethod
     async def _async_update(self) -> BMSSample:

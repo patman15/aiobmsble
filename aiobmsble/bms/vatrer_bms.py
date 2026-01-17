@@ -47,7 +47,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytes] = {}
+        self._msg: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -101,8 +101,8 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data_final[data[2]] = bytes(data)
-        self._data_event.set()
+        self._msg[data[2]] = bytes(data)
+        self._msg_event.set()
 
     @staticmethod
     @cache
@@ -119,17 +119,17 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         for addr, length in BMS._CMDS:
-            await self._await_reply(BMS._cmd(addr, length))
-        if not BMS._RESPS.issubset(set(self._data_final.keys())):
-            self._log.debug("Incomplete data set %s", self._data_final.keys())
+            await self._await_msg(BMS._cmd(addr, length))
+        if not BMS._RESPS.issubset(set(self._msg.keys())):
+            self._log.debug("Incomplete data set %s", self._msg.keys())
             raise TimeoutError("BMS data incomplete.")
 
-        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final[0x3E], cells=result.get("cell_count", 0), start=5
+            self._msg[0x3E], cells=result.get("cell_count", 0), start=5
         )
         result["temp_values"] = BMS._temp_values(
-            self._data_final[0x24], values=result.get("temp_sensors", 0) + 2, start=5
+            self._msg[0x24], values=result.get("temp_sensors", 0) + 2, start=5
         )  # MOS sensor is last (pos 6 of 4)
 
         return result

@@ -55,7 +55,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytes = b""
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -116,64 +116,64 @@ class BMS(BaseBMS):
                 return
 
         if data.startswith(BMS._HEAD):  # check for beginning of frame
-            self._data.clear()
+            self._frame.clear()
 
-        self._data += data
+        self._frame += data
 
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
         exp_frame_len: Final[int] = (
-            int(self._data[7:11], 16)
-            if len(self._data) > 10
-            and all(chr(c) in hexdigits for c in self._data[7:11])
+            int(self._frame[7:11], 16)
+            if len(self._frame) > 10
+            and all(chr(c) in hexdigits for c in self._frame[7:11])
             else 0xFFFF
         )
 
-        if not self._data.startswith(BMS._HEAD) or (
-            not self._data.endswith(BMS._TAIL) and len(self._data) < exp_frame_len
+        if not self._frame.startswith(BMS._HEAD) or (
+            not self._frame.endswith(BMS._TAIL) and len(self._frame) < exp_frame_len
         ):
             return
 
-        if not self._data.endswith(BMS._TAIL):
+        if not self._frame.endswith(BMS._TAIL):
             self._log.debug("incorrect EOF: %s", data)
-            self._data.clear()
+            self._frame.clear()
             return
 
-        if not all(chr(c) in hexdigits for c in self._data[1:-1]):
+        if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
             self._log.debug("incorrect frame encoding.")
-            self._data.clear()
+            self._frame.clear()
             return
 
-        if len(self._data) != exp_frame_len:
+        if len(self._frame) != exp_frame_len:
             self._log.debug(
                 "incorrect frame length %i != %i",
-                len(self._data),
+                len(self._frame),
                 exp_frame_len,
             )
-            self._data.clear()
+            self._frame.clear()
             return
 
         if not self.name.startswith(BMS._IGNORE_CRC) and (
-            crc := BMS._crc(self._data[1:-3])
-        ) != int(self._data[-3:-1], 16):
+            crc := BMS._crc(self._frame[1:-3])
+        ) != int(self._frame[-3:-1], 16):
             # libattU firmware uses no CRC, so we ignore it
             self._log.debug(
-                "invalid checksum 0x%X != 0x%X", int(self._data[-3:-1], 16), crc
+                "invalid checksum 0x%X != 0x%X", int(self._frame[-3:-1], 16), crc
             )
-            self._data.clear()
+            self._frame.clear()
             return
 
         self._log.debug(
             "address: 0x%X, command 0x%X, version: 0x%X, length: 0x%X",
-            int(self._data[1:3], 16),
-            int(self._data[3:5], 16) & 0x7F,
-            int(self._data[5:7], 16),
-            len(self._data),
+            int(self._frame[1:3], 16),
+            int(self._frame[3:5], 16) & 0x7F,
+            int(self._frame[5:7], 16),
+            len(self._frame),
         )
-        self._data_final = bytes(self._data)
-        self._data_event.set()
+        self._msg = bytes(self._frame)
+        self._msg_event.set()
 
     @staticmethod
     def _crc(data: bytearray) -> int:
@@ -212,13 +212,13 @@ class BMS(BaseBMS):
 
         # query real-time information and capacity
         for cmd in (b":000250000E03~", b":001031000E05~"):
-            await self._await_reply(cmd)
-            rsp: int = int(self._data_final[3:5], 16) & 0x7F
-            raw_data[rsp] = self._data_final
-            if rsp == Cmd.RT and len(self._data_final) == 0x8C:
+            await self._await_msg(cmd)
+            rsp: int = int(self._msg[3:5], 16) & 0x7F
+            raw_data[rsp] = self._msg
+            if rsp == Cmd.RT and len(self._msg) == 0x8C:
                 # handle metrisun version
                 self._log.debug("single frame protocol detected")
-                raw_data[Cmd.CAP] = bytes(15) + self._data_final[125:]
+                raw_data[Cmd.CAP] = bytes(15) + self._msg[125:]
                 break
 
         if len(raw_data) != len(list(Cmd)) or not all(

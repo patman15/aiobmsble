@@ -110,7 +110,7 @@ class MinTestBMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {"problem_code": 21}
 
 
@@ -123,7 +123,7 @@ class DataTestBMS(MinTestBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {
             "voltage": 13,
             "current": 1.7,
@@ -155,11 +155,11 @@ class WMTestBMS(MinTestBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
         self._data = data
-        self._data_event.set()
+        self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command")
+        await self._await_msg(b"mock_command")
 
         return {"problem_code": int.from_bytes(self._data, "big", signed=False)}
 
@@ -765,6 +765,6 @@ def test_decode_data(
     [(b"", ""), (b"\x00 ", ""), (b"test\x00 ", "test"), (b"test  \t\r ", "test")],
     ids=["empty", "hex", "text_hex", "test_space"],
 )
-def test_barr2str(data: bytes, expected: str) -> None:
+def test_b2str(data: bytes, expected: str) -> None:
     """Test bytearray to string conversion function."""
     assert b2str(data) == expected

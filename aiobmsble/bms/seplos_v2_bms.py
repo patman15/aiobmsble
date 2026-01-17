@@ -42,7 +42,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytes] = {}
+        self._msg: dict[int, bytes] = {}
         self._exp_len: int = BMS._MIN_LEN
         self._exp_reply: set[int] = set()
 
@@ -76,8 +76,8 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         self._exp_reply = {0x51}
-        await self._await_reply(BMS._cmd(0x51))
-        _dat: Final[bytes] = self._data_final[0x51]
+        await self._await_msg(BMS._cmd(0x51))
+        _dat: Final[bytes] = self._msg[0x51]
         return {
             "model": b2str(_dat[26:36]),
             "sw_version": f"{int(_dat[37])}.{int(_dat[38])}",
@@ -90,53 +90,53 @@ class BMS(BaseBMS):
         if (
             len(data) > BMS._MIN_LEN
             and data.startswith(BMS._HEAD)
-            and len(self._data) >= self._exp_len
+            and len(self._frame) >= self._exp_len
         ):
             self._exp_len = BMS._MIN_LEN + int.from_bytes(data[5:7])
-            self._data = bytearray()
+            self._frame = bytearray()
 
-        self._data += data
+        self._frame += data
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
         # verify that data is long enough
-        if len(self._data) < self._exp_len:
+        if len(self._frame) < self._exp_len:
             return
 
-        if not self._data.endswith(BMS._TAIL):
-            self._log.debug("incorrect frame end: %s", self._data)
+        if not self._frame.endswith(BMS._TAIL):
+            self._log.debug("incorrect frame end: %s", self._frame)
             return
 
-        if self._data[1] != BMS._RSP_VER:
-            self._log.debug("unknown frame version: V%.1f", self._data[1] / 10)
+        if self._frame[1] != BMS._RSP_VER:
+            self._log.debug("unknown frame version: V%.1f", self._frame[1] / 10)
             return
 
-        if self._data[4]:
-            self._log.debug("BMS reported error code: 0x%X", self._data[4])
+        if self._frame[4]:
+            self._log.debug("BMS reported error code: 0x%X", self._frame[4])
             return
 
-        if (crc := crc_xmodem(self._data[1:-3])) != int.from_bytes(self._data[-3:-1]):
+        if (crc := crc_xmodem(self._frame[1:-3])) != int.from_bytes(self._frame[-3:-1]):
             self._log.debug(
                 "invalid checksum 0x%X != 0x%X",
                 crc,
-                int.from_bytes(self._data[-3:-1]),
+                int.from_bytes(self._frame[-3:-1]),
             )
             return
 
         self._log.debug(
             "address: 0x%X, function: 0x%X, return: 0x%X",
-            self._data[2],
-            self._data[3],
-            self._data[4],
+            self._frame[2],
+            self._frame[3],
+            self._frame[4],
         )
 
-        self._data_final[self._data[3]] = bytes(self._data)
+        self._msg[self._frame[3]] = bytes(self._frame)
         try:
-            self._exp_reply.remove(self._data[3])
-            self._data_event.set()
+            self._exp_reply.remove(self._frame[3])
+            self._msg_event.set()
         except KeyError:
-            self._log.debug("unexpected reply: 0x%X", self._data[3])
+            self._log.debug("unexpected reply: 0x%X", self._frame[3])
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -160,27 +160,27 @@ class BMS(BaseBMS):
 
         for cmd, data in BMS._CMDS:
             self._exp_reply.add(cmd)
-            await self._await_reply(BMS._cmd(cmd, data=data))
+            await self._await_msg(BMS._cmd(cmd, data=data))
 
         result: BMSSample = {}
-        result["cell_count"] = self._data_final[0x61][BMS._CELL_POS]
-        result["temp_sensors"] = self._data_final[0x61][
+        result["cell_count"] = self._msg[0x61][BMS._CELL_POS]
+        result["temp_sensors"] = self._msg[0x61][
             BMS._CELL_POS + result["cell_count"] * 2 + 1
         ]
         ct_blk_len: Final[int] = (result["cell_count"] + result["temp_sensors"]) * 2 + 2
 
-        if (BMS._GSMD_LEN + ct_blk_len) > len(self._data_final[0x61]):
+        if (BMS._GSMD_LEN + ct_blk_len) > len(self._msg[0x61]):
             raise ValueError("message too short to decode data")
 
         result |= BMS._decode_data(
-            BMS._PFIELDS, self._data_final[0x61], start=BMS._CELL_POS + ct_blk_len
+            BMS._PFIELDS, self._msg[0x61], start=BMS._CELL_POS + ct_blk_len
         )
 
         # get extension pack count from parallel data (main pack)
-        result["pack_count"] = self._data_final[0x51][42]
+        result["pack_count"] = self._msg[0x51][42]
 
         # get switches from parallel data (main pack)
-        states: Final[int] = self._data_final[0x62][45]
+        states: Final[int] = self._msg[0x62][45]
         result |= {
             "dischrg_mosfet": bool(states & 0x1),
             "chrg_mosfet": bool(states & 0x2),
@@ -189,19 +189,19 @@ class BMS(BaseBMS):
         }
 
         # get alarms from parallel data (main pack)
-        alarm_evt: Final[int] = min(self._data_final[0x62][46], BMS._PRB_MAX)
+        alarm_evt: Final[int] = min(self._msg[0x62][46], BMS._PRB_MAX)
         result["problem_code"] = (
-            int.from_bytes(self._data_final[0x62][47 : 47 + alarm_evt], byteorder="big")
+            int.from_bytes(self._msg[0x62][47 : 47 + alarm_evt], byteorder="big")
             & BMS._PRB_MASK
         )
 
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final[0x61],
-            cells=self._data_final[0x61][BMS._CELL_POS],
+            self._msg[0x61],
+            cells=self._msg[0x61][BMS._CELL_POS],
             start=10,
         )
         result["temp_values"] = BMS._temp_values(
-            self._data_final[0x61],
+            self._msg[0x61],
             values=result["temp_sensors"],
             start=BMS._CELL_POS + result.get("cell_count", 0) * 2 + 2,
             signed=False,
@@ -209,6 +209,6 @@ class BMS(BaseBMS):
             divider=10,
         )
 
-        self._data_final.clear()
+        self._msg.clear()
 
         return result

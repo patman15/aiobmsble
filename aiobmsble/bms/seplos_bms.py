@@ -68,7 +68,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytes] = {}
+        self._msg: dict[int, bytes] = {}
         self._pack_count: int = 0  # number of battery packs
         self._pkglen: int = 0  # expected packet length
 
@@ -116,7 +116,7 @@ class BMS(BaseBMS):
             and data[1] & 0x7F in BMS.CMD_READ  # include read errors
             and data[2] >= BMS.HEAD_LEN + BMS.CRC_LEN
         ):
-            self._data.clear()
+            self._frame.clear()
             self._pkglen = data[2] + BMS.HEAD_LEN + BMS.CRC_LEN
         elif (  # error message
             len(data) == BMS.HEAD_LEN + BMS.CRC_LEN
@@ -124,47 +124,47 @@ class BMS(BaseBMS):
             and data[1] & 0x80
         ):
             self._log.debug("RX error: %X", data[2])
-            self._data.clear()
+            self._frame.clear()
             self._pkglen = BMS.HEAD_LEN + BMS.CRC_LEN
 
-        self._data += data
+        self._frame += data
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
         # verify that data is long enough
-        if len(self._data) < self._pkglen:
+        if len(self._frame) < self._pkglen:
             return
 
-        if (crc := crc_modbus(self._data[: self._pkglen - 2])) != int.from_bytes(
-            self._data[self._pkglen - 2 : self._pkglen], "little"
+        if (crc := crc_modbus(self._frame[: self._pkglen - 2])) != int.from_bytes(
+            self._frame[self._pkglen - 2 : self._pkglen], "little"
         ):
             self._log.debug(
                 "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._data[self._pkglen - 2 : self._pkglen], "little"),
+                int.from_bytes(self._frame[self._pkglen - 2 : self._pkglen], "little"),
                 crc,
             )
-            self._data.clear()
+            self._frame.clear()
             return
 
-        if self._data[2] >> 1 not in BMS._CMDS or self._data[1] & 0x80:
+        if self._frame[2] >> 1 not in BMS._CMDS or self._frame[1] & 0x80:
             self._log.debug(
-                "unknown message: %s, length: %s", self._data[0:2], self._data[2]
+                "unknown message: %s, length: %s", self._frame[0:2], self._frame[2]
             )
-            self._data.clear()
+            self._frame.clear()
             return
 
-        if len(self._data) != self._pkglen:
+        if len(self._frame) != self._pkglen:
             self._log.debug(
                 "wrong data length (%i!=%s): %s",
-                len(self._data),
+                len(self._frame),
                 self._pkglen,
-                self._data,
+                self._frame,
             )
 
-        self._data_final[self._data[0] << 8 | self._data[2] >> 1] = bytes(self._data)
-        self._data.clear()
-        self._data_event.set()
+        self._msg[self._frame[0] << 8 | self._frame[2] >> 1] = bytes(self._frame)
+        self._frame.clear()
+        self._msg_event.set()
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -190,23 +190,23 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         for block in BMS.QUERY.values():
-            await self._await_reply(BMS._cmd(0x0, *block))
+            await self._await_msg(BMS._cmd(0x0, *block))
 
         data: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data_final, start=BMS.HEAD_LEN
+            BMS._FIELDS, self._msg, start=BMS.HEAD_LEN
         )
 
         self._pack_count = min(data.get("pack_count", 0), 0x10)
 
         for pack in range(1, 1 + self._pack_count):
             for block in BMS.PQUERY.values():
-                await self._await_reply(self._cmd(pack, *block))
+                await self._await_msg(self._cmd(pack, *block))
 
             for key, idx, sign, func in BMS._PFIELDS:
                 data.setdefault(key, []).append(
                     func(
                         int.from_bytes(
-                            self._data_final[pack << 8 | BMS.PIA_LEN][
+                            self._msg[pack << 8 | BMS.PIA_LEN][
                                 BMS.HEAD_LEN + idx : BMS.HEAD_LEN + idx + 2
                             ],
                             byteorder="big",
@@ -216,7 +216,7 @@ class BMS(BaseBMS):
                 )
 
             pack_cells: list[float] = BMS._cell_voltages(
-                self._data_final[pack << 8 | BMS.PIB_LEN], cells=16, start=BMS.HEAD_LEN
+                self._msg[pack << 8 | BMS.PIB_LEN], cells=16, start=BMS.HEAD_LEN
             )
             # update per pack delta voltage
             data["delta_voltage"] = max(
@@ -228,7 +228,7 @@ class BMS(BaseBMS):
             # add temperature sensors (4x cell temperature + 4 reserved)
             data.setdefault("temp_values", []).extend(
                 BMS._temp_values(
-                    self._data_final[pack << 8 | BMS.PIB_LEN],
+                    self._msg[pack << 8 | BMS.PIB_LEN],
                     values=4,
                     start=BMS._TEMP_START,
                     signed=False,
@@ -239,6 +239,6 @@ class BMS(BaseBMS):
             # calculate cell_count instead of querying SPA
             data["cell_count"] = len(data.get("cell_voltages", [])) // self._pack_count
 
-        self._data_final.clear()
+        self._msg.clear()
 
         return data
