@@ -638,7 +638,7 @@ def swap32(value: int, signed: bool = False) -> int:
     return value
 
 
-def crc_modbus(data: bytearray) -> int:
+def crc_modbus(data: bytes | bytearray) -> int:
     """Calculate CRC-16-CCITT MODBUS."""
     crc: int = 0xFFFF
     for i in data:
@@ -648,12 +648,12 @@ def crc_modbus(data: bytearray) -> int:
     return crc & 0xFFFF
 
 
-def lrc_modbus(data: bytearray) -> int:
+def lrc_modbus(data: bytes | bytearray) -> int:
     """Calculate MODBUS LRC."""
     return ((sum(data) ^ 0xFFFF) + 1) & 0xFFFF
 
 
-def crc_xmodem(data: bytearray) -> int:
+def crc_xmodem(data: bytes | bytearray) -> int:
     """Calculate CRC-16-CCITT XMODEM."""
     crc: int = 0x0000
     for byte in data:
@@ -663,7 +663,7 @@ def crc_xmodem(data: bytearray) -> int:
     return crc & 0xFFFF
 
 
-def crc8(data: bytearray) -> int:
+def crc8(data: bytes | bytearray) -> int:
     """Calculate CRC-8/MAXIM-DOW."""
     crc: int = 0x00  # Initialwert für CRC
 
@@ -675,7 +675,7 @@ def crc8(data: bytearray) -> int:
     return crc & 0xFF
 
 
-def crc_sum(frame: bytearray, size: int = 1) -> int:
+def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
     """Calculate the checksum of a frame using a specified size.
 
     size : int, optional
