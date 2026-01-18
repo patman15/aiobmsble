@@ -122,13 +122,11 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _conv_cells(data: dict[str, Any]) -> list[float]:
-        return [(value / 1000) for value in data.get("BatcelList", [])[0]]
+        return [value / 1000 for value in data.get("BatcelList", [])[0]]
 
     @staticmethod
     def _conv_temp(data: dict[str, Any]) -> list[float]:
-        return [
-            (value / 10) for value in data.get("BtemList", [])[0] if value != 0x7FFF
-        ]
+        return [value / 10 for value in data.get("BtemList", [])[0] if value != 0x7FFF]
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
