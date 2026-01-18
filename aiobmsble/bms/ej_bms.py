@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS
+from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class Cmd(IntEnum):
@@ -36,20 +36,20 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 16
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
-            "current", 89, 8, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
+            "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
         ),
-        BMSDp("battery_level", 123, 2, False, idx=Cmd.RT),
-        BMSDp("cycle_charge", 15, 4, False, lambda x: x / 10, Cmd.CAP),
+        BMSDp("battery_level", 61, 1, False, idx=Cmd.RT),
+        BMSDp("cycle_charge", 7, 2, False, lambda x: x / 10, Cmd.CAP),
         BMSDp(
-            "temp_values", 97, 2, False, lambda x: [x - 40], Cmd.RT
+            "temp_values", 48, 1, False, lambda x: [x - 40], Cmd.RT
         ),  # only 1st sensor relevant
-        BMSDp("cycles", 115, 4, False, idx=Cmd.RT),
+        BMSDp("cycles", 57, 2, False, idx=Cmd.RT),
         BMSDp(
-            "problem_code", 105, 4, False, lambda x: x & 0x0FFC, Cmd.RT
+            "problem_code", 52, 2, False, lambda x: x & 0x0FFC, Cmd.RT
         ),  # mask status bits
-        BMSDp("dischrg_mosfet", 105, 1, False, lambda x: bool(x & 0x1), Cmd.RT),
-        BMSDp("chrg_mosfet", 105, 1, False, lambda x: bool(x & 0x2), Cmd.RT),
-        BMSDp("balancer", 111, 4, False, int, idx=Cmd.RT)
+        BMSDp("dischrg_mosfet", 52, 1, False, lambda x: bool(x & 0x10), Cmd.RT),
+        BMSDp("chrg_mosfet", 52, 1, False, lambda x: bool(x & 0x20), Cmd.RT),
+        BMSDp("balancer", 55, 2, False, int, idx=Cmd.RT),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -156,7 +156,7 @@ class BMS(BaseBMS):
             return
 
         if not self.name.startswith(BMS._IGNORE_CRC) and (
-            crc := BMS._crc(self._frame[1:-3])
+            crc := crc_sum(self._frame[1:-3]) ^ 0xFF
         ) != int(self._frame[-3:-1], 16):
             # libattU firmware uses no CRC, so we ignore it
             self._log.debug(
@@ -172,39 +172,8 @@ class BMS(BaseBMS):
             int(self._frame[5:7], 16),
             len(self._frame),
         )
-        self._msg = bytes(self._frame)
+        self._msg = bytes.fromhex(self._frame[1:-1].decode())
         self._msg_event.set()
-
-    @staticmethod
-    def _crc(data: bytearray) -> int:
-        return (sum(data) ^ 0xFF) & 0xFF
-
-    @staticmethod
-    def _cell_voltages(
-        data: bytes,
-        *,
-        cells: int,
-        start: int,
-        size: int = 2,
-        gap: int = 0,
-        byteorder: Literal["little", "big"] = "big",
-        divider: int = 1000,
-    ) -> list[float]:
-        """Return cell voltages from status message."""
-        return [
-            (value / divider)
-            for idx in range(cells)
-            if (value := int(data[start + size * idx : start + size * (idx + 1)], 16))
-        ]
-
-    @staticmethod
-    def _conv_data(data: dict[int, bytes]) -> BMSSample:
-        result: BMSSample = {}
-        for field in BMS._FIELDS:
-            result[field.key] = field.fct(
-                int(data[field.idx][field.pos : field.pos + field.size], 16)
-            )
-        return result
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
@@ -213,21 +182,19 @@ class BMS(BaseBMS):
         # query real-time information and capacity
         for cmd in (b":000250000E03~", b":001031000E05~"):
             await self._await_msg(cmd)
-            rsp: int = int(self._msg[3:5], 16) & 0x7F
+            rsp: int = self._msg[1] & 0x7F
             raw_data[rsp] = self._msg
-            if rsp == Cmd.RT and len(self._msg) == 0x8C:
+            if rsp == Cmd.RT and len(self._msg) == 0x45:
                 # handle metrisun version
                 self._log.debug("single frame protocol detected")
-                raw_data[Cmd.CAP] = bytes(15) + self._msg[125:]
+                raw_data[Cmd.CAP] = bytes(7) + self._msg[62:]
                 break
 
-        if len(raw_data) != len(list(Cmd)) or not all(
-            len(value) > 0 for value in raw_data.values()
-        ):
+        if len(raw_data) != len(list(Cmd)) or not all(raw_data.values()):
             return {}
 
-        return self._conv_data(raw_data) | BMSSample(
+        return self._decode_data(BMS._FIELDS, raw_data) | BMSSample(
             cell_voltages=BMS._cell_voltages(
-                raw_data[Cmd.RT], cells=BMS._MAX_CELLS, start=25, size=4
+                raw_data[Cmd.RT], cells=BMS._MAX_CELLS, start=12
             )
         )
