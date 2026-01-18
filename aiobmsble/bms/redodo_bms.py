@@ -108,21 +108,21 @@ class BMS(BaseBMS):
             self._log.debug("invalid checksum 0x%X != 0x%X", data[len(data) - 1], crc)
             return
 
-        self._data = data.copy()
-        self._data_event.set()
+        self._msg = bytes(data)
+        self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"\x00\x00\x04\x01\x13\x55\xaa\x17")
+        await self._await_msg(b"\x00\x00\x04\x01\x13\x55\xaa\x17")
 
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data, byteorder="little"
+            BMS._FIELDS, self._msg, byteorder="little"
         )
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data, cells=BMS._MAX_CELLS, start=16, byteorder="little"
+            self._msg, cells=BMS._MAX_CELLS, start=16, byteorder="little"
         )
         result["temp_values"] = BMS._temp_values(
-            self._data, values=BMS._MAX_TEMP, start=52, byteorder="little"
+            self._msg, values=BMS._MAX_TEMP, start=52, byteorder="little"
         )
         # Determine number of temp sensors by checking if value is persistently 0
         with contextlib.suppress(StopIteration):

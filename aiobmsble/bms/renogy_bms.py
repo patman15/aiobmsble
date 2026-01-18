@@ -11,7 +11,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
+from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -36,6 +36,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -65,11 +66,11 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_reply(self._cmd(0x13F0, 0x1C))
+        await self._await_msg(self._cmd(0x13F0, 0x1C))
         return {
-            "serial_number": barr2str(self._data[15:31]),
-            "name": barr2str(self._data[39:55]),
-            "sw_version": barr2str(self._data[55:59]),
+            "serial_number": b2str(self._msg[15:31]),
+            "name": b2str(self._msg[39:55]),
+            "sw_version": b2str(self._msg[55:59]),
         }
 
     def _notification_handler(
@@ -96,11 +97,11 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data = data.copy()
-        self._data_event.set()
+        self._msg = bytes(data)
+        self._msg_event.set()
 
     @staticmethod
-    def _read_int16(data: bytearray, pos: int, signed: bool = False) -> int:
+    def _read_int16(data: bytes, pos: int, signed: bool = False) -> int:
         return int.from_bytes(data[pos : pos + 2], byteorder="big", signed=signed)
 
     @staticmethod
@@ -116,33 +117,33 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await self._await_reply(self._cmd(0x13B2, 0x7))
-        result: BMSSample = BMS._decode_data(type(self).FIELDS, self._data)
+        await self._await_msg(self._cmd(0x13B2, 0x7))
+        result: BMSSample = BMS._decode_data(type(self).FIELDS, self._msg)
 
-        await self._await_reply(self._cmd(0x1388, 0x22))
-        result["cell_count"] = BMS._read_int16(self._data, BMS._CELL_POS)
+        await self._await_msg(self._cmd(0x1388, 0x22))
+        result["cell_count"] = BMS._read_int16(self._msg, BMS._CELL_POS)
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data,
+            self._msg,
             cells=min(16, result.get("cell_count", 0)),
             start=BMS._CELL_POS + 2,
             byteorder="big",
             divider=10,
         )
 
-        result["temp_sensors"] = BMS._read_int16(self._data, BMS._TEMP_POS)
+        result["temp_sensors"] = BMS._read_int16(self._msg, BMS._TEMP_POS)
         result["temp_values"] = BMS._temp_values(
-            self._data,
+            self._msg,
             values=min(16, result.get("temp_sensors", 0)),
             start=BMS._TEMP_POS + 2,
             divider=10,
         )
 
-        await self._await_reply(self._cmd(0x13EC, 0x8))
-        result["problem_code"] = int.from_bytes(self._data[3:17], byteorder="big") & (
+        await self._await_msg(self._cmd(0x13EC, 0x8))
+        result["problem_code"] = int.from_bytes(self._msg[3:17], byteorder="big") & (
             ~0xE
         )
-        result["chrg_mosfet"] = bool(self._data[16] & 0x2)
-        result["dischrg_mosfet"] = bool(self._data[16] & 0x4)
-        result["heater"] = bool(self._data[17] & 0x20)
+        result["chrg_mosfet"] = bool(self._msg[16] & 0x2)
+        result["dischrg_mosfet"] = bool(self._msg[16] & 0x4)
+        result["heater"] = bool(self._msg[17] & 0x20)
 
         return result

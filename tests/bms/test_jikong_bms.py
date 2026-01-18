@@ -617,7 +617,7 @@ async def test_stream_update(
     bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
-    assert bms._data_event.is_set() is False, "BMS does not request fresh data"
+    assert bms._msg_event.is_set() is False, "BMS does not request fresh data"
     assert "requesting cell info" in caplog.text
 
     _client = cast(MockStreamBleakClient, bms._client)

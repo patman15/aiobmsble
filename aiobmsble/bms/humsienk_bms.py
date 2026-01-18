@@ -12,7 +12,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
+from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
 class BMS(BaseBMS):
@@ -37,7 +37,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._msg: dict[int, bytes] = {}
         self._valid_reply: int = 0x00
 
     @staticmethod
@@ -69,10 +69,10 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         for cmd in (b"\x11", b"\xf5"):
-            await self._await_reply(BMS._cmd(cmd))
+            await self._await_msg(BMS._cmd(cmd))
         return {
-            "model": barr2str(bytearray(self._data_final[0x11][3:-2])),
-            "hw_version": barr2str(bytearray(self._data_final[0xF5][3:-2])),
+            "model": b2str(self._msg[0x11][3:-2]),
+            "hw_version": b2str(self._msg[0xF5][3:-2]),
         }
 
     async def _init_connection(
@@ -80,7 +80,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize RX/TX characteristics and protocol state."""
         await super()._init_connection(char_notify)
-        await self._await_reply(BMS._cmd(b"\x00"))  # init
+        await self._await_msg(BMS._cmd(b"\x00"))  # init
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -110,8 +110,8 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data_final[data[1]] = data.copy()
-        self._data_event.set()
+        self._msg[data[1]] = bytes(data)
+        self._msg_event.set()
 
     @staticmethod
     @cache
@@ -123,10 +123,10 @@ class BMS(BaseBMS):
         return (
             BMS._HEAD
             + frame
-            + crc_sum(bytearray(frame)).to_bytes(2, byteorder="little")
+            + crc_sum(frame).to_bytes(2, byteorder="little")
         )
 
-    async def _await_reply(
+    async def _await_msg(
         self,
         data: bytes,
         char: int | str | None = None,
@@ -136,21 +136,21 @@ class BMS(BaseBMS):
         """Send data to the BMS and wait for valid reply notification."""
 
         self._valid_reply = data[1]  # expected reply type
-        await super()._await_reply(data, char, wait_for_notify, max_size)
+        await super()._await_msg(data, char, wait_for_notify, max_size)
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         for cmd in BMS._CMDS:
-            await self._await_reply(BMS._cmd(cmd))
+            await self._await_msg(BMS._cmd(cmd))
 
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, data=self._data_final, byteorder="little"
+            BMS._FIELDS, data=self._msg, byteorder="little"
         )
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final[0x22], cells=24, start=3, byteorder="little"
+            self._msg[0x22], cells=24, start=3, byteorder="little"
         )
         result["temp_values"] = BMS._temp_values(
-            self._data_final[0x21], values=6, start=23, size=1, byteorder="little"
+            self._msg[0x21], values=6, start=23, size=1, byteorder="little"
         )
 
         return result

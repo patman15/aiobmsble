@@ -108,7 +108,6 @@ async def test_update(
         "battery_level": 99,
         "cycle_charge": 106.048,
         "cycles": 7,
-        "problem_code": 0,
         "cell_count": 8,
         "cell_voltages": [3.442, 3.496, 3.375, 3.464, 3.457, 3.429, 3.359, 3.42],
         "temp_values": [20],

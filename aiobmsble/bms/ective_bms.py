@@ -6,14 +6,14 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from string import hexdigits
-from typing import Final, Literal
+from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS
+from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class BMS(BaseBMS):
@@ -25,19 +25,19 @@ class BMS(BaseBMS):
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("voltage", 1, 8, False, lambda x: x / 1000),
-        BMSDp("current", 9, 8, True, lambda x: x / 1000),
-        BMSDp("battery_level", 29, 4, False),
-        BMSDp("cycle_charge", 17, 8, False, lambda x: x / 1000),
-        BMSDp("cycles", 25, 4, False),
-        BMSDp("temp_values", 33, 4, False, lambda x: [round(x / 10 - 273.15, 3)]),
-        BMSDp("problem_code", 37, 2, False),
+        BMSDp("voltage", 0, 4, False, lambda x: x / 1000),
+        BMSDp("current", 4, 4, True, lambda x: x / 1000),
+        BMSDp("battery_level", 14, 2, False),
+        BMSDp("cycle_charge", 8, 4, False, lambda x: x / 1000),
+        BMSDp("cycles", 12, 2, False),
+        BMSDp("temp_values", 16, 2, False, lambda x: [round(x / 10 - 273.15, 3)]),
+        BMSDp("problem_code", 18, 1, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -77,89 +77,46 @@ class BMS(BaseBMS):
             )
         ) != -1:  # check for beginning of frame
             data = data[start:]
-            self._data.clear()
+            self._frame.clear()
 
-        self._data += data
+        self._frame += data
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        if len(self._data) < BMS._INFO_LEN:
+        if len(self._frame) < BMS._INFO_LEN:
             return
 
-        self._data = self._data[: BMS._INFO_LEN]  # cut off exceeding data
+        self._frame = self._frame[: BMS._INFO_LEN]  # cut off exceeding data
 
         if not (
-            self._data.startswith(BMS._HEAD_RSP)
-            and set(self._data.decode(errors="replace")[1:]).issubset(hexdigits)
+            self._frame.startswith(BMS._HEAD_RSP)
+            and set(self._frame.decode(errors="replace")[1:]).issubset(hexdigits)
         ):
-            self._log.debug("incorrect frame coding: %s", self._data)
-            self._data.clear()
+            self._log.debug("incorrect frame coding: %s", self._frame)
+            self._frame.clear()
             return
 
-        if (crc := BMS._crc(self._data[1 : -BMS._CRC_LEN])) != int(
-            self._data[-BMS._CRC_LEN :], 16
-        ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int(self._data[-BMS._CRC_LEN :], 16),
-                crc,
-            )
-            self._data.clear()
-            return
-
-        self._data_final = self._data.copy()
-        self._data_event.set()
-
-    @staticmethod
-    def _crc(data: bytearray) -> int:
-        return sum(int(data[idx : idx + 2], 16) for idx in range(0, len(data), 2))
-
-    @staticmethod
-    def _cell_voltages(
-        data: bytearray,
-        *,
-        cells: int,
-        start: int,
-        size: int = 2,
-        gap: int = 0,
-        byteorder: Literal["little", "big"] = "big",
-        divider: int = 1000,
-    ) -> list[float]:
-        """Parse cell voltages from status message."""
-        return [
-            (value / divider)
-            for idx in range(cells)
-            if (
-                value := BMS._conv_int(
-                    data[start + idx * size : start + (idx + 1) * size]
-                )
-            )
-        ]
-
-    @staticmethod
-    def _conv_int(data: bytearray, sign: bool = False) -> int:
-        return int.from_bytes(
-            bytes.fromhex(data.decode("ascii", errors="strict")),
-            byteorder="little",
-            signed=sign,
+        _dec: Final[bytes] = bytes.fromhex(
+            self._frame.strip(b"".join(BMS._HEAD_RSP)).decode()
         )
 
-    @staticmethod
-    def _conv_data(data: bytearray) -> BMSSample:
-        result: BMSSample = {}
-        for field in BMS._FIELDS:
-            result[field.key] = field.fct(
-                BMS._conv_int(data[field.pos : field.pos + field.size], field.signed)
+        if (crc := crc_sum(_dec[:-2], 2)) != int.from_bytes(_dec[-2:]):
+            self._log.debug(
+                "invalid checksum 0x%X != 0x%X", int.from_bytes(_dec[-2:]), crc
             )
-        return result
+            self._frame.clear()
+            return
+
+        self._msg = _dec
+        self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
-        return self._conv_data(self._data_final) | {
+        return self._decode_data(BMS._FIELDS, self._msg, byteorder="little") | {
             "cell_voltages": BMS._cell_voltages(
-                self._data_final, cells=BMS._MAX_CELLS, start=45, size=4
+                self._msg, cells=BMS._MAX_CELLS, start=22, byteorder="little"
             )
         }

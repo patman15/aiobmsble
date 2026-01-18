@@ -218,7 +218,7 @@ async def test_stream_update(monkeypatch, patch_bleak_client, caplog) -> None:
     bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS
-    assert bms._data_event.is_set() is False
+    assert bms._msg_event.is_set() is False
     assert "requesting cell info" in caplog.text
 
     _client: MockStreamBleakClient = cast(MockStreamBleakClient, bms._client)
@@ -234,7 +234,7 @@ async def test_stream_update(monkeypatch, patch_bleak_client, caplog) -> None:
         "problem_code": 0x8,
         "balancer": False,
     }
-    assert bms._data_event.is_set() is False, "BMS does not request fresh data"
+    assert bms._msg_event.is_set() is False, "BMS does not request fresh data"
     assert "requesting cell info" not in caplog.text, "BMS did not use streaming data"
 
 

@@ -40,6 +40,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
+        self._msg: bytes = b""
         self._exp_len: int = 0
 
     @staticmethod
@@ -79,7 +80,7 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if len(data) > BMS._LEN_POS + 4 and data.startswith(BMS._HEAD):
-            self._data = bytearray()
+            self._frame = bytearray()
             try:
                 length: Final[int] = int(data[BMS._LEN_POS : BMS._LEN_POS + 4], 16)
                 self._exp_len = length & 0xFFF
@@ -89,40 +90,38 @@ class BMS(BaseBMS):
             except ValueError:
                 self._exp_len = 0
 
-        self._data += data
+        self._frame += data
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        if len(self._data) < self._exp_len + BMS._MIN_LEN:
+        if len(self._frame) < self._exp_len + BMS._MIN_LEN:
             return
 
-        if not self._data.endswith(BMS._TAIL):
+        if not self._frame.endswith(BMS._TAIL):
             self._log.debug("incorrect EOF: %s", data)
-            self._data.clear()
+            self._frame.clear()
             return
 
-        if not all(chr(c) in hexdigits for c in self._data[1:-1]):
+        if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
             self._log.debug("incorrect frame encoding.")
-            self._data.clear()
+            self._frame.clear()
             return
 
-        if (ver := bytes.fromhex(self._data[1:3].decode())) != BMS._RSP_VER.to_bytes():
+        if (ver := bytes.fromhex(self._frame[1:3].decode())) != BMS._RSP_VER.to_bytes():
             self._log.debug("unknown response frame version: 0x%X", int.from_bytes(ver))
-            self._data.clear()
+            self._frame.clear()
             return
 
-        if (crc := lrc_modbus(self._data[1:-5])) != int(self._data[-5:-1], 16):
+        if (crc := lrc_modbus(self._frame[1:-5])) != int(self._frame[-5:-1], 16):
             self._log.debug(
-                "invalid checksum 0x%X != 0x%X", crc, int(self._data[-5:-1], 16)
+                "invalid checksum 0x%X != 0x%X", crc, int(self._frame[-5:-1], 16)
             )
-            self._data.clear()
+            self._frame.clear()
             return
 
-        self._data = bytearray(
-            bytes.fromhex(self._data.strip(BMS._HEAD + BMS._TAIL).decode())
-        )
-        self._data_event.set()
+        self._msg = bytes.fromhex(self._frame.strip(BMS._HEAD + BMS._TAIL).decode())
+        self._msg_event.set()
 
     @staticmethod
     def lencs(length: int) -> int:
@@ -140,35 +139,35 @@ class BMS(BaseBMS):
             int.to_bytes(len(cdat) * 2 + (BMS.lencs(len(cdat) * 2) << 12), 2, "big")
         )
         frame.extend(cdat)
-        frame.extend(
-            int.to_bytes(lrc_modbus(bytearray(frame.hex().upper().encode())), 2, "big")
-        )
+        frame.extend(int.to_bytes(lrc_modbus(frame.hex().upper().encode()), 2, "big"))
         return BMS._HEAD + frame.hex().upper().encode() + BMS._TAIL
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await self._await_reply(BMS._cmd(0x42))
-        result: BMSSample = {"cell_count": self._data[BMS._CELL_POS]}
+        await self._await_msg(BMS._cmd(0x42))
+        result: BMSSample = {"cell_count": self._msg[BMS._CELL_POS]}
         temp_pos: Final[int] = BMS._CELL_POS + result.get("cell_count", 0) * 2 + 1
-        result["temp_sensors"] = self._data[temp_pos]
+        result["temp_sensors"] = self._msg[temp_pos]
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data, cells=result.get("cell_count", 0), start=BMS._CELL_POS + 1
+            self._msg, cells=result.get("cell_count", 0), start=BMS._CELL_POS + 1
         )
         result["temp_values"] = BMS._temp_values(
-            self._data,
+            self._msg,
             values=result.get("temp_sensors", 0),
             start=temp_pos + 1,
             divider=10,
         )
 
         result |= BMS._decode_data(
-            BMS._FIELDS, self._data, start=temp_pos + 2 * result["temp_sensors"] + 1
+            BMS._FIELDS,
+            self._msg,
+            start=temp_pos + 2 * result["temp_sensors"] + 1,
         )
 
-        await self._await_reply(BMS._cmd(0x81, 1, b"\x01\x00"), max_size=20)
+        await self._await_msg(BMS._cmd(0x81, 1, b"\x01\x00"), max_size=20)
         result["design_capacity"] = (
-            int.from_bytes(self._data[6:8], byteorder="big", signed=False) // 10
+            int.from_bytes(self._msg[6:8], byteorder="big", signed=False) // 10
         )
 
         return result

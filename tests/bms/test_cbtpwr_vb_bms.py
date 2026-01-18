@@ -33,7 +33,6 @@ def ref_value() -> BMSSample:
         "temperature": 6.75,
         "cycle_capacity": 2553.6,
         "power": 0.0,
-        #        "runtime": 22608,
         "battery_charging": False,
         "problem": False,
         "problem_code": 0,
@@ -101,12 +100,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), keep_alive_fixture)
 
-    result = await bms.async_update()
-
-    assert result == ref_value()
+    assert await bms.async_update() == ref_value()
 
     # query again to check already connected state
-    result = await bms.async_update()
+    await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -235,7 +232,9 @@ def prb_response(request: pytest.FixtureRequest) -> tuple[dict[int, bytearray], 
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: tuple[dict[int, bytearray], str]
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[dict[int, bytearray], str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
@@ -249,8 +248,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
-    assert result == ref_value() | {
+    assert await bms.async_update() == ref_value() | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 47),
     }

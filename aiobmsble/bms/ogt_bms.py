@@ -137,13 +137,13 @@ class BMS(BaseBMS):
             return
 
         self._exp_reply = -1
-        self._data_event.set()
+        self._msg_event.set()
 
     def _ogt_response(self, resp: bytearray) -> _Response:
         """Descramble a response from the BMS."""
 
         try:
-            msg: Final[str] = bytearray(
+            msg: Final[str] = bytes(
                 (resp[x] ^ self._key) for x in range(len(resp))
             ).decode(encoding="ascii")
         except UnicodeDecodeError:
@@ -180,7 +180,7 @@ class BMS(BaseBMS):
 
         for reg in list(self._REGISTERS):
             self._exp_reply = reg
-            await self._await_reply(
+            await self._await_msg(
                 data=self._ogt_command(reg, self._REGISTERS[reg][BMS._IDX_LEN])
             )
             if self._response.reg < 0:
@@ -200,7 +200,7 @@ class BMS(BaseBMS):
         if self._type == "B":
             for cell_reg in range(16):
                 self._exp_reply = 63 - cell_reg
-                await self._await_reply(data=self._ogt_command(63 - cell_reg, 2))
+                await self._await_msg(data=self._ogt_command(63 - cell_reg, 2))
                 if self._response.reg < 0:
                     self._log.debug("cell count: %i", cell_reg)
                     break
