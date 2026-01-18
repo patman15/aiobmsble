@@ -120,9 +120,7 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        self._msg = bytes.fromhex(
-            self._frame.strip(BMS._HEAD + BMS._TAIL).decode()
-        )
+        self._msg = bytes.fromhex(self._frame.strip(BMS._HEAD + BMS._TAIL).decode())
         self._msg_event.set()
 
     @staticmethod
@@ -141,9 +139,7 @@ class BMS(BaseBMS):
             int.to_bytes(len(cdat) * 2 + (BMS.lencs(len(cdat) * 2) << 12), 2, "big")
         )
         frame.extend(cdat)
-        frame.extend(
-            int.to_bytes(lrc_modbus(bytearray(frame.hex().upper().encode())), 2, "big")
-        )
+        frame.extend(int.to_bytes(lrc_modbus(frame.hex().upper().encode()), 2, "big"))
         return BMS._HEAD + frame.hex().upper().encode() + BMS._TAIL
 
     async def _async_update(self) -> BMSSample:

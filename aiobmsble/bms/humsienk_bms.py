@@ -123,7 +123,7 @@ class BMS(BaseBMS):
         return (
             BMS._HEAD
             + frame
-            + crc_sum(bytearray(frame)).to_bytes(2, byteorder="little")
+            + crc_sum(frame).to_bytes(2, byteorder="little")
         )
 
     async def _await_msg(
