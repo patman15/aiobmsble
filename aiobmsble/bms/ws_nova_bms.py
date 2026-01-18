@@ -107,18 +107,16 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        decoded = bytes(
-            b ^ int(self._frame[7:9], 16)
-            for b in bytes.fromhex(self._frame[1:-3].decode("ascii"))
-        )
+        _key: Final[int] = int(self._frame[7:9], 16)
+        _dec = bytes(b ^ _key for b in bytes.fromhex(self._frame[1:-3].decode("ascii")))
         # incoming frames seem to have invalid checksum, thus not checked here
 
-        if not decoded.startswith(b"\x01\x54"):
+        if not _dec.startswith(b"\x01\x54"):
             self._log.debug("incorrect frame type.")
             self._frame.clear()
             return
 
-        self._msg = decoded
+        self._msg = _dec
         self._msg_event.set()
 
     @staticmethod
@@ -136,9 +134,7 @@ class BMS(BaseBMS):
             )
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=44)
-        result["cell_voltages"] = BMS._cell_voltages(
-            self._msg, cells=16, start=12
-        )
+        result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=16, start=12)
         result["temp_values"] = BMS._temp_values(
             self._msg, values=4, start=48, size=1, signed=False, offset=40
         )
