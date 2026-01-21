@@ -40,7 +40,6 @@ class BMS(RenogyBMS):
             {
                 "local_name": pattern,
                 "manufacturer_id": 0xE14C,
-                "manufacturer_data_start": [0x74],
                 "connectable": True,
             }
             for pattern in ("RNGRBP*", "RNGC*")
