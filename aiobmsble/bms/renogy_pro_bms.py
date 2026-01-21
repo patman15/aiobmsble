@@ -38,10 +38,12 @@ class BMS(RenogyBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "RNGRBP*",
+                "local_name": pattern,
                 "manufacturer_id": 0xE14C,
+                "manufacturer_data_start": [0x74],
                 "connectable": True,
-            },
+            }
+            for pattern in ("RNGRBP*", "RNGC*")
         ]
 
     async def _init_connection(
