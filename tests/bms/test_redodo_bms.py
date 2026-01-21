@@ -18,6 +18,7 @@ from tests.test_basebms import verify_device_info
 _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 26.556,
     "current": -1.435,
+    "chrg_mosfet": True,
     "cell_count": 8,
     "cell_voltages": [3.317, 3.319, 3.324, 3.323, 3.320, 3.314, 3.322, 3.317],
     "delta_voltage": 0.01,
@@ -186,8 +187,8 @@ async def test_invalid_response(
                 b"\x00\x00\x65\x01\x93\x55\xaa\x00\x46\x66\x00\x00\xbc\x67\x00\x00\xf5\x0c\xf7\x0c"
                 b"\xfc\x0c\xfb\x0c\xf8\x0c\xf2\x0c\xfa\x0c\xf5\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x65\xfa\xff\xff\x17\x00\x16\x00\xfe\xff\x00\x00"
-                b"\x00\x00\xe9\x1a\x04\x29\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80"
-                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x41\x00\x64\x00\x00\x00\x03\x00\x00\x00"
+                b"\x00\x00\xe9\x1a\x04\x29\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x80\x00\x00\x00\x00\x00\x00\x41\x00\x64\x00\x00\x00\x03\x00\x00\x00"
                 b"\x5f\x01\x00\x00\x22"
             ),
             "last_bit",
@@ -215,7 +216,7 @@ async def test_problem_response(
 
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
-        "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 31),
+        "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 63),
     }
 
     await bms.disconnect()

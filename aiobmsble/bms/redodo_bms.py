@@ -35,7 +35,8 @@ class BMS(BaseBMS):
         BMSDp("cycles", 96, 4, False),
         BMSDp("balancer", 84, 4, False, int),
         BMSDp("heater", 68, 4, False, bool),
-        BMSDp("problem_code", 76, 4, False),
+        BMSDp("problem_code", 76, 8, False),
+        BMSDp("chrg_mosfet", 88, 2, False, lambda x: not (x & 0x4)),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -65,10 +66,8 @@ class BMS(BaseBMS):
                 "L-12*",  # vv *** LiTime *** vv
                 "L-24*",
                 "L-51*",
-                "LT-12???BG-A0[7-9]*",  # LiTime based on serial #
-                "LT-24???B-A00[3-9]*",
-                "LT-24???B-A0[1-9]*",
-                "LT-24???B-A[1-9]*",
+                "LT-12???BG-A*",  # LiTime based on serial #
+                "LT-24???B-A*",
                 "LT-51*",
             )
         ]
@@ -115,9 +114,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         await self._await_msg(b"\x00\x00\x04\x01\x13\x55\xaa\x17")
 
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._msg, byteorder="little"
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=BMS._MAX_CELLS, start=16, byteorder="little"
         )
