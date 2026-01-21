@@ -30,6 +30,9 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
     0x83: bytearray(
         b"\x836234000076FEFFFF888A010016006200530B008007B4160D170D190D1C0D00000000000000000000000000000000000000000000000007C2\x11\x11\x11\x11\x11\x11\x11\x11"
     ),
+    0xB0: bytearray(
+        b"\xb0903300003EFEFFFF340F03007D005E00910B00010000DE0C080DE20C050D00000000000000000000000000000000000000000000000007BARRRRRRRR"
+    ),
 }
 
 _RESULT_DEFS: Final[dict[int, BMSSample]] = {
@@ -69,12 +72,30 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "problem": False,
         "problem_code": 0,
     },
+    0xB0: {
+        "battery_charging": False,
+        "cycle_capacity": 2646.6,
+        "voltage": 13.2,
+        "current": -0.45,
+        "cycle_charge": 200.5,
+        "delta_voltage": 0.042,
+        "power": -5.94,
+        "problem": False,
+        "cycles": 125,
+        "battery_level": 94,
+        "temperature": 22.95,
+        "temp_values": [22.95],
+        "problem_code": 0,
+        "runtime": 1604000,
+        "cell_count": 4,
+        "cell_voltages": [3.294, 3.336, 3.298, 3.333],
+    },
 }
 
 
 @pytest.fixture(
     name="protocol_type",
-    params=[0x5E, 0x83],
+    params=[0x5E, 0x83, 0xB0],
 )
 def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
@@ -116,7 +137,10 @@ class MockEctiveBleakClient(MockBleakClient):
 
 
 async def test_update(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, protocol_type, keep_alive_fixture
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    protocol_type: int,
+    keep_alive_fixture: bool,
 ) -> None:
     """Test Ective BMS data update."""
 
@@ -260,13 +284,15 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request):
+def prb_response(request) -> tuple[bytearray, str]:
     """Return faulty response frame."""
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
