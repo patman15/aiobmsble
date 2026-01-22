@@ -25,6 +25,7 @@ class BMS(BaseBMS):
     }
     _HEAD: Final[bytes] = b"\x3a"  # beginning of frame
     _TAIL: Final[bytes] = b"\x7e"  # end of frame
+    _MIN_LEN: Final[int] = 238 # heater*2 + tail
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
             "current",
@@ -98,7 +99,7 @@ class BMS(BaseBMS):
         if not (self._frame.startswith(BMS._HEAD) and self._frame.endswith(BMS._TAIL)):
             return
 
-        if len(self._frame) % 2:
+        if len(self._frame) % 2 or len(self._frame) < BMS._MIN_LEN:
             self._log.debug("incorrect frame length (%i)", len(self._frame))
             return
 
