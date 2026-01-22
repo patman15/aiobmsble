@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -53,11 +53,9 @@ class BMS(BaseBMS):
             default_manufacturer="Dummy manufacturer", default_model="Dummy BMS"
         )  # TODO: implement query code or remove function to query service 0x180A
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {"power", "battery_charging"}
-        )  # calculate further values from BMS provided set ones
+    # @staticmethod
+    # def _raw_values() -> frozenset[BMSValue]:
+    #     return frozenset({"runtime"})  # never calculate, e.g. runtime
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -66,30 +64,32 @@ class BMS(BaseBMS):
         # self._log.debug("RX BLE data: %s", data)
 
         # *******************************************************
-        # # TODO: Do things like checking correctness of frame here
-        # # and store it into a instance variable, e.g. self._data
-        # # Below are some examples of how to do it
-        # # Have a look at the BMS base class for function to use,
-        # # take a look at other implementations for more  details
+        # TODO: Do things like checking correctness of frame here
+        # and store it into a instance variable, e.g. self._frame
+        # in case the frame is fragmented.
+        # Below are some examples of how to do it
+        # Have a look at the BMS base class for function to use,
+        # take a look at other implementations for more  details
         # *******************************************************
 
         # if not data.startswith(BMS._HEAD):
         #     self._log.debug("incorrect SOF")
         #     return
 
-        # if (crc := crc_sum(self._data[:-1])) != self._data[-1]:
-        #     self._log.debug("invalid checksum 0x%X != 0x%X", self._data[-1], crc)
+        # if (crc := crc_sum(self._frame[:-1])) != self._frame[-1]:
+        #     self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-1], crc)
         #     return
 
-        # self._data = data.copy()
-        # self._data_event.set()
+        # Do an immutable copy of the assembled (data) frame and notify _await_msg()
+        # self._msg = bytes(self._frame)
+        # self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         self._log.debug("replace with command to UUID %s", BMS.uuid_tx())
-        # await self._await_reply(b"<some_command>")
+        # await self._await_msg(b"<some_command>")
 
-        # TODO: parse data from self._data here
+        # TODO: parse data from self._frame here
 
         return {
             "voltage": 12,

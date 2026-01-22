@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -51,7 +51,7 @@ class BMS(BaseBMS):
             int(self._ble_device.address.replace(":", ""), 16).to_bytes(6) + head
             for head in BMS._HEAD
         )
-        self._data_final: dict[int, bytearray] = {}
+        self._msg: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -80,20 +80,6 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "battery_charging",
-                "cycle_charge",
-                "cycle_capacity",
-                "delta_voltage",
-                "power",
-                "runtime",
-                "temperature",
-            }
-        )  # calculate further values from BMS provided set ones
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -114,35 +100,35 @@ class BMS(BaseBMS):
 
         # copy final data without message type and adapt to protocol type
         shift: Final[bool] = data.startswith(self._mac_head)
-        self._data_final[data[6 if shift else 0]] = bytearray(
-            2 if shift else 0
-        ) + bytes(data)
-        if BMS._CMDS.issubset(self._data_final.keys()):
-            self._data_event.set()
+        self._msg[data[6 if shift else 0]] = bytes(2 if shift else 0) + bytes(
+            data
+        )
+        if BMS._CMDS.issubset(self._msg.keys()):
+            self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        self._data_final.clear()
-        self._data_event.clear()  # clear event to ensure new data is acquired
+        self._msg.clear()
+        self._msg_event.clear()  # clear event to ensure new data is acquired
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
         result: BMSSample = BMS._decode_data(
             (
                 BMS._FIELDS_V1
-                if self._data_final[0xA1].startswith(BMS._HEAD)
+                if self._msg[0xA1].startswith(BMS._HEAD)
                 else BMS._FIELDS_V2
             ),
-            self._data_final,
+            self._msg,
         )
 
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final[0xA2],
+            self._msg[0xA2],
             cells=result.get("cell_count", 0),
             start=BMS._CELL_POS + 2,
         )
         result["temp_values"] = BMS._temp_values(
-            self._data_final[0xA2],
+            self._msg[0xA2],
             values=result.get("temp_sensors", 0),
             start=BMS._TEMP_POS + 2,
             divider=10,

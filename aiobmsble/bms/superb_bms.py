@@ -11,7 +11,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -31,7 +31,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -53,12 +53,6 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {"battery_charging", "power"}
-        )  # calculate further values from BMS provided set ones
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -69,17 +63,17 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length")
             return
 
-        self._data_final = bytearray(data)
-        self._data_event.set()
+        self._msg = bytes(data)
+        self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
-        result: BMSSample = self._decode_data(BMS._FIELDS, self._data_final)
+        result: BMSSample = self._decode_data(BMS._FIELDS, self._msg)
 
-        result["current"] = round(unpack_from(">f", self._data_final, 8)[0], 3)
-        result["voltage"] = round(unpack_from(">f", self._data_final, 12)[0], 3)
+        result["current"] = round(unpack_from(">f", self._msg, 8)[0], 3)
+        result["voltage"] = round(unpack_from(">f", self._msg, 12)[0], 3)
 
         # remove runtime if not discharging
         if result.get("current", 0) >= 0:

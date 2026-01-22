@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiobmsble"
-version = "0.13.0"
+version = "0.15.1-beta.3"
 requires-python = ">=3.12"
 description = "Asynchronous Python library to query battery management systems via Bluetooth Low Energy."
 readme = "README.md"
@@ -43,7 +43,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/patman15/aiobmsble/"
-Documentation = "https://github.com/patman15/aiobmsble/README"
+Documentation = "https://github.com/patman15/aiobmsble/?tab=readme-ov-file#aiobmsble"
 "Source Code" = "https://github.com/patman15/aiobmsble/"
 "Bug Reports" = "https://github.com/patman15/aiobmsble/issues"
 

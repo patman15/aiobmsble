@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -30,7 +30,7 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 4, False, lambda x: x / 1000, 0x0B),
         BMSDp("current", 8, 4, True, lambda x: x / 1000, 0x0B),
-        BMSDp("temperature", 4, 2, True, idx=0x09),
+        BMSDp("temp_values", 4, 2, True, lambda x: [x], idx=0x09),
         BMSDp("battery_level", 4, 1, False, idx=0x0A),
         BMSDp("design_capacity", 4, 2, False, idx=0x15),
         BMSDp("cycles", 6, 2, False, idx=0x15),
@@ -42,6 +42,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -49,8 +50,8 @@ class BMS(BaseBMS):
         return [
             {"service_uuid": BMS.uuid_services()[0], "connectable": True},
             {  # Creabest
+                "local_name": "???[CR]??????",
                 "service_uuid": normalize_uuid_str("fff0"),
-                "manufacturer_id": 0,
                 "connectable": True,
             },
             {
@@ -77,18 +78,6 @@ class BMS(BaseBMS):
 
     # async def _fetch_device_info(self) -> BMSInfo: use default
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {
-                "power",
-                "battery_charging",
-                "delta_voltage",
-                "cycle_capacity",
-                "temperature",
-            }
-        )
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -114,8 +103,8 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data = data
-        self._data_event.set()
+        self._msg = bytes(data)
+        self._msg_event.set()
 
     @staticmethod
     @cache
@@ -130,29 +119,29 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        resp_cache: dict[int, bytearray] = {}  # avoid multiple queries
+        resp_cache: dict[int, bytes] = {}  # avoid multiple queries
         for cmd in BMS._CMDS:
             self._log.debug("request command 0x%X.", cmd)
             try:
-                await self._await_reply(BMS._cmd(cmd.to_bytes(1)))
+                await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
             except TimeoutError:
                 continue
-            if cmd != self._data[BMS.CMD_POS]:
+            if cmd != self._msg[BMS.CMD_POS]:
                 self._log.debug(
                     "incorrect response 0x%X to command 0x%X",
-                    self._data[BMS.CMD_POS],
+                    self._msg[BMS.CMD_POS],
                     cmd,
                 )
-            resp_cache[self._data[BMS.CMD_POS]] = self._data.copy()
+            resp_cache[self._msg[BMS.CMD_POS]] = self._msg
 
         voltages: list[float] = []
         for cmd in BMS.CELL_VOLTAGE_CMDS:
             try:
-                await self._await_reply(BMS._cmd(cmd.to_bytes(1)))
+                await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
             except TimeoutError:
                 break
             cells: list[float] = BMS._cell_voltages(
-                self._data, cells=5, start=4, byteorder="little"
+                self._msg, cells=5, start=4, byteorder="little"
             )
             voltages.extend(cells)
             if len(voltages) % 5 or len(cells) == 0:

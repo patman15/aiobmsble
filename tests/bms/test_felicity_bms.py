@@ -40,7 +40,7 @@ RESP_VALUE: Final[dict[str, bytearray]] = {
 }
 
 
-def ref_value() -> dict:
+def ref_value() -> BMSSample:
     """Return reference value for mock Seplos BMS."""
     return {
         "voltage": 52.8,
@@ -51,6 +51,7 @@ def ref_value() -> dict:
         "cycle_capacity": 5227.2,
         "power": -5.28,
         "battery_charging": False,
+        "cell_count": 16,
         "cell_voltages": [
             3.296,
             3.296,
@@ -134,12 +135,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     bms = BMS(generate_ble_device(), keep_alive_fixture)
 
-    result = await bms.async_update()
-
-    assert result == ref_value()
+    assert await bms.async_update() == ref_value()
 
     # query again to check already connected state
-    result = await bms.async_update()
+    await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -157,7 +156,7 @@ async def test_device_info(patch_bleak_client) -> None:
     }
 
 
-async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
+async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test Felicity BMS data update with problem response."""
 
     prb_resp: dict[str, bytearray] = RESP_VALUE.copy()
@@ -186,13 +185,17 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request):
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytes)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 

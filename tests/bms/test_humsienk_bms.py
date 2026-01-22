@@ -19,10 +19,12 @@ def ref_value() -> BMSSample:
         "battery_health": 100,
         "voltage": 13.130,
         "current": -1.15,
+        "cell_count": 4,
         "cell_voltages": [3.281, 3.291, 3.284, 3.28],
         "battery_charging": False,
         "power": -15.099,
         "delta_voltage": 0.011,
+        "temperature": 30.5,
         "temp_values": [
             35.0,
             26.0,
@@ -106,10 +108,7 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockHumsienkBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "hw_version": "V02",
-        "model": "BMC-04S001",
-    }
+    assert await bms.device_info() == {"hw_version": "V02", "model": "BMC-04S001"}
 
 
 @pytest.mark.parametrize(

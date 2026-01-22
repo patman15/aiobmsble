@@ -2,9 +2,10 @@
 
 from collections.abc import Buffer, Callable
 from logging import DEBUG
-from typing import Final, NoReturn
+from typing import Any, Final, Literal, NoReturn
 from uuid import UUID
 
+from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -16,7 +17,7 @@ import pytest
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import (
     BaseBMS,
-    barr2str,
+    b2str,
     crc8,
     crc_modbus,
     crc_sum,
@@ -109,7 +110,7 @@ class MinTestBMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {"problem_code": 21}
 
 
@@ -122,7 +123,7 @@ class DataTestBMS(MinTestBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {
             "voltage": 13,
             "current": 1.7,
@@ -154,13 +155,36 @@ class WMTestBMS(MinTestBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
         self._data = data
-        self._data_event.set()
+        self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command")
+        await self._await_msg(b"mock_command")
 
         return {"problem_code": int.from_bytes(self._data, "big", signed=False)}
+
+
+async def verify_device_info(
+    patch_bleak_client,
+    bleak_client: type[BleakClient],
+    bms_class: type[BaseBMS],
+    result_patch: dict[str, str] = {},
+) -> None:
+    """Test function for subclasses that the BMS returns device info from default characteristics."""
+    patch_bleak_client(bleak_client)
+    bms: BaseBMS = bms_class(generate_ble_device())
+    assert (
+        await bms.device_info()
+        == {
+            "fw_version": "mock_FW_version",
+            "hw_version": "mock_HW_version",
+            "sw_version": "mock_SW_version",
+            "manufacturer": "mock_manufacturer",
+            "model": "mock_model",
+            "serial_number": "mock_serial_number",
+        }
+        | result_patch
+    )
 
 
 @pytest.mark.parametrize(
@@ -175,11 +199,11 @@ class WMTestBMS(MinTestBMS):
 async def test_device_info(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client: Callable[..., None],
-    bt_patch,
-    result_patch,
+    bt_patch: dict[str, bytes],
+    result_patch: dict[str, str],
 ) -> None:
     """Verify that device_info reads BLE characteristic 180A and provides default values."""
-    defaults = MockBleakClient.BT_INFO.copy()
+    defaults: dict[str, bytes] = MockBleakClient.BT_INFO.copy()
     del defaults["2a28"]
     monkeypatch.setattr(MockBleakClient, "BT_INFO", defaults | bt_patch)
     patch_bleak_client()
@@ -212,26 +236,14 @@ async def test_device_info_fail(
     assert bms._client.is_connected
 
 
-def test_calc_missing_values(bms_data_fixture: BMSSample) -> None:
+def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
     """Check if missing data is correctly calculated."""
     bms_data: BMSSample = bms_data_fixture
     ref: BMSSample = bms_data_fixture.copy()
 
-    BaseBMS._add_missing_values(
-        bms_data,
-        frozenset(
-            {
-                "battery_charging",
-                "cycle_capacity",
-                "power",
-                "runtime",
-                "delta_voltage",
-                "temperature",
-                "voltage",  # check value is not overwritten
-            }
-        ),
-    )
+    BaseBMS._add_missing_values(bms_data)
     ref = ref | {
+        "cell_count": 2,
         "cycle_capacity": 238,
         "delta_voltage": 0.111,
         "power": (
@@ -250,50 +262,41 @@ def test_calc_missing_values(bms_data_fixture: BMSSample) -> None:
     assert bms_data == ref
 
 
-def test_calc_voltage() -> None:
+@pytest.mark.parametrize(
+    ("sample", "expected"),
+    [
+        (
+            {"cell_voltages": [3.456, 3.567]},
+            {"cell_count": 2, "delta_voltage": 0.111, "voltage": 7.023},
+        ),
+        ({"battery_level": 73, "design_capacity": 125}, {"cycle_charge": 91.25}),
+        ({"cycle_charge": 421, "design_capacity": 983}, {"battery_level": 42.8}),
+        ({"total_charge": 1234567, "design_capacity": 256}, {"cycles": 4822}),
+        (
+            {"current": -1.3, "cycle_charge": 73},
+            {"battery_charging": False, "runtime": 202153},
+        ),
+        ({"current": 1.3, "cycle_charge": 73}, {"battery_charging": True}),
+    ],
+    ids=["voltage", "cycle_charge", "battery_level", "cycles", "runtime", "no_runtime"],
+)
+def test_calc_values(sample: BMSSample, expected: BMSSample) -> None:
     """Check if missing data is correctly calculated."""
-    bms_data: BMSSample = {"cell_voltages": [3.456, 3.567]}
-    ref: BMSSample = bms_data.copy()
-    BaseBMS._add_missing_values(bms_data, frozenset({"voltage"}))
-    assert bms_data == ref | {"voltage": 7.023, "problem": False}
-
-
-def test_calc_cycle_chrg() -> None:
-    """Check if missing data is correctly calculated."""
-    bms_data: BMSSample = {"battery_level": 73, "design_capacity": 125}
-    ref: BMSSample = bms_data.copy()
-    BaseBMS._add_missing_values(bms_data, frozenset({"cycle_charge"}))
-    assert bms_data == ref | {"cycle_charge": 91.25, "problem": False}
-
-
-def test_calc_battery_level() -> None:
-    """Check if missing battery_level is correctly calculated."""
-    bms_data: BMSSample = {"cycle_charge": 421, "design_capacity": 983}
-    ref: BMSSample = bms_data.copy()
-    BaseBMS._add_missing_values(bms_data, frozenset({"battery_level"}))
-    assert bms_data == ref | {"battery_level": 42.8, "problem": False}
-
-
-def test_calc_cycles() -> None:
-    """Check if missing cycle is correctly calculated."""
-    bms_data: BMSSample = {"total_charge": 1234567, "design_capacity": 256}
-    ref: BMSSample = bms_data.copy()
-    BaseBMS._add_missing_values(bms_data, frozenset({"cycles"}))
-    assert bms_data == ref | {"cycles": 4822, "problem": False}
+    ref: BMSSample = sample.copy()
+    BaseBMS._add_missing_values(sample)
+    assert sample == ref | expected | {"problem": False}
 
 
 @pytest.mark.parametrize(
-    ("raw", "expected"),
-    [(True, {}), (False, {"battery_charging": True, "power": 22.1, "problem": True})],
+    ("raw"),
+    [True, False],
     ids=["raw", "ext"],
 )
-async def test_async_update(
-    patch_bleak_client: Callable[..., None], raw: bool, expected: dict
-) -> None:
+async def test_async_update(patch_bleak_client: Callable[..., None], raw: bool) -> None:
     """Check update function of the BMS returns values."""
     patch_bleak_client()
     bms: DataTestBMS = DataTestBMS(generate_ble_device())
-    assert await bms.async_update(raw=raw) == BMSSample(
+    base_result: BMSSample = BMSSample(
         {
             "voltage": 13,
             "current": 1.7,
@@ -301,7 +304,17 @@ async def test_async_update(
             "cycles": 23,
             "problem_code": 21,
         }
-    ) | BMSSample(**expected)
+    )
+    if not raw:
+        base_result.update(
+            {
+                "battery_charging": True,
+                "cycle_capacity": 247,
+                "power": 22.1,
+                "problem": True,
+            }
+        )
+    assert await bms.async_update(raw=raw) == base_result
 
 
 @pytest.mark.parametrize(
@@ -322,9 +335,9 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
     """Check if missing data is correctly calculated."""
     bms_data: BMSSample = problem_sample[0].copy()
 
-    BaseBMS._add_missing_values(bms_data, frozenset({"runtime"}))
+    BaseBMS._add_missing_values(bms_data)
 
-    assert bms_data == problem_sample[0] | {"problem": True}
+    assert ("problem", True) in bms_data.items()
 
 
 @pytest.mark.parametrize(
@@ -409,7 +422,8 @@ async def test_write_mode(
                 await bms.async_update()
         else:
             assert await bms.async_update() == {
-                "problem_code": output
+                "problem": (output != 0),
+                "problem_code": output,
             }, f"{request.node.name} failed!"
 
 
@@ -422,7 +436,7 @@ async def test_wr_mode_reset(
     patch_bleak_client(MockWriteModeBleakClient)
 
     bms: WMTestBMS = WMTestBMS(["write_without"], generate_ble_device())
-    assert await bms.async_update() == {"problem_code": 0x42}
+    assert await bms.async_update() == {"problem": True, "problem_code": 0x42}
     assert bms._inv_wr_mode is False
     await bms.disconnect(True)
     assert bms._inv_wr_mode is None
@@ -444,7 +458,7 @@ async def test_no_notify(
     with caplog.at_level(DEBUG):
         result: BMSSample = await bms.async_update()
     assert "MockBleakClient write_gatt_char afe2, data: b'mock_command'" in caplog.text
-    assert result == {"problem_code": 21}
+    assert result == {"problem": True, "problem_code": 21}
     assert not bms._client.is_connected
 
 
@@ -455,7 +469,7 @@ async def test_disconnect_fail(
 ) -> None:
     """Check that exceptions in connect function for guarding disconnect are ignored."""
 
-    async def _raise_bleak_error(_args) -> NoReturn:
+    async def _raise_bleak_error(*args: Any) -> NoReturn:
         raise BleakError
 
     monkeypatch.setattr(MockBleakClient, "disconnect", _raise_bleak_error)
@@ -464,7 +478,7 @@ async def test_disconnect_fail(
     bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
     with caplog.at_level(DEBUG):
         result: BMSSample = await bms.async_update()
-    assert result == {"problem_code": 21}
+    assert result == {"problem": True, "problem_code": 21}
     assert "failed to disconnect stale connection (BleakError)" in caplog.text
     assert "disconnect failed!" in caplog.text
 
@@ -476,7 +490,7 @@ async def test_init_connect_fail(
 ) -> None:
     """Check that exceptions in connect function for guarding disconnect are ignored."""
 
-    async def _raise_value_error(_args) -> NoReturn:
+    async def _raise_value_error(*args: Any) -> NoReturn:
         raise ValueError("MockValueError")
 
     patch_bleak_client(MockBleakClient)
@@ -499,6 +513,7 @@ async def test_context_mgr(
             "current": 1.7,
             "battery_charging": True,
             "power": 22.1,
+            "cycle_capacity": 247,
             "cycle_charge": 19,
             "cycles": 23,
             "problem": True,
@@ -541,13 +556,14 @@ def test_crc_calculations() -> None:
     ("data", "cells", "start", "size", "byteorder", "divider", "expected"),
     [
         # Two cells, big endian, default divider
-        (bytearray([0x0D, 0x80, 0x0D, 0xF7]), 2, 0, 2, "big", 1000, [3.456, 3.575]),
+        (b"\x0d\x80\x0d\xf7", 2, 0, 2, "big", 1000, [3.456, 3.575]),
         # Two cells, little endian, default divider
-        (bytearray([0x80, 0x0D, 0xF7, 0x0D]), 2, 0, 2, "little", 1000, [3.456, 3.575]),
+        (b"\x80\x0d\xf7\x0d", 2, 0, 2, "little", 1000, [3.456, 3.575]),
         # One cell, big endian, custom divider
-        (bytearray([0x30, 0x34]), 1, 0, 2, "big", 10000, [1.234]),
-        (  # Three cells, big endian, offset start
-            bytearray([0x00, 0x00, 0x0D, 0x80, 0x0D, 0xF7, 0x0D, 0xA7]),
+        (b"\x30\x34", 1, 0, 2, "big", 10000, [1.234]),
+        # Three cells, big endian, offset start
+        (
+            b"\x00\x00\x0d\x80\x0d\xf7\x0d\xa7",
             3,
             2,
             2,
@@ -556,11 +572,11 @@ def test_crc_calculations() -> None:
             [3.456, 3.575, 3.495],
         ),
         # Not enough data for all cells
-        (bytearray([0x0D, 0x80]), 2, 0, 2, "big", 1000, [3.456]),
+        (b"\x0d\x80", 2, 0, 2, "big", 1000, [3.456]),
         # Zero cells
-        (bytearray([0x0D, 0x80]), 0, 0, 2, "big", 1000, []),
+        (b"\x0d\x80", 0, 0, 2, "big", 1000, []),
         # Divider = 1 (raw values)
-        (bytearray([0x01, 0x02, 0x03, 0x04]), 2, 0, 2, "big", 1, [258, 772]),
+        (b"\x01\x02\x03\x04", 2, 0, 2, "big", 1, [258, 772]),
     ],
     ids=[
         "two_cells_big_endian",
@@ -572,7 +588,15 @@ def test_crc_calculations() -> None:
         "divider_one_raw_values",
     ],
 )
-def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -> None:
+def test_cell_voltages(
+    data: bytes,
+    cells: int,
+    start: int,
+    size: int,
+    byteorder: Literal["little", "big"],
+    divider: int,
+    expected: list[float],
+) -> None:
     """Test the _cell_voltages method of BaseBMS with various input parameters."""
     result: list[float] = BaseBMS._cell_voltages(
         data,
@@ -599,22 +623,14 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
     ),
     [
         # Two signed big endian values, no offset, divider=1
-        (bytearray([0xFF, 0xEC, 0x00, 0x64]), 2, 0, 2, "big", True, 0, 1, [-20, 100]),
-        (  # Two unsigned little endian values, offset=0, divider=10
-            bytearray([0x10, 0x00, 0x20, 0x00]),
-            2,
-            0,
-            2,
-            "little",
-            False,
-            0,
-            10,
-            [1.6, 3.2],
-        ),
+        (b"\xff\xec\x00\x64", 2, 0, 2, "big", True, 0, 1, [-20, 100]),
+        # Two unsigned little endian values, offset=0, divider=10
+        (b"\x10\x00\x20\x00", 2, 0, 2, "little", False, 0, 10, [1.6, 3.2]),
         # One signed big endian value, offset=273.15, divider=1
-        (bytearray([0x0B, 0x98]), 1, 0, 2, "big", False, 2731, 10, [23.7]),
-        (  # Three signed little endian values, offset=0, divider=100
-            bytearray([0x64, 0x00, 0xC8, 0xFF, 0x2C, 0x01]),
+        (b"\x0b\x98", 1, 0, 2, "big", False, 2731, 10, [23.7]),
+        # Three signed little endian values, offset=0, divider=100
+        (
+            b"\x64\x00\xc8\xff\x2c\x01",
             3,
             0,
             2,
@@ -625,37 +641,17 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
             [1.0, -0.56, 3.0],
         ),
         # Not enough data for all values
-        (bytearray([0x00, 0x7D]), 2, 0, 2, "big", True, 0, 1, [125]),
+        (b"\x00\x7d", 2, 0, 2, "big", True, 0, 1, [125]),
         # Zero values requested
-        (bytearray([0x00, 0x7D]), 0, 0, 2, "big", True, 0, 1, []),
+        (b"\x00\x7d", 0, 0, 2, "big", True, 0, 1, []),
         # Divider = 1, offset = 7
-        (bytearray([0x00, 0x14]), 1, 0, 2, "big", True, 7, 1, [13]),
+        (b"\x00\x14", 1, 0, 2, "big", True, 7, 1, [13]),
         # no offset, div = 10
-        (
-            bytearray(b"\x65\x64\x00\x40"),
-            4,
-            0,
-            1,
-            "big",
-            True,
-            0,
-            10,
-            [10.1, 10.0, 0.0, 6.4],
-        ),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 0, 10, [10.1, 10.0, 0.0, 6.4]),
         # offset -40, div = 10
-        (
-            bytearray(b"\x65\x64\x00\x40"),
-            4,
-            0,
-            1,
-            "big",
-            True,
-            40,
-            10,
-            [6.1, 6.0, 2.4],
-        ),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 40, 10, [6.1, 6.0, 2.4]),
         # offset -25, div = 1
-        (bytearray(b"\x65\x64\x00\x40"), 4, 0, 1, "big", True, 25, 1, [76, 75, 39]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 25, 1, [76, 75, 39]),
     ],
     ids=[
         "two_signed_big_endian",
@@ -671,7 +667,15 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
     ],
 )
 def test_temp_values(
-    data, values, start, size, byteorder, signed, offset, divider, expected
+    data: bytes,
+    values: int,
+    start: int,
+    size: int,
+    byteorder: Literal["little", "big"],
+    signed: bool,
+    offset: float,
+    divider: int,
+    expected: list[int | float],
 ) -> None:
     """Test the _temp_values method of BaseBMS with various input parameters."""
     result: list[int | float] = BaseBMS._temp_values(
@@ -688,7 +692,7 @@ def test_temp_values(
 
 
 @pytest.mark.parametrize(
-    ("fields", "data", "byteorder", "offset", "expected"),
+    ("fields", "data", "byteorder", "start", "expected"),
     [
         # Test with big endian and multiple data points
         (
@@ -696,7 +700,7 @@ def test_temp_values(
                 BMSDp("voltage", 0, size=2, signed=False),
                 BMSDp("current", 2, size=2, signed=True),
             ),
-            bytearray([0x0D, 0x80, 0xFF, 0xEC]),
+            b"\x0d\x80\xff\xec",
             "big",
             0,
             {"voltage": 3456.0, "current": -20},
@@ -704,7 +708,7 @@ def test_temp_values(
         # Test with dict data, little endian
         (
             (BMSDp("voltage", 0, size=2, signed=False, fct=lambda x: x / 10, idx=1),),
-            {1: bytearray([0x64, 0x00])},
+            {1: b"\x64\x00"},
             "little",
             0,
             {"voltage": 10},
@@ -712,23 +716,23 @@ def test_temp_values(
         # Test with missing dict data
         (
             (BMSDp("voltage", 0, size=2, signed=False, idx=2),),
-            {1: bytearray([0x64, 0x00])},
+            {1: b"\x64\x00"},
             "little",
             0,
             {},
         ),
-        # Test with offset
+        # Test with start
         (
             (BMSDp("battery_level", 1, size=1, signed=False),),
-            bytearray([0x00, 0x7D]),
+            b"\x00\x7d",
             "big",
             0,
             {"battery_level": 125},
         ),
-        # Test with offset shifting the slice
+        # Test with start shifting the slice
         (
             (BMSDp("voltage", 0, size=2, signed=False),),
-            bytearray([0x00, 0x00, 0x12, 0x34]),
+            b"\x00\x00\x12\x34",
             "big",
             2,
             {"voltage": 0x1234},
@@ -738,14 +742,20 @@ def test_temp_values(
         "be_multiple_dps",
         "le_dict_single_dp_lambda",
         "le_dict_missing_idx",
-        "be_with_offset",
-        "be_offset_shift_slice",
+        "be_with_start",
+        "be_start_shift_slice",
     ],
 )
-def test_decode_data(fields, data, byteorder, offset, expected) -> None:
+def test_decode_data(
+    fields: tuple[BMSDp, ...],
+    data: bytes | dict[int, bytes],
+    byteorder: Literal["little", "big"],
+    start: int,
+    expected: BMSSample,
+) -> None:
     """Test the _decode_data method of BaseBMS with various input parameters."""
     result: BMSSample = BaseBMS._decode_data(
-        fields, data, byteorder=byteorder, offset=offset
+        fields, data, byteorder=byteorder, start=start
     )
     assert result == expected
 
@@ -755,6 +765,6 @@ def test_decode_data(fields, data, byteorder, offset, expected) -> None:
     [(b"", ""), (b"\x00 ", ""), (b"test\x00 ", "test"), (b"test  \t\r ", "test")],
     ids=["empty", "hex", "text_hex", "test_space"],
 )
-def test_barr2str(data: bytes, expected: str) -> None:
+def test_b2str(data: bytes, expected: str) -> None:
     """Test bytearray to string conversion function."""
-    assert barr2str(bytearray(data)) == expected
+    assert b2str(data) == expected

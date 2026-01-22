@@ -4,21 +4,22 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
     """LiPower BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "LiPower", "default_model": "battery"}
-    _HEAD: Final[bytes] = b"\x22\x03"  # beginning of frame
+    INFO: BMSInfo = {"default_manufacturer": "Ective", "default_model": "LiPower BMS"}
+    _HEADS: Final[tuple[bytes, ...]] = (b"\x22\x03", b"\x0b\x03")  # alternative heads
     _MIN_LEN: Final[int] = 5  # minimal frame length, including SOF and checksum
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 15, 2, False, lambda x: x / 10),
@@ -29,17 +30,19 @@ class BMS(BaseBMS):
         BMSDp(
             "runtime",
             7,
-            6,
+            4,
             False,
-            lambda x: (((x >> 32) * 3600 + ((x >> 16) & 0xFFFF) * 60) * (x & 0xFF)),
+            lambda x: (x >> 16) * BMS._HRS_TO_SECS + (x & 0xFFFF) * 60,
         ),
         BMSDp("cycle_charge", 3, 2, False),
-        # BMSDp("power", 17, 2, False),
+        # BMSDp("power", 17, 2, False),  # disabled, due to precision
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
+        self._heads: tuple[bytes, ...] = BMS._HEADS
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -61,19 +64,13 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {"battery_charging", "cycle_capacity", "power"}
-        )  # calculate further values from BMS provided set ones
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
-        if not data.startswith(BMS._HEAD) or len(data) < BMS._MIN_LEN:
+        if not data.startswith(self._heads) or len(data) < BMS._MIN_LEN:
             self._log.debug("incorrect SOF")
             return
 
@@ -91,25 +88,36 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data = data.copy()
-        self._data_event.set()
+        self._msg = bytes(data)
+        self._msg_event.set()
 
     @staticmethod
-    def _cmd(addr: int, words: int) -> bytes:
+    @cache
+    def _cmd(cmd: int, addr: int, words: int, head: bytes) -> bytes:
         """Assemble a LiPower BMS command (MODBUS)."""
         frame: bytearray = (
-            bytearray(BMS._HEAD)
-            + b"\x04"
-            + int.to_bytes(addr, 2, byteorder="big")
-            + int.to_bytes(words, 1, byteorder="big")
+            bytearray(head)
+            + cmd.to_bytes(1, "big")
+            + addr.to_bytes(2, "big")
+            + words.to_bytes(1, "big")
         )
-
         frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
         return bytes(frame)
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        self._log.debug("replace with command to UUID %s", BMS.uuid_tx())
-        await self._await_reply(BMS._cmd(0, 8))  # b"\x22\x03\x04\x00\x00\x08\x42\x6f"
+        for head in self._heads:
+            try:
+                await self._await_msg(
+                    BMS._cmd(cmd=0x4, addr=0x0, words=0x8, head=head)
+                )
+                if len(self._heads) > 1:
+                    self._log.debug("detected frame head: %s", head.hex(" "))
+                    self._heads = (head,)  # set to single head for further commands
+                break
+            except TimeoutError:
+                ...  # try next frame head
+        else:
+            raise TimeoutError
 
-        return BMS._decode_data(BMS._FIELDS, self._data)
+        return BMS._decode_data(BMS._FIELDS, self._msg)

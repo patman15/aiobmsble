@@ -21,9 +21,30 @@ permissions:
   contents: read
 
 jobs:
+  validate-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify release tag starts with a number
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          echo "Checking release tag: $tag"
+
+          # Regex for strict semantic versioning: X.Y.Z with optional pre-release/build metadata
+          semver_regex='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+
+          if [[ ! "$tag" =~ $semver_regex ]]; then
+            echo "❌ Invalid tag: must match semantic version, e.g. '3.4.5-beta.2+exp'"
+            exit 1
+          else
+            echo "✅ Tag is valid"
+          fi
+
+
   release-build:
     name: Build distribution
     runs-on: ubuntu-latest
+    needs:
+      - validate-tag
 
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +60,7 @@ jobs:
 
       - name: Set version from tag
         run: |
-          VERSION=${{ github.event.release.tag_name#v }}
+          VERSION="${{ github.event.release.tag_name }}"
           toml set --toml-path pyproject.toml project.version "$VERSION"
 
       - name: Build release package
@@ -82,7 +103,7 @@ jobs:
       # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
       # ALTERNATIVE: exactly, uncomment the following line instead:
       # url: https://pypi.org/project/aiobmsble/${{ github.event.inputs.release_name }}
-      url: https://pypi.org/project/aiobmsble/${{ github.event.release.tag_name#v }}
+      url: https://pypi.org/project/aiobmsble/${{ github.event.release.tag_name }}
 
     steps:
       - name: Retrieve release distributions

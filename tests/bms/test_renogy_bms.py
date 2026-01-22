@@ -152,7 +152,7 @@ def fix_response(request) -> bytearray:
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -176,7 +176,7 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
+async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test data update with BMS returning error flags."""
 
     monkeypatch.setattr(

@@ -2,12 +2,8 @@
   {
     "advertisement": {
       "local_name": "GJ-25.6V200AH-0006",
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
-      "platform_data": [
-        "A4:C1:37:00:00:00"
-      ]
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
+      "platform_data": ["A4:C1:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -21,13 +17,9 @@
       "manufacturer_data": {
         "31488": "02ffff7d"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -127,
-      "platform_data": [
-        "E1:24:50:00:00:00"
-      ]
+      "platform_data": ["E1:24:50:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -41,13 +33,9 @@
       "manufacturer_data": {
         "6226": "2837c2a5"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -57,
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ]
+      "platform_data": ["A5:C2:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -62,13 +50,9 @@
       "manufacturer_data": {
         "8856": "2837c2a5"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -53,
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ]
+      "platform_data": ["A5:C2:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -82,13 +66,9 @@
       "manufacturer_data": {
         "15984": "97d1c18c"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -53,
-      "platform_data": [
-        "70:3E:97:00:00:00"
-      ]
+      "platform_data": ["70:3E:97:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -102,13 +82,9 @@
       "manufacturer_data": {
         "49572": "38991554"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -53,
-      "platform_data": [
-        "A4:C1:38:00:00:00"
-      ]
+      "platform_data": ["A4:C1:38:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -123,13 +99,9 @@
       "manufacturer_data": {
         "19011": "1b38c1a4"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -53,
-      "platform_data": [
-        "A4:C1:38:00:00:00"
-      ]
+      "platform_data": ["A4:C1:38:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -144,13 +116,9 @@
       "manufacturer_data": {
         "42435": "2737c2a5"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -49,
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ]
+      "platform_data": ["A5:C2:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -166,13 +134,9 @@
       "manufacturer_data": {
         "34114": "1c1fc2a5"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -31,
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ]
+      "platform_data": ["A5:C2:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -185,13 +149,9 @@
       "manufacturer_data": {
         "44580": "2737c2a5"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -60,
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ]
+      "platform_data": ["A5:C2:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -206,13 +166,9 @@
       "manufacturer_data": {
         "16089": "4237c1a4"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -84,
-      "platform_data": [
-        "A4:C1:37:00:00:00"
-      ]
+      "platform_data": ["A4:C1:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -227,13 +183,9 @@
       "manufacturer_data": {
         "123": "02ffff7d"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -84,
-      "platform_data": [
-        "F9:56:0B:00:00:00"
-      ]
+      "platform_data": ["F9:56:0B:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -254,9 +206,7 @@
         "00002600-0000-1000-8000-00805f9b34fb",
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "platform_data": [
-        "C2:33:20:00:00:00"
-      ]
+      "platform_data": ["C2:33:20:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -269,13 +219,9 @@
       "manufacturer_data": {
         "49572": "375532f9"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -35,
-      "platform_data": [
-        "A4:C1:37:00:00:00"
-      ]
+      "platform_data": ["A4:C1:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -289,13 +235,9 @@
       "manufacturer_data": {
         "30669": "e438c1a4"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -46,
-      "platform_data": [
-        "A4:C1:38:00:00:00"
-      ]
+      "platform_data": ["A4:C1:38:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -309,13 +251,9 @@
       "manufacturer_data": {
         "16666": "2937c2a5"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -72,
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ]
+      "platform_data": ["A5:C2:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -329,13 +267,9 @@
       "manufacturer_data": {
         "49834": "37018ec700014c03"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -70,
-      "platform_data": [
-        "AA:C2:37:00:00:00"
-      ]
+      "platform_data": ["AA:C2:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -354,9 +288,7 @@
         "00000001-0000-1000-8000-00805f9b34fb"
       ],
       "rssi": -47,
-      "platform_data": [
-        "38:36:13:00:00:00"
-      ]
+      "platform_data": ["38:36:13:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -390,13 +322,9 @@
       "manufacturer_data": {
         "49148": "3437c1a4"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -46,
-      "platform_data": [
-        "A4:C1:37:00:00:00"
-      ]
+      "platform_data": ["A4:C1:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -411,13 +339,9 @@
       "manufacturer_data": {
         "11313": "2037c1a4"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -43,
-      "platform_data": [
-        "A4:C1:37:00:00:00"
-      ]
+      "platform_data": ["A4:C1:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -431,13 +355,9 @@
       "manufacturer_data": {
         "36783": "3037c1a4"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -63,
-      "platform_data": [
-        "A4:C1:37:00:00:00"
-      ]
+      "platform_data": ["A4:C1:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -451,13 +371,9 @@
       "manufacturer_data": {
         "21516": "5037c1a4"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -62,
-      "platform_data": [
-        "A4:C1:37:00:00:00"
-      ]
+      "platform_data": ["A4:C1:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -471,13 +387,9 @@
       "manufacturer_data": {
         "58324": "3238c1a4"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -94,
-      "platform_data": [
-        "A4:C1:38:00:00:00"
-      ]
+      "platform_data": ["A4:C1:38:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -503,9 +415,7 @@
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
       "rssi": -48,
-      "platform_data": [
-        "A4:C1:38:00:00:00"
-      ]
+      "platform_data": ["A4:C1:38:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -515,13 +425,9 @@
   {
     "advertisement": {
       "local_name": "BS202212-01-0168",
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -91,
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ]
+      "platform_data": ["A5:C2:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -534,13 +440,9 @@
       "manufacturer_data": {
         "45653": "6037c2a5"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -68,
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ]
+      "platform_data": ["A5:C2:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -555,13 +457,9 @@
       "manufacturer_data": {
         "37637": "3337c2a5"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -68,
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ]
+      "platform_data": ["A5:C2:37:00:00:00"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -574,15 +472,11 @@
     "advertisement": {
       "local_name": "LP02555",
       "rssi": -64,
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ],
+      "platform_data": ["A5:C2:37:00:00:00"],
       "manufacturer_data": {
         "407": "2e37c2a5"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ]
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -597,12 +491,8 @@
       "manufacturer_data": {
         "19446": "4037c2a5"
       },
-      "platform_data": [
-        "A5:C2:37:00:00:00"
-      ],
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ]
+      "platform_data": ["A5:C2:37:00:00:00"],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"]
     },
     "type": "jbd_bms",
     "_comments": [
@@ -615,9 +505,7 @@
       "manufacturer_data": {
         "123": "02ffff7d"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -69,
       "platform_data": ["F4:F0:3C:00:00:00"]
     },
@@ -633,9 +521,7 @@
       "manufacturer_data": {
         "123": "02ffff7d"
       },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
       "rssi": -69,
       "platform_data": ["E9:99:6B:00:00:00"]
     },
@@ -643,6 +529,36 @@
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/522)",
       "Supervolt Ultra LiFePO4 battery"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "5",
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
+      "rssi": -93,
+      "platform_data": ["10:A5:62:00:00:00"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "manufacturer app (https://github.com/patman15/BMS_BLE-HA/issues/565)",
+      "CHINS 48V lifepo4 battery"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "DP04S007L4S60A",
+      "manufacturer_data": { "61774": "2739c2a5" },
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
+      "rssi": -66,
+      "platform_data": ["A5:C2:39:00:00:00"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/595)",
+      "Manufacturer: DGJBD",
+      "Production date 2025-12-23",
+      "BMS model: DP04S007 V1.7",
+      "BMS version: 2.a"
     ]
   }
 ]

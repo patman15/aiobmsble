@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -39,7 +39,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -60,12 +60,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {"battery_charging", "cycle_capacity", "delta_voltage", "power", "runtime"}
-        )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -89,19 +83,18 @@ class BMS(BaseBMS):
                 int.from_bytes(data[-2:], byteorder="little"),
                 crc,
             )
-            self._data.clear()
             return
 
-        self._data = data.copy()
-        self._data_event.set()
+        self._msg = bytes(data)
+        self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
-        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
         # result["temp_values"] = BMS._temp_values(self._data, values=2, start=69, size=1)
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
+            self._msg, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
         )
         return result

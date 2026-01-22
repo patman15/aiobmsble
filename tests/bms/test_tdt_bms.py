@@ -28,6 +28,12 @@ _PROTO_DEFS: Final[dict[str, dict[int, bytearray]]] = {
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x06\x09\x00\x00\x18\x00\x00\x00"
             b"\xdf\x68\x0d"
         ),
+        0x95: bytearray(
+            b"\x0e\x2c\x00\x03\xa1\xde\x06\x0a\x03\x20\x3d\x31\x00\x7d\xdf\xc5"
+            b"\xa5\x6f\x9b\x9a\xaf\x0e\x19\x15\x00\x04\x00\x12\x14\x00\x7e\x00"
+            b"\x01\x06\x00\x95\x00\x07\x07\xe8\x0b\x16\x0e\x07\x08\xc9\x41\x0d"
+            b"\x79\xf7\x25"
+        ),
     },
     "16S6Tv0.0": {
         0x8C: bytearray(  # 16 cell message
@@ -64,7 +70,7 @@ _PROTO_DEFS: Final[dict[str, dict[int, bytearray]]] = {
 }
 
 
-def ref_value() -> dict:
+def ref_value() -> dict[str, BMSSample]:
     """Return reference value for mock Seplos BMS."""
     return {
         "4S4Tv0.0": {
@@ -172,6 +178,7 @@ def ref_value() -> dict:
 )
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
+    assert isinstance(request.param, str)
     return request.param
 
 
@@ -199,7 +206,7 @@ class MockTDTBleakClient(MockBleakClient):
             and bytearray(data)[-1] == self.TAIL_CMD
         ):
             for k, v in self.CMDS.items():
-                if bytearray(data)[1:].startswith(v):
+                if bytearray(data)[1:].startswith(v) and k in self.RESP:
                     return self.RESP[k]
 
         return bytearray()
@@ -220,9 +227,9 @@ class MockTDTBleakClient(MockBleakClient):
                 self._char_fffa = 0x1
             return
 
-        assert self._notify_callback, (
-            "write to characteristics but notification not enabled"
-        )
+        assert (
+            self._notify_callback
+        ), "write to characteristics but notification not enabled"
 
         resp: bytearray = self._response(char_specifier, data)
         for notify_data in [
@@ -249,8 +256,8 @@ class MockTDTBleakClient(MockBleakClient):
 async def test_update(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    protocol_type,
-    keep_alive_fixture,
+    protocol_type: str,
+    keep_alive_fixture: bool,
 ) -> None:
     """Test TDT BMS data update."""
 
@@ -269,7 +276,10 @@ async def test_update(
 
 
 async def test_update_0x1e_head(
-    monkeypatch, patch_bms_timeout, patch_bleak_client, keep_alive_fixture
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bms_timeout,
+    patch_bleak_client,
+    keep_alive_fixture: bool,
 ) -> None:
     """Test TDT BMS data update."""
 
@@ -300,6 +310,37 @@ async def test_update_0x1e_head(
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
+
+
+@pytest.mark.parametrize(("header"), [0x7E, 0x1E], ids=["7e", "1e"])
+async def test_device_info(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    protocol_type: str,
+    header: int,
+) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    monkeypatch.setattr(MockTDTBleakClient, "RESP", _PROTO_DEFS[protocol_type])
+    monkeypatch.setattr(MockTDTBleakClient, "HEAD_CMD", header)
+    patch_bms_timeout()
+    patch_bleak_client(MockTDTBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == (
+        {
+            "fw_version": "mock_FW_version",
+            "hw_version": "mock_HW_version",
+            "manufacturer": "mock_manufacturer",
+            "model": "mock_model",
+            "serial_number": "mock_serial_number",
+            "sw_version": "mock_SW_version",
+        }
+        if protocol_type in ("4S4Tv0.0", "16S6Tv0.4")
+        else {
+            "sw_version": "6032_10016S000_L_41",
+            "serial_number": "60326016207270001",
+        }
+    )
 
 
 @pytest.fixture(
@@ -447,13 +488,14 @@ async def test_init_fail(
 )
 def prb_response(
     request: pytest.FixtureRequest,
-) -> list[tuple[dict[int, bytearray], str]]:
+) -> tuple[dict[int, bytearray], str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: tuple[dict[int, bytearray], str]
 ) -> None:
     """Test data update with BMS returning error flags."""
 

@@ -14,7 +14,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_sum
+from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
 class BMS(BaseBMS):
@@ -38,7 +38,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._msg: bytes = b""
         self._bms_info: dict[str, str] = {}
         self._exp_len: int = BMS._MIN_FRAME
         self._valid_reply: int = 0x02
@@ -73,17 +73,13 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         self._valid_reply = 0x01
-        await self._await_reply(self._cmd(b"\x01"))
+        await self._await_msg(self._cmd(b"\x01"))
         self._valid_reply = 0x02
         return {
-            "model": barr2str(self._data_final[8:24]),
-            "hw_version": barr2str(self._data_final[24:32]),
-            "sw_version": barr2str(self._data_final[32:40]),
+            "model": b2str(self._msg[8:24]),
+            "hw_version": b2str(self._msg[24:32]),
+            "sw_version": b2str(self._msg[32:40]),
         }
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset({"temperature"})
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -91,53 +87,53 @@ class BMS(BaseBMS):
         """Retrieve BMS data update."""
 
         if (
-            len(self._data) >= self._exp_len or not self._data.startswith(BMS._HEAD_RSP)
+            len(self._frame) >= self._exp_len or not self._frame.startswith(BMS._HEAD_RSP)
         ) and data.startswith(BMS._HEAD_RSP):
-            self._data = bytearray()
+            self._frame.clear()
             self._exp_len = max(
                 int.from_bytes(data[6:8], byteorder="little", signed=False),
                 BMS._MIN_FRAME,
             )
 
-        self._data += data
+        self._frame += data
 
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
         # verify that data is long enough
-        if len(self._data) < self._exp_len:
+        if len(self._frame) < self._exp_len:
             return
 
-        if not self._data.startswith(BMS._HEAD_RSP):
+        if not self._frame.startswith(BMS._HEAD_RSP):
             self._log.debug("incorrect frame start.")
             return
 
         # trim message in case oversized
-        if len(self._data) > self._exp_len:
-            self._log.debug("wrong data length (%i): %s", len(self._data), self._data)
-            self._data = self._data[: self._exp_len]
+        if len(self._frame) > self._exp_len:
+            self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
+            self._frame = self._frame[: self._exp_len]
 
-        if self._data[-1] != BMS._TAIL:
+        if self._frame[-1] != BMS._TAIL:
             self._log.debug("incorrect frame end.")
             return
 
         # check that message type is expected
-        if self._data[BMS._TYPE_POS] != self._valid_reply:
+        if self._frame[BMS._TYPE_POS] != self._valid_reply:
             self._log.debug(
                 "unexpected message type 0x%X (length %i): %s",
-                self._data[BMS._TYPE_POS],
-                len(self._data),
-                self._data,
+                self._frame[BMS._TYPE_POS],
+                len(self._frame),
+                self._frame,
             )
             return
 
-        if (crc := crc_sum(self._data[:-2])) != self._data[-2]:
-            self._log.debug("invalid checksum 0x%X != 0x%X", self._data[-2], crc)
+        if (crc := crc_sum(self._frame[:-2])) != self._frame[-2]:
+            self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-2], crc)
             return
 
-        self._data_final = self._data.copy()
-        self._data_event.set()
+        self._msg = bytes(self._frame)
+        self._msg_event.set()
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -155,13 +151,13 @@ class BMS(BaseBMS):
         assert len(value) <= 11
         frame: bytearray = bytearray(  # 0x14 frame length
             [*BMS._HEAD_CMD, cmd[0], reg & 0xFF, 0x14, *value]
-        ) + bytearray(11 - len(value))
+        ) + bytes(11 - len(value))
         frame += bytes([crc_sum(frame), BMS._TAIL])
         return bytes(frame)
 
     @staticmethod
     def _cell_voltages(
-        data: bytearray,
+        data: bytes,
         *,
         cells: int,
         start: int,
@@ -178,14 +174,14 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _temp_sensors(data: bytearray, sensors: int) -> list[int | float]:
+    def _temp_sensors(data: bytes, sensors: int) -> list[int | float]:
         return [
             round(unpack_from("<f", data, 221 + idx * 4)[0], 2)
             for idx in range(sensors)
         ]
 
     @staticmethod
-    def _conv_data(data: bytearray) -> BMSSample:
+    def _conv_data(data: bytes) -> BMSSample:
         """Return BMS data from status message."""
         result: BMSSample = {}
         for key, idx, fmt, func in BMS._FIELDS:
@@ -195,18 +191,17 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        if not self._data_event.is_set() or self._data_final[4] != 0x02:
+        if not self._msg_event.is_set() or self._msg[4] != 0x02:
             # request cell info (only if data is not constantly published)
             self._log.debug("requesting cell info")
-            await self._await_reply(data=BMS._cmd(b"\x02"))
+            await self._await_msg(data=BMS._cmd(b"\x02"))
 
-        data: BMSSample = self._conv_data(self._data_final)
-        data["temp_values"] = BMS._temp_sensors(self._data_final, 2)
+        data: BMSSample = self._conv_data(self._msg)
+        data["temp_values"] = BMS._temp_sensors(self._msg, 2)
 
         data["cell_voltages"] = BMS._cell_voltages(
-            self._data_final, cells=24, start=9, byteorder="little", size=4
+            self._msg, cells=24, start=9, byteorder="little", size=4
         )
 
-        self._data_final.clear()
-        self._data_event.clear()  # clear event for next update
+        self._msg_event.clear()  # clear event for next update
         return data

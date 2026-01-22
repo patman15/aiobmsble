@@ -11,8 +11,8 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -55,7 +55,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._msg: bytes = b""
         self._valid_reply: int = BMS._CMD_STAT | 0x10  # valid reply mask
         self._exp_len: int = 0
 
@@ -89,17 +89,11 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
 
-        await self._await_reply(BMS._cmd(BMS._CMD_DEV, 0x026C, 0x20))
+        await self._await_msg(BMS._cmd(BMS._CMD_DEV, 0x026C, 0x20))
         return BMSInfo(
-            hw_version=barr2str(self._data_final[6:22]),
-            sw_version=barr2str(self._data_final[22:38]),
+            hw_version=b2str(self._msg[6:22]),
+            sw_version=b2str(self._msg[22:38]),
         )
-
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            {"cycle_capacity", "cycles", "temperature"}
-        )  # calculate further values from BMS provided set ones
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -115,49 +109,49 @@ class BMS(BaseBMS):
 
         if (
             data.startswith(BMS._HEAD)
-            and len(self._data) >= self._exp_len
+            and len(self._frame) >= self._exp_len
             and len(data) >= BMS._MIN_LEN
         ):
-            self._data = bytearray()
+            self._frame = bytearray()
             self._exp_len = data[5] + BMS._MIN_LEN
 
-        self._data += data
+        self._frame += data
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        if len(self._data) < self._exp_len or len(self._data) < BMS._MIN_LEN:
+        if len(self._frame) < self._exp_len or len(self._frame) < BMS._MIN_LEN:
             return
 
-        if self._data[2] != self._valid_reply:
-            self._log.debug("unexpected response (type 0x%X)", self._data[2])
+        if self._frame[2] != self._valid_reply:
+            self._log.debug("unexpected response (type 0x%X)", self._frame[2])
             return
 
-        if len(self._data) != self._exp_len and self._data[2] != BMS._CMD_DEV | 0x10:
+        if len(self._frame) != self._exp_len and self._frame[2] != BMS._CMD_DEV | 0x10:
             # length of CMD_DEV is incorrect, so we ignore the length check here
             self._log.debug(
-                "invalid frame length %d != %d", len(self._data), self._exp_len
+                "invalid frame length %d != %d", len(self._frame), self._exp_len
             )
             return
 
-        if not self._data.endswith(BMS._TAIL):
+        if not self._frame.endswith(BMS._TAIL):
             self._log.debug("invalid frame end")
             return
 
-        if (crc := crc_modbus(self._data[1 : self._exp_len - 4])) != int.from_bytes(
-            self._data[self._exp_len - 4 : self._exp_len - 2], "little"
+        if (crc := crc_modbus(self._frame[1 : self._exp_len - 4])) != int.from_bytes(
+            self._frame[self._exp_len - 4 : self._exp_len - 2], "little"
         ):
             self._log.debug(
                 "invalid checksum 0x%X != 0x%X",
                 int.from_bytes(
-                    self._data[self._exp_len - 4 : self._exp_len - 2], "little"
+                    self._frame[self._exp_len - 4 : self._exp_len - 2], "little"
                 ),
                 crc,
             )
             return
 
-        self._data_final = self._data.copy()
-        self._data_event.set()
+        self._msg = bytes(self._frame)
+        self._msg_event.set()
 
     @staticmethod
     @cache
@@ -172,13 +166,13 @@ class BMS(BaseBMS):
         return bytes(frame) + BMS._TAIL
 
     @staticmethod
-    def _temp_sensors(data: bytearray, sensors: int, offs: int) -> list[float]:
+    def _temp_sensors(data: bytes, sensors: int, offs: int) -> list[float]:
         return [
             float(int.from_bytes(data[idx : idx + 2], byteorder="little", signed=True))
             for idx in range(offs, offs + sensors * 2, 2)
         ]
 
-    async def _await_reply(
+    async def _await_msg(
         self,
         data: bytes,
         char: int | str | None = None,
@@ -188,33 +182,33 @@ class BMS(BaseBMS):
         """Send data to the BMS and wait for valid reply notification."""
 
         self._valid_reply = data[2] | 0x10  # expected reply type
-        await super()._await_reply(data, char, wait_for_notify, max_size)
+        await super()._await_msg(data, char, wait_for_notify, max_size)
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(BMS._cmd(BMS._CMD_STAT, 0, 0xBE))
+        await self._await_msg(BMS._cmd(BMS._CMD_STAT, 0, 0xBE))
 
         result: BMSSample = {}
-        result["battery_charging"] = self._data_final[7] == 0x2
-        result["cell_count"] = min(self._data_final[BMS._CELL_COUNT], BMS._MAX_CELLS)
+        result["battery_charging"] = self._msg[7] == 0x2
+        result["cell_count"] = min(self._msg[BMS._CELL_COUNT], BMS._MAX_CELLS)
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final,
+            self._msg,
             cells=result["cell_count"],
             start=BMS._CELL_POS,
             byteorder="little",
         )
-        result["temp_sensors"] = min(self._data_final[BMS._TEMP_POS], BMS._MAX_TEMPS)
+        result["temp_sensors"] = min(self._msg[BMS._TEMP_POS], BMS._MAX_TEMPS)
         result["temp_values"] = BMS._temp_sensors(
-            self._data_final,
+            self._msg,
             result["temp_sensors"] + 2,  # + MOSFET, balancer temperature
             BMS._CELL_POS + result["cell_count"] * 2,
         )
         result.update(
             BMS._decode_data(
                 BMS._FIELDS,
-                self._data_final,
+                self._msg,
                 byteorder="little",
-                offset=(result["temp_sensors"] + result["cell_count"]) * 2,
+                start=(result["temp_sensors"] + result["cell_count"]) * 2,
             )
         )
 

@@ -9,7 +9,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -59,7 +59,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -90,19 +90,6 @@ class BMS(BaseBMS):
 
     # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset(
-            (
-                "battery_charging",
-                "cycle_capacity",
-                "cycles",
-                "delta_voltage",
-                "power",
-                "temperature",
-            )
-        )  # calculate further values from BMS provided set ones
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -111,32 +98,32 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         if data.startswith(BMS._RX_HEADER_RSP_STAT):
-            self._data = bytearray()
-        elif not self._data:
+            self._frame = bytearray()
+        elif not self._frame:
             self._log.debug("invalid start of frame")
             return
 
-        self._data += data
+        self._frame += data
 
-        _data_len: Final[int] = len(self._data)
+        _data_len: Final[int] = len(self._frame)
         if _data_len < BMS._RSP_STAT_LEN:
             return
 
         if _data_len > BMS._RSP_STAT_LEN:
             self._log.debug("invalid length %d > %d", _data_len, BMS._RSP_STAT_LEN)
-            self._data.clear()
+            self._frame.clear()
             return
 
-        if (local_crc := crc_sum(self._data[4:-2], 2)) != (
-            remote_crc := int.from_bytes(self._data[-2:], byteorder="big", signed=False)
+        if (local_crc := crc_sum(self._frame[4:-2], 2)) != (
+            remote_crc := int.from_bytes(self._frame[-2:], byteorder="big", signed=False)
         ):
             self._log.debug("invalid checksum 0x%X != 0x%X", local_crc, remote_crc)
-            self._data.clear()
+            self._frame.clear()
             return
 
-        self._data_final = self._data.copy()
-        self._data.clear()
-        self._data_event.set()
+        self._msg = bytes(self._frame)
+        self._frame.clear()
+        self._msg_event.set()
 
     @staticmethod
     @cache
@@ -149,15 +136,14 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(BMS._cmd(BMS.CMD.GET, BMS.ADR.STATUS))
+        await self._await_msg(BMS._cmd(BMS.CMD.GET, BMS.ADR.STATUS))
 
-        _data: bytearray = self._data_final
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, _data, byteorder="big", offset=0
+            BMS._FIELDS, self._msg, byteorder="big"
         )
 
         result["cell_voltages"] = BMS._cell_voltages(
-            _data,
+            self._msg,
             cells=result.get("cell_count", 0),
             start=6,
             size=2,
@@ -180,7 +166,7 @@ class BMS(BaseBMS):
 
         # ANT-BMS carries 6 slots for temp sensors but only 4 looks like being connected by default
         result["temp_values"] = BMS._temp_values(
-            _data, values=4, start=91, size=2, byteorder="big", signed=True
+            self._msg, values=4, start=91, size=2, byteorder="big", signed=True
         )
 
         return result

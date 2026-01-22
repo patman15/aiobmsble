@@ -22,8 +22,10 @@ def ref_value() -> BMSSample:
         "battery_level": 100,
         "cycles": 3,
         "cycle_charge": 40.0,
+        "cell_count": 5,
         "cell_voltages": [3.339, 3.339, 3.338, 3.338, 2.317],
         "delta_voltage": 1.022,
+        "temp_values": [-2],
         "temperature": -2,
         "cycle_capacity": 536.0,
         "design_capacity": 40,
@@ -198,12 +200,12 @@ async def test_invalid_response(patch_bleak_client, patch_bms_timeout) -> None:
 
     bms = BMS(generate_ble_device())
 
-    result = await bms.async_update()
-    assert result == {
+    assert await bms.async_update() == {
         "battery_charging": False,
         "current": -3.14,
         "power": -42.076,
         "voltage": 13.4,
+        "cell_count": 0,
         "cell_voltages": [],
         "problem": False,
     }
@@ -224,6 +226,7 @@ async def test_partly_base_data(patch_bleak_client, patch_bms_timeout) -> None:
         "current": 0.0,
         "power": 0.0,
         "voltage": 13.4,
+        "cell_count": 0,
         "cell_voltages": [],
         "problem": False,
     }
@@ -245,6 +248,7 @@ async def test_all_cell_voltages(patch_bleak_client, patch_bms_timeout) -> None:
         "battery_level": 100,
         "cycles": 3,
         "cycle_charge": 40.0,
+        "cell_count": 20,
         "cell_voltages": [
             3.339,
             3.338,
@@ -269,6 +273,7 @@ async def test_all_cell_voltages(patch_bleak_client, patch_bms_timeout) -> None:
         ],
         "delta_voltage": 0.019,
         "temperature": 21,
+        "temp_values": [21],
         "cycle_capacity": 536.0,
         "design_capacity": 40,
         "power": -42.076,
@@ -295,13 +300,14 @@ async def test_all_cell_voltages(patch_bleak_client, patch_bms_timeout) -> None:
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request) -> tuple[dict[int, bytearray], str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[dict[int, bytearray], str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
     problem_response: tuple[dict[int, bytearray], str],

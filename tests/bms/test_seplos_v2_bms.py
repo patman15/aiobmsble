@@ -1,7 +1,6 @@
 """Test the Seplos v2 implementation."""
 
 from collections.abc import Buffer
-from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -61,32 +60,35 @@ class MockSeplosv2BleakClient(MockBleakClient):
     """Emulate a Seplos v2 BMS BleakClient."""
 
     HEAD_CMD = 0x7E
+    TAIL_CMD = 0x0D
     PROTOCOL = 0x10
-    CMD_GSMD = bytearray(b"\x46\x61\x00\x01\x00")  # get single machine data
-    CMD_GPD = bytearray(
-        bytes([HEAD_CMD, PROTOCOL]) + b"\x00\x46\x62\x00\x00"
-    )  # get parallel data
-    CMD_GMI = bytearray(
-        bytes([HEAD_CMD, PROTOCOL]) + b"\00\x46\x51\x00\x00\x3a\x7f\x0d"
-    )
-
-    GSMD_RESP: Final[bytearray] = (
-        bytearray(  # get single machine data, address is incorrect but device also ignores it
+    RESP: dict[bytes, bytearray] = {
+        b"\x00\x46\x61\x00\x01\x00\xf7\xc1": bytearray(  # get single machine data, address is incorrect but device also ignores it
             b"\x7e\x14\x02\x61\x00\x00\x6a\x00\x02\x10\x0c\xf0\x0c\xf1\x0c\xf1\x0c\xf1\x0c"
             b"\xf1\x0c\xf0\x0c\xf1\x0c\xf3\x0c\xef\x0c\xf0\x0c\xf1\x0c\xf1\x0c\xf1\x0c\xf0"
             b"\x0c\xf1\x0c\xf1\x06\x0b\x8f\x0b\x89\x0b\x8a\x0b\x93\x0b\xc0\x0b\x98\x02\xad"
             b"\x14\xb4\x38\x3a\x06\x6d\x60\x02\x02\x6d\x60\x00\x80\x03\xe8\x14\xbb\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x02\x03\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xc1"
-            b"\xd7\x0d"
-        )
-    )  # 53.00V, 6.85A, 143.94Ah, 51.4%, 128 cycles, 280.00Ah, 16 cells, 6 temp sensors
-
-    MI_RESP: Final[bytearray] = bytearray(  # manufacturer information
-        b"\x7e\x14\x00\x51\x00\x00\x24\x43\x41\x4e\x3a\x50\x4e\x47\x5f\x44\x59\x45\x5f"
-        b"\x4c\x75\x78\x70\x5f\x54\x42\x42\x31\x31\x30\x31\x2d\x53\x50\x37\x36\x20\x10"
-        b"\x06\x01\x01\x46\x01\xa2\x6c\x0d"
-    )
+            b"\xd7\x0d"  # 53.00V, 6.85A, 143.94Ah, 51.4%, 128 cycles, 280.00Ah, 16 cells, 6 temp sensors
+        ),
+        b"\00\x46\x51\x00\x00\x3a\x7f": bytearray(  # manufacturer information
+            b"\x7e\x14\x00\x51\x00\x00\x24\x43\x41\x4e\x3a\x50\x4e\x47\x5f\x44\x59\x45\x5f"
+            b"\x4c\x75\x78\x70\x5f\x54\x42\x42\x31\x31\x30\x31\x2d\x53\x50\x37\x36\x20\x10"
+            b"\x06\x01\x01\x46\x01\xa2\x6c\x0d"
+        ),
+        b"\x00\x46\x62\x00\x00\xa6\x8a": bytearray(  # GPD for main pack
+            b"\x7e\x14\x00\x62\x00\x00\x30\x00\x00\x10\x0c\xf4\x0c\xee\x06\x0b\x93\x0b\x7f"
+            b"\x0b\xb6\x0b\x8d\x00\xd7\x14\xb4\x11\x14\x07\x20\xd0\x02\x08\x20\xd0\x00\x71"
+            b"\x03\xe8\x14\xb9\x07\x00\x02\x03\x08\x00\x00\x00\x00\x00\x00\x00\x00\x76\x31"
+            b"\x0d"
+        ),
+        # return bytearray( # GPD for extension pack
+        #     b"\x7e\x14\x00\x62\x00\x00\x28\x00\x00\x10\x00\x00\x00\x00\x06\x00\x00\x00\x00"
+        #     b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00\x00\x00\x00\x00\x00"
+        #     b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0a\x4f\x0d"
+        # )
+    }
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
@@ -96,24 +98,11 @@ class MockSeplosv2BleakClient(MockBleakClient):
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")
             and bytearray(data)[0] == self.HEAD_CMD
         ):
-            if bytearray(data)[1] == self.PROTOCOL and bytearray(data)[3:].startswith(
-                self.CMD_GSMD  # ignore address as device does
+            if (
+                bytes([self.HEAD_CMD, self.PROTOCOL]) == bytes(data)[0:2]
+                and bytes(data)[-1] == self.TAIL_CMD
             ):
-                return self.GSMD_RESP
-            if bytearray(data).startswith(self.CMD_GPD):
-                return bytearray(  # GPD for main pack
-                    b"\x7e\x14\x00\x62\x00\x00\x30\x00\x00\x10\x0c\xf4\x0c\xee\x06\x0b\x93\x0b\x7f"
-                    b"\x0b\xb6\x0b\x8d\x00\xd7\x14\xb4\x11\x14\x07\x20\xd0\x02\x08\x20\xd0\x00\x71"
-                    b"\x03\xe8\x14\xb9\x07\x00\x02\x03\x08\x00\x00\x00\x00\x00\x00\x00\x00\x76\x31"
-                    b"\x0d"
-                )
-                # return bytearray( # GPD for extension pack
-                #     b"\x7e\x14\x00\x62\x00\x00\x28\x00\x00\x10\x00\x00\x00\x00\x06\x00\x00\x00\x00"
-                #     b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00\x00\x00\x00\x00\x00"
-                #     b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0a\x4f\x0d"
-                # )
-            if bytearray(data).startswith(self.CMD_GMI):
-                return self.MI_RESP
+                return self.RESP.get(bytes(data)[2:-1], bytearray())
 
         return bytearray()
 
@@ -125,9 +114,9 @@ class MockSeplosv2BleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert self._notify_callback, (
-            "write to characteristics but notification not enabled"
-        )
+        assert (
+            self._notify_callback
+        ), "write to characteristics but notification not enabled"
 
         resp: bytearray = self._response(char_specifier, data)
         for notify_data in [
@@ -136,7 +125,7 @@ class MockSeplosv2BleakClient(MockBleakClient):
             self._notify_callback("MockSeplosv2BleakClient", notify_data)
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Seplos V2 BMS data update."""
 
     patch_bleak_client(MockSeplosv2BleakClient)
@@ -156,24 +145,26 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockSeplosv2BleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "sw_version": "16.6",
-        "model": "B1101-SP76",
-    }
+    assert await bms.device_info() == {"sw_version": "16.6", "model": "B1101-SP76"}
 
 
-async def test_short_message(monkeypatch, patch_bleak_client) -> None:
+async def test_short_message(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
     """Test Seplos V2 BMS data update with short message (missing values)."""
 
     monkeypatch.setattr(
         MockSeplosv2BleakClient,
-        "GSMD_RESP",
-        bytearray(
-            b"\x7e\x14\x02\x61\x00\x00\x3c\x00\x02\x10\x0c\xf0\x0c\xf1\x0c\xf1\x0c\xf1\x0c"
-            b"\xf1\x0c\xf0\x0c\xf1\x0c\xf3\x0c\xef\x0c\xf0\x0c\xf1\x0c\xf1\x0c\xf1\x0c\xf0"
-            b"\x0c\xf1\x0c\xf1\x06\x0b\x8f\x0b\x89\x0b\x8a\x0b\x93\x0b\xc0\x0b\x98\x02\xad"
-            b"\x14\xb4\x38\x3a\x06\x6d\x60\x02\x02\x6d\xe1\x06\x0d"
-        ),
+        "RESP",
+        MockSeplosv2BleakClient.RESP
+        | {
+            b"\x00\x46\x61\x00\x01\x00\xf7\xc1": bytearray(
+                b"\x7e\x14\x02\x61\x00\x00\x3c\x00\x02\x10\x0c\xf0\x0c\xf1\x0c\xf1\x0c\xf1\x0c"
+                b"\xf1\x0c\xf0\x0c\xf1\x0c\xf3\x0c\xef\x0c\xf0\x0c\xf1\x0c\xf1\x0c\xf1\x0c\xf0"
+                b"\x0c\xf1\x0c\xf1\x06\x0b\x8f\x0b\x89\x0b\x8a\x0b\x93\x0b\xc0\x0b\x98\x02\xad"
+                b"\x14\xb4\x38\x3a\x06\x6d\x60\x02\x02\x6d\xe1\x06\x0d"
+            )
+        },
     )
 
     patch_bleak_client(MockSeplosv2BleakClient)
@@ -207,13 +198,17 @@ async def test_short_message(monkeypatch, patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request):
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
+    assert isinstance(request.param[0], bytes)
     return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -235,35 +230,44 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
+@pytest.mark.parametrize(
+    ("problem", "expected"),
+    [
+        (
+            bytearray(
+                b"\x7e\x14\x00\x62\x00\x00\x30\x00\x00\x10\x0c\xf4\x0c\xee\x06\x0b\x93\x0b\x7f"
+                b"\x0b\xb6\x0b\x8d\x00\xd7\x14\xb4\x11\x14\x07\x20\xd0\x02\x08\x20\xd0\x00\x71"
+                b"\x03\xe8\x14\xb9\x07\x00\x02\x03\x08\xff\xff\xff\xff\xff\xff\xff\xff\xd0\xd0"
+                b"\x0d"
+            ),
+            0x7DFFFFFFFFFF,
+        ),
+        (
+            bytearray(
+                b"\x7e\x14\x03\x62\x00\x00\x30\x00\x00\x10\x0e\x03\x0d\x70\x06\x0b\xf5\x0b\xed"
+                b"\x0c\x0f\x0b\xf9\xff\xa5\x16\x2f\x0a\xf0\x07\x0a\xf0\x03\xe7\x0a\xf0\x01\xbb"
+                b"\x03\xe8\x16\x2b\x01\x00\x01\x03\x08\x00\x11\x00\x00\x00\x02\x00\x00\xd5\x8d"
+                b"\x0d"
+            ),
+            0x20000,  # Charging over-temp protection
+        ),
+    ],
+    ids=("all", "over-temp"),
+)
 # Alarm flags: Events 1-6, excluding 7-8
-async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
+async def test_problem_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem: bytearray,
+    expected: int,
+) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
-    def prb_response(
-        self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
-    ) -> bytearray:
-        if (
-            isinstance(char_specifier, str)
-            and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")
-            and bytearray(data)[0] == self.HEAD_CMD
-        ):
-            if bytearray(data)[1] == self.PROTOCOL and bytearray(data)[3:].startswith(
-                self.CMD_GSMD
-            ):
-                return self.GSMD_RESP
-            if bytearray(data).startswith(self.CMD_GPD):
-                return bytearray(
-                    b"\x7e\x14\x00\x62\x00\x00\x30\x00\x00\x10\x0c\xf4\x0c\xee\x06\x0b\x93\x0b\x7f"
-                    b"\x0b\xb6\x0b\x8d\x00\xd7\x14\xb4\x11\x14\x07\x20\xd0\x02\x08\x20\xd0\x00\x71"
-                    b"\x03\xe8\x14\xb9\x07\x00\x02\x03\x08\xff\xff\xff\xff\xff\xff\xff\xff\xd0\xd0"
-                    b"\x0d"
-                )
-            if bytearray(data).startswith(self.CMD_GMI):
-                return self.MI_RESP
-
-        return bytearray()
-
-    monkeypatch.setattr(MockSeplosv2BleakClient, "_response", prb_response)
+    monkeypatch.setattr(
+        MockSeplosv2BleakClient,
+        "RESP",
+        MockSeplosv2BleakClient.RESP | {b"\x00\x46\x62\x00\x00\xa6\x8a": problem},
+    )
 
     patch_bleak_client(MockSeplosv2BleakClient)
 
@@ -271,5 +275,5 @@ async def test_problem_response(monkeypatch, patch_bleak_client) -> None:
 
     assert await bms.async_update() == REF_VALUE | {
         "problem": True,
-        "problem_code": 0xFFFFFFFFFF7D0000,
+        "problem_code": expected,
     }

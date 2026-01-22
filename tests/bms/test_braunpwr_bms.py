@@ -58,7 +58,7 @@ def ref_value() -> BMSSample:
         "runtime": 78684,
         "problem_code": 0,
         "problem": False,
-        "balancer": False,
+        "balancer": 32385,
     }
 
 
@@ -68,7 +68,7 @@ class MockBraunPWRBleakClient(MockBleakClient):
     RESP: dict[int, bytearray] = {
         0x01: bytearray(
             b"\x7b\x01\x20\x00\x53\x14\xd3\x00\xd2\x00\xb4\x00\xbe\xfb\x87\x61"
-            b"\xc2\x75\x30\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x0e\x00"
+            b"\xc2\x75\x30\x00\x00\x00\x00\x00\x08\x7e\x81\x00\x00\x00\x0e\x00"
             b"\x00\x00\x64\x7d"
         ),
         0x02: bytearray(
@@ -224,13 +224,16 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[2],
 )
-def prb_response(request) -> tuple[bytearray, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, int, str]:
     """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response: tuple[bytearray, int, str]
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, int, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 

@@ -12,8 +12,8 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSpackvalue, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble import BMSDp, BMSInfo, BMSpackvalue, BMSSample, MatcherPattern
+from aiobmsble.basebms import BaseBMS, crc_modbus, swap32
 
 
 class BMS(BaseBMS):
@@ -41,9 +41,9 @@ class BMS(BaseBMS):
     }
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("temperature", 20, 2, True, lambda x: x / 10, EIB_LEN),  # avg. ctemp
-        BMSDp("voltage", 0, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
-        BMSDp("current", 4, 4, True, lambda x: BMS._swap32(x, True) / 10, EIA_LEN),
-        BMSDp("cycle_charge", 8, 4, False, lambda x: BMS._swap32(x) / 100, EIA_LEN),
+        BMSDp("voltage", 0, 4, False, lambda x: swap32(x) / 100, EIA_LEN),
+        BMSDp("current", 4, 4, True, lambda x: swap32(x, True) / 10, EIA_LEN),
+        BMSDp("cycle_charge", 8, 4, False, lambda x: swap32(x) / 100, EIA_LEN),
         BMSDp("pack_count", 44, 2, False, idx=EIA_LEN),
         BMSDp("cycles", 46, 2, False, idx=EIA_LEN),
         BMSDp("battery_level", 48, 2, False, lambda x: x / 10, EIA_LEN),
@@ -68,7 +68,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._msg: dict[int, bytes] = {}
         self._pack_count: int = 0  # number of battery packs
         self._pkglen: int = 0  # expected packet length
 
@@ -105,10 +105,6 @@ class BMS(BaseBMS):
 
     # async def _fetch_device_info(self) -> BMSInfo: use default, VIA msg useless
 
-    @staticmethod
-    def _calc_values() -> frozenset[BMSValue]:
-        return frozenset({"power", "battery_charging", "cycle_capacity", "runtime"})
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -120,7 +116,7 @@ class BMS(BaseBMS):
             and data[1] & 0x7F in BMS.CMD_READ  # include read errors
             and data[2] >= BMS.HEAD_LEN + BMS.CRC_LEN
         ):
-            self._data = bytearray()
+            self._frame.clear()
             self._pkglen = data[2] + BMS.HEAD_LEN + BMS.CRC_LEN
         elif (  # error message
             len(data) == BMS.HEAD_LEN + BMS.CRC_LEN
@@ -128,47 +124,47 @@ class BMS(BaseBMS):
             and data[1] & 0x80
         ):
             self._log.debug("RX error: %X", data[2])
-            self._data = bytearray()
+            self._frame.clear()
             self._pkglen = BMS.HEAD_LEN + BMS.CRC_LEN
 
-        self._data += data
+        self._frame += data
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
         # verify that data is long enough
-        if len(self._data) < self._pkglen:
+        if len(self._frame) < self._pkglen:
             return
 
-        if (crc := crc_modbus(self._data[: self._pkglen - 2])) != int.from_bytes(
-            self._data[self._pkglen - 2 : self._pkglen], "little"
+        if (crc := crc_modbus(self._frame[: self._pkglen - 2])) != int.from_bytes(
+            self._frame[self._pkglen - 2 : self._pkglen], "little"
         ):
             self._log.debug(
                 "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._data[self._pkglen - 2 : self._pkglen], "little"),
+                int.from_bytes(self._frame[self._pkglen - 2 : self._pkglen], "little"),
                 crc,
             )
-            self._data = bytearray()
+            self._frame.clear()
             return
 
-        if self._data[2] >> 1 not in BMS._CMDS or self._data[1] & 0x80:
+        if self._frame[2] >> 1 not in BMS._CMDS or self._frame[1] & 0x80:
             self._log.debug(
-                "unknown message: %s, length: %s", self._data[0:2], self._data[2]
+                "unknown message: %s, length: %s", self._frame[0:2], self._frame[2]
             )
-            self._data = bytearray()
+            self._frame.clear()
             return
 
-        if len(self._data) != self._pkglen:
+        if len(self._frame) != self._pkglen:
             self._log.debug(
                 "wrong data length (%i!=%s): %s",
-                len(self._data),
+                len(self._frame),
                 self._pkglen,
-                self._data,
+                self._frame,
             )
 
-        self._data_final[self._data[0] << 8 | self._data[2] >> 1] = self._data
-        self._data = bytearray()
-        self._data_event.set()
+        self._msg[self._frame[0] << 8 | self._frame[2] >> 1] = bytes(self._frame)
+        self._frame.clear()
+        self._msg_event.set()
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -177,15 +173,6 @@ class BMS(BaseBMS):
         await super()._init_connection()
         self._pack_count = 0
         self._pkglen = 0
-
-    @staticmethod
-    def _swap32(value: int, signed: bool = False) -> int:
-        """Swap high and low 16bit in 32bit integer."""
-
-        value = ((value >> 16) & 0xFFFF) | (value & 0xFFFF) << 16
-        if signed and value & 0x80000000:
-            value = -0x100000000 + value
-        return value
 
     @staticmethod
     @cache
@@ -203,23 +190,23 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         for block in BMS.QUERY.values():
-            await self._await_reply(BMS._cmd(0x0, *block))
+            await self._await_msg(BMS._cmd(0x0, *block))
 
         data: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data_final, offset=BMS.HEAD_LEN
+            BMS._FIELDS, self._msg, start=BMS.HEAD_LEN
         )
 
         self._pack_count = min(data.get("pack_count", 0), 0x10)
 
         for pack in range(1, 1 + self._pack_count):
             for block in BMS.PQUERY.values():
-                await self._await_reply(self._cmd(pack, *block))
+                await self._await_msg(self._cmd(pack, *block))
 
             for key, idx, sign, func in BMS._PFIELDS:
                 data.setdefault(key, []).append(
                     func(
                         int.from_bytes(
-                            self._data_final[pack << 8 | BMS.PIA_LEN][
+                            self._msg[pack << 8 | BMS.PIA_LEN][
                                 BMS.HEAD_LEN + idx : BMS.HEAD_LEN + idx + 2
                             ],
                             byteorder="big",
@@ -229,7 +216,7 @@ class BMS(BaseBMS):
                 )
 
             pack_cells: list[float] = BMS._cell_voltages(
-                self._data_final[pack << 8 | BMS.PIB_LEN], cells=16, start=BMS.HEAD_LEN
+                self._msg[pack << 8 | BMS.PIB_LEN], cells=16, start=BMS.HEAD_LEN
             )
             # update per pack delta voltage
             data["delta_voltage"] = max(
@@ -241,7 +228,7 @@ class BMS(BaseBMS):
             # add temperature sensors (4x cell temperature + 4 reserved)
             data.setdefault("temp_values", []).extend(
                 BMS._temp_values(
-                    self._data_final[pack << 8 | BMS.PIB_LEN],
+                    self._msg[pack << 8 | BMS.PIB_LEN],
                     values=4,
                     start=BMS._TEMP_START,
                     signed=False,
@@ -249,7 +236,9 @@ class BMS(BaseBMS):
                     divider=10,
                 )
             )
+            # calculate cell_count instead of querying SPA
+            data["cell_count"] = len(data.get("cell_voltages", [])) // self._pack_count
 
-        self._data_final.clear()
+        self._msg.clear()
 
         return data
