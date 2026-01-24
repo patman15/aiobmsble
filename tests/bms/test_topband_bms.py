@@ -1,4 +1,4 @@
-"""Test the Ective BMS implementation."""
+"""Test the Topband BMS implementation."""
 
 from collections.abc import Awaitable, Callable
 from typing import Final
@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
 from aiobmsble import BMSSample
-from aiobmsble.bms.ective_bms import BMS
+from aiobmsble.bms.topband_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import verify_device_info
@@ -111,8 +111,8 @@ def proto(request: pytest.FixtureRequest) -> int:
     return request.param
 
 
-class MockEctiveBleakClient(MockBleakClient):
-    """Emulate a Ective BMS BleakClient."""
+class MockTopbandBleakClient(MockBleakClient):
+    """Emulate a Topband BMS BleakClient."""
 
     _RESP: bytearray = _PROTO_DEFS[0x5E]
 
@@ -122,7 +122,7 @@ class MockEctiveBleakClient(MockBleakClient):
             self._RESP[i : i + BT_FRAME_SIZE]
             for i in range(0, len(self._RESP), BT_FRAME_SIZE)
         ]:
-            self._notify_callback("MockEctiveBleakClient", notify_data)
+            self._notify_callback("MockTopbandBleakClient", notify_data)
 
     @property
     def is_connected(self) -> bool:
@@ -150,10 +150,10 @@ async def test_update(
     protocol_type: int,
     keep_alive_fixture: bool,
 ) -> None:
-    """Test Ective BMS data update."""
+    """Test Topband BMS data update."""
 
-    monkeypatch.setattr(MockEctiveBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
-    patch_bleak_client(MockEctiveBleakClient)
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
+    patch_bleak_client(MockTopbandBleakClient)
 
     bms = BMS(generate_ble_device(), keep_alive_fixture)
 
@@ -168,13 +168,13 @@ async def test_update(
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockEctiveBleakClient, BMS)
+    await verify_device_info(patch_bleak_client, MockTopbandBleakClient, BMS)
 
 
 async def test_tx_notimplemented(patch_bleak_client) -> None:
-    """Test Ective BMS uuid_tx not implemented for coverage."""
+    """Test Topband BMS uuid_tx not implemented for coverage."""
 
-    patch_bleak_client(MockEctiveBleakClient)
+    patch_bleak_client(MockTopbandBleakClient)
 
     bms = BMS(generate_ble_device(), False)
 
@@ -246,9 +246,9 @@ async def test_invalid_response(
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
-    patch_bms_timeout("ective_bms")
-    monkeypatch.setattr(MockEctiveBleakClient, "_RESP", bytearray(wrong_response))
-    patch_bleak_client(MockEctiveBleakClient)
+    patch_bms_timeout("topband_bms")
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", bytearray(wrong_response))
+    patch_bleak_client(MockTopbandBleakClient)
 
     bms = BMS(generate_ble_device())
 
@@ -304,9 +304,9 @@ async def test_problem_response(
 ) -> None:
     """Test data update with BMS returning error flags."""
 
-    monkeypatch.setattr(MockEctiveBleakClient, "_RESP", bytearray(problem_response[0]))
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", bytearray(problem_response[0]))
 
-    patch_bleak_client(MockEctiveBleakClient)
+    patch_bleak_client(MockTopbandBleakClient)
 
     bms = BMS(generate_ble_device())
 
