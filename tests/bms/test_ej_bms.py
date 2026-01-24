@@ -45,13 +45,13 @@ class MockEJBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
-        self._notify_callback("MockEctiveBleakClient", bytearray(b"AT\r\n"))
-        self._notify_callback("MockEctiveBleakClient", bytearray(b"AT\r\nillegal"))
+        self._notify_callback("MockEJBleakClient", bytearray(b"AT\r\n"))
+        self._notify_callback("MockEJBleakClient", bytearray(b"AT\r\nillegal"))
         for notify_data in [
             self._response(char_specifier, data)[i : i + BT_FRAME_SIZE]
             for i in range(0, len(self._response(char_specifier, data)), BT_FRAME_SIZE)
         ]:
-            self._notify_callback("MockEctiveBleakClient", notify_data)
+            self._notify_callback("MockEJBleakClient", notify_data)
 
 
 class MockEJsfBleakClient(MockEJBleakClient):

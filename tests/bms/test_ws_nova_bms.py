@@ -162,6 +162,7 @@ async def test_device_info(patch_bleak_client) -> None:
     ("wrong_response"),
     [
         b"",
+        b":~",
         b"-" + _PROTO_DEFS[1:],
         _PROTO_DEFS[:-2] + b"#",
         b":" + _PROTO_DEFS[2:],
@@ -170,6 +171,7 @@ async def test_device_info(patch_bleak_client) -> None:
     ],
     ids=[
         "empty",
+        "minimal",
         "wrong_SOF",
         "wrong_EOF",
         "wrong_length",

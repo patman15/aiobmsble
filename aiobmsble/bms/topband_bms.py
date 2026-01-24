@@ -19,8 +19,8 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 class BMS(BaseBMS):
     """Ective BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Ective", "default_model": "smart BMS"}
-    _HEAD_RSP: Final[tuple[bytes, ...]] = (b"\x5e", b"\x83")  # header for responses
+    INFO: BMSInfo = {"default_manufacturer": "Topband", "default_model": "smart BMS"}
+    _HEAD_RSP: Final[tuple[bytes, ...]] = (b"\x5e", b"\x83", b"\xb0")  # header for responses
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
