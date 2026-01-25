@@ -34,11 +34,10 @@ class BMS(BaseBMS):
 
     # Register read commands (from Android app analysis)
     # Each command: (start_address, register_count)
-    READ_CMD_1: Final[tuple[int, int]] = (0x0000, 0x003B)  # 59 registers - basic data
-    READ_CMD_2: Final[tuple[int, int]] = (0x0053, 0x0037)  # 55 registers - thresholds
-    READ_CMD_3: Final[tuple[int, int]] = (0x00AA, 0x0023)  # 35 registers - device info
+    READ_CMD_STATUS: Final[tuple[int, int]] = (0x0000, 0x003B)  # 59 registers
+    READ_CMD_DEVICE_INFO: Final[tuple[int, int]] = (0x00AA, 0x0023)  # 35 registers
 
-    # Data field definitions for READ_CMD_1 response
+    # Data field definitions for READ_CMD_STATUS response
     # Byte offsets in the response data (after addr+func+len header)
     # Response format: 01 03 76 [data: 118 bytes] [crc: 2 bytes]
     #
@@ -248,14 +247,14 @@ class BMS(BaseBMS):
         """Update battery status information."""
         result: BMSSample = {}
 
-        # Read basic data (command 1: 59 registers from 0x0000)
-        cmd = self._build_read_cmd(*BMS.READ_CMD_1)
+        # Read basic battery status data
+        cmd = self._build_read_cmd(*BMS.READ_CMD_STATUS)
         await self._await_msg(cmd)
 
         # Parse response (skip 3-byte header: addr, func, byte_count)
         data = self._msg[3:-2]  # Exclude header and CRC
 
-        expected_bytes = BMS.READ_CMD_1[1] * 2  # registers * 2 bytes each
+        expected_bytes = BMS.READ_CMD_STATUS[1] * 2  # registers * 2 bytes each
         if len(data) < expected_bytes:
             self._log.warning(
                 "response too short: %d bytes, expected %d",
@@ -339,13 +338,13 @@ class BMS(BaseBMS):
         return result
 
     async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch device info from BMS via Modbus (READ_CMD_3)."""
+        """Fetch device info from BMS via Modbus."""
         # First get standard BLE device info (may contain generic values)
         info: BMSInfo = await super()._fetch_device_info()
 
         try:
             # Read device info registers via Modbus
-            cmd = self._build_read_cmd(*BMS.READ_CMD_3)
+            cmd = self._build_read_cmd(*BMS.READ_CMD_DEVICE_INFO)
             await self._await_msg(cmd)
 
             # Parse response
