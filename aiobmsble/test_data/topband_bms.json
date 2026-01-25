@@ -10,7 +10,7 @@
       ],
       "rssi": -56
     },
-    "type": "ective_bms",
+    "type": "topband_bms",
     "_comments": [
       "source LOG"
     ]
@@ -26,7 +26,7 @@
       ],
       "rssi": -47
     },
-    "type": "ective_bms",
+    "type": "topband_bms",
     "_comments": [
       "source LOG"
     ]
@@ -42,7 +42,7 @@
       ],
       "rssi": -47
     },
-    "type": "ective_bms",
+    "type": "topband_bms",
     "_comments": [
       "nRF Connect (https://github.com/patman15/BMS_BLE-HA/issues/82#issuecomment-2498299433)"
     ]
@@ -58,7 +58,7 @@
       ],
       "rssi": -127
     },
-    "type": "ective_bms",
+    "type": "topband_bms",
     "_comments": [
       "BTctl (https://github.com/patman15/BMS_BLE-HA/issues/137)"
     ]
@@ -74,7 +74,7 @@
       ],
       "rssi": -48
     },
-    "type": "ective_bms",
+    "type": "topband_bms",
     "_comments": [
       "source BTctl (https://github.com/patman15/BMS_BLE-HA/issues/194)",
       "Topband"
@@ -94,7 +94,7 @@
       ],
       "rssi": -127
     },
-    "type": "ective_bms",
+    "type": "topband_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/276)",
       "renamed",
