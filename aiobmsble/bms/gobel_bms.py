@@ -92,6 +92,7 @@ class BMS(BaseBMS):
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._expected_len: int = 0
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -184,7 +185,7 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug(
             "RX BLE data (%s): %s",
-            "start" if not self._data else "cnt.",
+            "start" if not self._frame else "cnt.",
             data.hex(" "),
         )
 
@@ -193,39 +194,39 @@ class BMS(BaseBMS):
             # Check if it's a valid read response or error response
             if data[1] == BMS.FUNC_READ or data[1] == (BMS.FUNC_READ | 0x80):
                 # Start new frame (clear any old data)
-                self._data = bytearray(data)
+                self._frame = bytearray(data)
             else:
                 self._log.debug("unexpected function code: 0x%02X", data[1])
                 return
-        elif self._data:
+        elif self._frame:
             # Continuation of existing frame
-            self._data.extend(data)
+            self._frame.extend(data)
         else:
             self._log.debug("unexpected data, ignoring: %s", data.hex(" "))
             return
 
         # Check if we have enough data for minimum frame
-        if len(self._data) < BMS.MIN_FRAME_LEN:
+        if len(self._frame) < BMS.MIN_FRAME_LEN:
             return
 
         # Check for error response
-        if self._data[1] == (BMS.FUNC_READ | 0x80):
-            self._log.warning("Modbus error response: 0x%02X", self._data[2])
-            self._data.clear()
+        if self._frame[1] == (BMS.FUNC_READ | 0x80):
+            self._log.warning("Modbus error response: 0x%02X", self._frame[2])
+            self._frame.clear()
             return
 
         # Get expected frame length from byte count field
-        byte_count = self._data[2]
+        byte_count = self._frame[2]
         expected_len = 3 + byte_count + 2  # header(3) + data + crc(2)
 
-        if len(self._data) < expected_len:
+        if len(self._frame) < expected_len:
             self._log.debug(
-                "waiting for more data: %d/%d bytes", len(self._data), expected_len
+                "waiting for more data: %d/%d bytes", len(self._frame), expected_len
             )
             return
 
         # Truncate if we received extra data
-        frame = self._data[:expected_len]
+        frame = self._frame[:expected_len]
 
         # Verify CRC
         payload = frame[:-2]
@@ -236,12 +237,12 @@ class BMS(BaseBMS):
             self._log.debug(
                 "invalid CRC: 0x%04X != 0x%04X", received_crc, calculated_crc
             )
-            self._data.clear()
+            self._frame.clear()
             return
 
         self._log.debug("valid frame received: %d bytes", len(frame))
-        self._data = frame
-        self._data_event.set()
+        self._msg = bytes(frame)
+        self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
@@ -249,10 +250,10 @@ class BMS(BaseBMS):
 
         # Read basic data (command 1: 59 registers from 0x0000)
         cmd = self._build_read_cmd(*BMS.READ_CMD_1)
-        await self._await_reply(cmd)
+        await self._await_msg(cmd)
 
         # Parse response (skip 3-byte header: addr, func, byte_count)
-        data = self._data[3:-2]  # Exclude header and CRC
+        data = self._msg[3:-2]  # Exclude header and CRC
 
         expected_bytes = BMS.READ_CMD_1[1] * 2  # registers * 2 bytes each
         if len(data) < expected_bytes:
@@ -345,10 +346,10 @@ class BMS(BaseBMS):
         try:
             # Read device info registers via Modbus
             cmd = self._build_read_cmd(*BMS.READ_CMD_3)
-            await self._await_reply(cmd)
+            await self._await_msg(cmd)
 
             # Parse response
-            data = self._data[3:-2]  # Skip header and CRC
+            data = self._msg[3:-2]  # Skip header and CRC
 
             self._log.debug("device info raw (%d bytes): %s", len(data), data.hex(" "))
 
