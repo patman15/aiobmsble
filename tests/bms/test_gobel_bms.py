@@ -270,10 +270,10 @@ def test_bms_info() -> None:
     assert BMS.INFO["default_model"] == "BLE BMS"
 
 
-def test_build_read_cmd() -> None:
+def test_cmd() -> None:
     """Test Modbus read command building."""
     # Build command to read 59 registers starting at address 0
-    cmd = BMS._build_read_cmd(0x0000, 0x003B)
+    cmd = BMS._cmd(0x01, 0x03, 0x0000, 0x003B)
 
     # Expected: 01 03 00 00 00 3B + CRC
     assert cmd[0] == 0x01  # Slave address
@@ -286,44 +286,6 @@ def test_build_read_cmd() -> None:
     calculated_crc = crc_modbus(bytearray(cmd[:-2]))
     received_crc = int.from_bytes(cmd[-2:], "little")
     assert calculated_crc == received_crc
-
-
-def test_parse_mos_status() -> None:
-    """Test MOS status parsing."""
-    # Both off
-    charge, discharge = BMS._parse_mos_status(0x0000)
-    assert charge is False
-    assert discharge is False
-
-    # Charge on only (bit 14)
-    charge, discharge = BMS._parse_mos_status(0x4000)
-    assert charge is True
-    assert discharge is False
-
-    # Discharge on only (bit 15)
-    charge, discharge = BMS._parse_mos_status(0x8000)
-    assert charge is False
-    assert discharge is True
-
-    # Both on (0xC000)
-    charge, discharge = BMS._parse_mos_status(0xC000)
-    assert charge is True
-    assert discharge is True
-
-
-def test_convert_signed_temp() -> None:
-    """Test signed temperature conversion."""
-    # Positive temperature: 25.0°C = 250
-    assert BMS._convert_signed_temp(250) == 25.0
-
-    # Zero temperature
-    assert BMS._convert_signed_temp(0) == 0.0
-
-    # Negative temperature: -10.0°C (2's complement)
-    assert abs(BMS._convert_signed_temp(0xFF9C) - (-10.0)) < 0.01
-
-    # Negative temperature: -5.5°C
-    assert abs(BMS._convert_signed_temp(0xFFC9) - (-5.5)) < 0.01
 
 
 def _build_test_frame(reg_values: dict[int, int]) -> bytearray:
@@ -365,8 +327,8 @@ def _build_test_frame(reg_values: dict[int, int]) -> bytearray:
         ({46: 0, 57: 0xFFFF}, "temp_values", None),
         # Alarm flags set
         ({8: 0x0001, 9: 0x0002, 10: 0x0003}, "problem_code", 66051),
-        # Zero capacity values should not be included
-        ({4: 0, 5: 0}, "cycle_charge", None),
+        # Zero capacity values are included as 0 (framework pattern)
+        ({4: 0, 5: 0}, "cycle_charge", 0.0),
     ],
     ids=[
         "single_cell_delta_zero",

@@ -7,13 +7,14 @@ This module implements support for Gobel Power BMS devices that use Modbus RTU
 protocol over Bluetooth Low Energy.
 """
 
+from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -24,18 +25,26 @@ class BMS(BaseBMS):
     # Modbus constants
     SLAVE_ADDR: Final[int] = 0x01
     FUNC_READ: Final[int] = 0x03
-    FUNC_WRITE: Final[int] = 0x10
 
     # Frame constants
-    HEAD_RSP: Final[bytes] = bytes([SLAVE_ADDR, FUNC_READ])
     MIN_FRAME_LEN: Final[int] = 5  # addr + func + len + 2*crc minimum
     MAX_CELLS: Final[int] = 32
     MAX_TEMP: Final[int] = 8
 
     # Register read commands (from Android app analysis)
-    # Each command: (start_address, register_count)
-    READ_CMD_STATUS: Final[tuple[int, int]] = (0x0000, 0x003B)  # 59 registers
-    READ_CMD_DEVICE_INFO: Final[tuple[int, int]] = (0x00AA, 0x0023)  # 35 registers
+    # Each command: (slave_addr, func_code, start_address, register_count)
+    READ_CMD_STATUS: Final[tuple[int, int, int, int]] = (
+        SLAVE_ADDR,
+        FUNC_READ,
+        0x0000,
+        0x003B,
+    )  # 59 registers
+    READ_CMD_DEVICE_INFO: Final[tuple[int, int, int, int]] = (
+        SLAVE_ADDR,
+        FUNC_READ,
+        0x00AA,
+        0x0023,
+    )  # 35 registers
 
     # Data field definitions for READ_CMD_STATUS response
     # Byte offsets in the response data (after addr+func+len header)
@@ -59,7 +68,7 @@ class BMS(BaseBMS):
     # Reg 47 (byte 94-95): Temperature 1 /10 °C
     # Reg 57 (byte 114-115): MOSFET temperature /10 °C
 
-    # Standard fields decoded via _decode_data (framework-compliant field names only)
+    # Standard fields decoded via _decode_data
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
             "current", 0, 2, True, lambda x: x / 100
@@ -67,30 +76,30 @@ class BMS(BaseBMS):
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),  # Reg 1: Pack voltage /100 V
         BMSDp("battery_level", 4, 2, False),  # Reg 2: SOC %
         BMSDp("battery_health", 6, 2, False),  # Reg 3: SOH %
+        BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),  # Reg 4: Capacity Ah
+        BMSDp("design_capacity", 10, 2, False, lambda x: x // 100),  # Reg 5: Full cap Ah
         BMSDp("cycles", 14, 2, False),  # Reg 7: Cycle count
+        BMSDp("chrg_mosfet", 28, 2, False, lambda x: bool(x & 0x4000)),  # Reg 14 bit 14
+        BMSDp("dischrg_mosfet", 28, 2, False, lambda x: bool(x & 0x8000)),  # Reg 14 bit 15
         BMSDp("cell_count", 30, 2, False, lambda x: x & 0xFF),  # Reg 15: Cell count
         BMSDp("temp_sensors", 92, 2, False, lambda x: x & 0xFF),  # Reg 46: Count
     )
 
-    # Byte offsets for fields parsed manually (not using _decode_data)
-    OFF_REMAIN_CAP: Final[int] = 8  # Reg 4: Remaining capacity *10 mAh
-    OFF_FULL_CAP: Final[int] = 10  # Reg 5: Full capacity *10 mAh
-    OFF_ALARM: Final[int] = 16  # Reg 8: Alarm status
-    OFF_PROTECTION: Final[int] = 18  # Reg 9: Protection status
-    OFF_FAULT: Final[int] = 20  # Reg 10: Fault status
-    OFF_MOS_STATUS: Final[int] = 28  # Reg 14: MOS status
+    # Byte offsets for fields parsed manually (includes 3-byte Modbus header)
+    OFF_ALARM: Final[int] = 19  # Reg 8: Alarm status
+    OFF_PROTECTION: Final[int] = 21  # Reg 9: Protection status
+    OFF_FAULT: Final[int] = 23  # Reg 10: Fault status
 
-    # Cell voltages start at byte 32 (register 16)
-    CELL_VOLT_START: Final[int] = 32
-    # Temperature values start at byte 94 (register 47)
-    TEMP_START: Final[int] = 94
-    # MOSFET temperature at byte 114 (register 57)
-    TEMP_MOS_OFFSET: Final[int] = 114
+    # Cell voltages start at byte 35 (register 16 + 3-byte header)
+    CELL_VOLT_START: Final[int] = 35
+    # Temperature values start at byte 97 (register 47 + 3-byte header)
+    TEMP_START: Final[int] = 97
+    # MOSFET temperature at byte 117 (register 57 + 3-byte header)
+    TEMP_MOS_OFFSET: Final[int] = 117
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
-        self._expected_len: int = 0
         self._msg: bytes = b""
 
     @staticmethod
@@ -121,62 +130,16 @@ class BMS(BaseBMS):
         return "00002760-08c2-11e1-9073-0e8ac72e0001"
 
     @staticmethod
-    def _build_read_cmd(start_addr: int, num_regs: int) -> bytes:
-        """Build Modbus read holding registers command with CRC.
-
-        Args:
-            start_addr: Starting register address
-            num_regs: Number of registers to read
-
-        Returns:
-            Complete Modbus command with CRC
-
-        """
-        cmd = bytearray(
-            [
-                BMS.SLAVE_ADDR,
-                BMS.FUNC_READ,
-                (start_addr >> 8) & 0xFF,
-                start_addr & 0xFF,
-                (num_regs >> 8) & 0xFF,
-                num_regs & 0xFF,
-            ]
+    @cache
+    def _cmd(addr: int, func: int, start: int, regs: int) -> bytes:
+        """Build Modbus read command with CRC (cached)."""
+        cmd = (
+            addr.to_bytes(1, "big")
+            + func.to_bytes(1, "big")
+            + start.to_bytes(2, "big")
+            + regs.to_bytes(2, "big")
         )
-        crc = crc_modbus(cmd)
-        cmd.extend([crc & 0xFF, (crc >> 8) & 0xFF])  # CRC low byte first
-        return bytes(cmd)
-
-    @staticmethod
-    def _parse_mos_status(value: int) -> tuple[bool, bool]:
-        """Parse MOS status register.
-
-        Args:
-            value: Raw MOS status register value
-
-        Returns:
-            Tuple of (charge_mos_on, discharge_mos_on)
-
-        """
-        # Based on observed data: 0xC000 means both MOSFETs ON
-        # Bit 14 = charge, bit 15 = discharge
-        return bool(value & 0x4000), bool(value & 0x8000)
-
-    @staticmethod
-    def _convert_signed_temp(value: int) -> float:
-        """Convert temperature register value to Celsius.
-
-        Uses 16-bit signed value with /10 scale.
-
-        Args:
-            value: Raw 16-bit register value
-
-        Returns:
-            Temperature in Celsius
-
-        """
-        if value >= 0x8000:  # Negative (bit 15 set)
-            value = -((value ^ 0xFFFF) + 1)
-        return value / 10.0
+        return cmd + crc_modbus(cmd).to_bytes(2, "little")
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -248,13 +211,11 @@ class BMS(BaseBMS):
         result: BMSSample = {}
 
         # Read basic battery status data
-        cmd = self._build_read_cmd(*BMS.READ_CMD_STATUS)
+        cmd = BMS._cmd(*BMS.READ_CMD_STATUS)
         await self._await_msg(cmd)
 
-        # Parse response (skip 3-byte header: addr, func, byte_count)
-        data = self._msg[3:-2]  # Exclude header and CRC
-
-        expected_bytes = BMS.READ_CMD_STATUS[1] * 2  # registers * 2 bytes each
+        data = self._msg[:-2]  # Exclude CRC
+        expected_bytes = BMS.READ_CMD_STATUS[3] * 2 + 3  # header + registers * 2 bytes
         if len(data) < expected_bytes:
             self._log.warning(
                 "response too short: %d bytes, expected %d",
@@ -263,28 +224,8 @@ class BMS(BaseBMS):
             )
             return {}
 
-        # Decode standard fields (framework-compliant names)
-        result = BMS._decode_data(BMS._FIELDS, data, byteorder="big", start=0)
-
-        # Parse MOS status manually (bits 14, 15 for charge/discharge)
-        mos_status = int.from_bytes(
-            data[BMS.OFF_MOS_STATUS : BMS.OFF_MOS_STATUS + 2], "big"
-        )
-        charge_mos, discharge_mos = self._parse_mos_status(mos_status)
-        result["chrg_mosfet"] = charge_mos
-        result["dischrg_mosfet"] = discharge_mos
-
-        # Parse capacity values manually (stored as *10 mAh, convert to Ah)
-        remain_cap = int.from_bytes(
-            data[BMS.OFF_REMAIN_CAP : BMS.OFF_REMAIN_CAP + 2], "big"
-        )
-        full_cap = int.from_bytes(data[BMS.OFF_FULL_CAP : BMS.OFF_FULL_CAP + 2], "big")
-        if remain_cap > 0:
-            result["cycle_charge"] = (
-                remain_cap / 100.0
-            )  # Convert to Ah (*10 mAh / 1000)
-        if full_cap > 0:
-            result["design_capacity"] = full_cap // 100  # Convert to Ah (int)
+        # Decode standard fields using start parameter for header offset
+        result = BMS._decode_data(BMS._FIELDS, data, byteorder="big", start=3)
 
         # Parse alarm/protection/fault status manually
         alarm = int.from_bytes(data[BMS.OFF_ALARM : BMS.OFF_ALARM + 2], "big")
@@ -308,32 +249,37 @@ class BMS(BaseBMS):
                 divider=1000,  # mV to V
             )
 
-        # Parse temperature values
-        temp_count = result.get("temp_sensors", 0)
-        temps: list[float] = []
+        # Parse temperature values using _temp_values helper
+        temp_count = min(result.get("temp_sensors", 0), BMS.MAX_TEMP)
+        temps: list[float] = BMS._temp_values(
+            data,
+            values=temp_count,
+            start=BMS.TEMP_START,
+            byteorder="big",
+            signed=True,
+            divider=10,
+        )
 
-        # Read temperature sensors (starting at byte 94)
-        for i in range(min(temp_count, BMS.MAX_TEMP)):
-            temp_offset = BMS.TEMP_START + (i * 2)
-            if temp_offset + 2 <= len(data):  # pragma: no branch
-                temp_raw = int.from_bytes(data[temp_offset : temp_offset + 2], "big")
-                temps.append(self._convert_signed_temp(temp_raw))
-
-        # Also read MOSFET temperature (at byte 114) if available
+        # Also read MOSFET temperature (at byte 114) if valid
+        # 0xFFFF and 0 are invalid markers
         if len(data) >= BMS.TEMP_MOS_OFFSET + 2:  # pragma: no branch
             mos_temp_raw = int.from_bytes(
                 data[BMS.TEMP_MOS_OFFSET : BMS.TEMP_MOS_OFFSET + 2], "big"
             )
-            if mos_temp_raw not in {0xFFFF, 0}:  # Valid temperature
-                temps.append(self._convert_signed_temp(mos_temp_raw))
+            if mos_temp_raw not in {0xFFFF, 0}:
+                temps.extend(
+                    BMS._temp_values(
+                        data,
+                        values=1,
+                        start=BMS.TEMP_MOS_OFFSET,
+                        byteorder="big",
+                        signed=True,
+                        divider=10,
+                    )
+                )
 
         if temps:
             result["temp_values"] = temps
-
-        # Calculate delta voltage if we have cell voltages
-        if "cell_voltages" in result and len(result["cell_voltages"]) > 1:
-            cell_volts = result["cell_voltages"]
-            result["delta_voltage"] = round(max(cell_volts) - min(cell_volts), 4)
 
         return result
 
@@ -344,7 +290,7 @@ class BMS(BaseBMS):
 
         try:
             # Read device info registers via Modbus
-            cmd = self._build_read_cmd(*BMS.READ_CMD_DEVICE_INFO)
+            cmd = BMS._cmd(*BMS.READ_CMD_DEVICE_INFO)
             await self._await_msg(cmd)
 
             # Parse response
@@ -355,27 +301,18 @@ class BMS(BaseBMS):
             if len(data) >= 60:
                 # BMS Version: bytes 0-17 (null-terminated string)
                 # Example: "P4S200A-40569-1.02"
-                version_bytes = data[0:18].rstrip(b"\x00")
-                if version_bytes:
-                    info["sw_version"] = version_bytes.decode(
-                        "ascii", errors="ignore"
-                    ).strip()
+                if sw_ver := b2str(data[0:18]):
+                    info["sw_version"] = sw_ver
 
                 # BMS Serial Number: bytes 20-39 (with trailing spaces)
                 # Example: "4056911A1100032P    "
-                sn_bytes = data[20:40].rstrip(b"\x00").rstrip(b" ")
-                if sn_bytes:
-                    info["serial_number"] = sn_bytes.decode(
-                        "ascii", errors="ignore"
-                    ).strip()
+                if serial := b2str(data[20:40]):
+                    info["serial_number"] = serial
 
                 # Pack Serial Number: bytes 40-60 (stored in model_id field)
                 # Example: "GP-LA12-31420250618"
-                pack_sn_bytes = data[40:60].rstrip(b"\x00")
-                if pack_sn_bytes:
-                    info["model_id"] = pack_sn_bytes.decode(
-                        "ascii", errors="ignore"
-                    ).strip()
+                if model_id := b2str(data[40:60]):
+                    info["model_id"] = model_id
 
         except Exception as exc:  # noqa: BLE001
             self._log.debug("failed to read device info via Modbus: %s", exc)
