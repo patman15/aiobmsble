@@ -26,6 +26,8 @@ class BMS(RenogyBMS):
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000),
         BMSDp("cycles", 15, 2, False),
+        # RNGC type seems to have cycles in wrong byte order
+        # https://github.com/patman15/BMS_BLE-HA/issues/596
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -86,9 +88,7 @@ class BMS(RenogyBMS):
         if char_notify_handle == -1 or self._char_write_handle == -1:
             self._log.debug("failed to detect characteristics.")
             await self._client.disconnect()
-            raise ConnectionError(
-                f"Failed to detect characteristics from {self.name}."
-            )
+            raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
         self._log.debug(
             "using characteristics handle #%i (notify), #%i (write).",
             char_notify_handle,
