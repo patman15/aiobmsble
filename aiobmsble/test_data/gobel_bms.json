@@ -2,28 +2,23 @@
   {
     "advertisement": {
       "local_name": "BMS-1234567890ABCDEF",
-      "service_uuids": [
-        "00002760-08c2-11e1-9073-0e8ac72e1001"
-      ],
       "rssi": -65
     },
     "type": "gobel_bms",
     "_comments": [
       "Gobel Power BLE BMS device using Modbus RTU over BLE",
-      "Device name pattern: BMS-*"
+      "Device name format: BMS- followed by 16 characters",
+      "Note: Service UUID not advertised, only discoverable after connection"
     ]
   },
   {
     "advertisement": {
-      "local_name": "BMS-ABCDEF1234567890",
-      "service_uuids": [
-        "00002760-08c2-11e1-9073-0e8ac72e1001"
-      ],
+      "local_name": "BMS-4056911A1100032P    ",
       "rssi": -70
     },
     "type": "gobel_bms",
     "_comments": [
-      "Generic Gobel Power BMS device example"
+      "Real device example with trailing spaces in name"
     ]
   }
 ]

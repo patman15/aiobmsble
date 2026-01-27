@@ -249,12 +249,17 @@ async def test_invalid_response(
 
 
 def test_matcher() -> None:
-    """Test BMS matcher definition."""
+    """Test BMS matcher definition.
+
+    Note: Gobel BMS doesn't advertise service UUID, only local_name.
+    Device name format: BMS- followed by 16 characters (may have trailing spaces).
+    """
     matchers = BMS.matcher_dict_list()
     assert len(matchers) == 1
-    assert matchers[0]["local_name"] == "BMS-*"
+    assert matchers[0]["local_name"] == "BMS-????????????????*"
     assert matchers[0]["connectable"] is True
-    assert matchers[0]["service_uuid"] == SERVICE_UUID
+    # service_uuid not in matcher - Gobel BMS doesn't advertise it
+    assert "service_uuid" not in matchers[0]
 
 
 def test_uuid_methods() -> None:

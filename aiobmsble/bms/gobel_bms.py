@@ -104,14 +104,12 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
-        return [
-            MatcherPattern(
-                local_name="BMS-*",
-                service_uuid=BMS.uuid_services()[0],
-                connectable=True,
-            )
-        ]
+        """Provide BluetoothMatcher definition.
+
+        Note: Gobel BMS doesn't advertise service UUID, only reveals it after connection.
+        Device name format: BMS- followed by 16 characters (may have trailing spaces).
+        """
+        return [MatcherPattern(local_name="BMS-????????????????*", connectable=True)]
 
     @staticmethod
     def uuid_services() -> list[str]:
