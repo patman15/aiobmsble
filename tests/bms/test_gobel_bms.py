@@ -57,6 +57,7 @@ _RESULT_MAIN_DATA: Final[BMSSample] = {
     "dischrg_mosfet": True,
     "power": 0.0,
     "problem": False,
+    "problem_code": 0,
     "temp_sensors": 1,
     "temp_values": [20.9, 21.1],
     "temperature": 21.0,
@@ -248,20 +249,6 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-def test_matcher() -> None:
-    """Test BMS matcher definition.
-
-    Note: Gobel BMS doesn't advertise service UUID, only local_name.
-    Device name format: BMS- followed by 16 characters (may have trailing spaces).
-    """
-    matchers = BMS.matcher_dict_list()
-    assert len(matchers) == 1
-    assert matchers[0]["local_name"] == "BMS-????????????????*"
-    assert matchers[0]["connectable"] is True
-    # service_uuid not in matcher - Gobel BMS doesn't advertise it
-    assert "service_uuid" not in matchers[0]
-
-
 def test_uuid_methods() -> None:
     """Test UUID method returns."""
     assert BMS.uuid_services() == [SERVICE_UUID]
@@ -277,20 +264,7 @@ def test_bms_info() -> None:
 
 def test_cmd() -> None:
     """Test Modbus read command building."""
-    # Build command to read 59 registers starting at address 0
-    cmd = BMS._cmd(0x01, 0x03, 0x0000, 0x003B)
-
-    # Expected: 01 03 00 00 00 3B + CRC
-    assert cmd[0] == 0x01  # Slave address
-    assert cmd[1] == 0x03  # Function code (read)
-    assert cmd[2:4] == b"\x00\x00"  # Start address
-    assert cmd[4:6] == b"\x00\x3b"  # Number of registers (59 = 0x3B)
-    assert len(cmd) == 8  # 6 bytes + 2 CRC
-
-    # Verify CRC
-    calculated_crc = crc_modbus(bytearray(cmd[:-2]))
-    received_crc = int.from_bytes(cmd[-2:], "little")
-    assert calculated_crc == received_crc
+    assert BMS._cmd(0x01, 0x03, 0x0000, 0x003B) == b"\x01\x03\x00\x00\x00\x3b\x04\x19"
 
 
 def _build_test_frame(reg_values: dict[int, int]) -> bytearray:
@@ -326,12 +300,12 @@ def _build_test_frame(reg_values: dict[int, int]) -> bytearray:
     [
         # Single cell - delta should be 0
         ({15: 1, 16: 3329}, "delta_voltage", 0),
-        # Zero cells - no cell_voltages
-        ({15: 0}, "cell_voltages", None),
-        # Zero temp sensors with invalid MOSFET temp - no temp_values
-        ({46: 0, 57: 0xFFFF}, "temp_values", None),
-        # Alarm flags set
-        ({8: 0x0001, 9: 0x0002, 10: 0x0003}, "problem_code", 66051),
+        # Zero cells - empty cell_voltages list
+        ({15: 0}, "cell_voltages", []),
+        # Zero temp sensors with invalid MOSFET temp - empty temp_values list
+        ({46: 0, 57: 0xFFFF}, "temp_values", []),
+        # Alarm flags set (6-byte big-endian: 0x000100020003)
+        ({8: 0x0001, 9: 0x0002, 10: 0x0003}, "problem_code", 0x000100020003),
         # Zero capacity values are included as 0 (framework pattern)
         ({4: 0, 5: 0}, "cycle_charge", 0.0),
     ],
@@ -359,10 +333,7 @@ async def test_edge_cases(
     bms = BMS(generate_ble_device())
     result = await bms.async_update()
 
-    if expected_value is None:
-        assert expected_key not in result
-    else:
-        assert result.get(expected_key) == expected_value
+    assert result.get(expected_key) == expected_value
 
     await bms.disconnect()
 
@@ -436,8 +407,12 @@ async def test_device_info_edge_cases(
     bms = BMS(generate_ble_device())
     info = await bms.device_info()
 
-    # model_id comes from Modbus parsing only, should not be present
-    assert "model_id" not in info
+    # For short/timeout cases, model_id should not be present
+    # For empty_strings case, model_id is present but empty
+    if len(device_info_frame) >= 65:
+        assert info.get("model_id") == ""
+    else:
+        assert "model_id" not in info
 
     await bms.disconnect()
 

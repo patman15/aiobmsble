@@ -79,16 +79,12 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),  # Reg 4: Capacity Ah
         BMSDp("design_capacity", 10, 2, False, lambda x: x // 100),  # Reg 5: Full cap Ah
         BMSDp("cycles", 14, 2, False),  # Reg 7: Cycle count
+        BMSDp("problem_code", 16, 6, False),  # Reg 8-10, Alarm, Protection, Fault
         BMSDp("chrg_mosfet", 28, 2, False, lambda x: bool(x & 0x4000)),  # Reg 14 bit 14
         BMSDp("dischrg_mosfet", 28, 2, False, lambda x: bool(x & 0x8000)),  # Reg 14 bit 15
         BMSDp("cell_count", 30, 2, False, lambda x: x & 0xFF),  # Reg 15: Cell count
         BMSDp("temp_sensors", 92, 2, False, lambda x: x & 0xFF),  # Reg 46: Count
     )
-
-    # Byte offsets for fields parsed manually (includes 3-byte Modbus header)
-    OFF_ALARM: Final[int] = 19  # Reg 8: Alarm status
-    OFF_PROTECTION: Final[int] = 21  # Reg 9: Protection status
-    OFF_FAULT: Final[int] = 23  # Reg 10: Fault status
 
     # Cell voltages start at byte 35 (register 16 + 3-byte header)
     CELL_VOLT_START: Final[int] = 35
@@ -176,13 +172,9 @@ class BMS(BaseBMS):
             return
 
         # Get expected frame length from byte count field
-        byte_count = self._frame[2]
-        expected_len = 3 + byte_count + 2  # header(3) + data + crc(2)
+        expected_len = BMS.MIN_FRAME_LEN + self._frame[2]
 
         if len(self._frame) < expected_len:
-            self._log.debug(
-                "waiting for more data: %d/%d bytes", len(self._frame), expected_len
-            )
             return
 
         # Truncate if we received extra data
@@ -206,78 +198,50 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        result: BMSSample = {}
-
-        # Read basic battery status data
-        cmd = BMS._cmd(*BMS.READ_CMD_STATUS)
-        await self._await_msg(cmd)
+        await self._await_msg(BMS._cmd(*BMS.READ_CMD_STATUS))
 
         data = self._msg[:-2]  # Exclude CRC
-        expected_bytes = BMS.READ_CMD_STATUS[3] * 2 + 3  # header + registers * 2 bytes
-        if len(data) < expected_bytes:
-            self._log.warning(
-                "response too short: %d bytes, expected %d",
-                len(data),
-                expected_bytes,
+        if data[2] != BMS.READ_CMD_STATUS[3] * 2:
+            self._log.debug(
+                "incorrect response: %d bytes, expected %d",
+                data[2],
+                BMS.READ_CMD_STATUS[3] * 2,
             )
             return {}
 
-        # Decode standard fields using start parameter for header offset
         result = BMS._decode_data(BMS._FIELDS, data, byteorder="big", start=3)
 
-        # Parse alarm/protection/fault status manually
-        alarm = int.from_bytes(data[BMS.OFF_ALARM : BMS.OFF_ALARM + 2], "big")
-        protection = int.from_bytes(
-            data[BMS.OFF_PROTECTION : BMS.OFF_PROTECTION + 2], "big"
-        )
-        fault = int.from_bytes(data[BMS.OFF_FAULT : BMS.OFF_FAULT + 2], "big")
-
-        # Combine into problem code if any are non-zero
-        if alarm or protection or fault:
-            result["problem_code"] = (alarm << 16) | (protection << 8) | fault
-
-        # Get cell voltages (starting at byte 32, each cell is 2 bytes in mV)
-        cell_count = min(result.get("cell_count", 0), BMS.MAX_CELLS)
-        if cell_count > 0:
-            result["cell_voltages"] = BMS._cell_voltages(
-                data,
-                cells=cell_count,
-                start=BMS.CELL_VOLT_START,
-                byteorder="big",
-                divider=1000,  # mV to V
-            )
-
-        # Parse temperature values using _temp_values helper
-        temp_count = min(result.get("temp_sensors", 0), BMS.MAX_TEMP)
-        temps: list[float] = BMS._temp_values(
+        result["cell_voltages"] = BMS._cell_voltages(
             data,
-            values=temp_count,
+            cells=min(result.get("cell_count", 0), BMS.MAX_CELLS),
+            start=BMS.CELL_VOLT_START,
+            byteorder="big",
+        )
+
+        result["temp_values"] = BMS._temp_values(
+            data,
+            values=min(result.get("temp_sensors", 0), BMS.MAX_TEMP),
             start=BMS.TEMP_START,
             byteorder="big",
             signed=True,
             divider=10,
         )
 
-        # Also read MOSFET temperature (at byte 114) if valid
-        # 0xFFFF and 0 are invalid markers
-        if len(data) >= BMS.TEMP_MOS_OFFSET + 2:  # pragma: no branch
-            mos_temp_raw = int.from_bytes(
-                data[BMS.TEMP_MOS_OFFSET : BMS.TEMP_MOS_OFFSET + 2], "big"
-            )
-            if mos_temp_raw not in {0xFFFF, 0}:
-                temps.extend(
-                    BMS._temp_values(
-                        data,
-                        values=1,
-                        start=BMS.TEMP_MOS_OFFSET,
-                        byteorder="big",
-                        signed=True,
-                        divider=10,
-                    )
+        # Append MOSFET temperature if valid (0xFFFF indicates no sensor)
+        mos_temp_raw = int.from_bytes(
+            data[BMS.TEMP_MOS_OFFSET : BMS.TEMP_MOS_OFFSET + 2], "big"
+        )
+        if mos_temp_raw != 0xFFFF:
+            result["temp_values"].extend(
+                BMS._temp_values(
+                    data,
+                    values=1,
+                    start=BMS.TEMP_MOS_OFFSET,
+                    byteorder="big",
+                    signed=True,
+                    divider=10,
                 )
-
-        if temps:
-            result["temp_values"] = temps
+            )
 
         return result
 
@@ -286,33 +250,17 @@ class BMS(BaseBMS):
         # First get standard BLE device info (may contain generic values)
         info: BMSInfo = await super()._fetch_device_info()
 
+        # Read device info registers via Modbus
         try:
-            # Read device info registers via Modbus
-            cmd = BMS._cmd(*BMS.READ_CMD_DEVICE_INFO)
-            await self._await_msg(cmd)
+            await self._await_msg(BMS._cmd(*BMS.READ_CMD_DEVICE_INFO))
+        except TimeoutError:
+            return info
 
-            # Parse response
-            data = self._msg[3:-2]  # Skip header and CRC
-
-            self._log.debug("device info raw (%d bytes): %s", len(data), data.hex(" "))
-
-            if len(data) >= 60:
-                # BMS Version: bytes 0-17 (null-terminated string)
-                # Example: "P4S200A-40569-1.02"
-                if sw_ver := b2str(data[0:18]):
-                    info["sw_version"] = sw_ver
-
-                # BMS Serial Number: bytes 20-39 (with trailing spaces)
-                # Example: "4056911A1100032P    "
-                if serial := b2str(data[20:40]):
-                    info["serial_number"] = serial
-
-                # Pack Serial Number: bytes 40-60 (stored in model_id field)
-                # Example: "GP-LA12-31420250618"
-                if model_id := b2str(data[40:60]):
-                    info["model_id"] = model_id
-
-        except Exception as exc:  # noqa: BLE001
-            self._log.debug("failed to read device info via Modbus: %s", exc)
+        if len(self._msg) >= 65:
+            info.update({
+                "sw_version": b2str(self._msg[3:21]),
+                "serial_number": b2str(self._msg[23:43]),
+                "model_id": b2str(self._msg[43:63]),
+            })
 
         return info
