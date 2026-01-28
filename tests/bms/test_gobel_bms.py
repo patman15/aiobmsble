@@ -157,9 +157,7 @@ async def test_fragmented_response(
     await bms.disconnect()
 
 
-async def test_device_info(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test fetching device info from BMS via Modbus."""
 
     monkeypatch.setattr(MockGobelBleakClient, "_RESP_DEVICE_INFO", _FRAME_DEVICE_INFO)
@@ -258,8 +256,8 @@ def test_uuid_methods() -> None:
 
 def test_bms_info() -> None:
     """Test BMS info definition."""
-    assert BMS.INFO["default_manufacturer"] == "Gobel Power"
-    assert BMS.INFO["default_model"] == "BLE BMS"
+    assert BMS.INFO.get("default_manufacturer") == "Gobel Power"
+    assert BMS.INFO.get("default_model") == "BLE BMS"
 
 
 def test_cmd() -> None:
@@ -277,8 +275,7 @@ def _build_test_frame(reg_values: dict[int, int]) -> bytearray:
         Complete Modbus frame with CRC.
 
     """
-    # 59 registers = 118 bytes
-    data = bytearray(118)
+    data = bytearray(118)  # 59 registers = 118 bytes
     # Set default valid values
     data[2:4] = (1332).to_bytes(2, "big")  # voltage
     data[4:6] = (97).to_bytes(2, "big")  # SOC
