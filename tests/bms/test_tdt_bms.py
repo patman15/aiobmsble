@@ -338,6 +338,7 @@ async def test_device_info(
         if protocol_type in ("4S4Tv0.0", "16S6Tv0.4")
         else {
             "sw_version": "6032_10016S000_L_41",
+            "manufacturer": "",
             "serial_number": "60326016207270001",
         }
     )
