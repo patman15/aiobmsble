@@ -106,9 +106,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug(
-            "RX BLE data (%s): %s",
-            "start" if not self._frame else "cnt.",
-            data.hex(" "),
+            "RX BLE data (%s): %s", "start" if not self._frame else "cnt.", data
         )
 
         # Start of a new frame - check for valid Modbus response header
@@ -138,18 +136,17 @@ class BMS(BaseBMS):
             return
 
         # Get expected frame length from byte count field
-        expected_len = BMS._MIN_FRAME_LEN + self._frame[2]
+        expected_len: Final[int] = BMS._MIN_FRAME_LEN + self._frame[2]
 
         if len(self._frame) < expected_len:
             return
 
         # Truncate if we received extra data
-        frame = self._frame[:expected_len]
+        frame: Final[bytearray] = self._frame[:expected_len]
 
         # Verify CRC
-        payload = frame[:-2]
-        received_crc = int.from_bytes(frame[-2:], byteorder="little")
-        calculated_crc = crc_modbus(payload)
+        received_crc: Final[int] = int.from_bytes(frame[-2:], byteorder="little")
+        calculated_crc: Final[int] = crc_modbus(frame[:-2])
 
         if received_crc != calculated_crc:
             self._log.debug(
@@ -166,28 +163,27 @@ class BMS(BaseBMS):
         """Update battery status information."""
         await self._await_msg(BMS._cmd(*BMS._RD_CMD_STATUS))
 
-        data = self._msg[:-2]  # Exclude CRC
-        if data[2] != BMS._RD_CMD_STATUS[3] * 2:
+        if self._msg[2] != BMS._RD_CMD_STATUS[3] * 2:
             self._log.debug(
                 "incorrect response: %d bytes, expected %d",
-                data[2],
+                self._msg[2],
                 BMS._RD_CMD_STATUS[3] * 2,
             )
             return {}
 
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, data, byteorder="big", start=3
+            BMS._FIELDS, self._msg, byteorder="big", start=3
         )
 
         result["cell_voltages"] = BMS._cell_voltages(
-            data,
+            self._msg,
             cells=min(result.get("cell_count", 0), BMS._MAX_CELLS),
             start=BMS._CELLV_START,
             byteorder="big",
         )
 
         result["temp_values"] = BMS._temp_values(
-            data,
+            self._msg,
             values=min(result.get("temp_sensors", 0), BMS._MAX_TEMP),
             start=BMS._TEMP_START,
             byteorder="big",
@@ -196,20 +192,16 @@ class BMS(BaseBMS):
         )
 
         # Append MOSFET temperature if valid (0xFFFF indicates no sensor)
-        mos_temp_raw = int.from_bytes(
-            data[BMS._TEMP_MOS_OFFSET : BMS._TEMP_MOS_OFFSET + 2], "big"
+        mos_temp: list[int | float] = BMS._temp_values(
+            self._msg,
+            values=1,
+            start=BMS._TEMP_MOS_OFFSET,
+            byteorder="big",
+            signed=True,
+            divider=10,
         )
-        if mos_temp_raw != 0xFFFF:
-            result["temp_values"].extend(
-                BMS._temp_values(
-                    data,
-                    values=1,
-                    start=BMS._TEMP_MOS_OFFSET,
-                    byteorder="big",
-                    signed=True,
-                    divider=10,
-                )
-            )
+        if mos_temp[0] != -0.1:
+            result["temp_values"].append(mos_temp[0])
 
         return result
 
