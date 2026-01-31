@@ -83,16 +83,11 @@ class BMS(BaseBMS):
             # if BMS does not answer fallback to default
             return await super()._fetch_device_info()
 
-        ret: dict[str, str] = {
-            k: v
-            for k, v in {
-                "sw_version": b2str(self._msg[0x92][8:28]),
-                "manufacturer": b2str(self._msg[0x92][28:48]),
-                "serial_number": b2str(self._msg[0x92][48:68]),
-            }.items()
-            if len(v) > 0
+        return {
+            "sw_version": b2str(self._msg[0x92][8:28]),
+            "manufacturer": b2str(self._msg[0x92][28:48]),
+            "serial_number": b2str(self._msg[0x92][48:68]),
         }
-        return cast(BMSInfo, ret)
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
