@@ -87,9 +87,9 @@ class MinTestBMS(BaseBMS):
         return [{"local_name": "Test", "connectable": True}]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("afe0")]
+        return (normalize_uuid_str("afe0"),)
 
     @staticmethod
     def uuid_rx() -> str:
