@@ -146,9 +146,10 @@ class BMS(BaseBMS):
         frame: bytearray = bytearray([cmd.value, 0x00, 0x00]) + data
         checksum: Final[int] = BMS._crc(frame)
         frame = (
-            bytearray([0x3A, 0x03, 0x05])
+            bytearray(b"\x3a\x03\x05")
             + frame
-            + bytes([(checksum >> 8) & 0xFF, checksum & 0xFF, 0x0D, 0x0A])
+            + checksum.to_bytes(2, byteorder="big")
+            + b"\x0d\x0a"
         )
         frame = bytearray([len(frame) + 2, 0x11]) + frame
         frame += bytes(BMS._PAGE_LEN - len(frame))

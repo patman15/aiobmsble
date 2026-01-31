@@ -20,10 +20,10 @@ class BMS(BaseBMS):
     """Jikong smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Jikong", "default_model": "smart BMS"}
-    _HEAD_RSP: Final = bytes([0x55, 0xAA, 0xEB, 0x90])  # header for responses
-    _HEAD_CMD: Final = bytes([0xAA, 0x55, 0x90, 0xEB])  # cmd header (endianness!)
-    _READY_MSG: Final = _HEAD_CMD + bytes([0xC8, 0x01, 0x01] + [0x00] * 12 + [0x44])
-    _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
+    _HEAD_RSP: Final = b"\x55\xaa\xeb\x90"  # header for responses
+    _HEAD_CMD: Final = b"\xaa\x55\x90\xeb"  # cmd header (endianness!)
+    _READY_MSG: Final = _HEAD_CMD + b"\xc8\x01\x01" + bytes(12) + b"\x44"
+    _BT_MODULE_MSG: Final = b"\x41\x54\x0d\x0a"  # AT\r\n from BLE module
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _INFO_LEN: Final[int] = 300
     _FIELDS: Final[tuple[BMSDp, ...]] = (  # Protocol: JK02_32S; JK02_24S has offset -32
@@ -263,9 +263,7 @@ class BMS(BaseBMS):
         if not self._msg_event.is_set() or self._msg[4] != 0x02:
             # request cell info (only if data is not constantly published)
             self._log.debug("requesting cell info")
-            await self._await_msg(
-                data=BMS._cmd(b"\x96"), char=self._char_write_handle
-            )
+            await self._await_msg(data=BMS._cmd(b"\x96"), char=self._char_write_handle)
 
         data: BMSSample = self._conv_data(
             self._msg, self._prot_offset, self._sw_version

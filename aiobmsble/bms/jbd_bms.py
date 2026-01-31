@@ -19,8 +19,8 @@ class BMS(BaseBMS):
     """JBD smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Jiabaida", "default_model": "smart BMS"}
-    _HEAD_RSP: Final[bytes] = bytes([0xDD])  # header for responses
-    _HEAD_CMD: Final[bytes] = bytes([0xDD, 0xA5])  # read header for commands
+    _HEAD_RSP: Final[bytes] = b"\xdd"  # header for responses
+    _HEAD_CMD: Final[bytes] = b"\xdd\xa5"  # read header for commands
     _TAIL: Final[int] = 0x77  # tail for command
     _INFO_LEN: Final[int] = 7  # minimum frame size
     _BASIC_INFO: Final[int] = 23  # basic info data length

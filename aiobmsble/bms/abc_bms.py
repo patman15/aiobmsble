@@ -93,7 +93,7 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         info: BMSInfo = await super()._fetch_device_info()
         self._exp_reply = BMS._EXP_REPLY[0xC0]
-        await self._await_msg(BMS._cmd(bytes([0xC0])))
+        await self._await_msg(BMS._cmd(b"\xc0"))
         info.update({"model": b2str(self._msg[0xF1][2:-1])})
         return info
 
@@ -147,9 +147,7 @@ class BMS(BaseBMS):
             self._log.debug("Incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._msg, byteorder="little"
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         return result | {
             "cell_voltages": BMS._cell_voltages(  # every second value is the cell idx
                 self._msg[0xF4],

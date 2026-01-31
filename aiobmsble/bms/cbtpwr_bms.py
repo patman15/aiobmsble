@@ -19,10 +19,10 @@ class BMS(BaseBMS):
     """CBT Power smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "CBT Power", "default_model": "smart BMS"}
-    _HEAD: Final[bytes] = bytes([0xAA, 0x55])
-    _TAIL_RX: Final[bytes] = bytes([0x0D, 0x0A])
-    _TAIL_TX: Final[bytes] = bytes([0x0A, 0x0D])
-    _MIN_FRAME: Final[int] = len(_HEAD) + len(_TAIL_RX) + 3  # CMD, LEN, CRC, 1 Byte each
+    _HEAD: Final[bytes] = b"\xaa\x55"
+    _TAIL_RX: Final[bytes] = b"\x0d\x0a"
+    _TAIL_TX: Final[bytes] = b"\x0a\x0d"
+    _MIN_FRAME: Final[int] = len(_HEAD) + len(_TAIL_RX) + 3  # + CMD, LEN, CRC
     _CRC_POS: Final[int] = -len(_TAIL_RX) - 1
     _LEN_POS: Final[int] = 3
     _CMD_POS: Final[int] = 2
@@ -85,7 +85,10 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         # verify that data is long enough
-        if len(data) < BMS._MIN_FRAME or len(data) != BMS._MIN_FRAME + data[BMS._LEN_POS]:
+        if (
+            len(data) < BMS._MIN_FRAME
+            or len(data) != BMS._MIN_FRAME + data[BMS._LEN_POS]
+        ):
             self._log.debug("incorrect frame length (%i): %s", len(data), data)
             return
 

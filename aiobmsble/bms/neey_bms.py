@@ -21,9 +21,9 @@ class BMS(BaseBMS):
     """Neey smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Neey", "default_model": "Balancer"}
-    _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
-    _HEAD_RSP: Final = bytes([0x55, 0xAA, 0x11, 0x01])  # start, dev addr, read cmd
-    _HEAD_CMD: Final = bytes([0xAA, 0x55, 0x11, 0x01])  # cmd header (endianness!)
+    _BT_MODULE_MSG: Final = b"\x41\x54\x0d\x0a"  # AT\r\n from BLE module
+    _HEAD_RSP: Final = b"\x55\xaa\x11\x01"  # start, dev addr, read cmd
+    _HEAD_CMD: Final = b"\xaa\x55\x11\x01"  # cmd header (endianness!)
     _TAIL: Final[int] = 0xFF  # end of message
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _MIN_FRAME: Final[int] = 10  # header length
