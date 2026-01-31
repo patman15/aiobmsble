@@ -94,7 +94,7 @@ class BMS(BaseBMS):
         info: BMSInfo = await super()._fetch_device_info()
         self._exp_reply = BMS._EXP_REPLY[0xC0]
         await self._await_msg(BMS._cmd(bytes([0xC0])))
-        info |= {"model": b2str(self._msg[0xF1][2:-1])}
+        info.update({"model": b2str(self._msg[0xF1][2:-1])})
         return info
 
     def _notification_handler(
