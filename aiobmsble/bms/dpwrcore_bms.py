@@ -112,18 +112,15 @@ class BMS(BaseBMS):
         # acknowledge received frame
         await self._await_msg(bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False)
 
-        size: Final[int] = data[0]
         page: Final[int] = data[1] >> 4
-        maxpg: Final[int] = data[1] & 0xF
-
         if page == 1:
             self._frame.clear()
 
-        self._frame += data[2 : size + 2]
+        self._frame += data[2 : data[0] + 2]
 
         self._log.debug("(%s): %s", "start" if page == 1 else "cnt.", data)
 
-        if page == maxpg:
+        if page == data[1] & 0xF:  # check if last page
             if (crc := BMS._crc(self._frame[3:-4])) != int.from_bytes(
                 self._frame[-4:-2], byteorder="big"
             ):

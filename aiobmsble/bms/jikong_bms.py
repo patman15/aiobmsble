@@ -20,12 +20,12 @@ class BMS(BaseBMS):
     """Jikong smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Jikong", "default_model": "smart BMS"}
-    HEAD_RSP: Final = bytes([0x55, 0xAA, 0xEB, 0x90])  # header for responses
-    HEAD_CMD: Final = bytes([0xAA, 0x55, 0x90, 0xEB])  # cmd header (endianness!)
-    _READY_MSG: Final = HEAD_CMD + bytes([0xC8, 0x01, 0x01] + [0x00] * 12 + [0x44])
+    _HEAD_RSP: Final = bytes([0x55, 0xAA, 0xEB, 0x90])  # header for responses
+    _HEAD_CMD: Final = bytes([0xAA, 0x55, 0x90, 0xEB])  # cmd header (endianness!)
+    _READY_MSG: Final = _HEAD_CMD + bytes([0xC8, 0x01, 0x01] + [0x00] * 12 + [0x44])
     _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
-    TYPE_POS: Final[int] = 4  # frame type is right after the header
-    INFO_LEN: Final[int] = 300
+    _TYPE_POS: Final[int] = 4  # frame type is right after the header
+    _INFO_LEN: Final[int] = 300
     _FIELDS: Final[tuple[BMSDp, ...]] = (  # Protocol: JK02_32S; JK02_24S has offset -32
         BMSDp("voltage", 150, 4, False, lambda x: x / 1000),
         BMSDp("current", 158, 4, True, lambda x: x / 1000),
@@ -101,9 +101,9 @@ class BMS(BaseBMS):
                 return
 
         if (
-            len(self._frame) >= self.INFO_LEN
-            and (data.startswith((BMS.HEAD_RSP, BMS.HEAD_CMD)))
-        ) or not self._frame.startswith(BMS.HEAD_RSP):
+            len(self._frame) >= self._INFO_LEN
+            and (data.startswith((BMS._HEAD_RSP, BMS._HEAD_CMD)))
+        ) or not self._frame.startswith(BMS._HEAD_RSP):
             self._frame.clear()
 
         self._frame += data
@@ -114,15 +114,15 @@ class BMS(BaseBMS):
 
         # verify that data is long enough
         if (
-            len(self._frame) < BMS.INFO_LEN and self._frame.startswith(BMS.HEAD_RSP)
-        ) or len(self._frame) < BMS.TYPE_POS + 1:
+            len(self._frame) < BMS._INFO_LEN and self._frame.startswith(BMS._HEAD_RSP)
+        ) or len(self._frame) < BMS._TYPE_POS + 1:
             return
 
         # check that message type is expected
-        if self._frame[BMS.TYPE_POS] != self._valid_reply:
+        if self._frame[BMS._TYPE_POS] != self._valid_reply:
             self._log.debug(
                 "unexpected message type 0x%X (length %i): %s",
-                self._frame[BMS.TYPE_POS],
+                self._frame[BMS._TYPE_POS],
                 len(self._frame),
                 self._frame,
             )
@@ -134,15 +134,15 @@ class BMS(BaseBMS):
             self._frame = self._frame.removesuffix(BMS._BT_MODULE_MSG)
 
         # set BMS ready if msg is attached to last responses (v19.05)
-        if self._frame[BMS.INFO_LEN :].startswith(BMS._READY_MSG):
+        if self._frame[BMS._INFO_LEN :].startswith(BMS._READY_MSG):
             self._log.debug("BMS ready.")
             self._bms_ready = True
-            self._frame = self._frame[: BMS.INFO_LEN]
+            self._frame = self._frame[: BMS._INFO_LEN]
 
         # trim message in case oversized
-        if len(self._frame) > BMS.INFO_LEN:
+        if len(self._frame) > BMS._INFO_LEN:
             self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
-            self._frame = self._frame[: BMS.INFO_LEN]
+            self._frame = self._frame[: BMS._INFO_LEN]
 
         if (crc := crc_sum(self._frame[:-1])) != self._frame[-1]:
             self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-1], crc)
@@ -203,7 +203,7 @@ class BMS(BaseBMS):
         value = [] if value is None else value
         assert len(value) <= 13
         frame: bytearray = bytearray(
-            [*BMS.HEAD_CMD, cmd[0], len(value), *value]
+            [*BMS._HEAD_CMD, cmd[0], len(value), *value]
         ) + bytes(13 - len(value))
         frame.append(crc_sum(frame))
         return bytes(frame)

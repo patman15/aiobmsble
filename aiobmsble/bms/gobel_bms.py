@@ -23,24 +23,24 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"default_manufacturer": "Gobel Power", "default_model": "BLE BMS"}
 
     # Modbus constants
-    SLAVE_ADDR: Final[int] = 0x01
-    FUNC_READ: Final[int] = 0x03
+    _SLAVE_ADDR: Final[int] = 0x01
+    _FUNC_READ: Final[int] = 0x03
 
     # Frame constants
-    MIN_FRAME_LEN: Final[int] = 5  # addr + func + len + 2*crc minimum
-    MAX_CELLS: Final[int] = 32
-    MAX_TEMP: Final[int] = 8
+    _MIN_FRAME_LEN: Final[int] = 5  # addr + func + len + 2*crc minimum
+    _MAX_CELLS: Final[int] = 32
+    _MAX_TEMP: Final[int] = 8
 
     # Each command: (slave_addr, func_code, start_address, register_count)
-    READ_CMD_STATUS: Final[tuple[int, int, int, int]] = (
-        SLAVE_ADDR,
-        FUNC_READ,
+    _RD_CMD_STATUS: Final[tuple[int, int, int, int]] = (
+        _SLAVE_ADDR,
+        _FUNC_READ,
         0x0000,
         0x003B,  # 59 registers
     )
-    READ_CMD_DEVICE_INFO: Final[tuple[int, int, int, int]] = (
-        SLAVE_ADDR,
-        FUNC_READ,
+    _RD_CMD_DEV_INFO: Final[tuple[int, int, int, int]] = (
+        _SLAVE_ADDR,
+        _FUNC_READ,
         0x00AA,
         0x0023,  # 35 registers
     )
@@ -60,9 +60,9 @@ class BMS(BaseBMS):
         BMSDp("temp_sensors", 92, 2, False, lambda x: x & 0xFF),
     )
 
-    CELL_VOLT_START: Final[int] = 35
-    TEMP_START: Final[int] = 97
-    TEMP_MOS_OFFSET: Final[int] = 117
+    _CELLV_START: Final[int] = 35
+    _TEMP_START: Final[int] = 97
+    _TEMP_MOS_OFFSET: Final[int] = 117
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
@@ -112,9 +112,9 @@ class BMS(BaseBMS):
         )
 
         # Start of a new frame - check for valid Modbus response header
-        if len(data) >= 2 and data[0] == BMS.SLAVE_ADDR:
+        if len(data) >= 2 and data[0] == BMS._SLAVE_ADDR:
             # Check if it's a valid read response or error response
-            if data[1] == BMS.FUNC_READ or data[1] == (BMS.FUNC_READ | 0x80):
+            if data[1] == BMS._FUNC_READ or data[1] == (BMS._FUNC_READ | 0x80):
                 # Start new frame (clear any old data)
                 self._frame = bytearray(data)
             else:
@@ -128,17 +128,17 @@ class BMS(BaseBMS):
             return
 
         # Check if we have enough data for minimum frame
-        if len(self._frame) < BMS.MIN_FRAME_LEN:
+        if len(self._frame) < BMS._MIN_FRAME_LEN:
             return
 
         # Check for error response
-        if self._frame[1] == (BMS.FUNC_READ | 0x80):
+        if self._frame[1] == (BMS._FUNC_READ | 0x80):
             self._log.warning("Modbus error response: 0x%02X", self._frame[2])
             self._frame.clear()
             return
 
         # Get expected frame length from byte count field
-        expected_len = BMS.MIN_FRAME_LEN + self._frame[2]
+        expected_len = BMS._MIN_FRAME_LEN + self._frame[2]
 
         if len(self._frame) < expected_len:
             return
@@ -164,14 +164,14 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(BMS._cmd(*BMS.READ_CMD_STATUS))
+        await self._await_msg(BMS._cmd(*BMS._RD_CMD_STATUS))
 
         data = self._msg[:-2]  # Exclude CRC
-        if data[2] != BMS.READ_CMD_STATUS[3] * 2:
+        if data[2] != BMS._RD_CMD_STATUS[3] * 2:
             self._log.debug(
                 "incorrect response: %d bytes, expected %d",
                 data[2],
-                BMS.READ_CMD_STATUS[3] * 2,
+                BMS._RD_CMD_STATUS[3] * 2,
             )
             return {}
 
@@ -181,15 +181,15 @@ class BMS(BaseBMS):
 
         result["cell_voltages"] = BMS._cell_voltages(
             data,
-            cells=min(result.get("cell_count", 0), BMS.MAX_CELLS),
-            start=BMS.CELL_VOLT_START,
+            cells=min(result.get("cell_count", 0), BMS._MAX_CELLS),
+            start=BMS._CELLV_START,
             byteorder="big",
         )
 
         result["temp_values"] = BMS._temp_values(
             data,
-            values=min(result.get("temp_sensors", 0), BMS.MAX_TEMP),
-            start=BMS.TEMP_START,
+            values=min(result.get("temp_sensors", 0), BMS._MAX_TEMP),
+            start=BMS._TEMP_START,
             byteorder="big",
             signed=True,
             divider=10,
@@ -197,14 +197,14 @@ class BMS(BaseBMS):
 
         # Append MOSFET temperature if valid (0xFFFF indicates no sensor)
         mos_temp_raw = int.from_bytes(
-            data[BMS.TEMP_MOS_OFFSET : BMS.TEMP_MOS_OFFSET + 2], "big"
+            data[BMS._TEMP_MOS_OFFSET : BMS._TEMP_MOS_OFFSET + 2], "big"
         )
         if mos_temp_raw != 0xFFFF:
             result["temp_values"].extend(
                 BMS._temp_values(
                     data,
                     values=1,
-                    start=BMS.TEMP_MOS_OFFSET,
+                    start=BMS._TEMP_MOS_OFFSET,
                     byteorder="big",
                     signed=True,
                     divider=10,
@@ -220,7 +220,7 @@ class BMS(BaseBMS):
 
         # Read device info registers via Modbus
         try:
-            await self._await_msg(BMS._cmd(*BMS.READ_CMD_DEVICE_INFO))
+            await self._await_msg(BMS._cmd(*BMS._RD_CMD_DEV_INFO))
         except TimeoutError:
             return info
 

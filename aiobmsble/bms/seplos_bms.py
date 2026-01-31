@@ -20,39 +20,39 @@ class BMS(BaseBMS):
     """Seplos V3 smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Seplos", "default_model": "smart BMS V3"}
-    CMD_READ: Final[list[int]] = [0x01, 0x04]
-    HEAD_LEN: Final[int] = 3
-    CRC_LEN: Final[int] = 2
-    PIA_LEN: Final[int] = 0x11
-    PIB_LEN: Final[int] = 0x1A
-    EIA_LEN: Final[int] = PIB_LEN
-    EIB_LEN: Final[int] = 0x16
-    EIC_LEN: Final[int] = 0x5
-    _TEMP_START: Final[int] = HEAD_LEN + 32
-    QUERY: Final[dict[str, tuple[int, int, int]]] = {
+    _CMD_READ: Final[list[int]] = [0x01, 0x04]
+    _HEAD_LEN: Final[int] = 3
+    _CRC_LEN: Final[int] = 2
+    _PIA_LEN: Final[int] = 0x11
+    _PIB_LEN: Final[int] = 0x1A
+    _EIA_LEN: Final[int] = _PIB_LEN
+    _EIB_LEN: Final[int] = 0x16
+    _EIC_LEN: Final[int] = 0x5
+    _TEMP_START: Final[int] = _HEAD_LEN + 32
+    _QUERY: Final[dict[str, tuple[int, int, int]]] = {
         # name: cmd, reg start, length
-        "EIA": (0x4, 0x2000, EIA_LEN),
-        "EIB": (0x4, 0x2100, EIB_LEN),
-        "EIC": (0x1, 0x2200, EIC_LEN),
+        "EIA": (0x4, 0x2000, _EIA_LEN),
+        "EIB": (0x4, 0x2100, _EIB_LEN),
+        "EIC": (0x1, 0x2200, _EIC_LEN),
     }
-    PQUERY: Final[dict[str, tuple[int, int, int]]] = {
-        "PIA": (0x4, 0x1000, PIA_LEN),
-        "PIB": (0x4, 0x1100, PIB_LEN),
+    _PQUERY: Final[dict[str, tuple[int, int, int]]] = {
+        "PIA": (0x4, 0x1000, _PIA_LEN),
+        "PIB": (0x4, 0x1100, _PIB_LEN),
     }
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("temperature", 20, 2, True, lambda x: x / 10, EIB_LEN),  # avg. ctemp
-        BMSDp("voltage", 0, 4, False, lambda x: swap32(x) / 100, EIA_LEN),
-        BMSDp("current", 4, 4, True, lambda x: swap32(x, True) / 10, EIA_LEN),
-        BMSDp("cycle_charge", 8, 4, False, lambda x: swap32(x) / 100, EIA_LEN),
-        BMSDp("pack_count", 44, 2, False, idx=EIA_LEN),
-        BMSDp("cycles", 46, 2, False, idx=EIA_LEN),
-        BMSDp("battery_level", 48, 2, False, lambda x: x / 10, EIA_LEN),
-        BMSDp("battery_health", 50, 2, False, lambda x: x / 10, EIA_LEN),
-        BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
-        BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), EIC_LEN),
-        BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), EIC_LEN),
-        BMSDp("heater", 7, 1, False, lambda x: bool(x & 8), EIC_LEN),
-        BMSDp("balancer", 7, 1, False, lambda x: bool(x & 4), EIC_LEN),  # limit FET
+        BMSDp("temperature", 20, 2, True, lambda x: x / 10, _EIB_LEN),  # avg. ctemp
+        BMSDp("voltage", 0, 4, False, lambda x: swap32(x) / 100, _EIA_LEN),
+        BMSDp("current", 4, 4, True, lambda x: swap32(x, True) / 10, _EIA_LEN),
+        BMSDp("cycle_charge", 8, 4, False, lambda x: swap32(x) / 100, _EIA_LEN),
+        BMSDp("pack_count", 44, 2, False, idx=_EIA_LEN),
+        BMSDp("cycles", 46, 2, False, idx=_EIA_LEN),
+        BMSDp("battery_level", 48, 2, False, lambda x: x / 10, _EIA_LEN),
+        BMSDp("battery_health", 50, 2, False, lambda x: x / 10, _EIA_LEN),
+        BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, _EIC_LEN),
+        BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), _EIC_LEN),
+        BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), _EIC_LEN),
+        BMSDp("heater", 7, 1, False, lambda x: bool(x & 8), _EIC_LEN),
+        BMSDp("balancer", 7, 1, False, lambda x: bool(x & 4), _EIC_LEN),  # limit FET
     )  # Protocol Seplos V3
     _PFIELDS: Final[
         tuple[tuple[BMSpackvalue, int, bool, Callable[[int], Any]], ...]
@@ -64,7 +64,8 @@ class BMS(BaseBMS):
         ("pack_cycles", 14, False, lambda x: x),
     )  # Protocol Seplos V3
     _CMDS: Final = frozenset(
-        {field[2] for field in QUERY.values()} | {field[2] for field in PQUERY.values()}
+        {field[2] for field in _QUERY.values()}
+        | {field[2] for field in _PQUERY.values()}
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -113,21 +114,21 @@ class BMS(BaseBMS):
         """Retrieve BMS data update."""
 
         if (
-            len(data) > BMS.HEAD_LEN + BMS.CRC_LEN
+            len(data) > BMS._HEAD_LEN + BMS._CRC_LEN
             and data[0] <= self._pack_count
-            and data[1] & 0x7F in BMS.CMD_READ  # include read errors
-            and data[2] >= BMS.HEAD_LEN + BMS.CRC_LEN
+            and data[1] & 0x7F in BMS._CMD_READ  # include read errors
+            and data[2] >= BMS._HEAD_LEN + BMS._CRC_LEN
         ):
             self._frame.clear()
-            self._pkglen = data[2] + BMS.HEAD_LEN + BMS.CRC_LEN
+            self._pkglen = data[2] + BMS._HEAD_LEN + BMS._CRC_LEN
         elif (  # error message
-            len(data) == BMS.HEAD_LEN + BMS.CRC_LEN
+            len(data) == BMS._HEAD_LEN + BMS._CRC_LEN
             and data[0] <= self._pack_count
             and data[1] & 0x80
         ):
             self._log.debug("RX error: %X", data[2])
             self._frame.clear()
-            self._pkglen = BMS.HEAD_LEN + BMS.CRC_LEN
+            self._pkglen = BMS._HEAD_LEN + BMS._CRC_LEN
 
         self._frame += data
         self._log.debug(
@@ -191,23 +192,23 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        for block in BMS.QUERY.values():
+        for block in BMS._QUERY.values():
             await self._await_msg(BMS._cmd(0x0, *block))
 
-        data: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=BMS.HEAD_LEN)
+        data: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=BMS._HEAD_LEN)
 
         self._pack_count = min(data.get("pack_count", 0), 0x10)
 
         for pack in range(1, 1 + self._pack_count):
-            for block in BMS.PQUERY.values():
+            for block in BMS._PQUERY.values():
                 await self._await_msg(self._cmd(pack, *block))
 
             for key, idx, sign, func in BMS._PFIELDS:
                 data.setdefault(key, []).append(
                     func(
                         int.from_bytes(
-                            self._msg[pack << 8 | BMS.PIA_LEN][
-                                BMS.HEAD_LEN + idx : BMS.HEAD_LEN + idx + 2
+                            self._msg[pack << 8 | BMS._PIA_LEN][
+                                BMS._HEAD_LEN + idx : BMS._HEAD_LEN + idx + 2
                             ],
                             byteorder="big",
                             signed=sign,
@@ -216,7 +217,7 @@ class BMS(BaseBMS):
                 )
 
             pack_cells: list[float] = BMS._cell_voltages(
-                self._msg[pack << 8 | BMS.PIB_LEN], cells=16, start=BMS.HEAD_LEN
+                self._msg[pack << 8 | BMS._PIB_LEN], cells=16, start=BMS._HEAD_LEN
             )
             # update per pack delta voltage
             data["delta_voltage"] = max(
@@ -228,7 +229,7 @@ class BMS(BaseBMS):
             # add temperature sensors (4x cell temperature + 4 reserved)
             data.setdefault("temp_values", []).extend(
                 BMS._temp_values(
-                    self._msg[pack << 8 | BMS.PIB_LEN],
+                    self._msg[pack << 8 | BMS._PIB_LEN],
                     values=4,
                     start=BMS._TEMP_START,
                     signed=False,

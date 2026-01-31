@@ -147,7 +147,7 @@ class BMS(BaseBMS):
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a RoyPow BMS command."""
         data: Final[bytes] = bytes([len(cmd) + 2, *cmd])
-        return bytes([*BMS._HEAD, *data, BMS._crc(data), BMS._TAIL])
+        return BMS._HEAD + data + bytes([BMS._crc(data), BMS._TAIL])
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

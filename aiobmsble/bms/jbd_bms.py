@@ -19,11 +19,11 @@ class BMS(BaseBMS):
     """JBD smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Jiabaida", "default_model": "smart BMS"}
-    HEAD_RSP: Final[bytes] = bytes([0xDD])  # header for responses
-    HEAD_CMD: Final[bytes] = bytes([0xDD, 0xA5])  # read header for commands
-    TAIL: Final[int] = 0x77  # tail for command
-    INFO_LEN: Final[int] = 7  # minimum frame size
-    BASIC_INFO: Final[int] = 23  # basic info data length
+    _HEAD_RSP: Final[bytes] = bytes([0xDD])  # header for responses
+    _HEAD_CMD: Final[bytes] = bytes([0xDD, 0xA5])  # read header for commands
+    _TAIL: Final[int] = 0x77  # tail for command
+    _INFO_LEN: Final[int] = 7  # minimum frame size
+    _BASIC_INFO: Final[int] = 23  # basic info data length
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
@@ -103,11 +103,11 @@ class BMS(BaseBMS):
     ) -> None:
         # check if answer is a heading of basic info (0x3) or cell block info (0x4)
         if (
-            data.startswith(self.HEAD_RSP)
-            and len(self._frame) > self.INFO_LEN
+            data.startswith(self._HEAD_RSP)
+            and len(self._frame) > self._INFO_LEN
             and data[1] in (0x03, 0x04, 0x05)
             and data[2] == 0x00
-            and len(self._frame) >= self.INFO_LEN + self._frame[3]
+            and len(self._frame) >= self._INFO_LEN + self._frame[3]
         ):
             self._frame.clear()
 
@@ -118,14 +118,14 @@ class BMS(BaseBMS):
 
         # verify that data is long enough
         if (
-            len(self._frame) < BMS.INFO_LEN
-            or len(self._frame) < BMS.INFO_LEN + self._frame[3]
+            len(self._frame) < BMS._INFO_LEN
+            or len(self._frame) < BMS._INFO_LEN + self._frame[3]
         ):
             return
 
         # check correct frame ending
-        frame_end: Final[int] = BMS.INFO_LEN + self._frame[3] - 1
-        if self._frame[frame_end] != BMS.TAIL:
+        frame_end: Final[int] = BMS._INFO_LEN + self._frame[3] - 1
+        if self._frame[frame_end] != BMS._TAIL:
             self._log.debug("incorrect frame end (length: %i).", len(self._frame))
             return
 
@@ -139,7 +139,7 @@ class BMS(BaseBMS):
             )
             return
 
-        if len(self._frame) != BMS.INFO_LEN + self._frame[3]:
+        if len(self._frame) != BMS._INFO_LEN + self._frame[3]:
             self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
 
         if self._frame[1] != self._valid_reply:
@@ -158,8 +158,8 @@ class BMS(BaseBMS):
     @cache
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a JBD BMS command."""
-        frame = bytearray([*BMS.HEAD_CMD, cmd[0], 0x00])
-        frame.extend([*BMS._crc(frame[2:4]).to_bytes(2, "big"), BMS.TAIL])
+        frame = bytearray([*BMS._HEAD_CMD, cmd[0], 0x00])
+        frame.extend([*BMS._crc(frame[2:4]).to_bytes(2, "big"), BMS._TAIL])
         return bytes(frame)
 
     async def _await_cmd_resp(self, cmd: int) -> None:

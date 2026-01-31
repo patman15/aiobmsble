@@ -18,24 +18,24 @@ class BMS(BaseBMS):
     """Daly smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Daly", "default_model": "smart BMS"}
-    HEAD_READ: Final[bytes] = b"\xd2\x03"
-    CMD_INFO: Final[bytes] = b"\x00\x00\x00\x3e\xd7\xb9"
-    MOS_INFO: Final[bytes] = b"\x00\x3e\x00\x09\xf7\xa3"
-    VER_INFO: Final[bytes] = b"\x00\xa9\x00\x20\x87\x91"
-    HEAD_LEN: Final[int] = 3
-    CRC_LEN: Final[int] = 2
-    MAX_CELLS: Final[int] = 32
-    MAX_TEMP: Final[int] = 8
-    INFO_LEN: Final[int] = 84 + HEAD_LEN + CRC_LEN + MAX_CELLS + MAX_TEMP
-    MOS_TEMP_POS: Final[int] = HEAD_LEN + 8
+    _HEAD_READ: Final[bytes] = b"\xd2\x03"
+    _CMD_INFO: Final[bytes] = b"\x00\x00\x00\x3e\xd7\xb9"
+    _MOS_INFO: Final[bytes] = b"\x00\x3e\x00\x09\xf7\xa3"
+    _VER_INFO: Final[bytes] = b"\x00\xa9\x00\x20\x87\x91"
+    _HEAD_LEN: Final[int] = 3
+    _CRC_LEN: Final[int] = 2
+    _MAX_CELLS: Final[int] = 32
+    _MAX_TEMP: Final[int] = 8
+    _INFO_LEN: Final[int] = 84 + _HEAD_LEN + _CRC_LEN + _MAX_CELLS + _MAX_TEMP
+    _MOS_TEMP_POS: Final[int] = _HEAD_LEN + 8
     MOS_NOT_AVAILABLE: Final[tuple[str]] = ("DL-FB4C2E0",)
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 80, 2, False, lambda x: x / 10),
         BMSDp("current", 82, 2, False, lambda x: (x - 30000) / 10),
         BMSDp("battery_level", 84, 2, False, lambda x: x / 10),
         BMSDp("cycle_charge", 96, 2, False, lambda x: x / 10),
-        BMSDp("cell_count", 98, 2, False, lambda x: min(x, BMS.MAX_CELLS)),
-        BMSDp("temp_sensors", 100, 2, False, lambda x: min(x, BMS.MAX_TEMP)),
+        BMSDp("cell_count", 98, 2, False, lambda x: min(x, BMS._MAX_CELLS)),
+        BMSDp("temp_sensors", 100, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
         BMSDp("cycles", 102, 2, False),
         BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
         BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
@@ -83,13 +83,12 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_msg(BMS.HEAD_READ + BMS.VER_INFO)
+        await self._await_msg(BMS._HEAD_READ + BMS._VER_INFO)
         return {
             "sw_version": b2str(self._msg[3:19]),
             "hw_version": b2str(self._msg[19:35]),
             # "manuf.date": barr2str(self._msg[35:51]),
         }
-
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -97,9 +96,9 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         if (
-            len(data) < BMS.HEAD_LEN
-            or data[0:2] != BMS.HEAD_READ
-            or data[2] + 1 != len(data) - len(BMS.HEAD_READ) - BMS.CRC_LEN
+            len(data) < BMS._HEAD_LEN
+            or data[0:2] != BMS._HEAD_READ
+            or data[2] + 1 != len(data) - len(BMS._HEAD_READ) - BMS._CRC_LEN
         ):
             self._log.debug("response data is invalid")
             return
@@ -125,13 +124,13 @@ class BMS(BaseBMS):
         ):
             try:
                 # request MOS temperature (possible outcome: response, empty response, no response)
-                await self._await_msg(BMS.HEAD_READ + BMS.MOS_INFO)
+                await self._await_msg(BMS._HEAD_READ + BMS._MOS_INFO)
 
-                if sum(self._msg[BMS.MOS_TEMP_POS :][:2]):
+                if sum(self._msg[BMS._MOS_TEMP_POS :][:2]):
                     self._log.debug("MOS info: %s", self._msg)
                     result["temp_values"] = [
                         int.from_bytes(
-                            self._msg[BMS.MOS_TEMP_POS :][:2],
+                            self._msg[BMS._MOS_TEMP_POS :][:2],
                             byteorder="big",
                             signed=True,
                         )
@@ -140,27 +139,27 @@ class BMS(BaseBMS):
             except TimeoutError:
                 self._log.debug("no MOS temperature available.")
 
-        await self._await_msg(BMS.HEAD_READ + BMS.CMD_INFO)
+        await self._await_msg(BMS._HEAD_READ + BMS._CMD_INFO)
 
-        if len(self._msg) != BMS.INFO_LEN:
+        if len(self._msg) != BMS._INFO_LEN:
             self._log.debug("incorrect frame length: %i", len(self._msg))
             return {}
 
-        result |= BMS._decode_data(BMS._FIELDS, self._msg, start=BMS.HEAD_LEN)
+        result |= BMS._decode_data(BMS._FIELDS, self._msg, start=BMS._HEAD_LEN)
 
         # add temperature sensors
         result.setdefault("temp_values", []).extend(
             BMS._temp_values(
                 self._msg,
                 values=result.get("temp_sensors", 0),
-                start=64 + BMS.HEAD_LEN,
+                start=64 + BMS._HEAD_LEN,
                 offset=40,
             )
         )
 
         # get cell voltages
         result["cell_voltages"] = BMS._cell_voltages(
-            self._msg, cells=result.get("cell_count", 0), start=BMS.HEAD_LEN
+            self._msg, cells=result.get("cell_count", 0), start=BMS._HEAD_LEN
         )
 
         return result
