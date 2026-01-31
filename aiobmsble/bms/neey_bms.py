@@ -27,13 +27,13 @@ class BMS(BaseBMS):
     _TAIL: Final[int] = 0xFF  # end of message
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _MIN_FRAME: Final[int] = 10  # header length
-    _FIELDS: Final[list[tuple[BMSValue, int, str, Callable[[int], Any]]]] = [
+    _FIELDS: Final[tuple[tuple[BMSValue, int, str, Callable[[int], Any]], ...]] = (
         ("voltage", 201, "<f", lambda x: round(x, 3)),
         ("delta_voltage", 209, "<f", lambda x: round(x, 3)),
         ("problem_code", 216, "B", lambda x: x if x in {1, 3, 7, 8, 9, 10, 11} else 0),
         ("balancer", 216, "B", lambda x: (x == 0x5)),
         ("balance_current", 217, "<f", lambda x: round(x, 3)),
-    ]
+    )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
@@ -87,7 +87,8 @@ class BMS(BaseBMS):
         """Retrieve BMS data update."""
 
         if (
-            len(self._frame) >= self._exp_len or not self._frame.startswith(BMS._HEAD_RSP)
+            len(self._frame) >= self._exp_len
+            or not self._frame.startswith(BMS._HEAD_RSP)
         ) and data.startswith(BMS._HEAD_RSP):
             self._frame.clear()
             self._exp_len = max(

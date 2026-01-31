@@ -42,7 +42,7 @@ class BMS(BaseBMS):
         for field in _FIELDS_V1
     )
 
-    _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS_V1})
+    _CMDS: Final = frozenset({field.idx for field in _FIELDS_V1})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""

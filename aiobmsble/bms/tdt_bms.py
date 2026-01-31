@@ -41,7 +41,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 12, 2, False, idx=0x8C),
         BMSDp("cycles", 8, 2, False, idx=0x8C),
     )  # problem code, switches are not included in the list, but extra
-    _CMDS: Final[list[int]] = [*list({field.idx for field in _FIELDS}), 0x8D]
+    _CMDS: Final = frozenset({field.idx for field in _FIELDS} | {0x8D})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
@@ -97,9 +97,7 @@ class BMS(BaseBMS):
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
-        await self._await_msg(
-            data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False
-        )
+        await self._await_msg(data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False)
         if (
             ret := int.from_bytes(await self._client.read_gatt_char(BMS._UUID_CFG))
         ) != 0x1:

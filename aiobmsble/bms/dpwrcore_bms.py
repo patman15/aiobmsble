@@ -58,7 +58,7 @@ class BMS(BaseBMS):
         BMSDp("cycles", 8, 2, False, idx=Cmd.LEGINFO2),
         BMSDp("problem_code", 15, 1, False, lambda x: x & 0xFF, Cmd.LEGINFO1),
     )
-    _CMDS: Final[set[Cmd]] = {Cmd(field.idx) for field in _FIELDS}
+    _CMDS: Final = frozenset({Cmd(field.idx) for field in _FIELDS})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
@@ -110,9 +110,7 @@ class BMS(BaseBMS):
             return
 
         # acknowledge received frame
-        await self._await_msg(
-            bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False
-        )
+        await self._await_msg(bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False)
 
         size: Final[int] = data[0]
         page: Final[int] = data[1] >> 4

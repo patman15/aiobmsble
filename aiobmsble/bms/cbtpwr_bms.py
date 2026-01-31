@@ -26,7 +26,7 @@ class BMS(BaseBMS):
     CRC_POS: Final[int] = -len(TAIL_RX) - 1
     LEN_POS: Final[int] = 3
     CMD_POS: Final[int] = 2
-    CELL_VOLTAGE_CMDS: Final[list[int]] = [0x5, 0x6, 0x7, 0x8]
+    CELL_VOLTAGE_CMDS: Final[tuple[int, ...]] = (0x5, 0x6, 0x7, 0x8)
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 4, False, lambda x: x / 1000, 0x0B),
         BMSDp("current", 8, 4, True, lambda x: x / 1000, 0x0B),
@@ -37,7 +37,7 @@ class BMS(BaseBMS):
         BMSDp("runtime", 14, 2, False, lambda x: x * BMS._HRS_TO_SECS / 100, 0x0C),
         BMSDp("problem_code", 4, 4, False, idx=0x21),
     )
-    _CMDS: Final[list[int]] = list({field.idx for field in _FIELDS})
+    _CMDS: Final = frozenset({field.idx for field in _FIELDS})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""

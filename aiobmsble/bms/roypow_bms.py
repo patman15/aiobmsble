@@ -49,7 +49,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x4), 0x3),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2), 0x3),
     )
-    _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS}) | {0x2}
+    _CMDS: Final = frozenset({field.idx for field in _FIELDS}) | {0x2}
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""

@@ -54,16 +54,18 @@ class BMS(BaseBMS):
         BMSDp("heater", 7, 1, False, lambda x: bool(x & 8), EIC_LEN),
         BMSDp("balancer", 7, 1, False, lambda x: bool(x & 4), EIC_LEN),  # limit FET
     )  # Protocol Seplos V3
-    _PFIELDS: Final[list[tuple[BMSpackvalue, int, bool, Callable[[int], Any]]]] = [
+    _PFIELDS: Final[
+        tuple[tuple[BMSpackvalue, int, bool, Callable[[int], Any]], ...]
+    ] = (
         ("pack_voltages", 0, False, lambda x: x / 100),
         ("pack_currents", 2, True, lambda x: x / 100),
         ("pack_battery_levels", 10, False, lambda x: x / 10),
         ("pack_battery_health", 12, False, lambda x: x / 10),
         ("pack_cycles", 14, False, lambda x: x),
-    ]  # Protocol Seplos V3
-    _CMDS: Final[set[int]] = {field[2] for field in QUERY.values()} | {
-        field[2] for field in PQUERY.values()
-    }
+    )  # Protocol Seplos V3
+    _CMDS: Final = frozenset(
+        {field[2] for field in QUERY.values()} | {field[2] for field in PQUERY.values()}
+    )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
@@ -192,9 +194,7 @@ class BMS(BaseBMS):
         for block in BMS.QUERY.values():
             await self._await_msg(BMS._cmd(0x0, *block))
 
-        data: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._msg, start=BMS.HEAD_LEN
-        )
+        data: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=BMS.HEAD_LEN)
 
         self._pack_count = min(data.get("pack_count", 0), 0x10)
 
