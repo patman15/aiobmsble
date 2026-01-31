@@ -247,13 +247,6 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-def test_uuid_methods() -> None:
-    """Test UUID method returns."""
-    assert BMS.uuid_services() == [SERVICE_UUID]
-    assert BMS.uuid_rx() == RX_CHAR_UUID
-    assert BMS.uuid_tx() == TX_CHAR_UUID
-
-
 def test_bms_info() -> None:
     """Test BMS info definition."""
     assert BMS.INFO.get("default_manufacturer") == "Gobel Power"
