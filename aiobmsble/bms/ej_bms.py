@@ -6,13 +6,13 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from enum import IntEnum
 from string import hexdigits
-from typing import Final, Literal
+from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS
+from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class Cmd(IntEnum):
@@ -36,26 +36,26 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 16
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
-            "current", 89, 8, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
+            "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
         ),
-        BMSDp("battery_level", 123, 2, False, idx=Cmd.RT),
-        BMSDp("cycle_charge", 15, 4, False, lambda x: x / 10, Cmd.CAP),
+        BMSDp("battery_level", 61, 1, False, idx=Cmd.RT),
+        BMSDp("cycle_charge", 7, 2, False, lambda x: x / 10, Cmd.CAP),
         BMSDp(
-            "temperature", 97, 2, False, lambda x: x - 40, Cmd.RT
+            "temp_values", 48, 1, False, lambda x: [x - 40], Cmd.RT
         ),  # only 1st sensor relevant
-        BMSDp("cycles", 115, 4, False, idx=Cmd.RT),
+        BMSDp("cycles", 57, 2, False, idx=Cmd.RT),
         BMSDp(
-            "problem_code", 105, 4, False, lambda x: x & 0x0FFC, Cmd.RT
+            "problem_code", 52, 2, False, lambda x: x & 0x0FFC, Cmd.RT
         ),  # mask status bits
-        BMSDp("dischrg_mosfet", 105, 1, False, lambda x: bool(x & 0x1), Cmd.RT),
-        BMSDp("chrg_mosfet", 105, 1, False, lambda x: bool(x & 0x2), Cmd.RT),
-        BMSDp("balancer", 111, 4, False, int, idx=Cmd.RT)
+        BMSDp("dischrg_mosfet", 52, 1, False, lambda x: bool(x & 0x10), Cmd.RT),
+        BMSDp("chrg_mosfet", 52, 1, False, lambda x: bool(x & 0x20), Cmd.RT),
+        BMSDp("balancer", 55, 2, False, int, idx=Cmd.RT),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -116,118 +116,85 @@ class BMS(BaseBMS):
                 return
 
         if data.startswith(BMS._HEAD):  # check for beginning of frame
-            self._data.clear()
+            self._frame.clear()
 
-        self._data += data
+        self._frame += data
 
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
         exp_frame_len: Final[int] = (
-            int(self._data[7:11], 16)
-            if len(self._data) > 10
-            and all(chr(c) in hexdigits for c in self._data[7:11])
+            int(self._frame[7:11], 16)
+            if len(self._frame) > 10
+            and all(chr(c) in hexdigits for c in self._frame[7:11])
             else 0xFFFF
         )
 
-        if not self._data.startswith(BMS._HEAD) or (
-            not self._data.endswith(BMS._TAIL) and len(self._data) < exp_frame_len
+        if not self._frame.startswith(BMS._HEAD) or (
+            not self._frame.endswith(BMS._TAIL) and len(self._frame) < exp_frame_len
         ):
             return
 
-        if not self._data.endswith(BMS._TAIL):
+        if not self._frame.endswith(BMS._TAIL):
             self._log.debug("incorrect EOF: %s", data)
-            self._data.clear()
+            self._frame.clear()
             return
 
-        if not all(chr(c) in hexdigits for c in self._data[1:-1]):
+        if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
             self._log.debug("incorrect frame encoding.")
-            self._data.clear()
+            self._frame.clear()
             return
 
-        if len(self._data) != exp_frame_len:
+        if len(self._frame) != exp_frame_len:
             self._log.debug(
                 "incorrect frame length %i != %i",
-                len(self._data),
+                len(self._frame),
                 exp_frame_len,
             )
-            self._data.clear()
+            self._frame.clear()
             return
 
         if not self.name.startswith(BMS._IGNORE_CRC) and (
-            crc := BMS._crc(self._data[1:-3])
-        ) != int(self._data[-3:-1], 16):
+            crc := crc_sum(self._frame[1:-3]) ^ 0xFF
+        ) != int(self._frame[-3:-1], 16):
             # libattU firmware uses no CRC, so we ignore it
             self._log.debug(
-                "invalid checksum 0x%X != 0x%X", int(self._data[-3:-1], 16), crc
+                "invalid checksum 0x%X != 0x%X", int(self._frame[-3:-1], 16), crc
             )
-            self._data.clear()
+            self._frame.clear()
             return
 
         self._log.debug(
             "address: 0x%X, command 0x%X, version: 0x%X, length: 0x%X",
-            int(self._data[1:3], 16),
-            int(self._data[3:5], 16) & 0x7F,
-            int(self._data[5:7], 16),
-            len(self._data),
+            int(self._frame[1:3], 16),
+            int(self._frame[3:5], 16) & 0x7F,
+            int(self._frame[5:7], 16),
+            len(self._frame),
         )
-        self._data_final = self._data.copy()
-        self._data_event.set()
-
-    @staticmethod
-    def _crc(data: bytearray) -> int:
-        return (sum(data) ^ 0xFF) & 0xFF
-
-    @staticmethod
-    def _cell_voltages(
-        data: bytearray,
-        *,
-        cells: int,
-        start: int,
-        size: int = 2,
-        gap: int = 0,
-        byteorder: Literal["little", "big"] = "big",
-        divider: int = 1000,
-    ) -> list[float]:
-        """Return cell voltages from status message."""
-        return [
-            (value / divider)
-            for idx in range(cells)
-            if (value := int(data[start + size * idx : start + size * (idx + 1)], 16))
-        ]
-
-    @staticmethod
-    def _conv_data(data: dict[int, bytearray]) -> BMSSample:
-        result: BMSSample = {}
-        for field in BMS._FIELDS:
-            result[field.key] = field.fct(
-                int(data[field.idx][field.pos : field.pos + field.size], 16)
-            )
-        return result
+        self._msg = bytes.fromhex(self._frame[1:-1].decode())
+        self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        raw_data: dict[int, bytearray] = {}
+        raw_data: dict[int, bytes] = {}
 
         # query real-time information and capacity
         for cmd in (b":000250000E03~", b":001031000E05~"):
-            await self._await_reply(cmd)
-            rsp: int = int(self._data_final[3:5], 16) & 0x7F
-            raw_data[rsp] = self._data_final
-            if rsp == Cmd.RT and len(self._data_final) == 0x8C:
+            await self._await_msg(cmd)
+            rsp: int = self._msg[1] & 0x7F
+            raw_data[rsp] = self._msg
+            if rsp == Cmd.RT and len(self._msg) == 0x45:
                 # handle metrisun version
                 self._log.debug("single frame protocol detected")
-                raw_data[Cmd.CAP] = bytearray(15) + self._data_final[125:]
+                raw_data[Cmd.CAP] = bytes(7) + self._msg[62:]
                 break
 
-        if len(raw_data) != len(list(Cmd)) or not all(
-            len(value) > 0 for value in raw_data.values()
-        ):
+        if len(raw_data) != len(list(Cmd)) or not all(raw_data.values()):
             return {}
 
-        return self._conv_data(raw_data) | {
-            "cell_voltages": BMS._cell_voltages(
-                raw_data[Cmd.RT], cells=BMS._MAX_CELLS, start=25, size=4
+        return self._decode_data(BMS._FIELDS, raw_data) | BMSSample(
+            cell_voltages=BMS._cell_voltages(
+                raw_data[Cmd.RT], cells=BMS._MAX_CELLS, start=12
             )
-        }
+        )

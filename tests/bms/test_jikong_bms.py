@@ -483,25 +483,6 @@ class MockStreamBleakClient(MockJikongBleakClient):
             self._notify_callback("MockJikongBleakClient", resp)
             await asyncio.sleep(0)
 
-    # async def write_gatt_char(
-    #     self,
-    #     char_specifier: BleakGATTCharacteristic | int | str | UUID,
-    #     data: Buffer,
-    #     response: bool | None = None,
-    # ) -> None:
-    #     """Issue write command to GATT."""
-
-    #     assert (
-    #         self._notify_callback
-    #     ), "write to characteristics but notification not enabled"
-    #     self._notify_callback(
-    #         "MockJikongBleakClient", bytearray(b"\x41\x54\x0d\x0a")
-    #     )  # interleaved AT\r\n command
-    #     if bytearray(data).startswith(
-    #         self.HEAD_CMD + self.CMD_INFO
-    #     ):  # send all responses as a series
-    #         self._task = asyncio.create_task(self._send_all())
-
 
 class MockWrongBleakClient(MockBleakClient):
     """Mock invalid service for JiKong BMS."""
@@ -636,7 +617,7 @@ async def test_stream_update(
     bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
-    assert bms._data_event.is_set() is False, "BMS does not request fresh data"
+    assert bms._msg_event.is_set() is False, "BMS does not request fresh data"
     assert "requesting cell info" in caplog.text
 
     _client = cast(MockStreamBleakClient, bms._client)

@@ -34,7 +34,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._msg: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -86,17 +86,17 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length")
             return
 
-        self._data_final[data[0]] = data.copy()
-        if BMS._CMDS.issubset(self._data_final.keys()):
-            self._data_event.set()
+        self._msg[data[0]] = bytes(data)
+        if BMS._CMDS.issubset(self._msg.keys()):
+            self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"\x21\x54\x00")
-        result: BMSSample = self._decode_data(BMS._FIELDS, self._data_final)
+        await self._await_msg(b"\x21\x54\x00")
+        result: BMSSample = self._decode_data(BMS._FIELDS, self._msg)
 
         # remove runtime if not discharging
         if result.get("runtime", 0) == 0xFFFFFFFF:
             result.pop("runtime", None)
-        self._data_final.clear()
+        self._msg.clear()
         return result

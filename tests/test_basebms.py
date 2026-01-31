@@ -17,7 +17,7 @@ import pytest
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import (
     BaseBMS,
-    barr2str,
+    b2str,
     crc8,
     crc_modbus,
     crc_sum,
@@ -110,7 +110,7 @@ class MinTestBMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {"problem_code": 21}
 
 
@@ -123,7 +123,7 @@ class DataTestBMS(MinTestBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {
             "voltage": 13,
             "current": 1.7,
@@ -155,11 +155,11 @@ class WMTestBMS(MinTestBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
         self._data = data
-        self._data_event.set()
+        self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command")
+        await self._await_msg(b"mock_command")
 
         return {"problem_code": int.from_bytes(self._data, "big", signed=False)}
 
@@ -556,13 +556,14 @@ def test_crc_calculations() -> None:
     ("data", "cells", "start", "size", "byteorder", "divider", "expected"),
     [
         # Two cells, big endian, default divider
-        (bytearray([0x0D, 0x80, 0x0D, 0xF7]), 2, 0, 2, "big", 1000, [3.456, 3.575]),
+        (b"\x0d\x80\x0d\xf7", 2, 0, 2, "big", 1000, [3.456, 3.575]),
         # Two cells, little endian, default divider
-        (bytearray([0x80, 0x0D, 0xF7, 0x0D]), 2, 0, 2, "little", 1000, [3.456, 3.575]),
+        (b"\x80\x0d\xf7\x0d", 2, 0, 2, "little", 1000, [3.456, 3.575]),
         # One cell, big endian, custom divider
-        (bytearray([0x30, 0x34]), 1, 0, 2, "big", 10000, [1.234]),
-        (  # Three cells, big endian, offset start
-            bytearray([0x00, 0x00, 0x0D, 0x80, 0x0D, 0xF7, 0x0D, 0xA7]),
+        (b"\x30\x34", 1, 0, 2, "big", 10000, [1.234]),
+        # Three cells, big endian, offset start
+        (
+            b"\x00\x00\x0d\x80\x0d\xf7\x0d\xa7",
             3,
             2,
             2,
@@ -571,11 +572,11 @@ def test_crc_calculations() -> None:
             [3.456, 3.575, 3.495],
         ),
         # Not enough data for all cells
-        (bytearray([0x0D, 0x80]), 2, 0, 2, "big", 1000, [3.456]),
+        (b"\x0d\x80", 2, 0, 2, "big", 1000, [3.456]),
         # Zero cells
-        (bytearray([0x0D, 0x80]), 0, 0, 2, "big", 1000, []),
+        (b"\x0d\x80", 0, 0, 2, "big", 1000, []),
         # Divider = 1 (raw values)
-        (bytearray([0x01, 0x02, 0x03, 0x04]), 2, 0, 2, "big", 1, [258, 772]),
+        (b"\x01\x02\x03\x04", 2, 0, 2, "big", 1, [258, 772]),
     ],
     ids=[
         "two_cells_big_endian",
@@ -587,7 +588,15 @@ def test_crc_calculations() -> None:
         "divider_one_raw_values",
     ],
 )
-def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -> None:
+def test_cell_voltages(
+    data: bytes,
+    cells: int,
+    start: int,
+    size: int,
+    byteorder: Literal["little", "big"],
+    divider: int,
+    expected: list[float],
+) -> None:
     """Test the _cell_voltages method of BaseBMS with various input parameters."""
     result: list[float] = BaseBMS._cell_voltages(
         data,
@@ -614,22 +623,14 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
     ),
     [
         # Two signed big endian values, no offset, divider=1
-        (bytearray([0xFF, 0xEC, 0x00, 0x64]), 2, 0, 2, "big", True, 0, 1, [-20, 100]),
-        (  # Two unsigned little endian values, offset=0, divider=10
-            bytearray([0x10, 0x00, 0x20, 0x00]),
-            2,
-            0,
-            2,
-            "little",
-            False,
-            0,
-            10,
-            [1.6, 3.2],
-        ),
+        (b"\xff\xec\x00\x64", 2, 0, 2, "big", True, 0, 1, [-20, 100]),
+        # Two unsigned little endian values, offset=0, divider=10
+        (b"\x10\x00\x20\x00", 2, 0, 2, "little", False, 0, 10, [1.6, 3.2]),
         # One signed big endian value, offset=273.15, divider=1
-        (bytearray([0x0B, 0x98]), 1, 0, 2, "big", False, 2731, 10, [23.7]),
-        (  # Three signed little endian values, offset=0, divider=100
-            bytearray([0x64, 0x00, 0xC8, 0xFF, 0x2C, 0x01]),
+        (b"\x0b\x98", 1, 0, 2, "big", False, 2731, 10, [23.7]),
+        # Three signed little endian values, offset=0, divider=100
+        (
+            b"\x64\x00\xc8\xff\x2c\x01",
             3,
             0,
             2,
@@ -640,37 +641,17 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
             [1.0, -0.56, 3.0],
         ),
         # Not enough data for all values
-        (bytearray([0x00, 0x7D]), 2, 0, 2, "big", True, 0, 1, [125]),
+        (b"\x00\x7d", 2, 0, 2, "big", True, 0, 1, [125]),
         # Zero values requested
-        (bytearray([0x00, 0x7D]), 0, 0, 2, "big", True, 0, 1, []),
+        (b"\x00\x7d", 0, 0, 2, "big", True, 0, 1, []),
         # Divider = 1, offset = 7
-        (bytearray([0x00, 0x14]), 1, 0, 2, "big", True, 7, 1, [13]),
+        (b"\x00\x14", 1, 0, 2, "big", True, 7, 1, [13]),
         # no offset, div = 10
-        (
-            bytearray(b"\x65\x64\x00\x40"),
-            4,
-            0,
-            1,
-            "big",
-            True,
-            0,
-            10,
-            [10.1, 10.0, 0.0, 6.4],
-        ),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 0, 10, [10.1, 10.0, 0.0, 6.4]),
         # offset -40, div = 10
-        (
-            bytearray(b"\x65\x64\x00\x40"),
-            4,
-            0,
-            1,
-            "big",
-            True,
-            40,
-            10,
-            [6.1, 6.0, 2.4],
-        ),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 40, 10, [6.1, 6.0, 2.4]),
         # offset -25, div = 1
-        (bytearray(b"\x65\x64\x00\x40"), 4, 0, 1, "big", True, 25, 1, [76, 75, 39]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 25, 1, [76, 75, 39]),
     ],
     ids=[
         "two_signed_big_endian",
@@ -686,7 +667,7 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
     ],
 )
 def test_temp_values(
-    data: bytearray,
+    data: bytes,
     values: int,
     start: int,
     size: int,
@@ -711,7 +692,7 @@ def test_temp_values(
 
 
 @pytest.mark.parametrize(
-    ("fields", "data", "byteorder", "offset", "expected"),
+    ("fields", "data", "byteorder", "start", "expected"),
     [
         # Test with big endian and multiple data points
         (
@@ -719,7 +700,7 @@ def test_temp_values(
                 BMSDp("voltage", 0, size=2, signed=False),
                 BMSDp("current", 2, size=2, signed=True),
             ),
-            bytearray([0x0D, 0x80, 0xFF, 0xEC]),
+            b"\x0d\x80\xff\xec",
             "big",
             0,
             {"voltage": 3456.0, "current": -20},
@@ -727,7 +708,7 @@ def test_temp_values(
         # Test with dict data, little endian
         (
             (BMSDp("voltage", 0, size=2, signed=False, fct=lambda x: x / 10, idx=1),),
-            {1: bytearray([0x64, 0x00])},
+            {1: b"\x64\x00"},
             "little",
             0,
             {"voltage": 10},
@@ -735,23 +716,23 @@ def test_temp_values(
         # Test with missing dict data
         (
             (BMSDp("voltage", 0, size=2, signed=False, idx=2),),
-            {1: bytearray([0x64, 0x00])},
+            {1: b"\x64\x00"},
             "little",
             0,
             {},
         ),
-        # Test with offset
+        # Test with start
         (
             (BMSDp("battery_level", 1, size=1, signed=False),),
-            bytearray([0x00, 0x7D]),
+            b"\x00\x7d",
             "big",
             0,
             {"battery_level": 125},
         ),
-        # Test with offset shifting the slice
+        # Test with start shifting the slice
         (
             (BMSDp("voltage", 0, size=2, signed=False),),
-            bytearray([0x00, 0x00, 0x12, 0x34]),
+            b"\x00\x00\x12\x34",
             "big",
             2,
             {"voltage": 0x1234},
@@ -761,14 +742,20 @@ def test_temp_values(
         "be_multiple_dps",
         "le_dict_single_dp_lambda",
         "le_dict_missing_idx",
-        "be_with_offset",
-        "be_offset_shift_slice",
+        "be_with_start",
+        "be_start_shift_slice",
     ],
 )
-def test_decode_data(fields, data, byteorder, offset, expected) -> None:
+def test_decode_data(
+    fields: tuple[BMSDp, ...],
+    data: bytes | dict[int, bytes],
+    byteorder: Literal["little", "big"],
+    start: int,
+    expected: BMSSample,
+) -> None:
     """Test the _decode_data method of BaseBMS with various input parameters."""
     result: BMSSample = BaseBMS._decode_data(
-        fields, data, byteorder=byteorder, offset=offset
+        fields, data, byteorder=byteorder, start=start
     )
     assert result == expected
 
@@ -778,6 +765,6 @@ def test_decode_data(fields, data, byteorder, offset, expected) -> None:
     [(b"", ""), (b"\x00 ", ""), (b"test\x00 ", "test"), (b"test  \t\r ", "test")],
     ids=["empty", "hex", "text_hex", "test_space"],
 )
-def test_barr2str(data: bytes, expected: str) -> None:
+def test_b2str(data: bytes, expected: str) -> None:
     """Test bytearray to string conversion function."""
-    assert barr2str(bytearray(data)) == expected
+    assert b2str(data) == expected

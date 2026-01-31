@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc8
+from aiobmsble.basebms import BaseBMS, b2str, crc8
 
 
 class BMS(BaseBMS):
@@ -59,7 +59,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._msg: dict[int, bytes] = {}
         self._exp_reply: set[int] = set()
 
     @staticmethod
@@ -93,8 +93,8 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         info: BMSInfo = await super()._fetch_device_info()
         self._exp_reply = BMS._EXP_REPLY[0xC0]
-        await self._await_reply(BMS._cmd(bytes([0xC0])))
-        info |= {"model": barr2str(self._data_final[0xF1][2:-1])}
+        await self._await_msg(BMS._cmd(bytes([0xC0])))
+        info |= {"model": b2str(self._msg[0xF1][2:-1])}
         return info
 
     def _notification_handler(
@@ -115,16 +115,16 @@ class BMS(BaseBMS):
             self._log.debug("invalid checksum 0x%X != 0x%X", data[-1], crc)
             return
 
-        if data[1] == 0xF4 and 0xF4 in self._data_final:
+        if data[1] == 0xF4 and 0xF4 in self._msg:
             # expand cell voltage frame with all parts
-            self._data_final[0xF4] = bytearray(self._data_final[0xF4][:-2] + data[2:])
+            self._msg[0xF4] = bytes(self._msg[0xF4][:-2] + data[2:])
         else:
-            self._data_final[data[1]] = data.copy()
+            self._msg[data[1]] = bytes(data)
 
         self._exp_reply.discard(data[1])
 
         if not self._exp_reply:  # check if all expected replies are received
-            self._data_event.set()
+            self._msg_event.set()
 
     @staticmethod
     @cache
@@ -136,31 +136,30 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        self._data_final.clear()
+        self._msg.clear()
         for cmd in (0xC1, 0xC2, 0xC4):
             self._exp_reply.update(BMS._EXP_REPLY[cmd])
             with contextlib.suppress(TimeoutError):
-                await self._await_reply(BMS._cmd(bytes([cmd])))
+                await self._await_msg(BMS._cmd(bytes([cmd])))
 
         # check all responses are here, 0xF9 is not mandatory (not all BMS report it)
-        self._data_final.setdefault(0xF9, bytearray())
-        if not BMS._RESPS.issubset(set(self._data_final.keys())):
-            self._log.debug("Incomplete data set %s", self._data_final.keys())
+        if not BMS._RESPS.issubset(set(self._msg.keys()) | {0xF9}):
+            self._log.debug("Incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data_final, byteorder="little"
+            BMS._FIELDS, self._msg, byteorder="little"
         )
         return result | {
             "cell_voltages": BMS._cell_voltages(  # every second value is the cell idx
-                self._data_final[0xF4],
-                cells=(len(self._data_final[0xF4]) - 4) // 2,
+                self._msg[0xF4],
+                cells=(len(self._msg[0xF4]) - 4) // 2,
                 start=3,
                 byteorder="little",
                 size=2,
             )[::2],
             "temp_values": BMS._temp_values(
-                self._data_final[0xF2],
+                self._msg[0xF2],
                 start=5,
                 values=result.get("temp_sensors", 0),
                 byteorder="little",

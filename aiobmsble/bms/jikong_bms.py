@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_sum, lstr2int
+from aiobmsble.basebms import BaseBMS, b2str, crc_sum, lstr2int
 
 
 class BMS(BaseBMS):
@@ -44,7 +44,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._msg: bytes = b""
         self._char_write_handle: int = -1
         self._sw_version: int = 0
         self._prot_offset: int = 0
@@ -80,14 +80,14 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         self._valid_reply = 0x03
-        await self._await_reply(self._cmd(b"\x97"), char=self._char_write_handle)
+        await self._await_msg(self._cmd(b"\x97"), char=self._char_write_handle)
         self._valid_reply = 0x02
         return {
-            "model": barr2str(self._data_final[6:22]),
-            "hw_version": barr2str(self._data_final[22:30]),
-            "sw_version": barr2str(self._data_final[30:38]),
-            "name": barr2str(self._data_final[46:62]),
-            "serial_number": barr2str(self._data_final[86:94]),
+            "model": b2str(self._msg[6:22]),
+            "hw_version": b2str(self._msg[22:30]),
+            "sw_version": b2str(self._msg[30:38]),
+            "name": b2str(self._msg[46:62]),
+            "serial_number": b2str(self._msg[86:94]),
         }
 
     def _notification_handler(
@@ -101,55 +101,55 @@ class BMS(BaseBMS):
                 return
 
         if (
-            len(self._data) >= self.INFO_LEN
+            len(self._frame) >= self.INFO_LEN
             and (data.startswith((BMS.HEAD_RSP, BMS.HEAD_CMD)))
-        ) or not self._data.startswith(BMS.HEAD_RSP):
-            self._data = bytearray()
+        ) or not self._frame.startswith(BMS.HEAD_RSP):
+            self._frame.clear()
 
-        self._data += data
+        self._frame += data
 
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
         # verify that data is long enough
         if (
-            len(self._data) < BMS.INFO_LEN and self._data.startswith(BMS.HEAD_RSP)
-        ) or len(self._data) < BMS.TYPE_POS + 1:
+            len(self._frame) < BMS.INFO_LEN and self._frame.startswith(BMS.HEAD_RSP)
+        ) or len(self._frame) < BMS.TYPE_POS + 1:
             return
 
         # check that message type is expected
-        if self._data[BMS.TYPE_POS] != self._valid_reply:
+        if self._frame[BMS.TYPE_POS] != self._valid_reply:
             self._log.debug(
                 "unexpected message type 0x%X (length %i): %s",
-                self._data[BMS.TYPE_POS],
-                len(self._data),
-                self._data,
+                self._frame[BMS.TYPE_POS],
+                len(self._frame),
+                self._frame,
             )
             return
 
         # trim AT\r\n message from the end
-        if self._data.endswith(BMS._BT_MODULE_MSG):
+        if self._frame.endswith(BMS._BT_MODULE_MSG):
             self._log.debug("trimming AT cmd")
-            self._data = self._data.removesuffix(BMS._BT_MODULE_MSG)
+            self._frame = self._frame.removesuffix(BMS._BT_MODULE_MSG)
 
         # set BMS ready if msg is attached to last responses (v19.05)
-        if self._data[BMS.INFO_LEN :].startswith(BMS._READY_MSG):
+        if self._frame[BMS.INFO_LEN :].startswith(BMS._READY_MSG):
             self._log.debug("BMS ready.")
             self._bms_ready = True
-            self._data = self._data[: BMS.INFO_LEN]
+            self._frame = self._frame[: BMS.INFO_LEN]
 
         # trim message in case oversized
-        if len(self._data) > BMS.INFO_LEN:
-            self._log.debug("wrong data length (%i): %s", len(self._data), self._data)
-            self._data = self._data[: BMS.INFO_LEN]
+        if len(self._frame) > BMS.INFO_LEN:
+            self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
+            self._frame = self._frame[: BMS.INFO_LEN]
 
-        if (crc := crc_sum(self._data[:-1])) != self._data[-1]:
-            self._log.debug("invalid checksum 0x%X != 0x%X", self._data[-1], crc)
+        if (crc := crc_sum(self._frame[:-1])) != self._frame[-1]:
+            self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-1], crc)
             return
 
-        self._data_final = self._data.copy()
-        self._data_event.set()
+        self._msg = bytes(self._frame)
+        self._msg_event.set()
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -204,7 +204,7 @@ class BMS(BaseBMS):
         assert len(value) <= 13
         frame: bytearray = bytearray(
             [*BMS.HEAD_CMD, cmd[0], len(value), *value]
-        ) + bytearray(13 - len(value))
+        ) + bytes(13 - len(value))
         frame.append(crc_sum(frame))
         return bytes(frame)
 
@@ -217,7 +217,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _temp_sensors(
-        data: bytearray, temp_pos: list[tuple[int, int]], mask: int
+        data: bytes, temp_pos: list[tuple[int, int]], mask: int
     ) -> list[int | float]:
         return [
             (value / 10)
@@ -232,11 +232,11 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _conv_data(data: bytearray, offs: int, sw_majv: int) -> BMSSample:
+    def _conv_data(data: bytes, offs: int, sw_majv: int) -> BMSSample:
         """Return BMS data from status message."""
 
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, data, byteorder="little", offset=offs
+            BMS._FIELDS, data, byteorder="little", start=offs
         )
         result["cell_count"] = int.from_bytes(
             data[70 + (offs >> 1) : 74 + (offs >> 1)], byteorder="little"
@@ -260,18 +260,18 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        if not self._data_event.is_set() or self._data_final[4] != 0x02:
+        if not self._msg_event.is_set() or self._msg[4] != 0x02:
             # request cell info (only if data is not constantly published)
             self._log.debug("requesting cell info")
-            await self._await_reply(
+            await self._await_msg(
                 data=BMS._cmd(b"\x96"), char=self._char_write_handle
             )
 
         data: BMSSample = self._conv_data(
-            self._data_final, self._prot_offset, self._sw_version
+            self._msg, self._prot_offset, self._sw_version
         )
         data["temp_values"] = BMS._temp_sensors(
-            self._data_final, self._temp_pos(), data.get("temp_sensors", 0)
+            self._msg, self._temp_pos(), data.get("temp_sensors", 0)
         )
 
         data["problem_code"] = (
@@ -281,11 +281,11 @@ class BMS(BaseBMS):
         )
 
         data["cell_voltages"] = BMS._cell_voltages(
-            self._data_final,
+            self._msg,
             cells=data.get("cell_count", 0),
             start=6,
             byteorder="little",
         )
-        self._data_final.clear()
-        self._data_event.clear()
+
+        self._msg_event.clear()
         return data

@@ -41,11 +41,11 @@ class BMS(BaseBMS):
         ),
         BMSDp("problem_code", 15, 4, False, lambda x: x & 0x7F),
         BMSDp(
-            "temperature",
+            "temp_values",
             16,
             3,
             False,
-            lambda x: ((x & 0xFFFF) / 10) * (-1 if x >> 16 else 1),
+            lambda x: [((x & 0xFFFF) / 10) * (-1 if x >> 16 else 1)],
         ),
         BMSDp("cycle_charge", 20, 4, False, lambda x: x / 100),
         BMSDp("battery_level", 24, 1, False),
@@ -56,6 +56,7 @@ class BMS(BaseBMS):
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._valid_reply: int = BMS._RT_DATA
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -103,8 +104,8 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length: %i != %i).", len(data), _exp_len)
             return
 
-        self._data = data.copy()
-        self._data_event.set()
+        self._msg = bytes(data)
+        self._msg_event.set()
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -114,9 +115,9 @@ class BMS(BaseBMS):
         self._valid_reply = BMS._INIT_RESP
 
         # Send initialization command and await response
-        await self._await_reply(BMS._HEAD + BMS._CMD_INIT)
+        await self._await_msg(BMS._HEAD + BMS._CMD_INIT)
         for cmd in (BMS._CMD_HWID, BMS._CMD_DATA_STREAM, BMS._CMD_TRIGGER_DATA):
-            await self._await_reply(BMS._HEAD + cmd, wait_for_notify=False)
+            await self._await_msg(BMS._HEAD + cmd, wait_for_notify=False)
 
         self._valid_reply = BMS._RT_DATA
 
@@ -131,11 +132,11 @@ class BMS(BaseBMS):
             raise
 
         result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data, byteorder="little"
+            BMS._FIELDS, self._msg, byteorder="little"
         )
         result["power"] = result.get("power", 0) * (
             -1 if result.get("current", 0) < 0 else 1
         )
-        self._data_event.clear()
-        self._data.clear()
+        self._msg_event.clear()
+        self._frame.clear()
         return result
