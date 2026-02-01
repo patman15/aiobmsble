@@ -42,6 +42,7 @@ class BMS(BaseBMS):
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
         self._temp_sensors: int = 1  # default to 1 temp sensor
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -115,9 +116,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         await self._await_msg(b"\x00\x00\x04\x01\x13\x55\xaa\x17")
 
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._msg, byteorder="little"
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=BMS._MAX_CELLS, start=16, byteorder="little"
         )
