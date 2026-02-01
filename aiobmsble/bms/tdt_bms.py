@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from functools import cache
-from typing import Final, cast
+from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
