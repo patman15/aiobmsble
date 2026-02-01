@@ -113,7 +113,7 @@ class BMS(BaseBMS):
         # trim message in case oversized
         if len(self._frame) > self._exp_len:
             self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
-            self._frame = self._frame[: self._exp_len]
+            del self._frame[self._exp_len :]
 
         if self._frame[-1] != BMS._TAIL:
             self._log.debug("incorrect frame end.")

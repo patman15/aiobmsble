@@ -137,12 +137,12 @@ class BMS(BaseBMS):
         if self._frame[BMS._INFO_LEN :].startswith(BMS._READY_MSG):
             self._log.debug("BMS ready.")
             self._bms_ready = True
-            self._frame = self._frame[: BMS._INFO_LEN]
+            del self._frame[BMS._INFO_LEN :]
 
         # trim message in case oversized
         if len(self._frame) > BMS._INFO_LEN:
             self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
-            self._frame = self._frame[: BMS._INFO_LEN]
+            del self._frame[BMS._INFO_LEN :]
 
         if (crc := crc_sum(self._frame[:-1])) != self._frame[-1]:
             self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-1], crc)

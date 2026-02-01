@@ -87,7 +87,7 @@ class BMS(BaseBMS):
         if len(self._frame) < BMS._INFO_LEN:
             return
 
-        self._frame = self._frame[: BMS._INFO_LEN]  # cut off exceeding data
+        del self._frame[BMS._INFO_LEN :]  # cut off exceeding data
 
         if not (
             self._frame.startswith(BMS._HEAD_RSP)

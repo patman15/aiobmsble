@@ -142,11 +142,11 @@ class BMS(BaseBMS):
             return
 
         # Truncate if we received extra data
-        frame: Final[bytearray] = self._frame[:expected_len]
+        del self._frame[expected_len:]
 
         # Verify CRC
-        received_crc: Final[int] = int.from_bytes(frame[-2:], byteorder="little")
-        calculated_crc: Final[int] = crc_modbus(frame[:-2])
+        received_crc: Final[int] = int.from_bytes(self._frame[-2:], byteorder="little")
+        calculated_crc: Final[int] = crc_modbus(self._frame[:-2])
 
         if received_crc != calculated_crc:
             self._log.debug(
@@ -155,8 +155,8 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        self._log.debug("valid frame received: %d bytes", len(frame))
-        self._msg = bytes(frame)
+        self._log.debug("valid frame received: %d bytes", len(self._frame))
+        self._msg = bytes(self._frame)
         self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
