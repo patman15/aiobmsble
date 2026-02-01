@@ -1,0 +1,17 @@
+[
+  {
+    "type": "lithionics_bms",
+    "_comments": [
+      "Lithionics Li3 BLE UART (FFE0/FFE1). Telemetry via CRLF-terminated ASCII CSV notifications on FFE1; polling via write \\r\\n."
+    ],
+    "advertisement": {
+      "local_name": "Li3-061322094",
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
+      "manufacturer_data": {},
+      "service_data": {},
+      "rssi": -60,
+      "platform_data": ["6C:79:B8:B4:4F:C0"]
+    }
+  }
+]
+
