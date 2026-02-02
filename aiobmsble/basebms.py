@@ -100,9 +100,7 @@ class BaseBMS(ABC):
             "initializing %s, BT address: %s", self.bms_id(), ble_device.address
         )
         self._client: BleakClient = BleakClient(
-            self._ble_device,
-            disconnected_callback=self._on_disconnect,
-            services=[*self.uuid_services(), "180a"],
+            self._ble_device, disconnected_callback=self._on_disconnect
         )
         self._frame: bytearray = bytearray()
         self._msg_event: Final[asyncio.Event] = asyncio.Event()
@@ -370,7 +368,6 @@ class BaseBMS(ABC):
                 device=self._ble_device,
                 name=self._ble_device.address,
                 disconnected_callback=self._on_disconnect,
-                services=[*self.uuid_services(), "180a"],
             )
 
             try:
