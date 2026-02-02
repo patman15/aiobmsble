@@ -160,10 +160,9 @@ class BMS(BaseBMS):
         self._bms_ready = False
 
         for service in self._client.services:
+            self._log.debug("SRV %s", service)
             for char in service.characteristics:
-                self._log.debug(
-                    "discovered %s (#%i): %s", char.uuid, char.handle, char.properties
-                )
+                self._log.debug("  CHR %s: %s", char, ",".join(char.properties))
                 if char.uuid == normalize_uuid_str(
                     BMS.uuid_rx()
                 ) or char.uuid == normalize_uuid_str(BMS.uuid_tx()):
