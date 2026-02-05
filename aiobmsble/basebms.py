@@ -247,8 +247,7 @@ class BaseBMS(ABC):
         cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
         battery_level: Final[int | float] = data.get("battery_level", 0)
         current: Final[float] = data.get("current", 0)
-
-        calculations: dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]] = {
+        calculations: Final[dict[BMSValue, tuple[set[BMSValue], Callable]]] = {
             "voltage": ({"cell_voltages"}, lambda: round(sum(cell_voltages), 3)),
             "delta_voltage": (
                 {"cell_voltages"},
