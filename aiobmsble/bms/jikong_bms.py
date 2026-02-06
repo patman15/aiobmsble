@@ -34,6 +34,7 @@ class BMS(BaseBMS):
         BMSDp("balancer", 201, 1, False, bool),
         BMSDp("battery_level", 173, 1, False),
         BMSDp("cycle_charge", 174, 4, False, lambda x: x / 1000),
+        BMSDp("design_capacity", 178, 4, False, lambda x: x // 1000),
         BMSDp("cycles", 182, 4, False),
         BMSDp("battery_health", 190, 1, False),
         BMSDp("chrg_mosfet", 198, 1, False, bool),

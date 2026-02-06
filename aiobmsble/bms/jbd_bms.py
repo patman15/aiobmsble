@@ -28,6 +28,7 @@ class BMS(BaseBMS):
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),
+        BMSDp("design_capacity", 10, 2, False, lambda x: x // 100),
         BMSDp("cycles", 12, 2, False),
         BMSDp("balancer", 16, 4, False, swap32),
         BMSDp("problem_code", 20, 2, False),
