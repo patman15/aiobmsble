@@ -19,14 +19,14 @@ class BMS(BaseBMS):
     """CBT Power smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "CBT Power", "default_model": "smart BMS"}
-    HEAD: Final[bytes] = bytes([0xAA, 0x55])
-    TAIL_RX: Final[bytes] = bytes([0x0D, 0x0A])
-    TAIL_TX: Final[bytes] = bytes([0x0A, 0x0D])
-    MIN_FRAME: Final[int] = len(HEAD) + len(TAIL_RX) + 3  # CMD, LEN, CRC, 1 Byte each
-    CRC_POS: Final[int] = -len(TAIL_RX) - 1
-    LEN_POS: Final[int] = 3
-    CMD_POS: Final[int] = 2
-    CELL_VOLTAGE_CMDS: Final[list[int]] = [0x5, 0x6, 0x7, 0x8]
+    _HEAD: Final[bytes] = b"\xaa\x55"
+    _TAIL_RX: Final[bytes] = b"\x0d\x0a"
+    _TAIL_TX: Final[bytes] = b"\x0a\x0d"
+    _MIN_FRAME: Final[int] = len(_HEAD) + len(_TAIL_RX) + 3  # + CMD, LEN, CRC
+    _CRC_POS: Final[int] = -len(_TAIL_RX) - 1
+    _LEN_POS: Final[int] = 3
+    _CMD_POS: Final[int] = 2
+    _CELLV_CMDS: Final[tuple[int, ...]] = (0x5, 0x6, 0x7, 0x8)
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 4, False, lambda x: x / 1000, 0x0B),
         BMSDp("current", 8, 4, True, lambda x: x / 1000, 0x0B),
@@ -37,7 +37,7 @@ class BMS(BaseBMS):
         BMSDp("runtime", 14, 2, False, lambda x: x * BMS._HRS_TO_SECS / 100, 0x0C),
         BMSDp("problem_code", 4, 4, False, idx=0x21),
     )
-    _CMDS: Final[list[int]] = list({field.idx for field in _FIELDS})
+    _CMDS: Final = frozenset({field.idx for field in _FIELDS})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
@@ -62,9 +62,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
-        """Return list of services required by BMS."""
-        return [normalize_uuid_str("ffe5"), normalize_uuid_str("ffe0")]
+    def uuid_services() -> tuple[str, ...]:
+        """Return list of 128-bit UUIDs of services required by BMS."""
+        return (normalize_uuid_str("ffe5"), normalize_uuid_str("ffe0"))
 
     @staticmethod
     def uuid_rx() -> str:
@@ -85,20 +85,23 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         # verify that data is long enough
-        if len(data) < BMS.MIN_FRAME or len(data) != BMS.MIN_FRAME + data[BMS.LEN_POS]:
+        if (
+            len(data) < BMS._MIN_FRAME
+            or len(data) != BMS._MIN_FRAME + data[BMS._LEN_POS]
+        ):
             self._log.debug("incorrect frame length (%i): %s", len(data), data)
             return
 
-        if not data.startswith(BMS.HEAD) or not data.endswith(BMS.TAIL_RX):
+        if not data.startswith(BMS._HEAD) or not data.endswith(BMS._TAIL_RX):
             self._log.debug("incorrect frame start/end: %s", data)
             return
 
-        if (crc := crc_sum(data[len(BMS.HEAD) : len(data) + BMS.CRC_POS])) != data[
-            BMS.CRC_POS
+        if (crc := crc_sum(data[len(BMS._HEAD) : len(data) + BMS._CRC_POS])) != data[
+            BMS._CRC_POS
         ]:
             self._log.debug(
                 "invalid checksum 0x%X != 0x%X",
-                data[len(data) + BMS.CRC_POS],
+                data[len(data) + BMS._CRC_POS],
                 crc,
             )
             return
@@ -112,9 +115,9 @@ class BMS(BaseBMS):
         """Assemble a CBT Power BMS command."""
         value = [] if value is None else value
         assert len(value) <= 255
-        frame = bytearray([*BMS.HEAD, cmd[0], len(value), *value])
-        frame.append(crc_sum(frame[len(BMS.HEAD) :]))
-        frame.extend(BMS.TAIL_TX)
+        frame = bytearray([*BMS._HEAD, cmd[0], len(value), *value])
+        frame.append(crc_sum(frame[len(BMS._HEAD) :]))
+        frame.extend(BMS._TAIL_TX)
         return bytes(frame)
 
     async def _async_update(self) -> BMSSample:
@@ -126,16 +129,16 @@ class BMS(BaseBMS):
                 await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
             except TimeoutError:
                 continue
-            if cmd != self._msg[BMS.CMD_POS]:
+            if cmd != self._msg[BMS._CMD_POS]:
                 self._log.debug(
                     "incorrect response 0x%X to command 0x%X",
-                    self._msg[BMS.CMD_POS],
+                    self._msg[BMS._CMD_POS],
                     cmd,
                 )
-            resp_cache[self._msg[BMS.CMD_POS]] = self._msg
+            resp_cache[self._msg[BMS._CMD_POS]] = self._msg
 
         voltages: list[float] = []
-        for cmd in BMS.CELL_VOLTAGE_CMDS:
+        for cmd in BMS._CELLV_CMDS:
             try:
                 await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
             except TimeoutError:

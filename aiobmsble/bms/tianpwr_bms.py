@@ -40,7 +40,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
         BMSDp("dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
     )
-    _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS}) | set({0x87})
+    _CMDS: Final = frozenset({field.idx for field in _FIELDS}) | set({0x87})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
@@ -53,9 +53,9 @@ class BMS(BaseBMS):
         return [{"local_name": "TP_*", "connectable": True}]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ff00")]
+        return (normalize_uuid_str("ff00"),)
 
     @staticmethod
     def uuid_rx() -> str:

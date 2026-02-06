@@ -50,9 +50,9 @@ class BMS(BaseBMS):
         return [{"service_uuid": normalize_uuid_str("af30"), "connectable": True}]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ffe0")]
+        return (normalize_uuid_str("ffe0"),)
 
     @staticmethod
     def uuid_rx() -> str:

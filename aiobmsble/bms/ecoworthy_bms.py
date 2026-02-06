@@ -42,7 +42,7 @@ class BMS(BaseBMS):
         for field in _FIELDS_V1
     )
 
-    _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS_V1})
+    _CMDS: Final = frozenset({field.idx for field in _FIELDS_V1})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
@@ -66,9 +66,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("fff0")]
+        return (normalize_uuid_str("fff0"),)
 
     @staticmethod
     def uuid_rx() -> str:
