@@ -220,37 +220,16 @@ class BaseBMS(ABC):
         """
         return frozenset()
 
-    @final
     @staticmethod
-    def _add_missing_values(
-        data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
-    ) -> None:
-        """Calculate missing BMS values from existing ones.
-
-        Args:
-            data: data dictionary with values received from BMS
-            raw_values: list of values that shall not be added to the dictionary
-
-        Returns:
-            None
-
-        """
-        if not data:
-            return
-
-        def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
-            """Check value to add is not excluded, does not exist, and needed data is available."""
-            return (
-                (value not in raw_values)
-                and (value not in data)
-                and using.issubset(data)
-            )
-
-        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
+    def _calculation_registry(
+        data: BMSSample,
+    ) -> dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]]:
         battery_level: Final[int | float] = data.get("battery_level", 0)
+        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
         current: Final[float] = data.get("current", 0)
+        design_capacity: Final[float] = data.get("design_capacity", 0)
 
-        calculations: dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]] = {
+        return {
             "voltage": ({"cell_voltages"}, lambda: round(sum(cell_voltages), 3)),
             "delta_voltage": (
                 {"cell_voltages"},
@@ -262,23 +241,23 @@ class BaseBMS(ABC):
             ),
             "cycle_charge": (
                 {"design_capacity", "battery_level"},
-                lambda: (data.get("design_capacity", 0) * battery_level) / 100,
+                lambda: (design_capacity * battery_level) / 100,
             ),
             "battery_level": (
                 {"design_capacity", "cycle_charge"},
-                lambda: round(
-                    data.get("cycle_charge", 0) / data.get("design_capacity", 0) * 100,
-                    1,
-                ),
+                lambda: round(data.get("cycle_charge", 0) / design_capacity * 100, 1),
             ),
-            "cell_count": ({"cell_voltages"}, lambda: len(cell_voltages)),
+            "cell_count": (
+                {"cell_voltages"},
+                lambda: len(cell_voltages),
+            ),
             "cycle_capacity": (
                 {"voltage", "cycle_charge"},
                 lambda: round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3),
             ),
             "cycles": (
                 {"design_capacity", "total_charge"},
-                lambda: data.get("total_charge", 0) // data.get("design_capacity", 0),
+                lambda: data.get("total_charge", 0) // design_capacity,
             ),
             "power": (
                 {"voltage", "current"},
@@ -306,6 +285,36 @@ class BaseBMS(ABC):
                 ),
             ),
         }
+
+    @final
+    @staticmethod
+    def _add_missing_values(
+        data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
+    ) -> None:
+        """Calculate missing BMS values from existing ones.
+
+        Args:
+            data: data dictionary with values received from BMS
+            raw_values: list of values that shall not be added to the dictionary
+
+        Returns:
+            None
+
+        """
+        if not data:
+            return
+
+        def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
+            """Check value to add is not excluded, does not exist, and needed data is available."""
+            return (
+                (value not in raw_values)
+                and (value not in data)
+                and using.issubset(data)
+            )
+
+        battery_level: Final[int | float] = data.get("battery_level", 0)
+        calculations: Final = BaseBMS._calculation_registry(data)
+        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
 
         for attr, (required, calc_func) in calculations.items():
             if (
