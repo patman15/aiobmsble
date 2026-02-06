@@ -58,7 +58,7 @@ class BMS(BaseBMS):
         BMSDp("cycles", 8, 2, False, idx=Cmd.LEGINFO2),
         BMSDp("problem_code", 15, 1, False, lambda x: x & 0xFF, Cmd.LEGINFO1),
     )
-    _CMDS: Final[set[Cmd]] = {Cmd(field.idx) for field in _FIELDS}
+    _CMDS: Final = frozenset({Cmd(field.idx) for field in _FIELDS})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
@@ -79,9 +79,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("fff0")]
+        return (normalize_uuid_str("fff0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -110,22 +110,17 @@ class BMS(BaseBMS):
             return
 
         # acknowledge received frame
-        await self._await_msg(
-            bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False
-        )
+        await self._await_msg(bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False)
 
-        size: Final[int] = data[0]
         page: Final[int] = data[1] >> 4
-        maxpg: Final[int] = data[1] & 0xF
-
         if page == 1:
             self._frame.clear()
 
-        self._frame += data[2 : size + 2]
+        self._frame += data[2 : data[0] + 2]
 
         self._log.debug("(%s): %s", "start" if page == 1 else "cnt.", data)
 
-        if page == maxpg:
+        if page == data[1] & 0xF:  # check if last page
             if (crc := BMS._crc(self._frame[3:-4])) != int.from_bytes(
                 self._frame[-4:-2], byteorder="big"
             ):
@@ -151,9 +146,10 @@ class BMS(BaseBMS):
         frame: bytearray = bytearray([cmd.value, 0x00, 0x00]) + data
         checksum: Final[int] = BMS._crc(frame)
         frame = (
-            bytearray([0x3A, 0x03, 0x05])
+            bytearray(b"\x3a\x03\x05")
             + frame
-            + bytes([(checksum >> 8) & 0xFF, checksum & 0xFF, 0x0D, 0x0A])
+            + checksum.to_bytes(2, byteorder="big")
+            + b"\x0d\x0a"
         )
         frame = bytearray([len(frame) + 2, 0x11]) + frame
         frame += bytes(BMS._PAGE_LEN - len(frame))

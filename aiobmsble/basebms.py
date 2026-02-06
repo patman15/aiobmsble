@@ -151,7 +151,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     @abstractmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
 
     @staticmethod

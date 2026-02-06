@@ -37,12 +37,10 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 31, 2, False, idx=0x1),
         BMSDp("balancer", 25, 2, False, idx=0x1),
     )
-    _CMDS: Final[set[int]] = {field.idx for field in _FIELDS}
-    _INIT_CMDS: Final[set[int]] = {
-        0x74,  # SW version
-        0xF4,  # BMS program version
-        0xF5,  # BMS boot version
-    }
+    _CMDS: Final = frozenset({field.idx for field in _FIELDS})
+    _INIT_CMDS: Final = frozenset(
+        {0x74, 0xF4, 0xF5}  # SW version  # BMS program version  # BMS boot version
+    )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
@@ -64,9 +62,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ff00")]
+        return (normalize_uuid_str("ff00"),)
 
     @staticmethod
     def uuid_rx() -> str:
