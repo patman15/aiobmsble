@@ -1,0 +1,35 @@
+| BMS | battery charging | battery mode | battery level | battery health | current | power | temperature | voltage | cycle capacity | cycles | delta voltage | problem | runtime | balancer | balance current | cell count | cell voltages | cycle charge | total charge | design capacity | pack count | temp sensors | temp values | problem code | chrg mosfet | dischrg mosfet | heater | pack voltages | pack currents | pack battery levels | pack battery health | pack cycles |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Chunguang Song (ABC-BMS) | . |  | ✓ |  | ✓ | . | . | ✓ | . | ✓ | . | . | . | ✓ |  | . | ✓ | ✓ |  | ✓ |  | ✓ | ✓ |  | ✓ | ✓ | ✓ |  |  |  |  |  |
+| ANT (smart BMS) | ✓ |  | ✓ | ✓ | ✓ | ✓ | . | ✓ | . | . | ✓ | . | . | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |  |
+| ANT (legacy smart BMS) | . |  | ✓ |  | ✓ | . | . | ✓ | . | . | . | . | ✓ | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |  | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |  |
+| Braun Power (smart BMS) | . |  | ✓ | ✓ | ✓ | . | . | ✓ | . | ✓ | . | . | . | ✓ |  | ✓ | ✓ | ✓ |  | ✓ |  | ✓ | ✓ | ✓ |  |  |  |  |  |  |  |  |
+| CBT Power (smart BMS) | . |  | ✓ |  | ✓ | . | . | ✓ | . | ✓ | . | . | ✓ |  |  | . | ✓ | ✓ |  | ✓ |  |  | ✓ | ✓ |  |  |  |  |  |  |  |  |
+| Creabest (VB series) | . |  | ✓ |  | ✓ | . | . | ✓ | . | ✓ | . | . | . |  |  | ✓ | ✓ | . |  | ✓ |  | ✓ | ✓ | ✓ |  |  |  |  |  |  |  |  |
+| Daly (smart BMS) | . |  | ✓ |  | ✓ | . | . | ✓ | . | ✓ | ✓ | . | . | ✓ |  | ✓ | ✓ | ✓ |  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |  |
+| D-powercore (smart BMS) | . |  | ✓ |  | ✓ | . | . | ✓ | . | ✓ | . | . | . |  |  | ✓ | ✓ | ✓ |  |  |  |  | ✓ | ✓ |  |  |  |  |  |  |  |  |
+| Dummy Manufacturer (dummy model) | . |  |  |  | ✓ | . | ✓ | ✓ |  |  |  | . |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| ECO-WORTHY (BW02) | . |  | ✓ | ✓ | ✓ | . | . | ✓ | . |  | . | . | . |  |  | ✓ | ✓ | . |  | ✓ |  | ✓ | ✓ | ✓ |  |  |  |  |  |  |  |  |
+| E&J Technology (smart BMS) | . |  | ✓ |  | ✓ |  | . |  |  | ✓ |  | . | . | ✓ |  |  |  | ✓ |  |  |  |  | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |  |
+| Felicity Solar (LiFePo4 battery) |  |  |  |  |  |  | . | . |  |  | . | . |  |  |  | . | ✓ |  |  |  |  |  | ✓ | ✓ |  |  |  |  |  |  |  |  |
+| Gobel Power (BLE BMS) | . |  | ✓ | ✓ | ✓ | . | . | ✓ | . | ✓ | . | . | . |  |  | ✓ | ✓ | ✓ |  | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |  |
+| Humsienk (BMC) | . |  | ✓ | ✓ | ✓ | . | . | ✓ |  |  | . | . |  |  |  | . | ✓ |  |  |  |  |  | ✓ |  | ✓ | ✓ |  |  |  |  |  |  |
+| Jiabaida (smart BMS) | . |  | ✓ |  | ✓ | . | . | ✓ | . | ✓ | . | . | . | ✓ |  | . | ✓ | ✓ |  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |  |
+| Jikong (smart BMS) | . | ✓ | ✓ | ✓ | ✓ | . | . | ✓ | . | ✓ | ✓ | . | . | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |  |
+| Ective (LiPower BMS) | . |  | ✓ |  | ✓ | ✓ |  | ✓ | . |  |  | . | ✓ |  |  |  |  | ✓ |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
+| Neey (Balancer) |  |  |  |  |  |  | . | ✓ |  |  | ✓ | . |  | ✓ | ✓ | . | ✓ |  |  |  |  |  | ✓ | ✓ |  |  |  |  |  |  |  |  |
+| Offgridtec (LiFePo4 Smart Pro) | . |  | ✓ |  | ✓ | . | . | ✓ | . | ✓ |  | . | ✓ |  |  |  |  | ✓ |  |  |  |  | ✓ |  |  |  |  |  |  |  |  |  |
+| PeiCheng Technology (PACEEX Smart BMS) | . |  | ✓ | ✓ | ✓ | . | . | ✓ | . | ✓ | . | . | . |  |  | ✓ | ✓ | ✓ |  | ✓ | ✓ |  | ✓ | ✓ |  |  |  |  |  |  |  |  |
+| Pro BMS (Smart Shunt) | . |  | ✓ |  | ✓ | ✓ | . | ✓ | . |  |  | . | . |  |  |  |  | ✓ |  |  |  |  | ✓ | ✓ |  |  |  |  |  |  |  |  |
+| Redodo (Bluetooth battery) | . |  | ✓ | ✓ | ✓ | . | . | ✓ | . | ✓ | . | . | . | ✓ |  | . | ✓ | ✓ |  | ✓ |  | ✓ | ✓ | ✓ |  |  | ✓ |  |  |  |  |  |
+| Renogy (Bluetooth battery) | . |  | . |  | ✓ | . | . | ✓ | . | ✓ | . | . | . |  |  | ✓ | ✓ | ✓ |  | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |
+| Renogy (BT battery pro) | . |  | . |  | ✓ | . |  | ✓ | . | ✓ |  | . | . |  |  |  |  | ✓ |  | ✓ |  |  |  |  |  |  |  |  |  |  |  |  |
+| RoyPow (smart BMS) | . |  | ✓ |  | ✓ | . | . | ✓ | . | ✓ | . | . | ✓ |  |  | . | ✓ | ✓ |  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |  |
+| Seplos (smart BMS V3) | . |  | ✓ | ✓ | ✓ | . | ✓ | ✓ | . | ✓ | ✓ | . | . | ✓ |  | ✓ |  | ✓ |  |  | ✓ |  |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Seplos (smart BMS V2) | . |  | ✓ | ✓ | ✓ | . | . | ✓ | . | ✓ | . | . | . | ✓ |  | ✓ | ✓ | ✓ |  |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |
+| Super-B (Epsilon) | . |  | ✓ |  | ✓ | . |  | ✓ |  |  |  | . | ✓ | ✓ |  |  |  |  |  |  |  |  |  | ✓ |  |  |  |  |  |  |  |  |
+| TDT (smart BMS) | . |  | ✓ |  | ✓ | . | . | ✓ | . | ✓ | . | . | . |  |  | ✓ | ✓ | ✓ |  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |  |
+| TianPwr (smart BMS) | . |  | ✓ | ✓ | ✓ | . | . | ✓ | . | ✓ | . | . | . | ✓ |  | ✓ | ✓ | ✓ |  | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |  |  |  |  |  |
+| Topband (smart BMS) | . |  | ✓ |  | ✓ | . | . | ✓ | . | ✓ | . | . | . |  |  | . | ✓ | ✓ |  |  |  |  | ✓ | ✓ |  |  |  |  |  |  |  |  |
+| Vatrer (smart BMS) | . |  | ✓ | ✓ | ✓ | . | . | ✓ | . | ✓ | ✓ | ✓ | . | ✓ |  | ✓ | ✓ | ✓ |  |  |  | ✓ | ✓ |  | ✓ | ✓ |  |  |  |  |  |  |
+| Wattstunde (Nova Core) | . |  | ✓ |  | ✓ | . | . | ✓ | . | ✓ | . | . | . |  |  | . | ✓ | ✓ |  | ✓ |  |  | ✓ | ✓ |  |  | ✓ |  |  |  |  |  |
