@@ -29,7 +29,7 @@ class BMS(BaseBMS):
         "default_manufacturer": "E&J Technology",
         "default_model": "smart BMS",
     }
-    _BT_MODULE_MSG: Final[bytes] = bytes([0x41, 0x54, 0x0D, 0x0A])  # BLE module message
+    _BT_MODULE_MSG: Final[bytes] = b"\x41\x54\x0d\x0a"  # BLE module message
     _IGNORE_CRC: Final[str] = "libattU"
     _HEAD: Final[bytes] = b"\x3a"
     _TAIL: Final[bytes] = b"\x7e"
@@ -91,9 +91,9 @@ class BMS(BaseBMS):
         )
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
+        return ("6e400001-b5a3-f393-e0a9-e50e24dcca9e",)
 
     @staticmethod
     def uuid_rx() -> str:

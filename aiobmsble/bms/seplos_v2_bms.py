@@ -37,7 +37,9 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 15, 2, False, lambda x: x / 10),
     )
     _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
-    _CMDS: Final[list[tuple[int, bytes]]] = [(0x51, b""), (0x61, b"\x00"), (0x62, b"")]
+    _CMDS: Final[frozenset[tuple[int, bytes]]] = frozenset(
+        {(0x51, b""), (0x61, b"\x00"), (0x62, b"")}
+    )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
@@ -59,9 +61,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ff00")]
+        return (normalize_uuid_str("ff00"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -202,7 +204,7 @@ class BMS(BaseBMS):
         )
         result["temp_values"] = BMS._temp_values(
             self._msg[0x61],
-            values=result["temp_sensors"],
+            values=result.get("temp_sensors", 0),
             start=BMS._CELL_POS + result.get("cell_count", 0) * 2 + 2,
             signed=False,
             offset=2731,

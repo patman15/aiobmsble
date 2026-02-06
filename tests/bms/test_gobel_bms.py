@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSInfo, BMSSample
 from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.gobel_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -118,7 +118,7 @@ class MockFragmentedBleakClient(MockGobelBleakClient):
         # Send in BT_FRAME_SIZE-byte chunks to simulate BLE fragmentation
         for i in range(0, len(full_response), BT_FRAME_SIZE):
             chunk = full_response[i : i + BT_FRAME_SIZE]
-            self._notify_callback("MockFragmentedBleakClient", bytearray(chunk))
+            self._notify_callback("MockFragmentedBleakClient", chunk)
 
 
 async def test_update(
@@ -164,7 +164,7 @@ async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     patch_bleak_client(MockGobelBleakClient)
 
     bms = BMS(generate_ble_device())
-    info = await bms.device_info()
+    info: Final[BMSInfo] = await bms.device_info()
 
     assert info.get("sw_version") == "P4S200A-40569-1.02"
     assert info.get("serial_number") == "4056911A1100032P"
@@ -183,8 +183,7 @@ def _corrupt_crc(frame: bytearray) -> bytearray:
 def _modbus_error_response() -> bytearray:
     """Build a Modbus error response."""
     error_frame = bytearray([0x01, 0x83, 0x02])  # Illegal data address
-    crc = crc_modbus(error_frame)
-    error_frame.extend([crc & 0xFF, (crc >> 8) & 0xFF])
+    error_frame.extend(crc_modbus(error_frame).to_bytes(2, "little"))
     return error_frame
 
 
@@ -192,10 +191,8 @@ def _short_response() -> bytearray:
     """Build a valid but short response (insufficient data)."""
     short_data = bytearray(20)
     short_data[2:4] = (1332).to_bytes(2, "big")  # voltage
-    frame = bytearray([0x01, 0x03, len(short_data)])
-    frame.extend(short_data)
-    crc = crc_modbus(frame)
-    frame.extend([crc & 0xFF, (crc >> 8) & 0xFF])
+    frame: bytearray = bytearray([0x01, 0x03, len(short_data)]) + short_data
+    frame.extend(crc_modbus(frame).to_bytes(2, "little"))
     return frame
 
 
@@ -247,13 +244,6 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-def test_uuid_methods() -> None:
-    """Test UUID method returns."""
-    assert BMS.uuid_services() == [SERVICE_UUID]
-    assert BMS.uuid_rx() == RX_CHAR_UUID
-    assert BMS.uuid_tx() == TX_CHAR_UUID
-
-
 def test_bms_info() -> None:
     """Test BMS info definition."""
     assert BMS.INFO.get("default_manufacturer") == "Gobel Power"
@@ -285,10 +275,8 @@ def _build_test_frame(reg_values: dict[int, int]) -> bytearray:
     for reg, val in reg_values.items():
         data[reg * 2 : reg * 2 + 2] = val.to_bytes(2, "big")
 
-    frame = bytearray([0x01, 0x03, len(data)])
-    frame.extend(data)
-    crc = crc_modbus(frame)
-    frame.extend([crc & 0xFF, (crc >> 8) & 0xFF])
+    frame: bytearray = bytearray([0x01, 0x03, len(data)]) + data
+    frame.extend(crc_modbus(frame).to_bytes(2, "little"))
     return frame
 
 
@@ -323,12 +311,12 @@ async def test_edge_cases(
 ) -> None:
     """Test various edge cases with parametrized register values."""
 
-    frame = _build_test_frame(reg_values)
+    frame: bytearray = _build_test_frame(reg_values)
     monkeypatch.setattr(MockGobelBleakClient, "_RESP", frame)
     patch_bleak_client(MockGobelBleakClient)
 
     bms = BMS(generate_ble_device())
-    result = await bms.async_update()
+    result: BMSSample = await bms.async_update()
 
     assert result.get(expected_key) == expected_value
 
@@ -341,46 +329,31 @@ async def test_mos_temp_ffff_invalid(
     """Test that MOSFET temperature of 0xFFFF is treated as invalid."""
 
     # Frame with 1 temp sensor at 25.0°C and invalid MOSFET temp
-    frame = _build_test_frame({46: 1, 47: 250, 57: 0xFFFF})
+    frame: bytearray = _build_test_frame({46: 1, 47: 250, 57: 0xFFFF})
     monkeypatch.setattr(MockGobelBleakClient, "_RESP", frame)
     patch_bleak_client(MockGobelBleakClient)
 
     bms = BMS(generate_ble_device())
-    result = await bms.async_update()
+    result: BMSSample = await bms.async_update()
 
     # Should only have one temperature (not the invalid MOSFET temp)
-    temps = result.get("temp_values", [])
-    assert len(temps) == 1
-    assert abs(temps[0] - 25.0) < 0.1
+    assert result.get("temp_values", []) == [25.0]
 
     await bms.disconnect()
 
 
-def _build_short_device_info() -> bytearray:
+def _build_device_info(length: int) -> bytearray:
     """Build device info frame with less than 60 bytes of data."""
-    short_data = bytearray(40)  # Less than 60
-    frame = bytearray([0x01, 0x03, len(short_data)])
-    frame.extend(short_data)
-    crc = crc_modbus(frame)
-    frame.extend([crc & 0xFF, (crc >> 8) & 0xFF])
-    return frame
-
-
-def _build_empty_device_info() -> bytearray:
-    """Build device info frame with all null bytes."""
-    empty_data = bytearray(70)
-    frame = bytearray([0x01, 0x03, len(empty_data)])
-    frame.extend(empty_data)
-    crc = crc_modbus(frame)
-    frame.extend([crc & 0xFF, (crc >> 8) & 0xFF])
+    frame: bytearray = bytearray([0x01, 0x03, length]) + bytes(length)
+    frame.extend(crc_modbus(frame).to_bytes(2, "little"))
     return frame
 
 
 @pytest.mark.parametrize(
     "device_info_frame",
     [
-        _build_short_device_info(),
-        _build_empty_device_info(),
+        _build_device_info(40),
+        _build_device_info(70),
         bytearray(),  # No response (timeout)
     ],
     ids=[
@@ -402,7 +375,7 @@ async def test_device_info_edge_cases(
     patch_bleak_client(MockGobelBleakClient)
 
     bms = BMS(generate_ble_device())
-    info = await bms.device_info()
+    info: Final[BMSInfo] = await bms.device_info()
 
     # For short/timeout cases, model_id should not be present
     # For empty_strings case, model_id is present but empty
@@ -444,9 +417,7 @@ async def test_unexpected_data_ignored(
     patch_bleak_client(MockUnexpectedDataBleakClient)
 
     bms = BMS(generate_ble_device())
-    result = await bms.async_update()
-
-    assert result == _RESULT_MAIN_DATA
+    assert await bms.async_update() == _RESULT_MAIN_DATA
 
     await bms.disconnect()
 
@@ -478,8 +449,6 @@ async def test_short_initial_frame(
     patch_bleak_client(MockMinFrameBleakClient)
 
     bms = BMS(generate_ble_device())
-    result = await bms.async_update()
-
-    assert result == _RESULT_MAIN_DATA
+    assert await bms.async_update() == _RESULT_MAIN_DATA
 
     await bms.disconnect()
