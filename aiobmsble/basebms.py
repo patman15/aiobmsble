@@ -221,7 +221,9 @@ class BaseBMS(ABC):
         return frozenset()
 
     @staticmethod
-    def _calculation_registry(data) -> dict[BMSValue, tuple[set[BMSValue], Callable]]:
+    def _calculation_registry(
+        data: BMSSample,
+    ) -> dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]]:
         battery_level: Final[int | float] = data.get("battery_level", 0)
         cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
         current: Final[float] = data.get("current", 0)
