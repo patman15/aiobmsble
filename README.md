@@ -31,7 +31,10 @@ This library is intended to query data from battery management systems that use 
 
 ### Supported Devices
 The [list of supported devices](https://github.com/patman15/BMS_BLE-HA?tab=readme-ov-file#supported-devices) is maintained in the repository of the related [Home Assistant integration](https://github.com/patman15/BMS_BLE-HA).
-For details about the supported data per BMS, please have a look at [BMS data table](https://github.com/patman15/aiobmsble/blob/main/docs/available_bms_data.csv).
+For details about the supported data per BMS, please have a look at [BMS data table](https://github.com/patman15/aiobmsble/blob/main/docs/available_bms_data.csv):
+- A `✓` means that the field is directly available from the BMS.
+- A `.` means that the field is not natively available, but all required fields for its calculation are available.
+- Empty means that the field is not available at all.
 
 ## Usage
 In order to identify all devices that are reachable and supported by the library, simply run
