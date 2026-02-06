@@ -7,6 +7,7 @@ A "✓" means that the data is natively available.
 A "." means that the data is not natively available, but all required fields for its calculation are available.
 Empty means that the data is not available at all.
 """
+import csv
 from importlib import import_module
 from pathlib import Path
 import re
@@ -16,10 +17,11 @@ from typing import Final
 from aiobmsble import BMSSample, BMSValue
 from aiobmsble.basebms import BaseBMS
 
-ROOT: Final = Path(__file__).parent.parent
-_INIT: Final = "aiobmsble"
+ALWAYS_CALC: Final[frozenset[str]] = frozenset({"problem"})
+ROOT: Final = Path(__file__).parents[1]
 BMS_DIR: Final = ROOT / "aiobmsble" / "bms"
-_ALWAYS_CALC: Final[frozenset[str]] = frozenset({"problem"})
+CSV_FILE: Final = ROOT / "docs" / "available_bms_data.csv"
+INIT: Final = "aiobmsble"
 
 
 def get_bmssample_fields(init_module: str) -> tuple[BMSValue, ...]:
@@ -57,7 +59,7 @@ def main() -> None:
     """Generate and print a markdown table of BMS data availability."""
 
     fields: Final[tuple[BMSValue, ...]] = tuple(
-        field for field in get_bmssample_fields(_INIT)
+        field for field in get_bmssample_fields(INIT)
     )
     bms_files: Final[list[Path]] = sorted(
         p for p in BMS_DIR.glob("*_bms.py") if p.is_file()
@@ -66,11 +68,7 @@ def main() -> None:
         "BMS",
         *(field.replace("_", " ") for field in fields),
     )
-    sep: Final[tuple[str, ...]] = ("---", *((":---:",) * (len(header) - 1)))
-    rows: Final[list[str]] = [
-        "| " + " | ".join(header) + " |",
-        "| " + " | ".join(sep) + " |",
-    ]
+    rows: list[list[str]] = []
 
     calculations: Final = BaseBMS._calculation_registry(BMSSample())  # noqa: SLF001
 
@@ -82,7 +80,7 @@ def main() -> None:
             else f.name.removesuffix("_bms.py")
         )
         marks: tuple[str, ...] = tuple(
-            ("✓" if file_has_field(f, field) else "." if field in _ALWAYS_CALC else "")
+            ("✓" if file_has_field(f, field) else "." if field in ALWAYS_CALC else "")
             for field in fields
         )
 
@@ -105,9 +103,12 @@ def main() -> None:
                 for fld, mk in zip(fields, marks, strict=True)
             )
 
-        rows.append("| " + " | ".join([bms_name, *marks]) + " |")
+        rows.append([bms_name, *marks])
 
-    print("\n".join(rows))  # noqa: T201
+    with Path.open(CSV_FILE, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(header)
+        writer.writerows(rows)
 
 
 if __name__ == "__main__":
