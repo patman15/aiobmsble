@@ -36,6 +36,14 @@ For details about the supported data per BMS, please have a look at [BMS data ta
 - A `.` means that the field is not natively available, but all required fields for its calculation are available.
 - Empty means that the field is not available at all.
 
+### [API documentation](https://patman15.github.io/aiobmsble/)
+The project uses [pdoc](https://pdoc.dev/) to generate the [API documentation](https://patman15.github.io/aiobmsble/). You can generate it locally using the [installation for development](#for-development) and then running the command
+```bash
+pdoc 'aiobmsble' '!aiobmsble.bms' -o docs
+```
+which will generate the documentation locally in the `/docs` folder.
+
+
 ## Usage
 In order to identify all devices that are reachable and supported by the library, simply run
 ```bash
