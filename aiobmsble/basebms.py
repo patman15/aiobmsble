@@ -38,7 +38,7 @@ class BaseBMS(ABC):
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
 
-    type InfoCharType = Literal[
+    type _InfoCharType = Literal[
         "model",
         "serial_number",
         "fw_version",
@@ -47,7 +47,7 @@ class BaseBMS(ABC):
         "manufacturer",
     ]
 
-    class PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
+    class _PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
         """Logging adapter to add instance ID to each log message."""
 
         def process(
@@ -89,7 +89,7 @@ class BaseBMS(ABC):
         self.name: Final[str] = self._ble_device.name or "undefined"
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
-        self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
+        self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
             {
                 "prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':', '')}:"
@@ -188,7 +188,7 @@ class BaseBMS(ABC):
             self._log.debug("No BT device information available.")
             return info
 
-        characteristics: Final[tuple[tuple[str, BaseBMS.InfoCharType], ...]] = (
+        characteristics: Final[tuple[tuple[str, BaseBMS._InfoCharType], ...]] = (
             ("2a24", "model"),
             ("2a25", "serial_number"),
             ("2a26", "fw_version"),
@@ -687,7 +687,8 @@ def crc8(data: bytes | bytearray) -> int:
 def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
     """Calculate the checksum of a frame using a specified size.
 
-    size : int, optional
-        The size of the checksum in bytes (default is 1).
+    Args:
+        frame: The input data for which the checksum is to be calculated.
+        size (int, optional): The size of the checksum in bytes (default is 1).
     """
     return sum(frame) & ((1 << (8 * size)) - 1)

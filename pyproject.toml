@@ -38,7 +38,7 @@ dependencies = [
 dev = [
     "pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", 
     "mypy", "ruff>=0.12.1,<0.15.0", "pylint-per-file-ignores", "netaddr", 
-    "types-netaddr", "codespell", "pre-commit"
+    "types-netaddr", "codespell", "pre-commit", "pdoc"
 ]
 
 [project.urls]
@@ -227,12 +227,11 @@ ignore = [
     "PLE0605",
 ]
 
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
-known-first-party = [
-    "homeassistant",
-]
 combine-as-imports = true
 split-on-trailing-comma = false
 
@@ -254,4 +253,4 @@ per-file-ignores = [
 ]
 
 [tool.codespell]
-ignore-regex = 'b".*"'
+ignore-regex = 'b".*"' # ignore byte strings
