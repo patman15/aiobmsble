@@ -34,7 +34,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._msg: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -48,9 +48,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("6e400001-b5a3-f393-e0a9-e50e24dcca9e")]
+        return (normalize_uuid_str("6e400001-b5a3-f393-e0a9-e50e24dcca9e"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -86,8 +86,8 @@ class BMS(BaseBMS):
         #     self._log.debug("invalid checksum 0x%X != 0x%X", self._data[-1], crc)
         #     return
 
-        self._data_final[data[2]] = data.copy()
-        self._data_event.set()
+        self._msg[data[2]] = bytes(data)
+        self._msg_event.set()
 
     @staticmethod
     @cache
@@ -99,13 +99,13 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         self._log.debug("replace with command to UUID %s", BMS.uuid_tx())
-        await self._await_reply(BMS._cmd(0x02))
+        await self._await_msg(BMS._cmd(0x02))
 
         result: BMSSample = self._decode_data(
-            BMS._FIELDS, self._data_final, byteorder="little"
+            BMS._FIELDS, self._msg, byteorder="little"
         )
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final[0x2], cells=BMS._MAX_CELLS, start=17, byteorder="little"
+            self._msg[0x2], cells=BMS._MAX_CELLS, start=17, byteorder="little"
         )
 
         return result

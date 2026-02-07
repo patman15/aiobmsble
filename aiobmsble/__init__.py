@@ -89,7 +89,7 @@ class BMSSample(TypedDict, total=False):
     # BMS switches
     chrg_mosfet: bool  # True: enabled
     dischrg_mosfet: bool  # True: enabled
-    heater: bool  # True: enabled
+    heater: bool  # True: enabled/heating
 
     # battery pack data
     pack_voltages: list[float]  # [V]

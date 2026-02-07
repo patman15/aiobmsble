@@ -33,9 +33,9 @@ class BMS(BaseBMS):
         return [{"local_name": "dummy", "connectable": True}]  # TODO: define matcher
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("0000")]  # TODO: change service UUID here!
+        return (normalize_uuid_str("0000"),)  # TODO: change service UUID here!
 
     @staticmethod
     def uuid_rx() -> str:
@@ -64,30 +64,32 @@ class BMS(BaseBMS):
         # self._log.debug("RX BLE data: %s", data)
 
         # *******************************************************
-        # # TODO: Do things like checking correctness of frame here
-        # # and store it into a instance variable, e.g. self._data
-        # # Below are some examples of how to do it
-        # # Have a look at the BMS base class for function to use,
-        # # take a look at other implementations for more  details
+        # TODO: Do things like checking correctness of frame here
+        # and store it into a instance variable, e.g. self._frame
+        # in case the frame is fragmented.
+        # Below are some examples of how to do it
+        # Have a look at the BMS base class for function to use,
+        # take a look at other implementations for more  details
         # *******************************************************
 
         # if not data.startswith(BMS._HEAD):
         #     self._log.debug("incorrect SOF")
         #     return
 
-        # if (crc := crc_sum(self._data[:-1])) != self._data[-1]:
-        #     self._log.debug("invalid checksum 0x%X != 0x%X", self._data[-1], crc)
+        # if (crc := crc_sum(self._frame[:-1])) != self._frame[-1]:
+        #     self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-1], crc)
         #     return
 
-        # self._data = data.copy()
-        # self._data_event.set()
+        # Do an immutable copy of the assembled (data) frame and notify _await_msg()
+        # self._msg = bytes(self._frame)
+        # self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         self._log.debug("replace with command to UUID %s", BMS.uuid_tx())
-        # await self._await_reply(b"<some_command>")
+        # await self._await_msg(b"<some_command>")
 
-        # TODO: parse data from self._data here
+        # TODO: parse data from self._frame here
 
         return {
             "voltage": 12,

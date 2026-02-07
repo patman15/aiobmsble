@@ -1,4 +1,4 @@
-"""Test the Ective BMS implementation."""
+"""Test the LiPower BMS implementation."""
 
 from collections.abc import Buffer
 from typing import Final
@@ -60,7 +60,7 @@ def proto(request: pytest.FixtureRequest) -> int:
 
 
 class MockLiPwrBleakClient(MockBleakClient):
-    """Emulate a Ective BMS BleakClient."""
+    """Emulate a LiPower BMS BleakClient."""
 
     _RESP: Final[bytearray] = _PROTO_DEFS[0x22]
 
@@ -98,7 +98,7 @@ async def test_update(
     protocol_type: int,
     keep_alive_fixture: bool,
 ) -> None:
-    """Test Ective BMS data update."""
+    """Test LiPower BMS data update."""
 
     patch_bms_timeout()
     monkeypatch.setattr(MockLiPwrBleakClient, "_RESP", _PROTO_DEFS[protocol_type])

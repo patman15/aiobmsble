@@ -12,7 +12,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str, crc_modbus
+from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -44,6 +44,7 @@ class BMS(BaseBMS):
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
         self._valid_reply: bytes = b""  # expected reply type
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -51,9 +52,9 @@ class BMS(BaseBMS):
         return [{"local_name": "PC-????", "connectable": True}]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("fff0")]
+        return (normalize_uuid_str("fff0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -68,12 +69,12 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         result: BMSInfo = BMSInfo()
-        await self._await_reply(self._cmd(b"\x00\x00\x00\x02\x00\x00"))
-        length: int = self._data[8]
-        result["serial_number"] = barr2str(self._data[9 : 9 + length])
-        await self._await_reply(self._cmd(b"\x00\x00\x00\x01\x00\x00"))
-        result["sw_version"] = barr2str(self._data[10 : 10 + self._data[9]])
-        result["hw_version"] = barr2str(self._data[65 : 65 + self._data[64]])
+        await self._await_msg(self._cmd(b"\x00\x00\x00\x02\x00\x00"))
+        length: int = self._msg[8]
+        result["serial_number"] = b2str(self._msg[9 : 9 + length])
+        await self._await_msg(self._cmd(b"\x00\x00\x00\x01\x00\x00"))
+        result["sw_version"] = b2str(self._msg[10 : 10 + self._msg[9]])
+        result["hw_version"] = b2str(self._msg[65 : 65 + self._msg[64]])
         return result
 
     def _notification_handler(
@@ -104,8 +105,8 @@ class BMS(BaseBMS):
             self._log.debug("unexpected response")
             return
 
-        self._data = data.copy()
-        self._data_event.set()
+        self._msg = bytes(data)
+        self._msg_event.set()
 
     @staticmethod
     @cache
@@ -115,7 +116,7 @@ class BMS(BaseBMS):
         frame += int.to_bytes(crc_modbus(frame), 2, byteorder="big") + BMS._TAIL
         return bytes(frame)
 
-    async def _await_reply(
+    async def _await_msg(
         self,
         data: bytes,
         char: int | str | None = None,
@@ -125,19 +126,21 @@ class BMS(BaseBMS):
         """Send data to the BMS and wait for valid reply notification."""
 
         self._valid_reply = data[BMS._FRM_TYPE]  # expected reply type
-        await super()._await_reply(data, char, wait_for_notify, max_size)
+        await super()._await_msg(data, char, wait_for_notify, max_size)
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(BMS._cmd(b"\x00\x00\x0a\x00\x00\x00"))
-        result = BMS._decode_data(BMS._FIELDS, self._data, byteorder="big", start=8)
-        await self._await_reply(BMS._cmd(b"\x00\x00\x0a\x02\x00\x00", b"\x01\x01"))
-        result["cell_count"] = self._data[11]
+        await self._await_msg(BMS._cmd(b"\x00\x00\x0a\x00\x00\x00"))
+        result: BMSSample = BMS._decode_data(
+            BMS._FIELDS, self._msg, byteorder="big", start=8
+        )
+        await self._await_msg(BMS._cmd(b"\x00\x00\x0a\x02\x00\x00", b"\x01\x01"))
+        result["cell_count"] = self._msg[11]
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data, cells=result["cell_count"], start=12, gap=2
+            self._msg, cells=result["cell_count"], start=12, gap=2
         )
         result["temp_values"] = BMS._temp_values(
-            self._data,
+            self._msg,
             values=result["cell_count"],
             start=14,
             gap=2,

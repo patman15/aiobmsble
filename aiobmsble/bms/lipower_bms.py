@@ -42,6 +42,7 @@ class BMS(BaseBMS):
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
         self._heads: tuple[bytes, ...] = BMS._HEADS
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -49,9 +50,9 @@ class BMS(BaseBMS):
         return [{"service_uuid": normalize_uuid_str("af30"), "connectable": True}]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ffe0")]
+        return (normalize_uuid_str("ffe0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -87,8 +88,8 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data = data.copy()
-        self._data_event.set()
+        self._msg = bytes(data)
+        self._msg_event.set()
 
     @staticmethod
     @cache
@@ -107,7 +108,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         for head in self._heads:
             try:
-                await self._await_reply(
+                await self._await_msg(
                     BMS._cmd(cmd=0x4, addr=0x0, words=0x8, head=head)
                 )
                 if len(self._heads) > 1:
@@ -119,4 +120,4 @@ class BMS(BaseBMS):
         else:
             raise TimeoutError
 
-        return BMS._decode_data(BMS._FIELDS, self._data)
+        return BMS._decode_data(BMS._FIELDS, self._msg)

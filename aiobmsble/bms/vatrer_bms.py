@@ -37,17 +37,15 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 32, 1, False, lambda x: bool(x & 0x20), 0x24),
         BMSDp("balancer", 35, 4, False, idx=0x24),
     )
-    _RESPS: Final[set[int]] = {field.idx for field in _FIELDS}
-    _CMDS: Final[tuple[tuple[int, int], ...]] = (
-        (0x0, 0x14),
-        (0x34, 0x12),
-        (0x15, 0x1F),
+    _RESPS: Final = frozenset({field.idx for field in _FIELDS})
+    _CMDS: Final[frozenset[tuple[int, int]]] = frozenset(
+        {(0x0, 0x14), (0x34, 0x12), (0x15, 0x1F)}
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._msg: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -63,9 +61,9 @@ class BMS(BaseBMS):
     # async def _fetch_device_info(self) -> BMSInfo: use default
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
+        return ("6e400001-b5a3-f393-e0a9-e50e24dcca9e",)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -101,8 +99,8 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data_final[data[2]] = data.copy()
-        self._data_event.set()
+        self._msg[data[2]] = bytes(data)
+        self._msg_event.set()
 
     @staticmethod
     @cache
@@ -119,17 +117,17 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         for addr, length in BMS._CMDS:
-            await self._await_reply(BMS._cmd(addr, length))
-        if not BMS._RESPS.issubset(set(self._data_final.keys())):
-            self._log.debug("Incomplete data set %s", self._data_final.keys())
+            await self._await_msg(BMS._cmd(addr, length))
+        if not BMS._RESPS.issubset(set(self._msg.keys())):
+            self._log.debug("Incomplete data set %s", self._msg.keys())
             raise TimeoutError("BMS data incomplete.")
 
-        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final[0x3E], cells=result.get("cell_count", 0), start=5
+            self._msg[0x3E], cells=result.get("cell_count", 0), start=5
         )
         result["temp_values"] = BMS._temp_values(
-            self._data_final[0x24], values=result.get("temp_sensors", 0) + 2, start=5
+            self._msg[0x24], values=result.get("temp_sensors", 0) + 2, start=5
         )  # MOS sensor is last (pos 6 of 4)
 
         return result

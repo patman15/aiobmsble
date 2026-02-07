@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str
+from aiobmsble.basebms import BaseBMS, b2str
 
 
 class BMS(BaseBMS):
@@ -25,6 +25,7 @@ class BMS(BaseBMS):
     }
     _HEAD: Final[bytes] = b"\x3a"  # beginning of frame
     _TAIL: Final[bytes] = b"\x7e"  # end of frame
+    _MIN_LEN: Final[int] = 238 # heater*2 + tail
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
             "current",
@@ -45,7 +46,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray = bytearray()
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -59,9 +60,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("FFF0")]
+        return (normalize_uuid_str("FFF0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -75,11 +76,11 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_reply(
+        await self._await_msg(
             self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45")
         )
-        self._data_event.clear()
-        return BMSInfo(serial_number=barr2str(self._data_final[91:107]))
+        self._msg_event.clear()
+        return BMSInfo(serial_number=b2str(self._msg[91:107]))
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -87,39 +88,37 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if data.startswith(BMS._HEAD):
-            self._data.clear()
+            self._frame.clear()
 
-        self._data += data
+        self._frame += data
 
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        if not (self._data.startswith(BMS._HEAD) and self._data.endswith(BMS._TAIL)):
+        if not (self._frame.startswith(BMS._HEAD) and self._frame.endswith(BMS._TAIL)):
             return
 
-        if len(self._data) % 2:
-            self._log.debug("incorrect frame length (%i)", len(self._data))
+        if len(self._frame) % 2 or len(self._frame) < BMS._MIN_LEN:
+            self._log.debug("incorrect frame length (%i)", len(self._frame))
             return
 
-        if not all(chr(c) in hexdigits for c in self._data[1:-1]):
+        if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
             self._log.debug("incorrect frame encoding.")
-            self._data.clear()
+            self._frame.clear()
             return
 
-        decoded = bytearray(
-            b ^ int(self._data[7:9], 16)
-            for b in bytes.fromhex(self._data[1:-3].decode("ascii"))
-        )
+        _key: Final[int] = int(self._frame[7:9], 16)
+        _dec = bytes(b ^ _key for b in bytes.fromhex(self._frame[1:-3].decode("ascii")))
         # incoming frames seem to have invalid checksum, thus not checked here
 
-        if not decoded.startswith(b"\x01\x54"):
+        if not _dec.startswith(b"\x01\x54"):
             self._log.debug("incorrect frame type.")
-            self._data.clear()
+            self._frame.clear()
             return
 
-        self._data_final = decoded.copy()
-        self._data_event.set()
+        self._msg = _dec
+        self._msg_event.set()
 
     @staticmethod
     @cache
@@ -129,18 +128,16 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        if not self._data_event.is_set():
+        if not self._msg_event.is_set():
             self._log.debug("requesting BMS data")
-            await self._await_reply(
+            await self._await_msg(
                 self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45")
             )
 
-        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final, start=44)
-        result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final, cells=16, start=12
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=44)
+        result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=16, start=12)
         result["temp_values"] = BMS._temp_values(
-            self._data_final, values=4, start=48, size=1, signed=False, offset=40
+            self._msg, values=4, start=48, size=1, signed=False, offset=40
         )
-        self._data_event.clear()
+        self._msg_event.clear()
         return result

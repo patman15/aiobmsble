@@ -11,7 +11,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, barr2str
+from aiobmsble.basebms import BaseBMS, b2str
 
 
 class BMS(BaseBMS):
@@ -40,12 +40,12 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
         BMSDp("dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
     )
-    _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS}) | set({0x87})
+    _CMDS: Final = frozenset({field.idx for field in _FIELDS}) | set({0x87})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+        self._msg: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -53,9 +53,9 @@ class BMS(BaseBMS):
         return [{"local_name": "TP_*", "connectable": True}]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ff00")]
+        return (normalize_uuid_str("ff00"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -70,10 +70,10 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         for cmd in (0x81, 0x82):
-            await self._await_reply(BMS._cmd(cmd))
+            await self._await_msg(BMS._cmd(cmd))
         return {
-            "sw_version": barr2str(self._data_final[0x81][3:-1]),
-            "hw_version": barr2str(self._data_final[0x82][3:-1]),
+            "sw_version": b2str(self._msg[0x81][3:-1]),
+            "hw_version": b2str(self._msg[0x82][3:-1]),
         }
 
     def _notification_handler(
@@ -95,8 +95,8 @@ class BMS(BaseBMS):
             self._log.debug("incorrect EOF.")
             return
 
-        self._data_final[data[2]] = data.copy()
-        self._data_event.set()
+        self._msg[data[2]] = bytes(data)
+        self._msg_event.set()
 
     @staticmethod
     def _cmd(addr: int) -> bytes:
@@ -106,34 +106,34 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        self._data_final.clear()
+        self._msg.clear()
         for cmd in BMS._CMDS:
-            await self._await_reply(BMS._cmd(cmd))
+            await self._await_msg(BMS._cmd(cmd))
 
-        if not BMS._CMDS.issubset(self._data_final):
-            self._log.debug("Incomplete data set %s", self._data_final.keys())
+        if not BMS._CMDS.issubset(self._msg):
+            self._log.debug("Incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
-        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
         for cmd in range(
             0x88, 0x89 + min(result.get("cell_count", 0), BMS._MAX_CELLS) // 8
         ):
-            await self._await_reply(BMS._cmd(cmd))
+            await self._await_msg(BMS._cmd(cmd))
             result["cell_voltages"] = result.setdefault(
                 "cell_voltages", []
             ) + BMS._cell_voltages(
-                self._data_final.get(cmd, bytearray()), cells=8, start=3
+                self._msg.get(cmd, b""), cells=8, start=3
             )
 
         result["temp_values"] = [
             int.from_bytes(
-                self._data_final[0x83][idx : idx + 2], byteorder="big", signed=True
+                self._msg[0x83][idx : idx + 2], byteorder="big", signed=True
             )
             / 10
             for idx in (7, 11)  # take ambient and mosfet temperature
         ] + BMS._temp_values(
-            self._data_final.get(0x87, bytearray()),
+            self._msg.get(0x87, b""),
             values=min(BMS._MAX_TEMP, result.get("temp_sensors", 0)),
             start=3,
             divider=10,

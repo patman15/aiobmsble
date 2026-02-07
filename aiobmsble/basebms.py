@@ -38,7 +38,7 @@ class BaseBMS(ABC):
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
 
-    type InfoCharType = Literal[
+    type _InfoCharType = Literal[
         "model",
         "serial_number",
         "fw_version",
@@ -47,7 +47,7 @@ class BaseBMS(ABC):
         "manufacturer",
     ]
 
-    class PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
+    class _PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
         """Logging adapter to add instance ID to each log message."""
 
         def process(
@@ -89,7 +89,7 @@ class BaseBMS(ABC):
         self.name: Final[str] = self._ble_device.name or "undefined"
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
-        self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
+        self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
             {
                 "prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':', '')}:"
@@ -104,8 +104,8 @@ class BaseBMS(ABC):
             disconnected_callback=self._on_disconnect,
             services=[*self.uuid_services(), "180a"],
         )
-        self._data: bytearray = bytearray()
-        self._data_event: Final[asyncio.Event] = asyncio.Event()
+        self._frame: bytearray = bytearray()
+        self._msg_event: Final[asyncio.Event] = asyncio.Event()
         self._connect_lock: Final[asyncio.Lock] = asyncio.Lock()
 
     @final
@@ -151,7 +151,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     @abstractmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
 
     @staticmethod
@@ -188,7 +188,7 @@ class BaseBMS(ABC):
             self._log.debug("No BT device information available.")
             return info
 
-        characteristics: Final[tuple[tuple[str, BaseBMS.InfoCharType], ...]] = (
+        characteristics: Final[tuple[tuple[str, BaseBMS._InfoCharType], ...]] = (
             ("2a24", "model"),
             ("2a25", "serial_number"),
             ("2a26", "fw_version"),
@@ -199,8 +199,8 @@ class BaseBMS(ABC):
 
         for char, key in characteristics:
             try:
-                if value := await self._client.read_gatt_char(char):
-                    info[key] = barr2str(value)
+                if value := bytes(await self._client.read_gatt_char(char)):
+                    info[key] = b2str(value)
                     self._log.debug("BT device %s: '%s'", key, info.get(key))
             except BleakCharacteristicNotFoundError:
                 pass
@@ -220,37 +220,16 @@ class BaseBMS(ABC):
         """
         return frozenset()
 
-    @final
     @staticmethod
-    def _add_missing_values(
-        data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
-    ) -> None:
-        """Calculate missing BMS values from existing ones.
-
-        Args:
-            data: data dictionary with values received from BMS
-            raw_values: list of values that shall not be added to the dictionary
-
-        Returns:
-            None
-
-        """
-        if not data:
-            return
-
-        def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
-            """Check value to add is not excluded, does not exist, and needed data is available."""
-            return (
-                (value not in raw_values)
-                and (value not in data)
-                and using.issubset(data)
-            )
-
-        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
+    def _calculation_registry(
+        data: BMSSample,
+    ) -> dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]]:
         battery_level: Final[int | float] = data.get("battery_level", 0)
+        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
         current: Final[float] = data.get("current", 0)
+        design_capacity: Final[float] = data.get("design_capacity", 0)
 
-        calculations: dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]] = {
+        return {
             "voltage": ({"cell_voltages"}, lambda: round(sum(cell_voltages), 3)),
             "delta_voltage": (
                 {"cell_voltages"},
@@ -262,23 +241,23 @@ class BaseBMS(ABC):
             ),
             "cycle_charge": (
                 {"design_capacity", "battery_level"},
-                lambda: (data.get("design_capacity", 0) * battery_level) / 100,
+                lambda: (design_capacity * battery_level) / 100,
             ),
             "battery_level": (
                 {"design_capacity", "cycle_charge"},
-                lambda: round(
-                    data.get("cycle_charge", 0) / data.get("design_capacity", 0) * 100,
-                    1,
-                ),
+                lambda: round(data.get("cycle_charge", 0) / design_capacity * 100, 1),
             ),
-            "cell_count": ({"cell_voltages"}, lambda: len(cell_voltages)),
+            "cell_count": (
+                {"cell_voltages"},
+                lambda: len(cell_voltages),
+            ),
             "cycle_capacity": (
                 {"voltage", "cycle_charge"},
                 lambda: round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3),
             ),
             "cycles": (
                 {"design_capacity", "total_charge"},
-                lambda: data.get("total_charge", 0) // data.get("design_capacity", 0),
+                lambda: data.get("total_charge", 0) // design_capacity,
             ),
             "power": (
                 {"voltage", "current"},
@@ -306,6 +285,36 @@ class BaseBMS(ABC):
                 ),
             ),
         }
+
+    @final
+    @staticmethod
+    def _add_missing_values(
+        data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
+    ) -> None:
+        """Calculate missing BMS values from existing ones.
+
+        Args:
+            data: data dictionary with values received from BMS
+            raw_values: list of values that shall not be added to the dictionary
+
+        Returns:
+            None
+
+        """
+        if not data:
+            return
+
+        def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
+            """Check value to add is not excluded, does not exist, and needed data is available."""
+            return (
+                (value not in raw_values)
+                and (value not in data)
+                and using.issubset(data)
+            )
+
+        battery_level: Final[int | float] = data.get("battery_level", 0)
+        calculations: Final = BaseBMS._calculation_registry(data)
+        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
 
         for attr, (required, calc_func) in calculations.items():
             if (
@@ -338,8 +347,8 @@ class BaseBMS(ABC):
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         # reset any stale data from BMS
-        self._data.clear()
-        self._data_event.clear()
+        self._frame.clear()
+        self._msg_event.clear()
 
         self._log.debug(
             "start notify on RX characteristic %s", str(char_notify or self.uuid_rx())
@@ -416,7 +425,7 @@ class BaseBMS(ABC):
                 response=(self._wr_response(char) != inv_wr_mode),
             )
 
-    async def _await_reply(
+    async def _await_msg(
         self,
         data: bytes,
         char: int | str | None = None,
@@ -429,7 +438,7 @@ class BaseBMS(ABC):
             [False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]
         ):
             try:
-                self._data_event.clear()  # clear event before requesting new data
+                self._msg_event.clear()  # clear event before requesting new data
                 for attempt in range(BaseBMS.MAX_RETRY):
                     await self._send_msg(
                         data, max_size, char or self.uuid_tx(), attempt, inv_wr_mode
@@ -461,7 +470,7 @@ class BaseBMS(ABC):
 
         self._log.debug("disconnecting BMS (%s)", str(self._client.is_connected))
         try:
-            self._data_event.clear()
+            self._msg_event.clear()
             if reset:
                 self._inv_wr_mode = None  # reset write mode
             await self._client.disconnect()
@@ -471,8 +480,8 @@ class BaseBMS(ABC):
     @final
     async def _wait_event(self) -> None:
         """Wait for data event and clear it."""
-        await self._data_event.wait()
-        self._data_event.clear()
+        await self._msg_event.wait()
+        self._msg_event.clear()
 
     @abstractmethod
     async def _async_update(self) -> BMSSample:
@@ -505,7 +514,7 @@ class BaseBMS(ABC):
     @staticmethod
     def _decode_data(
         fields: tuple[BMSDp, ...],
-        data: bytearray | dict[int, bytearray],
+        data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",
         start: int = 0,
@@ -514,7 +523,7 @@ class BaseBMS(ABC):
         for field in fields:
             if isinstance(data, dict) and field.idx not in data:
                 continue
-            msg: bytearray = data[field.idx] if isinstance(data, dict) else data
+            msg: bytes = data[field.idx] if isinstance(data, dict) else data
             result[field.key] = field.fct(
                 int.from_bytes(
                     msg[start + field.pos : start + field.pos + field.size],
@@ -526,7 +535,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _cell_voltages(
-        data: bytearray,
+        data: bytes,
         *,
         cells: int,
         start: int,
@@ -567,7 +576,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _temp_values(
-        data: bytearray,
+        data: bytes,
         *,
         values: int,
         start: int,
@@ -616,9 +625,9 @@ class BaseBMS(ABC):
         ]
 
 
-def barr2str(barr: bytearray) -> str:
+def b2str(b: bytes) -> str:
     """Decode a bytearray to string, stopping at the first non-printable character."""
-    s: Final[str] = barr.decode("utf-8", errors="ignore")
+    s: Final[str] = b.decode("utf-8", errors="ignore")
     for i, c in enumerate(s):
         if not c.isprintable():
             return s[:i].strip()
@@ -638,7 +647,7 @@ def swap32(value: int, signed: bool = False) -> int:
     return value
 
 
-def crc_modbus(data: bytearray) -> int:
+def crc_modbus(data: bytes | bytearray) -> int:
     """Calculate CRC-16-CCITT MODBUS."""
     crc: int = 0xFFFF
     for i in data:
@@ -648,12 +657,12 @@ def crc_modbus(data: bytearray) -> int:
     return crc & 0xFFFF
 
 
-def lrc_modbus(data: bytearray) -> int:
+def lrc_modbus(data: bytes | bytearray) -> int:
     """Calculate MODBUS LRC."""
     return ((sum(data) ^ 0xFFFF) + 1) & 0xFFFF
 
 
-def crc_xmodem(data: bytearray) -> int:
+def crc_xmodem(data: bytes | bytearray) -> int:
     """Calculate CRC-16-CCITT XMODEM."""
     crc: int = 0x0000
     for byte in data:
@@ -663,7 +672,7 @@ def crc_xmodem(data: bytearray) -> int:
     return crc & 0xFFFF
 
 
-def crc8(data: bytearray) -> int:
+def crc8(data: bytes | bytearray) -> int:
     """Calculate CRC-8/MAXIM-DOW."""
     crc: int = 0x00  # Initialwert für CRC
 
@@ -675,10 +684,11 @@ def crc8(data: bytearray) -> int:
     return crc & 0xFF
 
 
-def crc_sum(frame: bytearray, size: int = 1) -> int:
+def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
     """Calculate the checksum of a frame using a specified size.
 
-    size : int, optional
-        The size of the checksum in bytes (default is 1).
+    Args:
+        frame: The input data for which the checksum is to be calculated.
+        size (int, optional): The size of the checksum in bytes (default is 1).
     """
     return sum(frame) & ((1 << (8 * size)) - 1)

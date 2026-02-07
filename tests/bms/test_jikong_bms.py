@@ -212,6 +212,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
             3.309,
         ],
         "cycle_capacity": 5998.701,
+        "design_capacity": 202,
         "power": 123.369,
         "battery_charging": True,
         "temp_values": [18.1, 18.6, 22.8],
@@ -230,6 +231,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "battery_level": 68,
         "battery_health": 100,
         "cycle_charge": 142.464,
+        "design_capacity": 210,
         "cycles": 21,
         "balance_current": 0.0,
         "temp_sensors": 255,
@@ -255,6 +257,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "battery_level": 25,
         "battery_health": 100,
         "cycle_charge": 49.286,
+        "design_capacity": 200,
         "cycles": 9,
         "balance_current": 0.0,
         "temp_sensors": 255,
@@ -296,6 +299,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "battery_level": 25,
         "battery_health": 100,
         "cycle_charge": 49.286,
+        "design_capacity": 200,
         "cycles": 9,
         "balance_current": 0.0,
         "temp_sensors": 255,
@@ -617,7 +621,7 @@ async def test_stream_update(
     bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
-    assert bms._data_event.is_set() is False, "BMS does not request fresh data"
+    assert bms._msg_event.is_set() is False, "BMS does not request fresh data"
     assert "requesting cell info" in caplog.text
 
     _client = cast(MockStreamBleakClient, bms._client)
