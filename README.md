@@ -6,7 +6,7 @@
 Requires Python 3 and uses [asyncio](https://docs.python.org/3/library/asyncio.html) and [Bleak](https://pypi.org/project/bleak/)
 
 ## Asynchronous Library to Query Battery Management Systems via Bluetooth LE
-This library is intended to query data from battery management systems that use Bluetooth LE. This library can be used stand-alone in any Python environment (with necessary dependencies installed). It is developed to support [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/) that was written to make BMS data available to Home Assistant, but can be hopefully useful for other use-cases as well.
+This library is intended to query data from battery management systems that use Bluetooth LE. Stand-alone usage is possible in any Python environment (with necessary dependencies installed). It is developed to support [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/) that was written to make BMS data available to Home Assistant, but can be hopefully useful for other use-cases as well.
 
 * [Features](#features)
 * [Usage](#usage)

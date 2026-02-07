@@ -1,5 +1,11 @@
 """Package for battery management systems (BMS) via Bluetooth LE (aiobmsble).
 
+Asynchronous Library to Query Battery Management Systems via Bluetooth LE
+
+This library is intended to query data from battery management systems
+that use Bluetooth LE. Stand-alone usage is possible in any Python environment
+(with necessary dependencies installed).
+
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
