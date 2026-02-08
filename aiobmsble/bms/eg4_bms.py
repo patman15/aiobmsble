@@ -4,7 +4,6 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-import asyncio
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -47,9 +46,9 @@ class BMS(BaseBMS):
         return [{"service_uuid": BMS.uuid_services()[0], "connectable": True}]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("1000")]
+        return (normalize_uuid_str("1000"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -59,7 +58,7 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-        raise NotImplementedError
+        return "1001"
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -91,7 +90,7 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        await self._await_msg(b"\x01\x00")
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
         # result["temp_values"] = BMS._temp_values(self._data, values=2, start=69, size=1)
         result["cell_voltages"] = BMS._cell_voltages(
