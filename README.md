@@ -6,7 +6,7 @@
 Requires Python 3 and uses [asyncio](https://docs.python.org/3/library/asyncio.html) and [Bleak](https://pypi.org/project/bleak/)
 
 ## Asynchronous Library to Query Battery Management Systems via Bluetooth LE
-This library is intended to query data from battery management systems that use Bluetooth LE. This library can be used stand-alone in any Python environment (with necessary dependencies installed). It is developed to support [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/) that was written to make BMS data available to Home Assistant, but can be hopefully useful for other use-cases as well.
+This library is intended to query data from battery management systems that use Bluetooth LE. Stand-alone usage is possible in any Python environment (with necessary dependencies installed). It is developed to support [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/) that was written to make BMS data available to Home Assistant, but can be hopefully useful for other use-cases as well.
 
 * [Features](#features)
 * [Usage](#usage)
@@ -31,6 +31,18 @@ This library is intended to query data from battery management systems that use 
 
 ### Supported Devices
 The [list of supported devices](https://github.com/patman15/BMS_BLE-HA?tab=readme-ov-file#supported-devices) is maintained in the repository of the related [Home Assistant integration](https://github.com/patman15/BMS_BLE-HA).
+For details about the supported data per BMS, please have a look at [BMS data table](https://github.com/patman15/aiobmsble/blob/main/docs/available_bms_data.csv):
+- A `✓` means that the field is directly available from the BMS.
+- A `.` means that the field is not natively available, but all required fields for its calculation are available.
+- Empty means that the field is not available at all.
+
+### [API documentation](https://patman15.github.io/aiobmsble/)
+The project uses [pdoc](https://pdoc.dev/) to generate the [API documentation](https://patman15.github.io/aiobmsble/). You can generate it locally using the [installation for development](#for-development) and then running the command
+```bash
+pdoc 'aiobmsble' '!aiobmsble.bms' -o docs
+```
+which will generate the documentation locally in the `/docs` folder.
+
 
 ## Usage
 In order to identify all devices that are reachable and supported by the library, simply run
@@ -136,7 +148,7 @@ In case you have problems with the library, please enable debug logging. You can
 - and put the `debug.log` **as attachment** to the issue.
 
 ## Thanks to
-> [@gkathan](https://github.com/patman15/BMS_BLE-HA/issues/2), [@downset](https://github.com/patman15/BMS_BLE-HA/issues/19), [@gerritb](https://github.com/patman15/BMS_BLE-HA/issues/22), [@Goaheadz](https://github.com/patman15/BMS_BLE-HA/issues/24), [@alros100, @majonessyltetoy](https://github.com/patman15/BMS_BLE-HA/issues/52), [@snipah, @Gruni22](https://github.com/patman15/BMS_BLE-HA/issues/59), [@azisto](https://github.com/patman15/BMS_BLE-HA/issues/78), [@BikeAtor, @Karatzie](https://github.com/patman15/BMS_BLE-HA/issues/57), [@PG248](https://github.com/patman15/BMS_BLE-HA/issues/85), [@SkeLLLa,@romanshypovskyi](https://github.com/patman15/BMS_BLE-HA/issues/90), [@riogrande75, @ebagnoli, @andreas-bulling](https://github.com/patman15/BMS_BLE-HA/issues/101), [@goblinmaks, @andreitoma-github](https://github.com/patman15/BMS_BLE-HA/issues/102), [@hacsler](https://github.com/patman15/BMS_BLE-HA/issues/103), [@ViPeR5000](https://github.com/patman15/BMS_BLE-HA/pull/182), [@edelstahlratte](https://github.com/patman15/BMS_BLE-HA/issues/161), [@nezra](https://github.com/patman15/BMS_BLE-HA/issues/164), [@Fandu21](https://github.com/patman15/BMS_BLE-HA/issues/194), [@rubenclark74](https://github.com/patman15/BMS_BLE-HA/issues/186), [@geierwally1978](https://github.com/patman15/BMS_BLE-HA/issues/240), [@Tulexcorp](https://github.com/patman15/BMS_BLE-HA/issues/271), [@oliviercommelarbre](https://github.com/patman15/BMS_BLE-HA/issues/279), [@shaf](https://github.com/patman15/BMS_BLE-HA/issues/286), [@gavrilov](https://github.com/patman15/BMS_BLE-HA/issues/247), [@SOLAR-RAIDER](https://github.com/patman15/BMS_BLE-HA/issues/291), [@prodisz](https://github.com/patman15/BMS_BLE-HA/issues/303), [@thecodingmax](https://github.com/patman15/BMS_BLE-HA/issues/390), [@daubman](https://github.com/patman15/BMS_BLE-HA/pull/413), [@krahabb](https://github.com/patman15/BMS_BLE-HA/pull/468), [@ardeus-ua](https://github.com/patman15/BMS_BLE-HA/issues/521), [@GlennDC](https://github.com/patman15/aiobmsble/issues/65), [@hhgerhard-google](https://github.com/patman15/BMS_BLE-HA/issues/537), [@wilcox97, @norton120](https://github.com/patman15/BMS_BLE-HA/issues/509)
+> [@gkathan](https://github.com/patman15/BMS_BLE-HA/issues/2), [@downset](https://github.com/patman15/BMS_BLE-HA/issues/19), [@gerritb](https://github.com/patman15/BMS_BLE-HA/issues/22), [@Goaheadz](https://github.com/patman15/BMS_BLE-HA/issues/24), [@alros100, @majonessyltetoy](https://github.com/patman15/BMS_BLE-HA/issues/52), [@snipah, @Gruni22](https://github.com/patman15/BMS_BLE-HA/issues/59), [@azisto](https://github.com/patman15/BMS_BLE-HA/issues/78), [@BikeAtor, @Karatzie](https://github.com/patman15/BMS_BLE-HA/issues/57), [@PG248](https://github.com/patman15/BMS_BLE-HA/issues/85), [@SkeLLLa,@romanshypovskyi](https://github.com/patman15/BMS_BLE-HA/issues/90), [@riogrande75, @ebagnoli, @andreas-bulling](https://github.com/patman15/BMS_BLE-HA/issues/101), [@goblinmaks, @andreitoma-github](https://github.com/patman15/BMS_BLE-HA/issues/102), [@hacsler](https://github.com/patman15/BMS_BLE-HA/issues/103), [@ViPeR5000](https://github.com/patman15/BMS_BLE-HA/pull/182), [@edelstahlratte](https://github.com/patman15/BMS_BLE-HA/issues/161), [@nezra](https://github.com/patman15/BMS_BLE-HA/issues/164), [@Fandu21](https://github.com/patman15/BMS_BLE-HA/issues/194), [@rubenclark74](https://github.com/patman15/BMS_BLE-HA/issues/186), [@geierwally1978](https://github.com/patman15/BMS_BLE-HA/issues/240), [@Tulexcorp](https://github.com/patman15/BMS_BLE-HA/issues/271), [@oliviercommelarbre](https://github.com/patman15/BMS_BLE-HA/issues/279), [@shaf](https://github.com/patman15/BMS_BLE-HA/issues/286), [@gavrilov](https://github.com/patman15/BMS_BLE-HA/issues/247), [@SOLAR-RAIDER](https://github.com/patman15/BMS_BLE-HA/issues/291), [@prodisz](https://github.com/patman15/BMS_BLE-HA/issues/303), [@thecodingmax](https://github.com/patman15/BMS_BLE-HA/issues/390), [@daubman](https://github.com/patman15/BMS_BLE-HA/pull/413), [@krahabb](https://github.com/patman15/BMS_BLE-HA/pull/468), [@ardeus-ua](https://github.com/patman15/BMS_BLE-HA/issues/521), [@GlennDC](https://github.com/patman15/aiobmsble/issues/65), [@hhgerhard-google](https://github.com/patman15/BMS_BLE-HA/issues/537), [@crotwell](https://github.com/patman15/aiobmsble/issues/64), [@dschenzer](https://github.com/patman15/aiobmsble/pull/128), [@wilcox97, @norton120](https://github.com/patman15/BMS_BLE-HA/issues/509)
 
 for helping with making the library better.
 

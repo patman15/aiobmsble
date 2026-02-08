@@ -1,4 +1,4 @@
-"""Test the Ective BMS implementation."""
+"""Test the Topband BMS implementation."""
 
 from collections.abc import Awaitable, Callable
 from typing import Final
@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
 from aiobmsble import BMSSample
-from aiobmsble.bms.ective_bms import BMS
+from aiobmsble.bms.topband_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import verify_device_info
@@ -16,19 +16,30 @@ from tests.test_basebms import verify_device_info
 BT_FRAME_SIZE = 32
 
 _PROTO_DEFS: Final[dict[int, bytearray]] = {
-    0x5E: bytearray(
+    0x5E: bytearray(  # Ective
         b"\x36\x46\x32\x00\x5e\x38\x34\x33\x35\x30\x30\x30\x30\x46\x38\x43\x44\x46\x46\x46\x46"
-        b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30"
-        b"\x45\x31\x30\x42\x30\x30\x30\x30\x30\x30\x30\x30"
-        b"\x35\x45\x30\x44\x37\x31\x30\x44\x36\x35\x30\x44\x35\x45\x30\x44"
-        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-        b"\x30\x39\x34\x46\xaf\x46\x38\x33\x33\x30\x30\x30\x30\x30\x30\x30"  # \xaf garbage
-        b"\x30\x30\x30\x30\x30\x00\x00\x00\x00\x00\x00\x00\x00"  # garbage
+        b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30\x45\x31\x30\x42\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x35\x45\x30\x44\x37\x31\x30\x44\x36\x35\x30\x44\x35\x45"
+        b"\x30\x44\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x39\x34\x46\xaf\x46\x38\x33\x33\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x00\x00\x00\x00\x00\x00\x00\x00"  # \xaf ... garbage
     ),
-    0x83: bytearray(
-        b"\x836234000076FEFFFF888A010016006200530B008007B4160D170D190D1C0D00000000000000000000000000000000000000000000000007C2\x11\x11\x11\x11\x11\x11\x11\x11"
+    0x83: bytearray(  # StartCraft
+        b"\x83\x36\x32\x33\x34\x30\x30\x30\x30\x37\x36\x46\x45\x46\x46\x46\x46\x38\x38\x38\x41"
+        b"\x30\x31\x30\x30\x31\x36\x30\x30\x36\x32\x30\x30\x35\x33\x30\x42\x30\x30\x38\x30\x30"
+        b"\x37\x42\x34\x31\x36\x30\x44\x31\x37\x30\x44\x31\x39\x30\x44\x31\x43\x30\x44\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x37\x43\x32\x11\x11\x11\x11\x11\x11\x11\x11"
+    ),
+    0xB0: bytearray(  # KiloVault
+        b"\xb0\x39\x30\x33\x33\x30\x30\x30\x30\x33\x45\x46\x45\x46\x46\x46\x46\x33\x34\x30\x46"
+        b"\x30\x33\x30\x30\x37\x44\x30\x30\x35\x45\x30\x30\x39\x31\x30\x42\x30\x30\x30\x31\x30"
+        b"\x30\x30\x30\x44\x45\x30\x43\x30\x38\x30\x44\x45\x32\x30\x43\x30\x35\x30\x44\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x37\x42\x41\x52\x52\x52\x52\x52\x52\x52\x52"
     ),
 }
 
@@ -69,12 +80,30 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "problem": False,
         "problem_code": 0,
     },
+    0xB0: {
+        "battery_charging": False,
+        "cycle_capacity": 2646.6,
+        "voltage": 13.2,
+        "current": -0.45,
+        "cycle_charge": 200.5,
+        "delta_voltage": 0.042,
+        "power": -5.94,
+        "problem": False,
+        "cycles": 125,
+        "battery_level": 94,
+        "temperature": 22.95,
+        "temp_values": [22.95],
+        "problem_code": 0,
+        "runtime": 1604000,
+        "cell_count": 4,
+        "cell_voltages": [3.294, 3.336, 3.298, 3.333],
+    },
 }
 
 
 @pytest.fixture(
     name="protocol_type",
-    params=[0x5E, 0x83],
+    params=[0x5E, 0x83, 0xB0],
 )
 def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
@@ -82,8 +111,8 @@ def proto(request: pytest.FixtureRequest) -> int:
     return request.param
 
 
-class MockEctiveBleakClient(MockBleakClient):
-    """Emulate a Ective BMS BleakClient."""
+class MockTopbandBleakClient(MockBleakClient):
+    """Emulate a Topband BMS BleakClient."""
 
     _RESP: bytearray = _PROTO_DEFS[0x5E]
 
@@ -93,7 +122,7 @@ class MockEctiveBleakClient(MockBleakClient):
             self._RESP[i : i + BT_FRAME_SIZE]
             for i in range(0, len(self._RESP), BT_FRAME_SIZE)
         ]:
-            self._notify_callback("MockEctiveBleakClient", notify_data)
+            self._notify_callback("MockTopbandBleakClient", notify_data)
 
     @property
     def is_connected(self) -> bool:
@@ -116,12 +145,15 @@ class MockEctiveBleakClient(MockBleakClient):
 
 
 async def test_update(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, protocol_type, keep_alive_fixture
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    protocol_type: int,
+    keep_alive_fixture: bool,
 ) -> None:
-    """Test Ective BMS data update."""
+    """Test Topband BMS data update."""
 
-    monkeypatch.setattr(MockEctiveBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
-    patch_bleak_client(MockEctiveBleakClient)
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
+    patch_bleak_client(MockTopbandBleakClient)
 
     bms = BMS(generate_ble_device(), keep_alive_fixture)
 
@@ -136,13 +168,13 @@ async def test_update(
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockEctiveBleakClient, BMS)
+    await verify_device_info(patch_bleak_client, MockTopbandBleakClient, BMS)
 
 
 async def test_tx_notimplemented(patch_bleak_client) -> None:
-    """Test Ective BMS uuid_tx not implemented for coverage."""
+    """Test Topband BMS uuid_tx not implemented for coverage."""
 
-    patch_bleak_client(MockEctiveBleakClient)
+    patch_bleak_client(MockTopbandBleakClient)
 
     bms = BMS(generate_ble_device(), False)
 
@@ -214,9 +246,9 @@ async def test_invalid_response(
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
-    patch_bms_timeout("ective_bms")
-    monkeypatch.setattr(MockEctiveBleakClient, "_RESP", bytearray(wrong_response))
-    patch_bleak_client(MockEctiveBleakClient)
+    patch_bms_timeout("topband_bms")
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", bytearray(wrong_response))
+    patch_bleak_client(MockTopbandBleakClient)
 
     bms = BMS(generate_ble_device())
 
@@ -260,19 +292,21 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request):
+def prb_response(request) -> tuple[bytearray, str]:
     """Return faulty response frame."""
     return request.param
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
-    monkeypatch.setattr(MockEctiveBleakClient, "_RESP", bytearray(problem_response[0]))
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", bytearray(problem_response[0]))
 
-    patch_bleak_client(MockEctiveBleakClient)
+    patch_bleak_client(MockTopbandBleakClient)
 
     bms = BMS(generate_ble_device())
 

@@ -37,11 +37,9 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 32, 1, False, lambda x: bool(x & 0x20), 0x24),
         BMSDp("balancer", 35, 4, False, idx=0x24),
     )
-    _RESPS: Final[set[int]] = {field.idx for field in _FIELDS}
-    _CMDS: Final[tuple[tuple[int, int], ...]] = (
-        (0x0, 0x14),
-        (0x34, 0x12),
-        (0x15, 0x1F),
+    _RESPS: Final = frozenset({field.idx for field in _FIELDS})
+    _CMDS: Final[frozenset[tuple[int, int]]] = frozenset(
+        {(0x0, 0x14), (0x34, 0x12), (0x15, 0x1F)}
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -63,9 +61,9 @@ class BMS(BaseBMS):
     # async def _fetch_device_info(self) -> BMSInfo: use default
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
+        return ("6e400001-b5a3-f393-e0a9-e50e24dcca9e",)
 
     @staticmethod
     def uuid_rx() -> str:

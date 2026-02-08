@@ -49,7 +49,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x4), 0x3),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2), 0x3),
     )
-    _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS}) | {0x2}
+    _CMDS: Final = frozenset({field.idx for field in _FIELDS}) | {0x2}
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
@@ -70,9 +70,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ffe0")]
+        return (normalize_uuid_str("ffe0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -147,7 +147,7 @@ class BMS(BaseBMS):
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a RoyPow BMS command."""
         data: Final[bytes] = bytes([len(cmd) + 2, *cmd])
-        return bytes([*BMS._HEAD, *data, BMS._crc(data), BMS._TAIL])
+        return BMS._HEAD + data + bytes([BMS._crc(data), BMS._TAIL])
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

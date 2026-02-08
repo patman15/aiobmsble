@@ -38,7 +38,7 @@ class BaseBMS(ABC):
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
 
-    type InfoCharType = Literal[
+    type _InfoCharType = Literal[
         "model",
         "serial_number",
         "fw_version",
@@ -47,7 +47,7 @@ class BaseBMS(ABC):
         "manufacturer",
     ]
 
-    class PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
+    class _PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
         """Logging adapter to add instance ID to each log message."""
 
         def process(
@@ -89,7 +89,7 @@ class BaseBMS(ABC):
         self.name: Final[str] = self._ble_device.name or "undefined"
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
-        self._log: Final[BaseBMS.PrefixAdapter] = BaseBMS.PrefixAdapter(
+        self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
             {
                 "prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':', '')}:"
@@ -151,7 +151,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     @abstractmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
 
     @staticmethod
@@ -188,7 +188,7 @@ class BaseBMS(ABC):
             self._log.debug("No BT device information available.")
             return info
 
-        characteristics: Final[tuple[tuple[str, BaseBMS.InfoCharType], ...]] = (
+        characteristics: Final[tuple[tuple[str, BaseBMS._InfoCharType], ...]] = (
             ("2a24", "model"),
             ("2a25", "serial_number"),
             ("2a26", "fw_version"),
@@ -220,37 +220,16 @@ class BaseBMS(ABC):
         """
         return frozenset()
 
-    @final
     @staticmethod
-    def _add_missing_values(
-        data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
-    ) -> None:
-        """Calculate missing BMS values from existing ones.
-
-        Args:
-            data: data dictionary with values received from BMS
-            raw_values: list of values that shall not be added to the dictionary
-
-        Returns:
-            None
-
-        """
-        if not data:
-            return
-
-        def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
-            """Check value to add is not excluded, does not exist, and needed data is available."""
-            return (
-                (value not in raw_values)
-                and (value not in data)
-                and using.issubset(data)
-            )
-
-        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
+    def _calculation_registry(
+        data: BMSSample,
+    ) -> dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]]:
         battery_level: Final[int | float] = data.get("battery_level", 0)
+        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
         current: Final[float] = data.get("current", 0)
+        design_capacity: Final[float] = data.get("design_capacity", 0)
 
-        calculations: dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]] = {
+        return {
             "voltage": ({"cell_voltages"}, lambda: round(sum(cell_voltages), 3)),
             "delta_voltage": (
                 {"cell_voltages"},
@@ -262,23 +241,23 @@ class BaseBMS(ABC):
             ),
             "cycle_charge": (
                 {"design_capacity", "battery_level"},
-                lambda: (data.get("design_capacity", 0) * battery_level) / 100,
+                lambda: (design_capacity * battery_level) / 100,
             ),
             "battery_level": (
                 {"design_capacity", "cycle_charge"},
-                lambda: round(
-                    data.get("cycle_charge", 0) / data.get("design_capacity", 0) * 100,
-                    1,
-                ),
+                lambda: round(data.get("cycle_charge", 0) / design_capacity * 100, 1),
             ),
-            "cell_count": ({"cell_voltages"}, lambda: len(cell_voltages)),
+            "cell_count": (
+                {"cell_voltages"},
+                lambda: len(cell_voltages),
+            ),
             "cycle_capacity": (
                 {"voltage", "cycle_charge"},
                 lambda: round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3),
             ),
             "cycles": (
                 {"design_capacity", "total_charge"},
-                lambda: data.get("total_charge", 0) // data.get("design_capacity", 0),
+                lambda: data.get("total_charge", 0) // design_capacity,
             ),
             "power": (
                 {"voltage", "current"},
@@ -306,6 +285,36 @@ class BaseBMS(ABC):
                 ),
             ),
         }
+
+    @final
+    @staticmethod
+    def _add_missing_values(
+        data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
+    ) -> None:
+        """Calculate missing BMS values from existing ones.
+
+        Args:
+            data: data dictionary with values received from BMS
+            raw_values: list of values that shall not be added to the dictionary
+
+        Returns:
+            None
+
+        """
+        if not data:
+            return
+
+        def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
+            """Check value to add is not excluded, does not exist, and needed data is available."""
+            return (
+                (value not in raw_values)
+                and (value not in data)
+                and using.issubset(data)
+            )
+
+        battery_level: Final[int | float] = data.get("battery_level", 0)
+        calculations: Final = BaseBMS._calculation_registry(data)
+        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
 
         for attr, (required, calc_func) in calculations.items():
             if (
@@ -678,7 +687,8 @@ def crc8(data: bytes | bytearray) -> int:
 def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
     """Calculate the checksum of a frame using a specified size.
 
-    size : int, optional
-        The size of the checksum in bytes (default is 1).
+    Args:
+        frame: The input data for which the checksum is to be calculated.
+        size (int, optional): The size of the checksum in bytes (default is 1).
     """
     return sum(frame) & ((1 << (8 * size)) - 1)

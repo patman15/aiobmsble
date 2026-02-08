@@ -24,7 +24,6 @@ class BMS(BaseBMS):
     }
     _HEAD: Final[bytes] = b"\xaa"  # beginning of frame
     _MIN_LEN: Final[int] = 5  # minimal frame len
-    _CMDS: tuple[bytes, ...] = (b"\x20", b"\x21", b"\x22", b"\x23")
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 1000, 0x21),
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),
@@ -33,6 +32,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 9, 1, False, bool, 0x20),
         BMSDp("dischrg_mosfet", 7, 1, False, bool, 0x20),
     )
+    _CMDS: Final = frozenset({b"\x20", b"\x21", b"\x22", b"\x23"})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
@@ -52,9 +52,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("0001")]
+        return (normalize_uuid_str("0001"),)
 
     @staticmethod
     def uuid_rx() -> str:
