@@ -44,7 +44,18 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [{"service_uuid": BMS.uuid_services()[0], "connectable": True}]
+        return [
+            MatcherPattern(
+                local_name="Z12*",
+                service_uuid=BMS.uuid_services()[0],
+                connectable=True,
+            ),
+            MatcherPattern(
+                manufacturer_id=28544,
+                service_uuid=BMS.uuid_services()[0],
+                connectable=True,
+            ),
+        ]
 
     @staticmethod
     def uuid_services() -> list[str]:
@@ -59,7 +70,7 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-        raise NotImplementedError
+        return "1001"
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -91,9 +102,14 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        # Send request for data - command to enable measurements
+        # Command: 01 03 00 00 00 27 05 D0
+        cmd = bytes([0x01, 0x03, 0x00, 0x00, 0x00, 0x27, 0x05, 0xD0])
+
+        # Use _await_msg to send command and wait for response with proper retry logic
+        await self._await_msg(cmd)
+
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
-        # result["temp_values"] = BMS._temp_values(self._data, values=2, start=69, size=1)
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
         )
