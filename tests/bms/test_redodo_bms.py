@@ -232,8 +232,9 @@ async def test_temp_sensor_detection(
     bms = BMS(generate_ble_device())
 
     for response, expected in (
-        (b"", (1, [0])),  # all sensors zero
-        (b"\x00\x00\x17", (2, [0, 23])),  # only second sensor non-zero
+        (b"\x00\x00\x00\x00", (1, [0])),  # all sensors zero
+        (b"\x13\x00\x00\x00", (1, [19])),  # only first sensor non-zero
+        (b"\x00\x00\x17\x00", (2, [0, 23])),  # only second sensor non-zero
         (b"\x17\x00", (2, [23, 0])),  # keep second sensor
         (b"\x15\x00".rjust(10, b"\x00"), (5, [0, 0, 0, 0, 21])),  # all sensors present
         (b"", (5, [0, 0, 0, 0, 0])),  # all sensors still present
