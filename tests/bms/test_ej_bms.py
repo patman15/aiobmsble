@@ -285,7 +285,11 @@ async def test_update_chins(
 
     patch_bleak_client(MockChinsBleakClient)
 
-    bms = BMS(generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"), keep_alive_fixture)
+    bms = BMS(
+        generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"),
+        keep_alive_fixture,
+        periodic_reconnect=True,
+    )
 
     result = await bms.async_update()
     expected = MockChinsBleakClient.values()
@@ -305,7 +309,11 @@ async def test_chins_reconnect(patch_bleak_client) -> None:
 
     patch_bleak_client(MockChinsBleakClient)
 
-    bms = BMS(generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"), True)
+    bms = BMS(
+        generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"),
+        True,
+        periodic_reconnect=True,
+    )
 
     # First update initializes connection timestamp
     result = await bms.async_update()
@@ -319,6 +327,31 @@ async def test_chins_reconnect(patch_bleak_client) -> None:
         ]
         result = await bms.async_update()
         # Should return cached data during reconnection
+        assert result == MockChinsBleakClient.values()
+
+    await bms.disconnect()
+
+
+async def test_chins_no_reconnect(patch_bleak_client) -> None:
+    """Test that periodic reconnection is disabled by default."""
+
+    patch_bleak_client(MockChinsBleakClient)
+
+    bms = BMS(
+        generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"),
+        keep_alive=True,
+    )
+
+    # First update should work normally
+    result = await bms.async_update()
+    assert result == MockChinsBleakClient.values()
+
+    # Simulate elapsed time exceeding reconnection interval
+    # With periodic_reconnect=False, it should NOT trigger reconnection
+    with patch("aiobmsble.bms.ej_bms.time") as mock_time:
+        mock_time.monotonic.return_value = 99999.0  # way past any interval
+        result = await bms.async_update()
+        # Should still return fresh data, not cached (no reconnection happened)
         assert result == MockChinsBleakClient.values()
 
     await bms.disconnect()
@@ -353,7 +386,11 @@ async def test_chins_stale_recovery(patch_bleak_client) -> None:
 
     patch_bleak_client(MockChinsStaleClient)
 
-    bms = BMS(generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"), True)
+    bms = BMS(
+        generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"),
+        True,
+        periodic_reconnect=True,
+    )
 
     # Should recover from stale connection and return valid data
     result = await bms.async_update()

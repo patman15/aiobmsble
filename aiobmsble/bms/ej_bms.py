@@ -67,10 +67,24 @@ class BMS(BaseBMS):
         BMSDp("heater", 54, 1, False, lambda x: bool(x), Cmd.RT),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        periodic_reconnect: bool = False,
+    ) -> None:
+        """Initialize BMS.
+
+        Args:
+            ble_device: the Bleak device to connect to
+            keep_alive: if true, the connection will be kept active after each update
+            periodic_reconnect: if true (default), Chins devices will periodically
+                disconnect and reconnect to prevent nRF52 buffer buildup. Also enables
+                stale connection recovery on timeout. Set to false to disable.
+        """
         super().__init__(ble_device, keep_alive)
         self._msg: bytes = b""
+        self._periodic_reconnect: Final[bool] = periodic_reconnect
         self._connection_start_time: float = 0.0  # For periodic reconnection
         self._last_valid_data: BMSSample = {}  # Cache for reconnection window
 
@@ -231,8 +245,10 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        # Check if periodic reconnection is needed (Chins devices)
-        is_chins = any(self.name.startswith(pattern) for pattern in BMS._CHINS_PATTERNS)
+        # Reconnection logic only active for Chins devices with periodic_reconnect enabled
+        is_chins = self._periodic_reconnect and any(
+            self.name.startswith(pattern) for pattern in BMS._CHINS_PATTERNS
+        )
 
         if is_chins and self._connection_start_time > 0:
             elapsed = time.monotonic() - self._connection_start_time
