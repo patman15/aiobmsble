@@ -314,7 +314,7 @@ async def test_chins_reconnect(patch_bleak_client) -> None:
     # Simulate elapsed time exceeding reconnection interval (300s)
     with patch("aiobmsble.bms.ej_bms.time") as mock_time:
         mock_time.monotonic.side_effect = [
-            bms._connection_start_time + 301,  # elapsed check
+            bms._connection_start_time + 901,  # elapsed check
             1000.0,  # new connection timestamp after reconnect
         ]
         result = await bms.async_update()

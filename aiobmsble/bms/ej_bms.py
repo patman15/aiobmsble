@@ -47,7 +47,7 @@ class BMS(BaseBMS):
     _CHINS_PATTERNS: Final[tuple[str, ...]] = (
         "G-",  # Chins batteries (e.g., G-12V300Ah-0345)
     )
-    _RECONNECT_INTERVAL: Final[float] = 300.0  # 5 minutes
+    _RECONNECT_INTERVAL: Final[float] = 900.0  # 15 minutes
     _BUFFER_FLUSH_DELAY: Final[float] = 5.0  # seconds
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
