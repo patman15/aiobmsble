@@ -1,10 +1,11 @@
 """Test the EG4 BMS implementation."""
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Buffer
 from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
+from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble.basebms import BMSSample
@@ -12,11 +13,12 @@ from aiobmsble.bms.eg4_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
-BT_FRAME_SIZE = 200
+BT_FRAME_SIZE: Final[int] = 80
 
 _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 13.3,
     "current": 0.0,
+    "battery_health": 100,
     "battery_level": 92,
     "cell_count": 4,
     "cycles": 5,
@@ -37,42 +39,42 @@ _RESULT_DEFS: Final[BMSSample] = {
 class MockEG4BleakClient(MockBleakClient):
     """Emulate a EG4 BMS BleakClient."""
 
-    _RESP: bytearray = bytearray(
-        b"\x01\x03\x4e\x05\x32\x00\x00\x0c\xfe\x0c\xff\x0c\xff\x0c\xfb\x00\x00\x00\x00\x00\x00\x00"
-        b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x0e\x00"
-        b"\x0e\x0e\x72\x08\x98\x00\x64\x00\x5c\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x55"
-        b"\xd4\xa8\x00\x0e\x0e\x00\x00\x00\x00\x00\x04\x0f\xa0\x00\x00\xe0\x65"
-    )
+    _TX_CHAR_UUID: Final[str] = "1001"
+    _RESP: dict[bytes, bytearray] = {
+        b"\x01\x03\x00\x00\x00\x27\x05\xd0": bytearray(
+            b"\x01\x03\x4e\x05\x32\x00\x00\x0c\xfe\x0c\xff\x0c\xff\x0c\xfb\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x0e\x00"
+            b"\x0e\x0e\x72\x08\x98\x00\x64\x00\x5c\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x55"
+            b"\xd4\xa8\x00\x0e\x0e\x00\x00\x00\x00\x00\x04\x0f\xa0\x00\x00\xe0\x65"
+        )
+    }
 
-    def _send_info(self) -> None:
-        assert self._notify_callback is not None
-        for notify_data in [
-            self._RESP[i : i + BT_FRAME_SIZE]
-            for i in range(0, len(self._RESP), BT_FRAME_SIZE)
-        ]:
-            self._notify_callback("MockEG4BleakClient", notify_data)
+    def _response(
+        self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
+    ) -> bytearray:
+        """Generate response based on command."""
+        if not isinstance(char_specifier, str) or normalize_uuid_str(
+            char_specifier
+        ) != normalize_uuid_str(self._TX_CHAR_UUID):
+            return bytearray()
 
-    @property
-    def is_connected(self) -> bool:
-        """Mock connected."""
-        if self._connected:
-            self._send_info()  # patch to provide data when not reconnecting
-        return self._connected
+        return self._RESP.get(bytes(data), bytearray())
 
-    async def start_notify(
+    async def write_gatt_char(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[
-            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-        ],
-        **kwargs,
+        data: Buffer,
+        response: bool | None = None,
     ) -> None:
-        """Mock start_notify."""
-        await super().start_notify(char_specifier, callback)
-        self._send_info()
+        """Issue write command to GATT."""
+        await super().write_gatt_char(char_specifier, data, response)
+        assert self._notify_callback is not None
+        self._notify_callback(
+            "MockGobelBleakClient", self._response(char_specifier, data)
+        )
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test EG4 BMS data update."""
 
     patch_bleak_client(MockEG4BleakClient)
@@ -102,17 +104,6 @@ async def test_device_info(patch_bleak_client) -> None:
     }
 
 
-async def test_tx_notimplemented(patch_bleak_client) -> None:
-    """Test EG4 BMS uuid_tx not implemented for coverage."""
-
-    patch_bleak_client(MockEG4BleakClient)
-
-    bms = BMS(generate_ble_device(), False)
-
-    with pytest.raises(NotImplementedError):
-        _ret = bms.uuid_tx()
-
-
 @pytest.mark.parametrize(
     "wrong_response",
     [
@@ -128,12 +119,15 @@ async def test_tx_notimplemented(patch_bleak_client) -> None:
         b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x0e\x00"
         b"\x0e\x0e\x72\x08\x98\x00\x64\x00\x5c\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x55"
         b"\xd4\xa8\x00\x0e\x0e\x00\x00\x00\x00\x00\x04\x0f\xa0\x00\x00\xe0\x65\x00",
-        b"\x01\03"
+        b"\x01\03",
     ],
     ids=["wrong_SOF", "wrong_CRC", "wrong_LEN", "too_short"],
 )
 async def test_invalid_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytes
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -157,11 +151,11 @@ async def test_invalid_response(
         b"\x01\x03\x4e\x05\x32\x00\x00\x0c\xfe\x0c\xff\x0c\xff\x0c\xfb\x00\x00\x00\x00\x00\x00\x00"
         b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x0e\x00"
         b"\x0e\x0e\x72\x08\x98\x00\x64\x00\x5c\x03\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x05\x55"
-        b"\xd4\xa8\x00\x0e\x0e\x00\x00\x00\x00\x00\x04\x0f\xa0\x00\x00\x4A\x19",
+        b"\xd4\xa8\x00\x0e\x0e\x00\x00\x00\x00\x00\x04\x0f\xa0\x00\x00\x4a\x19",
         b"\x01\x03\x4e\x05\x32\x00\x00\x0c\xfe\x0c\xff\x0c\xff\x0c\xfb\x00\x00\x00\x00\x00\x00\x00"
         b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x0e\x00"
         b"\x0e\x0e\x72\x08\x98\x00\x64\x00\x5c\x03\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x05\x55"
-        b"\xd4\xa8\x00\x0e\x0e\x00\x00\x00\x00\x00\x04\x0f\xa0\x00\x00\xf0\xb4"
+        b"\xd4\xa8\x00\x0e\x0e\x00\x00\x00\x00\x00\x04\x0f\xa0\x00\x00\xf0\xb4",
     ],
     ids=["last_bit", "first_bit"],
 )

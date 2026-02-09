@@ -19,12 +19,12 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"default_manufacturer": "EG4 electronics", "default_model": "LL"}
     _HEAD: Final[bytes] = b"\x01\x03"  # header for responses
-    _MIN_LEN: Final[int] = 5
     _MAX_CELLS: Final[int] = 16
-    _INFO_LEN: Final[int] = 113
+    _MIN_LEN: Final[int] = 5
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 100),
         BMSDp("current", 5, 2, True, lambda x: x / 100),
+        BMSDp("battery_health", 49, 2, False),
         BMSDp("battery_level", 51, 2, False),
         BMSDp("cycle_charge", 45, 2, False, lambda x: x / 10),
         BMSDp("cycles", 61, 4, False, lambda x: x),
@@ -39,6 +39,7 @@ class BMS(BaseBMS):
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
         self._msg: bytes = b""
+        self._exp_len: int = BMS._MIN_LEN
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -65,13 +66,21 @@ class BMS(BaseBMS):
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
-        self._log.debug("RX BLE data: %s", data)
+        if (
+            len(data) > BMS._MIN_LEN
+            and data.startswith(BMS._HEAD)
+            and len(self._frame) >= self._exp_len
+        ):
+            self._exp_len = BMS._MIN_LEN + data[2]
+            self._frame = bytearray()
 
-        if not data.startswith(BMS._HEAD) or len(data) < BMS._MIN_LEN:
-            self._log.debug("invalid SOF")
-            return
+        self._frame += data
+        self._log.debug(
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
+        )
 
-        if len(data) != data[2] + BMS._MIN_LEN:
+        # verify that data is long enough
+        if len(self._frame) < self._exp_len:
             return
 
         if (crc := crc_modbus(data[:-2])) != int.from_bytes(
@@ -84,15 +93,16 @@ class BMS(BaseBMS):
             )
             return
 
-        self._msg = bytes(data)
+        self._msg = bytes(self._frame)
         self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await self._await_msg(b"\x01\x00")
+        await self._await_msg(b"\x01\x03\x00\x00\x00\x27\x05\xd0")
+
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
-        # result["temp_values"] = BMS._temp_values(self._data, values=2, start=69, size=1)
+        # result["temp_values"] = BMS._temp_values(self._msg, values=3, start=39, size=1)
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
         )
