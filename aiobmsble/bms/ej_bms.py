@@ -29,8 +29,7 @@ class BMS(BaseBMS):
 
     Supports multiple protocol variants:
     - Standard E&J (two-command protocol: RT + CAP)
-    - Metrisun (single-frame protocol, 69 bytes)
-    - Chins (single-frame protocol, 140 bytes)
+    - Metrisun / Chins (single-frame protocol, 140 bytes)
     """
 
     INFO: BMSInfo = {
