@@ -37,7 +37,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", 
-    "mypy", "ruff>=0.12.1,<0.15.0", "pylint-per-file-ignores", "netaddr", 
+    "mypy", "ruff>=0.12.1,<0.16.0", "pylint-per-file-ignores", "netaddr", 
     "types-netaddr", "codespell", "pre-commit", "pdoc"
 ]
 
