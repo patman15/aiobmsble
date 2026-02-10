@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -23,7 +24,7 @@ class BMS(BaseBMS):
     _MIN_LEN: Final[int] = 5
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 100),
-        BMSDp("current", 5, 2, True, lambda x: x / 100),
+        BMSDp("current", 5, 2, True, lambda x: x / 10),
         BMSDp("battery_health", 49, 2, False),
         BMSDp("battery_level", 51, 2, False),
         BMSDp("cycle_charge", 45, 2, False, lambda x: x / 10),
@@ -32,7 +33,7 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 77, 2, False, lambda x: x // 10),
         BMSDp("temperature", 39, 2, True),
         BMSDp("problem_code", 55, 6, False, lambda x: x),
-        # BMSDP("balance", 79, 2, False),
+        BMSDp("balancer", 79, 2, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -44,7 +45,13 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [{"service_uuid": BMS.uuid_services()[0], "connectable": True}]
+        return [
+            {
+                "service_uuid": BMS.uuid_services()[0],
+                "manufacturer_id": 0x6F80,
+                "connectable": True,
+            }
+        ]
 
     @staticmethod
     def uuid_services() -> tuple[str]:
@@ -96,13 +103,23 @@ class BMS(BaseBMS):
         self._msg = bytes(self._frame)
         self._msg_event.set()
 
+    @staticmethod
+    @cache
+    def _cmd(address: int, count: int) -> bytes:
+        """Assemble a EG4 BMS command."""
+        frame: bytearray = bytearray(BMS._HEAD)
+        frame += int.to_bytes(address, 2, byteorder="big")
+        frame += int.to_bytes(count, 2, byteorder="big")
+        frame += int.to_bytes(crc_modbus(frame), 2, byteorder="little")
+        return bytes(frame)
+
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await self._await_msg(b"\x01\x03\x00\x00\x00\x27\x05\xd0")
+        await self._await_msg(BMS._cmd(0x0, 0x38))
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
-        # result["temp_values"] = BMS._temp_values(self._msg, values=3, start=39, size=1)
+        # result["temp_values"] = BMS._temp_values(self._msg, values=3, start=39, size=2)
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
         )

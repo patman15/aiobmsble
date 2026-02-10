@@ -16,23 +16,24 @@ from tests.conftest import MockBleakClient
 BT_FRAME_SIZE: Final[int] = 80
 
 _RESULT_DEFS: Final[BMSSample] = {
-    "voltage": 13.3,
-    "current": 0.0,
+    "voltage": 13.24,
+    "current": -6.2,
     "battery_health": 100,
-    "battery_level": 92,
+    "battery_level": 48,
     "cell_count": 4,
     "cycles": 5,
     "cycle_charge": 369.8,
-    "cell_voltages": [3.326, 3.327, 3.327, 3.323],
+    "cell_voltages": [3.31, 3.313, 3.309, 3.313],
     "delta_voltage": 0.004,
-    "temperature": 14,
+    "temperature": 17.0,
     "cycle_capacity": 4918.34,
     "design_capacity": 400,
-    "power": 0.0,
+    "power": -82.088,
     # "runtime": 54770,
     "battery_charging": False,
     "problem_code": 0,
     "problem": False,
+    "temp_values": [17.0, 17.0, 17.0],
 }
 
 
@@ -42,11 +43,11 @@ class MockEG4BleakClient(MockBleakClient):
     _TX_CHAR_UUID: Final[str] = "1001"
     _RESP: dict[bytes, bytearray] = {
         b"\x01\x03\x00\x00\x00\x27\x05\xd0": bytearray(
-            b"\x01\x03\x4e\x05\x32\x00\x00\x0c\xfe\x0c\xff\x0c\xff\x0c\xfb\x00\x00\x00\x00\x00\x00\x00"
-            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x0e\x00"
-            b"\x0e\x0e\x72\x08\x98\x00\x64\x00\x5c\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x55"
-            b"\xd4\xa8\x00\x0e\x0e\x00\x00\x00\x00\x00\x04\x0f\xa0\x00\x00\xe0\x65"
-        )
+            b"\x01\x03\x4e\x05\x2c\xff\xc2\x0c\xee\x0c\xf1\x0c\xed\x0c\xf1\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x00"
+            b"\x11\x00\x11\x00\x00\x02\xee\x00\x64\x00\x30\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x11\xc8\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\xc4\x34"
+        ) # 13.24V, -6.2A, 17°C, 48%, dischrg, ver 1.5(7), 3.309V, 3.314V, 3.309V, 3.312V
     }
 
     def _response(
