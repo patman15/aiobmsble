@@ -183,6 +183,19 @@ class BMS(BaseBMS):
             divider=10,
         )
 
+        # parse extended fields after temperature data (e.g. Chins JBD)
+        # layout: [humidity(1)] [alter(2)] [learnCapacity(2)] [balanceCurrent(2)]
+        # some firmware echoes design_capacity and cycle_charge here;
+        # only use the values if they differ from the standard fields
+        ext_start: int = 27 + data.get("temp_sensors", 0) * 2
+        if len(self._msg) >= ext_start + 7 + 3:  # +3 for CRC (2) + tail (1)
+            learn_cap = int.from_bytes(self._msg[ext_start + 3 : ext_start + 5], "big")
+            bal_cur = int.from_bytes(self._msg[ext_start + 5 : ext_start + 7], "big")
+            design_raw = int.from_bytes(self._msg[10:12], "big")
+            remain_raw = int.from_bytes(self._msg[8:10], "big")
+            if learn_cap != design_raw or bal_cur != remain_raw:
+                data["balance_current"] = bal_cur / 100
+
         await self._await_cmd_resp(0x04)
         data["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=self._msg[3] // 2, start=4, byteorder="big"
