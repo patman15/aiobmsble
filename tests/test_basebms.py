@@ -1,7 +1,9 @@
 """Test the BLE Battery Management System base class functions."""
 
+import asyncio
 from collections.abc import Buffer, Callable
 from logging import DEBUG
+from pathlib import Path as RealPath
 from typing import Any, Final, Literal, NoReturn
 from uuid import UUID
 
@@ -17,6 +19,7 @@ import pytest
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import (
     BaseBMS,
+    _discover_adapters,
     b2str,
     crc8,
     crc_modbus,
@@ -249,7 +252,9 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
         "power": (
             -91
             if bms_data.get("current", 0) < 0
-            else 0 if bms_data.get("current") == 0 else 147
+            else 0
+            if bms_data.get("current") == 0
+            else 147
         ),
         # battery is charging if current is positive
         "battery_charging": bms_data.get("current", 0) > 0,
@@ -400,9 +405,9 @@ async def test_write_mode(
 ) -> None:
     """Check if write mode selection works correctly."""
 
-    assert len(replies) == len(
-        exp_wr_response
-    ), "Replies and expected responses must match in length!"
+    assert len(replies) == len(exp_wr_response), (
+        "Replies and expected responses must match in length!"
+    )
     patch_bms_timeout()
     monkeypatch.setattr(MockWriteModeBleakClient, "PATTERN", replies)
     monkeypatch.setattr(MockWriteModeBleakClient, "EXP_WRITE_RESPONSE", exp_wr_response)
@@ -547,9 +552,9 @@ def test_crc_calculations() -> None:
 
     for crc_fn, expected_crc in test_fn:
         calculated_crc: int = crc_fn(data)
-        assert (
-            calculated_crc == expected_crc
-        ), f"Expected {expected_crc}, got {calculated_crc}"
+        assert calculated_crc == expected_crc, (
+            f"Expected {expected_crc}, got {calculated_crc}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -768,3 +773,298 @@ def test_decode_data(
 def test_b2str(data: bytes, expected: str) -> None:
     """Test bytearray to string conversion function."""
     assert b2str(data) == expected
+
+
+# --- Adapter selection and connect serialization tests ---
+
+
+class AdapterTrackingClient(MockBleakClient):
+    """Mock BleakClient that records the adapter kwarg on init."""
+
+    adapters_used: list[str | None] = []
+
+    def __init__(
+        self,
+        address_or_ble_device: BLEDevice,
+        disconnected_callback: Callable[[BleakClient], None] | None,
+        services: Any | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Track the adapter parameter."""
+        super().__init__(address_or_ble_device, disconnected_callback, services)
+        AdapterTrackingClient.adapters_used.append(kwargs.get("adapter"))
+
+
+class FailNConnectsClient(MockBleakClient):
+    """Mock BleakClient that fails the first N connect() calls."""
+
+    fail_count: int = 0
+    connect_calls: int = 0
+    adapters_used: list[str | None] = []
+
+    def __init__(
+        self,
+        address_or_ble_device: BLEDevice,
+        disconnected_callback: Callable[[BleakClient], None] | None,
+        services: Any | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Track the adapter parameter."""
+        super().__init__(address_or_ble_device, disconnected_callback, services)
+        FailNConnectsClient.adapters_used.append(kwargs.get("adapter"))
+
+    async def connect(self, **_kwargs: Any) -> None:
+        """Fail first N connections, then succeed."""
+        FailNConnectsClient.connect_calls += 1
+        if FailNConnectsClient.connect_calls <= FailNConnectsClient.fail_count:
+            raise BleakError(
+                f"mock connect failure #{FailNConnectsClient.connect_calls}"
+            )
+        await super().connect()
+
+
+def test_discover_adapters_linux(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """Test adapter discovery on Linux reads /sys/class/bluetooth."""
+    bt_dir = tmp_path / "bluetooth"
+    bt_dir.mkdir()
+    (bt_dir / "hci0").mkdir()
+    (bt_dir / "hci1").mkdir()
+    (bt_dir / "hci2").mkdir()
+    (bt_dir / "rfkill0").mkdir()  # non-hci entry should be ignored
+
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "linux")
+    monkeypatch.setattr(
+        "aiobmsble.basebms.Path",
+        lambda p: bt_dir if str(p) == "/sys/class/bluetooth" else RealPath(p),
+    )
+
+    result = _discover_adapters()
+    assert result == ["hci0", "hci1", "hci2"]
+
+
+def test_discover_adapters_linux_no_dir(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """Test adapter discovery on Linux falls back when /sys/class/bluetooth is absent."""
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "linux")
+    # Point Path at a non-existent directory so is_dir() returns False
+    monkeypatch.setattr(
+        "aiobmsble.basebms.Path",
+        lambda p: RealPath(tmp_path / "nonexistent"),
+    )
+    assert _discover_adapters() == ["hci0"]
+
+
+def test_discover_adapters_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test adapter discovery falls back to hci0 on non-Linux."""
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "darwin")
+    assert _discover_adapters() == ["hci0"]
+
+
+@pytest.mark.parametrize(
+    ("adapter_arg", "expected"),
+    [
+        (None, None),  # None means auto-discover (tested separately)
+        ("hci1", ["hci1"]),
+        (["hci1", "hci0"], ["hci1", "hci0"]),
+    ],
+    ids=["auto", "single", "list"],
+)
+def test_adapter_init(
+    patch_bleak_client: Callable[..., None],
+    adapter_arg: str | list[str] | None,
+    expected: list[str] | None,
+) -> None:
+    """Test that adapter parameter is stored correctly in BMS init."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), adapter=adapter_arg)
+    if expected is not None:
+        assert bms._adapters == expected
+    else:
+        # auto-discover: should have at least one adapter
+        assert len(bms._adapters) >= 1
+
+
+async def test_adapter_passed_to_client(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Test that the adapter is passed through to BleakClient on connect."""
+    AdapterTrackingClient.adapters_used = []
+    patch_bleak_client(AdapterTrackingClient)
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), adapter="hci1")
+    # Clear tracker: __init__ creates an initial BleakClient without adapter
+    AdapterTrackingClient.adapters_used.clear()
+    await bms.async_update()
+
+    assert AdapterTrackingClient.adapters_used == ["hci1"]
+
+
+async def test_adapter_rotation_on_retry(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    patch_bms_timeout: Callable[..., None],
+) -> None:
+    """Test that adapters rotate on connection retries."""
+    FailNConnectsClient.fail_count = 2
+    FailNConnectsClient.connect_calls = 0
+    FailNConnectsClient.adapters_used = []
+    patch_bms_timeout()
+    patch_bleak_client(FailNConnectsClient)
+
+    # Reduce retry delay by patching sleep
+    real_sleep = asyncio.sleep
+    monkeypatch.setattr("asyncio.sleep", lambda _: real_sleep(0))
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), adapter=["hci1", "hci0"])
+    # Clear tracker: __init__ creates an initial BleakClient without adapter
+    FailNConnectsClient.adapters_used.clear()
+    await bms.async_update()
+
+    # Should have rotated: hci1 (fail), hci0 (fail), hci1 (success)
+    assert FailNConnectsClient.adapters_used == ["hci1", "hci0", "hci1"]
+
+
+async def test_connect_all_retries_exhausted(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    patch_bms_timeout: Callable[..., None],
+) -> None:
+    """Test that connection failure after all retries raises BleakError."""
+    FailNConnectsClient.fail_count = 99  # fail every attempt
+    FailNConnectsClient.connect_calls = 0
+    FailNConnectsClient.adapters_used = []
+    patch_bms_timeout()
+    patch_bleak_client(FailNConnectsClient)
+
+    real_sleep = asyncio.sleep
+    monkeypatch.setattr("asyncio.sleep", lambda _: real_sleep(0))
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), adapter="hci0")
+    # Clear tracker: __init__ creates an initial BleakClient without adapter
+    FailNConnectsClient.adapters_used.clear()
+    with pytest.raises(BleakError, match="mock connect failure"):
+        await bms.async_update()
+
+    # Should have tried exactly _CONNECT_MAX_RETRY times
+    assert FailNConnectsClient.connect_calls == BaseBMS._CONNECT_MAX_RETRY
+    # All attempts should have used the same adapter
+    assert all(a == "hci0" for a in FailNConnectsClient.adapters_used)
+
+
+async def test_connect_semaphore_serializes(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Test that connect_semaphore serializes concurrent connections."""
+    patch_bleak_client()
+
+    sem: asyncio.Semaphore = asyncio.Semaphore(1)
+    order: list[str] = []
+
+    original_connect = MockBleakClient.connect
+
+    async def slow_connect(self: Any, **kwargs: Any) -> None:
+        """Simulate slow connect to test serialization."""
+        order.append("start")
+        await asyncio.sleep(0.05)
+        await original_connect(self, **kwargs)
+        order.append("end")
+
+    monkeypatch.setattr(MockBleakClient, "connect", slow_connect)
+
+    bms1: MinTestBMS = MinTestBMS(
+        generate_ble_device(address="11:22:33:44:55:01"),
+        adapter="hci0",
+        connect_semaphore=sem,
+    )
+    bms2: MinTestBMS = MinTestBMS(
+        generate_ble_device(address="11:22:33:44:55:02"),
+        adapter="hci0",
+        connect_semaphore=sem,
+    )
+
+    # Run both connections concurrently
+    await asyncio.gather(bms1.async_update(), bms2.async_update())
+
+    # With serialization, we should see start/end pairs not interleaved
+    # i.e., pattern should be start-end-start-end, not start-start-end-end
+    assert order == ["start", "end", "start", "end"]
+
+
+async def test_connect_without_semaphore_allows_concurrent(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Test that without semaphore, connections run concurrently."""
+    patch_bleak_client()
+    order: list[str] = []
+
+    original_connect = MockBleakClient.connect
+
+    async def slow_connect(self: Any, **kwargs: Any) -> None:
+        """Simulate slow connect."""
+        order.append("start")
+        await asyncio.sleep(0.05)
+        await original_connect(self, **kwargs)
+        order.append("end")
+
+    monkeypatch.setattr(MockBleakClient, "connect", slow_connect)
+
+    bms1: MinTestBMS = MinTestBMS(
+        generate_ble_device(address="11:22:33:44:55:01"),
+        adapter="hci0",
+    )
+    bms2: MinTestBMS = MinTestBMS(
+        generate_ble_device(address="11:22:33:44:55:02"),
+        adapter="hci0",
+    )
+
+    await asyncio.gather(bms1.async_update(), bms2.async_update())
+
+    # Without serialization, connections should interleave
+    assert order == ["start", "start", "end", "end"]
+
+
+async def test_connect_zero_retries(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Test that connect raises BleakError when max retries is set to zero."""
+    patch_bleak_client()
+    monkeypatch.setattr(BaseBMS, "_CONNECT_MAX_RETRY", 0)
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), adapter="hci0")
+    with pytest.raises(BleakError, match="connection failed: retries exhausted"):
+        await bms.async_update()
+
+
+async def test_semaphore_released_on_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    patch_bms_timeout: Callable[..., None],
+) -> None:
+    """Test that semaphore is released even when connection fails."""
+    FailNConnectsClient.fail_count = 99
+    FailNConnectsClient.connect_calls = 0
+    FailNConnectsClient.adapters_used = []
+    patch_bms_timeout()
+    patch_bleak_client(FailNConnectsClient)
+
+    real_sleep = asyncio.sleep
+    monkeypatch.setattr("asyncio.sleep", lambda _: real_sleep(0))
+
+    sem: asyncio.Semaphore = asyncio.Semaphore(1)
+    bms: MinTestBMS = MinTestBMS(
+        generate_ble_device(), adapter="hci0", connect_semaphore=sem
+    )
+
+    with pytest.raises(BleakError):
+        await bms.async_update()
+
+    # Semaphore should be released (value back to 1)
+    # Verify by trying to acquire it without blocking
+    assert sem._value == 1
