@@ -7,9 +7,12 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from contextlib import suppress
 from itertools import takewhile
 import logging
+from pathlib import Path
 from statistics import fmean
+import sys
 from types import TracebackType
 from typing import Any, Final, Literal, Self, final
 
@@ -21,9 +24,26 @@ from bleak.exc import (
     BleakDeviceNotFoundError,
     BleakError,
 )
-from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
+from bleak_retry_connector import BLEAK_TIMEOUT
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+
+
+def _discover_adapters() -> list[str]:
+    """Auto-discover Bluetooth adapters available on the system.
+
+    Scans ``/sys/class/bluetooth/`` for ``hci*`` entries (Linux).
+    Returns a sorted list of adapter names (e.g. ``["hci0", "hci1"]``).
+    Falls back to ``["hci0"]`` on non-Linux systems or when no adapters are found.
+    """
+    adapters: list[str] = []
+    if sys.platform == "linux":
+        bt_path = Path("/sys/class/bluetooth")
+        if bt_path.is_dir():
+            adapters = sorted(
+                p.name for p in bt_path.iterdir() if p.name.startswith("hci")
+            )
+    return adapters or ["hci0"]
 
 
 class BaseBMS(ABC):
@@ -37,6 +57,8 @@ class BaseBMS(ABC):
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
+    _CONNECT_MAX_RETRY: Final[int] = 4  # max retries for connection attempts
+    _CONNECT_TIMEOUT: Final[float] = BLEAK_TIMEOUT  # per-attempt connect timeout
 
     type _InfoCharType = Literal[
         "model",
@@ -62,6 +84,8 @@ class BaseBMS(ABC):
         ble_device: BLEDevice,
         keep_alive: bool = True,
         logger_name: str = "",
+        adapter: str | list[str] | None = None,
+        connect_semaphore: asyncio.Semaphore | None = None,
     ) -> None:
         """Initialize the BMS.
 
@@ -71,11 +95,19 @@ class BaseBMS(ABC):
 
         Args:
             ble_device (BLEDevice): the Bleak device to connect to
-            bms_info (dict[Literal["manufacturer", "model"], str]): default BMS identification
             keep_alive (bool): if true, the connection will be kept active after each update.
                 Make sure to call `disconnect()` when done using the BMS class or better use
                 `async with` context manager (requires `keep_alive=True`).
             logger_name (str): name of the logger for the BMS instance, default: module name
+            adapter (str | list[str] | None): Bluetooth adapter(s) to use for connections.
+                ``None`` (default) auto-discovers all available adapters and rotates between
+                them on retries. A single string (e.g. ``"hci1"``) pins to one adapter.
+                A list (e.g. ``["hci1", "hci0"]``) rotates in the given order.
+            connect_semaphore (asyncio.Semaphore | None): optional semaphore to serialize
+                BLE connection attempts across multiple BMS instances. When provided,
+                the semaphore is acquired before each connection retry loop and released
+                after the connection succeeds or all retries are exhausted. This prevents
+                concurrent connection attempts from causing BlueZ "InProgress" errors.
 
         """
         assert getattr(self, "_notification_handler", None) is not None, (
@@ -96,8 +128,22 @@ class BaseBMS(ABC):
             },
         )
 
+        # Adapter rotation setup
+        if adapter is None:
+            self._adapters: list[str] = _discover_adapters()
+        elif isinstance(adapter, str):
+            self._adapters = [adapter]
+        else:
+            self._adapters = list(adapter)
+        self._adapter_idx: int = 0  # tracks rotation position across connect calls
+
+        self._connect_semaphore: Final[asyncio.Semaphore | None] = connect_semaphore
+
         self._log.debug(
-            "initializing %s, BT address: %s", self.bms_id(), ble_device.address
+            "initializing %s, BT address: %s, adapters: %s",
+            self.bms_id(),
+            ble_device.address,
+            self._adapters,
         )
         self._client: BleakClient = BleakClient(
             self._ble_device,
@@ -147,7 +193,7 @@ class BaseBMS(ABC):
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
-        return f"{cls.INFO.get('default_manufacturer', "unknown")} {cls.INFO.get('default_model', "unknown")}"
+        return f"{cls.INFO.get('default_manufacturer', 'unknown')} {cls.INFO.get('default_model', 'unknown')}"
 
     @staticmethod
     @abstractmethod
@@ -357,9 +403,21 @@ class BaseBMS(ABC):
             char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
         )
 
+    def _next_adapter(self) -> str:
+        """Return the next adapter in the rotation and advance the index."""
+        adapter: str = self._adapters[self._adapter_idx % len(self._adapters)]
+        self._adapter_idx += 1
+        return adapter
+
     @final
     async def _connect(self) -> None:
-        """Connect to the BMS and setup notification if not connected."""
+        """Connect to the BMS and setup notification if not connected.
+
+        Implements a retry loop that rotates through available Bluetooth adapters
+        on each attempt. If a ``connect_semaphore`` was provided at init time,
+        it is held for the duration of the retry loop to serialize connection
+        attempts across BMS instances.
+        """
 
         async with self._connect_lock:
             if self._client.is_connected:
@@ -373,23 +431,67 @@ class BaseBMS(ABC):
                     "failed to disconnect stale connection (%s)", type(exc).__name__
                 )
 
-            self._log.debug("connecting BMS")
-            self._client = await establish_connection(
-                client_class=BleakClient,
-                device=self._ble_device,
-                name=self._ble_device.address,
-                disconnected_callback=self._on_disconnect,
-                services=[*self.uuid_services(), "180a"],
-            )
+            if self._connect_semaphore is not None:
+                self._log.debug("waiting for connect semaphore")
+                await self._connect_semaphore.acquire()
 
+            last_exc: BaseException | None = None
             try:
-                await self._init_connection()
-            except Exception as exc:
-                self._log.info(
-                    "failed to initialize BMS connection (%s)", type(exc).__name__
+                for attempt in range(1, BaseBMS._CONNECT_MAX_RETRY + 1):
+                    adapter: str = self._next_adapter()
+                    self._log.debug(
+                        "connecting BMS (attempt %i/%i, adapter %s)",
+                        attempt,
+                        BaseBMS._CONNECT_MAX_RETRY,
+                        adapter,
+                    )
+                    self._client = BleakClient(
+                        self._ble_device,
+                        disconnected_callback=self._on_disconnect,
+                        services=[*self.uuid_services(), "180a"],
+                        adapter=adapter,
+                    )
+                    try:
+                        async with asyncio.timeout(BaseBMS._CONNECT_TIMEOUT):
+                            await self._client.connect()
+                    except (BleakError, TimeoutError, EOFError, OSError) as exc:
+                        last_exc = exc
+                        self._log.debug(
+                            "connect attempt %i failed on %s (%s: %s)",
+                            attempt,
+                            adapter,
+                            type(exc).__name__,
+                            exc,
+                        )
+                        with suppress(BleakError, TimeoutError, EOFError):
+                            await self._client.disconnect()
+                        if attempt < BaseBMS._CONNECT_MAX_RETRY:
+                            delay: float = min(0.5 * (2 ** (attempt - 1)), 4.0)
+                            await asyncio.sleep(delay)
+                        continue
+
+                    # connection succeeded -- initialize notifications
+                    try:
+                        await self._init_connection()
+                    except Exception as exc:
+                        self._log.info(
+                            "failed to initialize BMS connection (%s)",
+                            type(exc).__name__,
+                        )
+                        await self.disconnect()
+                        raise
+                    return  # connected successfully
+
+                # all retries exhausted
+                self._log.warning(
+                    "connection failed after %i attempts", BaseBMS._CONNECT_MAX_RETRY
                 )
-                await self.disconnect()
-                raise
+                if last_exc is not None:
+                    raise last_exc
+                raise BleakError("connection failed: retries exhausted")
+            finally:
+                if self._connect_semaphore is not None:
+                    self._connect_semaphore.release()
 
     def _wr_response(self, char: int | str) -> bool:
         char_tx: Final[BleakGATTCharacteristic | None] = (
