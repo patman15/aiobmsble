@@ -2,6 +2,7 @@
 
 from collections.abc import Buffer, Callable
 from logging import DEBUG
+import time
 from typing import Any, Final, Literal, NoReturn
 from uuid import UUID
 
@@ -249,7 +250,9 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
         "power": (
             -91
             if bms_data.get("current", 0) < 0
-            else 0 if bms_data.get("current") == 0 else 147
+            else 0
+            if bms_data.get("current") == 0
+            else 147
         ),
         # battery is charging if current is positive
         "battery_charging": bms_data.get("current", 0) > 0,
@@ -400,9 +403,9 @@ async def test_write_mode(
 ) -> None:
     """Check if write mode selection works correctly."""
 
-    assert len(replies) == len(
-        exp_wr_response
-    ), "Replies and expected responses must match in length!"
+    assert len(replies) == len(exp_wr_response), (
+        "Replies and expected responses must match in length!"
+    )
     patch_bms_timeout()
     monkeypatch.setattr(MockWriteModeBleakClient, "PATTERN", replies)
     monkeypatch.setattr(MockWriteModeBleakClient, "EXP_WRITE_RESPONSE", exp_wr_response)
@@ -547,9 +550,9 @@ def test_crc_calculations() -> None:
 
     for crc_fn, expected_crc in test_fn:
         calculated_crc: int = crc_fn(data)
-        assert (
-            calculated_crc == expected_crc
-        ), f"Expected {expected_crc}, got {calculated_crc}"
+        assert calculated_crc == expected_crc, (
+            f"Expected {expected_crc}, got {calculated_crc}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -768,3 +771,164 @@ def test_decode_data(
 def test_b2str(data: bytes, expected: str) -> None:
     """Test bytearray to string conversion function."""
     assert b2str(data) == expected
+
+
+# ---------------------------------------------------------------------------
+# Notification watchdog tests
+# ---------------------------------------------------------------------------
+
+
+class AsyncHandlerBMS(MinTestBMS):
+    """BMS with an async notification handler for watchdog wrapper testing."""
+
+    async def _notification_handler(
+        self, _sender: BleakGATTCharacteristic, data: bytearray
+    ) -> None:
+        self._log.debug("async RX BLE data: %s", data)
+
+
+class ShortWatchdogBMS(MinTestBMS):
+    """BMS subclass with a shorter watchdog timeout."""
+
+    _NOTIFY_TIMEOUT: float = 10.0
+
+
+async def test_watchdog_forces_reconnect(
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify watchdog forces disconnect when no notification for >_NOTIFY_TIMEOUT."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+
+    # first call connects and runs _async_update
+    await bms.async_update()
+    assert bms._client.is_connected
+
+    # simulate a long silence by back-dating the last notification time
+    bms._last_notify_time = time.monotonic() - 200
+
+    with caplog.at_level(DEBUG):
+        await bms.async_update()
+
+    assert "notification watchdog: no data for" in caplog.text
+    assert "forcing reconnect" in caplog.text
+    # after watchdog disconnect + reconnect, BMS should still be connected
+    assert bms._client.is_connected
+
+
+async def test_watchdog_no_trigger_when_fresh(
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify watchdog does not trigger when notifications are recent."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+
+    await bms.async_update()
+
+    with caplog.at_level(DEBUG):
+        await bms.async_update()
+
+    assert "notification watchdog" not in caplog.text
+
+
+async def test_watchdog_no_trigger_when_disconnected(
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify watchdog does not trigger when BMS is not connected (keep_alive=False)."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
+
+    # first update connects, runs, then disconnects
+    await bms.async_update()
+    assert not bms._client.is_connected
+
+    # back-date to simulate old timestamp, but since we're disconnected it shouldn't matter
+    bms._last_notify_time = time.monotonic() - 200
+
+    with caplog.at_level(DEBUG):
+        await bms.async_update()
+
+    assert "notification watchdog" not in caplog.text
+
+
+async def test_watchdog_timestamp_updated_on_notification(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify _last_notify_time is refreshed when a BLE notification arrives."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+
+    await bms.async_update()
+    assert bms._client.is_connected
+
+    # back-date to a known old time
+    bms._last_notify_time = time.monotonic() - 999
+
+    # fire a notification through the mock client's stored callback
+    assert bms._client._notify_callback is not None
+    bms._client._notify_callback("rx_char", bytearray(b"\x01\x02"))
+
+    # timestamp should now be recent (within last second)
+    assert time.monotonic() - bms._last_notify_time < 1.0
+
+
+async def test_watchdog_timestamp_reset_on_connect(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify _last_notify_time is reset when _init_connection runs."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
+
+    # back-date to a known old time
+    bms._last_notify_time = time.monotonic() - 999
+
+    # async_update will connect (calling _init_connection), then disconnect
+    await bms.async_update()
+
+    # even though keep_alive=False disconnects after, the timestamp was
+    # refreshed during _init_connection before the update ran
+    assert time.monotonic() - bms._last_notify_time < 2.0
+
+
+async def test_watchdog_async_handler_wrapped(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify the watchdog wrapper correctly wraps async notification handlers."""
+    patch_bleak_client()
+    bms: AsyncHandlerBMS = AsyncHandlerBMS(generate_ble_device())
+
+    await bms.async_update()
+    assert bms._client.is_connected
+
+    # back-date to a known old time
+    bms._last_notify_time = time.monotonic() - 999
+
+    # fire a notification -- the async wrapper should update the timestamp
+    assert bms._client._notify_callback is not None
+    await bms._client._notify_callback("rx_char", bytearray(b"\x03\x04"))
+
+    assert time.monotonic() - bms._last_notify_time < 1.0
+
+
+async def test_watchdog_subclass_override(
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify subclass can override _NOTIFY_TIMEOUT to trigger at a shorter interval."""
+    patch_bleak_client()
+    bms: ShortWatchdogBMS = ShortWatchdogBMS(generate_ble_device())
+
+    await bms.async_update()
+    assert bms._client.is_connected
+
+    # 15 seconds of silence -- more than the 10s override, less than default 180s
+    bms._last_notify_time = time.monotonic() - 15
+
+    with caplog.at_level(DEBUG):
+        await bms.async_update()
+
+    assert "notification watchdog: no data for" in caplog.text
+    assert bms._client.is_connected  # reconnected after watchdog
