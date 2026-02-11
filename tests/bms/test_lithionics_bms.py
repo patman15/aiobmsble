@@ -1,8 +1,7 @@
 """Test the Lithionics BMS implementation."""
 
 from collections.abc import Awaitable, Callable
-from typing import Final
-from typing import cast
+from typing import Final, cast
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
