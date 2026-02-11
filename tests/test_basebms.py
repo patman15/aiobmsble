@@ -249,7 +249,9 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
         "power": (
             -91
             if bms_data.get("current", 0) < 0
-            else 0 if bms_data.get("current") == 0 else 147
+            else 0
+            if bms_data.get("current") == 0
+            else 147
         ),
         # battery is charging if current is positive
         "battery_charging": bms_data.get("current", 0) > 0,
@@ -400,9 +402,9 @@ async def test_write_mode(
 ) -> None:
     """Check if write mode selection works correctly."""
 
-    assert len(replies) == len(
-        exp_wr_response
-    ), "Replies and expected responses must match in length!"
+    assert len(replies) == len(exp_wr_response), (
+        "Replies and expected responses must match in length!"
+    )
     patch_bms_timeout()
     monkeypatch.setattr(MockWriteModeBleakClient, "PATTERN", replies)
     monkeypatch.setattr(MockWriteModeBleakClient, "EXP_WRITE_RESPONSE", exp_wr_response)
@@ -547,9 +549,9 @@ def test_crc_calculations() -> None:
 
     for crc_fn, expected_crc in test_fn:
         calculated_crc: int = crc_fn(data)
-        assert (
-            calculated_crc == expected_crc
-        ), f"Expected {expected_crc}, got {calculated_crc}"
+        assert calculated_crc == expected_crc, (
+            f"Expected {expected_crc}, got {calculated_crc}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -758,6 +760,94 @@ def test_decode_data(
         fields, data, byteorder=byteorder, start=start
     )
     assert result == expected
+
+
+class HookTrackingBMS(MinTestBMS):
+    """BMS that records connect hook calls."""
+
+    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+        """Initialize with hook tracking."""
+        super().__init__(ble_device, keep_alive)
+        self.pre_connect_calls: int = 0
+        self.failure_calls: list[BaseException] = []
+
+    async def _pre_connect_cleanup(self) -> None:
+        self.pre_connect_calls += 1
+
+    async def _on_connect_failure(self, error: BaseException) -> None:
+        self.failure_calls.append(error)
+
+
+async def test_pre_connect_cleanup_called(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that _pre_connect_cleanup is called before each connection."""
+    patch_bleak_client()
+    bms = HookTrackingBMS(generate_ble_device(), keep_alive=False)
+    await bms.async_update()
+    assert bms.pre_connect_calls == 1
+
+
+async def test_pre_connect_cleanup_default_noop(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that the default _pre_connect_cleanup no-op allows normal connection."""
+    patch_bleak_client()
+    bms = MinTestBMS(generate_ble_device(), keep_alive=False)
+    result = await bms.async_update()
+    assert result == {"problem": True, "problem_code": 21}
+
+
+async def test_on_connect_failure_called_on_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that _on_connect_failure is called with TimeoutError."""
+
+    async def _raise_timeout(*args: Any, **kwargs: Any) -> NoReturn:
+        raise TimeoutError("mock timeout")
+
+    patch_bleak_client()
+    monkeypatch.setattr("aiobmsble.basebms.establish_connection", _raise_timeout)
+    bms = HookTrackingBMS(generate_ble_device())
+    with pytest.raises(TimeoutError, match="mock timeout"):
+        await bms.async_update()
+    assert len(bms.failure_calls) == 1
+    assert isinstance(bms.failure_calls[0], TimeoutError)
+
+
+async def test_on_connect_failure_called_on_bleak_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that _on_connect_failure is called with BleakError."""
+
+    async def _raise_bleak(*args: Any, **kwargs: Any) -> NoReturn:
+        raise BleakError("mock bleak error")
+
+    patch_bleak_client()
+    monkeypatch.setattr("aiobmsble.basebms.establish_connection", _raise_bleak)
+    bms = HookTrackingBMS(generate_ble_device())
+    with pytest.raises(BleakError, match="mock bleak error"):
+        await bms.async_update()
+    assert len(bms.failure_calls) == 1
+    assert isinstance(bms.failure_calls[0], BleakError)
+
+
+async def test_on_connect_failure_default_noop(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that the default _on_connect_failure no-op doesn't interfere with error propagation."""
+
+    async def _raise_bleak(*args: Any, **kwargs: Any) -> NoReturn:
+        raise BleakError("propagated error")
+
+    patch_bleak_client()
+    monkeypatch.setattr("aiobmsble.basebms.establish_connection", _raise_bleak)
+    bms = MinTestBMS(generate_ble_device())
+    with pytest.raises(BleakError, match="propagated error"):
+        await bms.async_update()
 
 
 @pytest.mark.parametrize(
