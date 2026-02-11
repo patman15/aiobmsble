@@ -2,6 +2,7 @@
 
 from collections.abc import Awaitable, Callable
 from typing import Final
+from typing import cast
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -9,6 +10,7 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSSample
+from aiobmsble.basebms import BaseBMS
 from aiobmsble.bms.lithionics_bms import BMS
 from aiobmsble.test_data import adv_dict_to_advdata
 from aiobmsble.utils import bms_supported
@@ -107,7 +109,7 @@ def test_matcher() -> None:
         }
     )
 
-    assert bms_supported(BMS, adv, "00:11:22:33:44:55")
+    assert bms_supported(cast(BaseBMS, BMS), adv, "00:11:22:33:44:55")
 
 
 def test_matcher_li3() -> None:
@@ -120,7 +122,7 @@ def test_matcher_li3() -> None:
         }
     )
 
-    assert bms_supported(BMS, adv, "6C:79:B8:B4:4F:C0")
+    assert bms_supported(cast(BaseBMS, BMS), adv, "6C:79:B8:B4:4F:C0")
 
 
 async def test_invalid_response(
