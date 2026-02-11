@@ -127,11 +127,13 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        self._stream_data.clear()
-
         while {"primary", "status"} - self._stream_data.keys():
             await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
-        return BMS._parse_primary(self._stream_data["primary"]) | BMS._parse_status(
+        result: BMSSample = BMS._parse_primary(
+            self._stream_data["primary"]
+        ) | BMS._parse_status(
             self._stream_data["status"]
         )
+        self._stream_data.clear()
+        return result
