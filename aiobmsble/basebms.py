@@ -10,6 +10,7 @@ from collections.abc import Callable, MutableMapping
 from itertools import takewhile
 import logging
 from statistics import fmean
+import time
 from types import TracebackType
 from typing import Any, Final, Literal, Self, final
 
@@ -37,6 +38,9 @@ class BaseBMS(ABC):
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
+    # Notification watchdog: force reconnect if no BLE notification for this
+    # many seconds.  Not ``Final`` so subclasses can tune the value.
+    _NOTIFY_TIMEOUT: float = 180.0
 
     type _InfoCharType = Literal[
         "model",
@@ -96,6 +100,7 @@ class BaseBMS(ABC):
             },
         )
 
+        self._last_notify_time: float = time.monotonic()
         self._log.debug(
             "initializing %s, BT address: %s", self.bms_id(), ble_device.address
         )
@@ -147,7 +152,7 @@ class BaseBMS(ABC):
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
-        return f"{cls.INFO.get('default_manufacturer', "unknown")} {cls.INFO.get('default_model', "unknown")}"
+        return f"{cls.INFO.get('default_manufacturer', 'unknown')} {cls.INFO.get('default_model', 'unknown')}"
 
     @staticmethod
     @abstractmethod
@@ -349,13 +354,35 @@ class BaseBMS(ABC):
         # reset any stale data from BMS
         self._frame.clear()
         self._msg_event.clear()
+        self._last_notify_time = time.monotonic()  # reset watchdog on connect
 
         self._log.debug(
             "start notify on RX characteristic %s", str(char_notify or self.uuid_rx())
         )
-        await self._client.start_notify(
-            char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
-        )
+
+        # Wrap the subclass notification handler so every incoming BLE
+        # notification refreshes the watchdog timestamp.  The wrapper is
+        # transparent: it supports both sync and async handlers.
+        original_handler = getattr(self, "_notification_handler")
+        notify_cb: Callable[..., Any]
+        if asyncio.iscoroutinefunction(original_handler):
+
+            async def _async_watchdog(
+                char: BleakGATTCharacteristic, data: bytearray
+            ) -> None:
+                self._last_notify_time = time.monotonic()
+                await original_handler(char, data)
+
+            notify_cb = _async_watchdog
+        else:
+
+            def _sync_watchdog(char: BleakGATTCharacteristic, data: bytearray) -> None:
+                self._last_notify_time = time.monotonic()
+                original_handler(char, data)
+
+            notify_cb = _sync_watchdog
+
+        await self._client.start_notify(char_notify or self.uuid_rx(), notify_cb)
 
     @final
     async def _connect(self) -> None:
@@ -499,6 +526,19 @@ class BaseBMS(ABC):
             BMSSample: dictionary with BMS values
 
         """
+        # Notification watchdog: if connected but no BLE notification has
+        # arrived for _NOTIFY_TIMEOUT seconds the radio link is likely dead
+        # (zombie connection).  Force a disconnect so _connect() will
+        # establish a fresh connection.
+        if self._client.is_connected:
+            silence: float = time.monotonic() - self._last_notify_time
+            if silence > self._NOTIFY_TIMEOUT:
+                self._log.warning(
+                    "notification watchdog: no data for %.0fs, forcing reconnect",
+                    silence,
+                )
+                await self.disconnect()
+
         await self._connect()
 
         data: BMSSample = await self._async_update()
