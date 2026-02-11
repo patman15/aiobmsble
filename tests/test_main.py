@@ -47,6 +47,7 @@ def setup_logging():
 def asyncio_run():
     """Unittest mock for asyncio_run to check calls to it."""
     with mock.patch("asyncio.run") as m:
+        m.side_effect = lambda coro: coro.close()
         yield m
 
 
