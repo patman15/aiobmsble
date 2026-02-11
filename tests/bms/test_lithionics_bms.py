@@ -110,6 +110,19 @@ def test_matcher() -> None:
     assert bms_supported(BMS, adv, "00:11:22:33:44:55")
 
 
+def test_matcher_li3() -> None:
+    """Test Bluetooth matcher for Li3 naming observed on Lithionics packs."""
+    adv = adv_dict_to_advdata(
+        {
+            "local_name": "Li3-061322094",
+            "manufacturer_data": {"19784": "6c79b8b44fc0"},
+            "service_uuids": [normalize_uuid_str("ffe0")],
+        }
+    )
+
+    assert bms_supported(BMS, adv, "6C:79:B8:B4:4F:C0")
+
+
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
 ) -> None:

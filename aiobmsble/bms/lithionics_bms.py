@@ -34,19 +34,30 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [
-            {
-                "local_name": pattern,
-                "service_uuid": BMS.uuid_services()[0],
-                "connectable": True,
-            }
-            for pattern in (
-                "Lithionics*",
-                "LITHIONICS*",
-                "NeverDie*",
-                "NEVERDIE*",
-            )
-        ]
+        return (
+            [
+                {
+                    "local_name": pattern,
+                    "service_uuid": BMS.uuid_services()[0],
+                    "connectable": True,
+                }
+                for pattern in (
+                    "Lithionics*",
+                    "LITHIONICS*",
+                    "NeverDie*",
+                    "NEVERDIE*",
+                )
+            ]
+            + [
+                # Seen on Lithionics Li3 packs: "Li3-061322094"
+                {
+                    "local_name": "Li[0-9]-*",
+                    "service_uuid": BMS.uuid_services()[0],
+                    "manufacturer_id": 19784,
+                    "connectable": True,
+                }
+            ]
+        )
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
