@@ -11,16 +11,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
     """EG4 BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "EG4 electronics", "default_model": "LL"}
-    _HEAD: Final[bytes] = b"\x01\x03"  # header for responses
+    _HEAD: Final[bytes] = b"\x01\x03"  # dev addr, fct code (read)
     _MAX_CELLS: Final[int] = 16
+    _MAX_TEMP: Final[int] = 6
     _MIN_LEN: Final[int] = 5
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 100),
@@ -34,6 +35,11 @@ class BMS(BaseBMS):
         BMSDp("temperature", 39, 2, True),
         BMSDp("problem_code", 55, 6, False, lambda x: x),
         BMSDp("balancer", 79, 2, False),
+    )
+    _OPT_FIELDS: Final[tuple[BMSValue, ...]] = (
+        "cycle_charge",
+        "cycles",
+        "design_capacity",
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -67,6 +73,15 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         return "1001"
+
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        await self._await_msg(BMS._cmd(0x69, 0x2E))
+        return {
+            "model": b2str(self._msg[3:27]),
+            "fw_version": b2str(self._msg[27:33]),
+            "serial_number": b2str(self._msg[33:39]),
+        }
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -116,11 +131,17 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await self._await_msg(BMS._cmd(0x0, 0x38))
+        await self._await_msg(BMS._cmd(0x0, 0x27))
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
-        # result["temp_values"] = BMS._temp_values(self._msg, values=3, start=39, size=2)
+        for field in BMS._OPT_FIELDS:
+            if not result.get(field):
+                del result[field]
+
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
+        )
+        result["temp_values"] = BMS._temp_values(
+            self._msg, values=BMS._MAX_TEMP, start=69, size=1
         )
         return result

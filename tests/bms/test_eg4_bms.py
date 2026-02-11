@@ -16,24 +16,21 @@ from tests.conftest import MockBleakClient
 BT_FRAME_SIZE: Final[int] = 80
 
 _RESULT_DEFS: Final[BMSSample] = {
+    "balancer": 0,
     "voltage": 13.24,
     "current": -6.2,
     "battery_health": 100,
     "battery_level": 48,
     "cell_count": 4,
-    "cycles": 5,
-    "cycle_charge": 369.8,
     "cell_voltages": [3.31, 3.313, 3.309, 3.313],
     "delta_voltage": 0.004,
-    "temperature": 17.0,
-    "cycle_capacity": 4918.34,
-    "design_capacity": 400,
+    "temperature": 17,
     "power": -82.088,
     # "runtime": 54770,
     "battery_charging": False,
     "problem_code": 0,
     "problem": False,
-    "temp_values": [17.0, 17.0, 17.0],
+    "temp_values": [17.0, -56.0, 0.0, 0.0, 0.0, 0.0],
 }
 
 
@@ -47,7 +44,13 @@ class MockEG4BleakClient(MockBleakClient):
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x00"
             b"\x11\x00\x11\x00\x00\x02\xee\x00\x64\x00\x30\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x11\xc8\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\xc4\x34"
-        ) # 13.24V, -6.2A, 17°C, 48%, dischrg, ver 1.5(7), 3.309V, 3.314V, 3.309V, 3.312V
+        ),  # 13.24V, -6.2A, 17°C, 48%, dischrg, ver 1.5(7), 3.309V, 3.314V, 3.309V, 3.312V
+        b"\x01\x03\x00\x69\x00\x2e\x15\xca": bytearray(
+            b"\x01\x03\x5c\x32\x34\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x30"
+            b"\x36\x00\x00\x00\x00\x30"
+            b"\x31\x36\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x44\x33"
+        )
     }
 
     def _response(
@@ -161,7 +164,7 @@ async def test_invalid_response(
     ids=["last_bit", "first_bit"],
 )
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response, request
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response, request
 ) -> None:
     """Test data update with BMS returning error flags."""
     monkeypatch.setattr(MockEG4BleakClient, "_RESP", bytearray(problem_response))
