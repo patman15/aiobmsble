@@ -2,6 +2,9 @@
 
 from collections.abc import Buffer, Callable
 from logging import DEBUG
+import subprocess
+import sys
+import types
 from typing import Any, Final, Literal, NoReturn
 from uuid import UUID
 
@@ -848,6 +851,324 @@ async def test_on_connect_failure_default_noop(
     bms = MinTestBMS(generate_ble_device())
     with pytest.raises(BleakError, match="propagated error"):
         await bms.async_update()
+
+
+async def test_bluez_adapter_extraction(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check _bluez_adapter extracts adapter name from BlueZ D-Bus path."""
+    patch_bleak_client()
+    dev = generate_ble_device(details={"path": "/org/bluez/hci0/dev_11_22_33_44_55_66"})
+    bms = MinTestBMS(dev)
+    assert bms._bluez_adapter() == "hci0"
+
+
+async def test_bluez_adapter_empty_path(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check _bluez_adapter returns None when path is empty."""
+    patch_bleak_client()
+    bms = MinTestBMS(generate_ble_device(details={"path": ""}))
+    assert bms._bluez_adapter() is None
+
+
+async def test_bluez_adapter_no_details(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check _bluez_adapter returns None when details are not a dict."""
+    patch_bleak_client()
+    bms = MinTestBMS(generate_ble_device())
+    monkeypatch.setattr(bms._ble_device, "details", None)
+    assert bms._bluez_adapter() is None
+
+
+async def test_pre_connect_cleanup_skipped_non_linux(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that cleanup is a no-op on non-Linux platforms."""
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "darwin")
+    patch_bleak_client()
+    bms = MinTestBMS(
+        generate_ble_device(details={"path": "/org/bluez/hci0/dev_11_22_33_44_55_66"}),
+        keep_alive=False,
+    )
+    # Should succeed without attempting any HCI or D-Bus cleanup
+    result = await bms.async_update()
+    assert result == {"problem": True, "problem_code": 21}
+
+
+async def test_pre_connect_cleanup_hci_tier(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that HCI cleanup commands are issued when hcitool is available."""
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "linux")
+    monkeypatch.setattr(BaseBMS, "_hcitool_checked", True)
+    monkeypatch.setattr(BaseBMS, "_hcitool_path", "/usr/bin/hcitool")
+
+    calls: list[list[str]] = []
+    original_run = subprocess.run
+
+    def _mock_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(list(cmd))
+        if "con" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        return original_run(["true"], capture_output=True)
+
+    monkeypatch.setattr("aiobmsble.basebms.subprocess.run", _mock_run)
+    patch_bleak_client()
+    bms = MinTestBMS(
+        generate_ble_device(details={"path": "/org/bluez/hci0/dev_11_22_33_44_55_66"}),
+        keep_alive=False,
+    )
+    await bms.async_update()
+
+    # Should have called LE Create Connection Cancel and connection list
+    assert any("0x000E" in str(c) for c in calls)
+    assert any("con" in c for c in calls)
+
+
+async def test_pre_connect_cleanup_hci_stale_handle(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that a stale connection handle is dropped via hcitool ledc."""
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "linux")
+    monkeypatch.setattr(BaseBMS, "_hcitool_checked", True)
+    monkeypatch.setattr(BaseBMS, "_hcitool_path", "/usr/bin/hcitool")
+
+    calls: list[list[str]] = []
+    con_output = "Connections:\n\t> ACL 11:22:33:44:55:66 handle 64 state 1 lm MASTER\n"
+
+    def _mock_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(list(cmd))
+        if "con" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout=con_output, stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr("aiobmsble.basebms.subprocess.run", _mock_run)
+    patch_bleak_client()
+    bms = MinTestBMS(
+        generate_ble_device(details={"path": "/org/bluez/hci0/dev_11_22_33_44_55_66"}),
+        keep_alive=False,
+    )
+    await bms.async_update()
+
+    # Should have issued ledc with handle 64
+    assert any("ledc" in c and "64" in c for c in calls)
+
+
+async def test_pre_connect_cleanup_hci_no_stale_handle(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that ledc is NOT called when no stale handle matches the address."""
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "linux")
+    monkeypatch.setattr(BaseBMS, "_hcitool_checked", True)
+    monkeypatch.setattr(BaseBMS, "_hcitool_path", "/usr/bin/hcitool")
+
+    calls: list[list[str]] = []
+    # Different address in the connection list
+    con_output = "Connections:\n\t> ACL AA:BB:CC:DD:EE:FF handle 99 state 1 lm MASTER\n"
+
+    def _mock_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(list(cmd))
+        if "con" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout=con_output, stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr("aiobmsble.basebms.subprocess.run", _mock_run)
+    patch_bleak_client()
+    bms = MinTestBMS(
+        generate_ble_device(details={"path": "/org/bluez/hci0/dev_11_22_33_44_55_66"}),
+        keep_alive=False,
+    )
+    await bms.async_update()
+
+    # ledc should NOT have been called
+    assert not any("ledc" in c for c in calls)
+
+
+async def test_pre_connect_cleanup_dbus_tier(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that D-Bus Disconnect is called when hcitool is not available."""
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "linux")
+    monkeypatch.setattr(BaseBMS, "_hcitool_checked", True)
+    monkeypatch.setattr(BaseBMS, "_hcitool_path", None)
+
+    disconnect_called: list[str] = []
+
+    async def _mock_dbus_disconnect(self: Any) -> None:
+        disconnect_called.append("called")
+
+    monkeypatch.setattr(BaseBMS, "_dbus_stale_disconnect", _mock_dbus_disconnect)
+    patch_bleak_client()
+    bms = MinTestBMS(
+        generate_ble_device(details={"path": "/org/bluez/hci0/dev_11_22_33_44_55_66"}),
+        keep_alive=False,
+    )
+    await bms.async_update()
+    assert disconnect_called == ["called"]
+
+
+async def test_pre_connect_cleanup_dbus_skips_when_not_connected(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that D-Bus tier skips Disconnect when device is not connected."""
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "linux")
+    monkeypatch.setattr(BaseBMS, "_hcitool_checked", True)
+    monkeypatch.setattr(BaseBMS, "_hcitool_path", None)
+
+    bus_call_count = 0
+    device_path = "/org/bluez/hci0/dev_11_22_33_44_55_66"
+
+    class MockManager:
+        """Mock BlueZManager with Connected=False."""
+
+        _properties: dict[str, dict[str, dict[str, Any]]] = {
+            device_path: {"org.bluez.Device1": {"Connected": False}}
+        }
+
+        class _bus:
+            @staticmethod
+            async def call(msg: Any) -> None:
+                nonlocal bus_call_count
+                bus_call_count += 1
+
+    async def _mock_get_manager() -> MockManager:
+        return MockManager()
+
+    mock_defs = types.SimpleNamespace(
+        BLUEZ_SERVICE="org.bluez",
+        DEVICE_INTERFACE="org.bluez.Device1",
+    )
+
+    # Patch the lazy imports used by _dbus_stale_disconnect
+    monkeypatch.setitem(
+        sys.modules,
+        "bleak.backends.bluezdbus",
+        types.SimpleNamespace(defs=mock_defs),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "bleak.backends.bluezdbus.defs",
+        mock_defs,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "bleak.backends.bluezdbus.manager",
+        types.SimpleNamespace(get_global_bluez_manager=_mock_get_manager),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "dbus_fast",
+        types.SimpleNamespace(message=types.SimpleNamespace(Message=lambda **kw: kw)),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "dbus_fast.message",
+        types.SimpleNamespace(Message=lambda **kw: kw),
+    )
+
+    patch_bleak_client()
+    bms = MinTestBMS(
+        generate_ble_device(details={"path": device_path}),
+        keep_alive=False,
+    )
+
+    await bms._dbus_stale_disconnect()
+
+    # Disconnect should NOT have been called since Connected=False
+    assert bus_call_count == 0
+
+
+async def test_pre_connect_cleanup_errors_suppressed(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that cleanup errors are suppressed and don't block connection."""
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "linux")
+    monkeypatch.setattr(BaseBMS, "_hcitool_checked", True)
+    monkeypatch.setattr(BaseBMS, "_hcitool_path", "/usr/bin/hcitool")
+
+    def _mock_run(cmd: list[str], **kwargs: Any) -> None:
+        raise OSError("hcitool not working")
+
+    monkeypatch.setattr("aiobmsble.basebms.subprocess.run", _mock_run)
+    patch_bleak_client()
+    bms = MinTestBMS(
+        generate_ble_device(details={"path": "/org/bluez/hci0/dev_11_22_33_44_55_66"}),
+        keep_alive=False,
+    )
+    # Connection should still succeed despite cleanup failure
+    result = await bms.async_update()
+    assert result == {"problem": True, "problem_code": 21}
+
+
+async def test_pre_connect_cleanup_override_skips_default(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that a subclass override skips the default cleanup logic."""
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "linux")
+    monkeypatch.setattr(BaseBMS, "_hcitool_checked", True)
+    monkeypatch.setattr(BaseBMS, "_hcitool_path", "/usr/bin/hcitool")
+
+    hci_called = False
+
+    def _mock_run(cmd: list[str], **kwargs: Any) -> None:
+        nonlocal hci_called
+        hci_called = True
+
+    monkeypatch.setattr("aiobmsble.basebms.subprocess.run", _mock_run)
+    patch_bleak_client()
+    bms = HookTrackingBMS(
+        generate_ble_device(details={"path": "/org/bluez/hci0/dev_11_22_33_44_55_66"}),
+        keep_alive=False,
+    )
+    await bms.async_update()
+
+    # HookTrackingBMS overrides _pre_connect_cleanup, so HCI should NOT run
+    assert not hci_called
+    assert bms.pre_connect_calls == 1
+
+
+async def test_pre_connect_cleanup_hcitool_detection(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Check that hcitool path is lazily detected and cached."""
+    monkeypatch.setattr("aiobmsble.basebms.sys.platform", "linux")
+    # Reset the cached state
+    monkeypatch.setattr(BaseBMS, "_hcitool_checked", False)
+    monkeypatch.setattr(BaseBMS, "_hcitool_path", None)
+    monkeypatch.setattr(
+        "aiobmsble.basebms.shutil.which", lambda _name: "/usr/bin/hcitool"
+    )
+
+    calls: list[list[str]] = []
+
+    def _mock_run(cmd: list[str], **kwargs: Any) -> Any:
+        calls.append(list(cmd))
+        if "con" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr("aiobmsble.basebms.subprocess.run", _mock_run)
+    patch_bleak_client()
+    bms = MinTestBMS(
+        generate_ble_device(details={"path": "/org/bluez/hci0/dev_11_22_33_44_55_66"}),
+        keep_alive=False,
+    )
+    await bms.async_update()
+    assert BaseBMS._hcitool_path == "/usr/bin/hcitool"
+    assert BaseBMS._hcitool_checked is True
+    assert len(calls) > 0
 
 
 @pytest.mark.parametrize(

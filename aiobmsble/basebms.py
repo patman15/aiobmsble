@@ -9,9 +9,12 @@ import asyncio
 from collections.abc import Callable, MutableMapping
 from itertools import takewhile
 import logging
+import shutil
 from statistics import fmean
+import subprocess
+import sys
 from types import TracebackType
-from typing import Any, Final, Literal, Self, final
+from typing import Any, ClassVar, Final, Literal, Self, final
 
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -357,13 +360,116 @@ class BaseBMS(ABC):
             char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
         )
 
-    async def _pre_connect_cleanup(self) -> None:
-        """Called before each connection attempt.
+    _hcitool_path: ClassVar[str | None] = None
+    _hcitool_checked: ClassVar[bool] = False
 
-        Override to run platform-specific cleanup, e.g. cancelling stale
-        BlueZ LE connections or clearing half-open handles.  The default
-        implementation is a no-op.
+    def _bluez_adapter(self) -> str | None:
+        """Extract the BlueZ adapter name (e.g. ``hci0``) from device details."""
+        details = getattr(self._ble_device, "details", None)
+        if not isinstance(details, dict):
+            return None
+        path: str = details.get("path", "")
+        # /org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF -> hci0
+        parts = path.split("/")
+        return parts[3] if len(parts) >= 4 and parts[3] else None
+
+    async def _pre_connect_cleanup(self) -> None:
+        """Clear stale BlueZ state before connecting.
+
+        On Linux, cancels pending LE connections and drops stale handles
+        using HCI commands when *hcitool* is available, falling back to
+        BlueZ D-Bus ``Disconnect`` otherwise.  Non-Linux platforms get a
+        no-op.  Override to customise platform-specific cleanup.
         """
+        if sys.platform != "linux":
+            return
+
+        adapter = self._bluez_adapter()
+        if adapter is None:
+            return
+
+        try:
+            if not BaseBMS._hcitool_checked:
+                BaseBMS._hcitool_path = shutil.which("hcitool")
+                BaseBMS._hcitool_checked = True
+
+            if BaseBMS._hcitool_path:
+                self._hci_stale_cleanup(adapter, self._ble_device.address)
+            else:
+                await self._dbus_stale_disconnect()
+        except (OSError, subprocess.SubprocessError, TimeoutError):
+            self._log.debug("pre-connect cleanup failed", exc_info=True)
+
+    def _hci_stale_cleanup(self, adapter: str, address: str) -> None:
+        """Cancel pending LE connections and drop stale handles via *hcitool*."""
+        hcitool = BaseBMS._hcitool_path
+        assert hcitool is not None
+
+        # Cancel any pending LE Create Connection
+        subprocess.run(
+            [hcitool, "-i", adapter, "cmd", "0x08", "0x000E"],
+            capture_output=True,
+            timeout=3,
+            check=False,
+        )
+
+        # Check for and drop stale connection handles
+        result = subprocess.run(
+            [hcitool, "-i", adapter, "con"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
+        )
+        for line in (result.stdout or "").splitlines():
+            if address.upper() in line.upper():
+                parts = line.split("handle ")
+                if len(parts) > 1:
+                    handle = parts[1].split()[0]
+                    subprocess.run(
+                        [hcitool, "-i", adapter, "ledc", handle],
+                        timeout=3,
+                        check=False,
+                    )
+                    self._log.debug("dropped stale handle %s on %s", handle, adapter)
+
+    async def _dbus_stale_disconnect(self) -> None:
+        """Disconnect device via BlueZ D-Bus when *hcitool* is unavailable."""
+        from bleak.backends.bluezdbus import defs  # noqa: PLC0415, I001
+        from bleak.backends.bluezdbus.manager import (  # noqa: PLC0415
+            get_global_bluez_manager,
+        )
+        from dbus_fast.message import Message  # type: ignore[import-not-found]  # noqa: PLC0415
+
+        details = self._ble_device.details
+        if not isinstance(details, dict) or "path" not in details:
+            return
+
+        device_path: str = details["path"]
+        if not device_path:
+            return
+
+        manager = await get_global_bluez_manager()
+
+        # Only disconnect if BlueZ thinks the device is connected
+        props = manager._properties.get(  # noqa: SLF001
+            device_path, {}
+        ).get(defs.DEVICE_INTERFACE, {})
+        if not props.get("Connected", False):
+            return
+
+        self._log.debug("clearing stale D-Bus connection for %s", device_path)
+        try:
+            await manager._bus.call(  # type: ignore[union-attr]  # noqa: SLF001
+                Message(
+                    destination=defs.BLUEZ_SERVICE,
+                    path=device_path,
+                    interface=defs.DEVICE_INTERFACE,
+                    member="Disconnect",
+                )
+            )
+        except Exception:  # noqa: BLE001 – DBusError is not in OSError hierarchy
+            self._log.debug("D-Bus disconnect failed", exc_info=True)
 
     async def _on_connect_failure(self, error: BaseException) -> None:
         """Called after a connection attempt fails.
