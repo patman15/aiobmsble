@@ -91,9 +91,8 @@ class BMS(BaseBMS):
                 continue
 
             if line.startswith(BMS._HEAD_STATUS):
-                if len(line.split(",")) >= BMS._MIN_FIELDS_STATUS:
-                    self._stream_data["status"] = line
-                    self._msg_event.set()
+                self._stream_data["status"] = line
+                self._msg_event.set()
                 continue
 
             if "," in line and line[0] in "0123456789-":
