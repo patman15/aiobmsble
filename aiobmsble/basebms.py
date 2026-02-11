@@ -7,6 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from contextlib import suppress
 from itertools import takewhile
 import logging
 from statistics import fmean
@@ -37,6 +38,10 @@ class BaseBMS(ABC):
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
+    # Hard timeout for the entire connection setup (connect + GATT + notify).
+    # Acts as a safety net when BlueZ hangs and bleak_retry_connector's
+    # internal timeouts fail to fire.  Not ``Final`` so subclasses can tune.
+    _CONNECT_TIMEOUT: float = 30.0
 
     type _InfoCharType = Literal[
         "model",
@@ -147,7 +152,7 @@ class BaseBMS(ABC):
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
-        return f"{cls.INFO.get('default_manufacturer', "unknown")} {cls.INFO.get('default_model', "unknown")}"
+        return f"{cls.INFO.get('default_manufacturer', 'unknown')} {cls.INFO.get('default_model', 'unknown')}"
 
     @staticmethod
     @abstractmethod
@@ -374,21 +379,31 @@ class BaseBMS(ABC):
                 )
 
             self._log.debug("connecting BMS")
-            self._client = await establish_connection(
-                client_class=BleakClient,
-                device=self._ble_device,
-                name=self._ble_device.address,
-                disconnected_callback=self._on_disconnect,
-                services=[*self.uuid_services(), "180a"],
-            )
-
             try:
-                await self._init_connection()
-            except Exception as exc:
-                self._log.info(
-                    "failed to initialize BMS connection (%s)", type(exc).__name__
+                async with asyncio.timeout(self._CONNECT_TIMEOUT):
+                    self._client = await establish_connection(
+                        client_class=BleakClient,
+                        device=self._ble_device,
+                        name=self._ble_device.address,
+                        disconnected_callback=self._on_disconnect,
+                        services=[*self.uuid_services(), "180a"],
+                    )
+
+                    try:
+                        await self._init_connection()
+                    except Exception as exc:
+                        self._log.info(
+                            "failed to initialize BMS connection (%s)",
+                            type(exc).__name__,
+                        )
+                        await self.disconnect()
+                        raise
+            except TimeoutError:
+                self._log.warning(
+                    "connection timed out after %.0fs", self._CONNECT_TIMEOUT
                 )
-                await self.disconnect()
+                with suppress(BleakError, TimeoutError, EOFError):
+                    await self._client.disconnect()
                 raise
 
     def _wr_response(self, char: int | str) -> bool:
