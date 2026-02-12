@@ -46,7 +46,7 @@ class BMS(BaseBMS):
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
         self._msg: bytes = b""
-        self._exp_len: int = BMS._MIN_LEN
+        self._exp_len: int = 0
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -76,12 +76,20 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_msg(BMS._cmd(0x69, 0x2E))
-        return {
-            "model": b2str(self._msg[3:27]),
-            "fw_version": b2str(self._msg[27:33]),
-            "serial_number": b2str(self._msg[33:39]),
-        }
+        info: BMSInfo = await super()._fetch_device_info()
+        try:
+            await self._await_msg(BMS._cmd(0x69, 0x2E))
+            info.update(
+                {
+                    "model": b2str(self._msg[3:27]),
+                    "fw_version": b2str(self._msg[27:33]),
+                    "serial_number": b2str(self._msg[33:39]),
+                }
+            )
+        except TimeoutError:
+            pass
+
+        return info
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
