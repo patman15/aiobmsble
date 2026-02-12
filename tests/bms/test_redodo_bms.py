@@ -13,7 +13,7 @@ from aiobmsble.basebms import crc_sum
 from aiobmsble.bms.redodo_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 26.556,
@@ -38,6 +38,12 @@ _RESULT_DEFS: Final[BMSSample] = {
     "balancer": 0,
     "heater": False,
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockRedodoBleakClient(MockBleakClient):

@@ -10,6 +10,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.humsienk_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 
 def ref_value() -> BMSSample:
@@ -45,6 +46,11 @@ def ref_value() -> BMSSample:
         "problem": False,
     }
 
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockHumsienkBleakClient(MockBleakClient):
