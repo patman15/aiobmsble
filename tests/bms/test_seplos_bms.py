@@ -12,7 +12,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 BT_FRAME_SIZE = 27  # ATT maximum is 512, minimal 27
 CHAR_UUID = "fff1"
@@ -79,6 +79,11 @@ REF_VALUE: BMSSample = {
     "problem_code": 0,
 }
 
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 class MockSeplosBleakClient(MockBleakClient):
     """Emulate a Seplos BMS BleakClient."""
