@@ -13,6 +13,7 @@ from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.gobel_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 # Service and characteristic UUIDs for Gobel Power BMS
 SERVICE_UUID = "00002760-08c2-11e1-9073-0e8ac72e1001"
@@ -63,6 +64,12 @@ _RESULT_MAIN_DATA: Final[BMSSample] = {
     "temperature": 21.0,
     "voltage": 13.31,
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockGobelBleakClient(MockBleakClient):

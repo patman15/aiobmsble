@@ -8,6 +8,13 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from aiobmsble.bms.dummy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockDummyBleakClient(MockBleakClient):
