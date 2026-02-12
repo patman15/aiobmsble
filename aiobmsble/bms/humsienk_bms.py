@@ -29,7 +29,7 @@ class BMS(BaseBMS):
     _HEAD: Final[bytes] = b"\xaa"  # beginning of frame
     _MIN_LEN: Final[int] = 5  # minimal frame len
     # Mask to extract alarm/protection bits from operation_status (exclude FET + balance)
-    _ALARM_MASK: Final[int] = ~((1 << 7) | (1 << 15) | (1 << 23)) & 0xFFFFFFFF
+    _ALARM_MASK: Final[int] = 0xFF7F7F7F
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         # 0x21: Battery info
         # Voltage is 4 bytes (32-bit); 2 bytes would silently work for ≤65V packs
@@ -45,7 +45,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("dischrg_mosfet", 9, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("balancer", 8, 1, False, lambda x: bool(x & 0x80), 0x20),
-        BMSDp("problem_code", 7, 4, False, lambda x: x & 0xFF7F7F7F, 0x20),
+        BMSDp("problem_code", 7, 4, False, lambda x, _alarm_mask=_ALARM_MASK: x & _alarm_mask, 0x20),
     )
     # 0x23 excluded: returns redundant current reading already in 0x21 (see docs)
     _CMDS: Final = frozenset({b"\x20", b"\x21", b"\x22"})
@@ -169,14 +169,8 @@ class BMS(BaseBMS):
             self._msg[0x21], values=6, start=23, size=1, byteorder="little"
         )
 
-        # Cell disconnect bitmap: 0x20 data bytes 11-13 (frame bytes 14-16).
-        # A non-zero value indicates physically disconnected cells (broken
-        # wires, faulty connections) — a critical safety condition that should
-        # flag the battery as having a problem regardless of other alarm bits.
-        msg20 = self._msg[0x20]
-        if len(msg20) >= 17:
-            disconnect = int.from_bytes(msg20[14:17], byteorder="little", signed=False)
-            if disconnect:
-                result["problem"] = True
+        # Add problem for cell disconnect bitmap
+        if any(self._msg[0x20][14:17]):
+            result["problem"] = True
 
         return result

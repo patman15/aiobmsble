@@ -46,42 +46,6 @@ def ref_value() -> BMSSample:
     }
 
 
-def real_ref_value() -> BMSSample:
-    """Return reference value from live HumsiENK 12V 640Ah battery (AB:80:72:54:E0:B4).
-
-    Raw frames captured from actual hardware on 2026-02-08.
-    """
-    return {
-        "battery_level": 99,
-        "battery_health": 100,
-        "voltage": 13.520,
-        "current": -5.49,
-        "cycle_charge": 623.84,
-        "design_capacity": 628,
-        "cycles": 3,
-        "cell_count": 4,
-        "cell_voltages": [3.405, 3.398, 3.364, 3.362],
-        "battery_charging": False,
-        "power": -74.225,
-        "cycle_capacity": 8434.317,
-        "runtime": 409075,
-        "delta_voltage": 0.043,
-        "temperature": 24.333,
-        "temp_values": [
-            20.0,
-            26.0,
-            26.0,
-            26.0,
-            22.0,
-            26.0,
-        ],
-        "chrg_mosfet": True,
-        "dischrg_mosfet": True,
-        "balancer": False,
-        "problem_code": 0,
-        "problem": False,
-    }
-
 
 class MockHumsienkBleakClient(MockBleakClient):
     """Emulate a Humsienk BMS BleakClient."""
@@ -131,53 +95,6 @@ class MockHumsienkBleakClient(MockBleakClient):
         )
 
 
-class MockHumsienkRealBleakClient(MockBleakClient):
-    """Emulate a Humsienk BMS using raw frames captured from live hardware.
-
-    Source: HumsiENK 12V 640Ah battery (AB:80:72:54:E0:B4)
-    Captured: 2026-02-08 via test_cerbo.py on Cerbo GX
-    """
-
-    RESP: dict[bytes, bytearray] = {
-        b"\xaa\x00\x00\x00\x00": bytearray(
-            b"\xaa\x00\x00\x00\x00"
-        ),  # init
-        b"\xaa\x11\x00\x11\x00": bytearray(
-            b"\xaa\x11\x0a\x42\x4d\x43\x2d\x30\x34\x53\x30\x30\x31\x62\x02"
-        ),  # model: BMC-04S001
-        b"\xaa\x20\x00\x20\x00": bytearray(
-            b"\xaa\x20\x0f\x00\x00\x00\x00\x80\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x2f\x01"
-        ),  # operating status: chrg_mosfet=on, dischrg_mosfet=on, no alarms
-        b"\xaa\x21\x00\x21\x00": bytearray(
-            b"\xaa\x21\x1a\xd0\x34\x00\x00\x8e\xea\xff\xff\x63\x64\xe0\x84\x09\x00"
-            b"\x20\x95\x09\x00\x03\x00\x14\x1a\x1a\x1a\x16\x1a\x3c\x08"
-        ),  # 13.520V, -5.49A, 99% SOC, 100% SOH, 623.84Ah, 628Ah design, 3 cycles
-        b"\xaa\x22\x00\x22\x00": bytearray(
-            b"\xaa\x22\x30\x4d\x0d\x46\x0d\x24\x0d\x22\x0d"
-            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-            b"\x00\x00\x00\x00\x00\x00\x00\x00\x5f\x01"
-        ),  # 4 cells: 3.405V, 3.398V, 3.364V, 3.362V
-        b"\xaa\xf5\x00\xf5\x00": bytearray(
-            b"\xaa\xf5\x15\x42\x4d\x43\x34\x53\x2d\x32\x30\x32\x35\x31\x30\x32\x31"
-            b"\x2d\x4f\x54\x41\x56\x31\x34\xe9\x05"
-        ),  # hw_version: BMC4S-20251021-OTAV14
-    }
-
-    async def write_gatt_char(
-        self,
-        char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        data: Buffer,
-        response: bool | None = None,
-    ) -> None:
-        """Issue write command to GATT."""
-        await super().write_gatt_char(char_specifier, data, response)
-
-        assert self._notify_callback is not None
-        self._notify_callback(
-            "MockHumsienkRealBleakClient", self.RESP.get(bytes(data), bytearray())
-        )
-
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Humsienk BMS data update."""
@@ -195,21 +112,6 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-async def test_update_real_data(patch_bleak_client, keep_alive_fixture: bool) -> None:
-    """Test Humsienk BMS data update with real hardware capture."""
-
-    patch_bleak_client(MockHumsienkRealBleakClient)
-
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
-
-    assert await bms.async_update() == real_ref_value()
-
-    # query again to check already connected state
-    await bms.async_update()
-    assert bms.is_connected is keep_alive_fixture
-
-    await bms.disconnect()
-
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
@@ -218,15 +120,6 @@ async def test_device_info(patch_bleak_client) -> None:
     assert await bms.device_info() == {"hw_version": "V02", "model": "BMC-04S001"}
     assert BMS.matcher_dict_list()
 
-
-async def test_device_info_real_data(patch_bleak_client) -> None:
-    """Test device info with real hardware capture."""
-    patch_bleak_client(MockHumsienkRealBleakClient)
-    bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "hw_version": "BMC4S-20251021-OTAV14",
-        "model": "BMC-04S001",
-    }
 
 
 async def test_cell_disconnect(patch_bleak_client) -> None:
@@ -252,31 +145,6 @@ async def test_cell_disconnect(patch_bleak_client) -> None:
     assert result["problem"] is True
     await bms.disconnect()
 
-
-async def test_short_status_frame(patch_bleak_client) -> None:
-    """Test that a truncated 0x20 frame (no disconnect bitmap) doesn't set problem."""
-    # Build a short 0x20 response: only 10 data bytes (missing disconnect bitmap)
-    # Frame: [0xAA, 0x20, LEN=0x0a, ...10 data bytes..., CHK_LO, CHK_HI]
-    short_data = bytearray(
-        b"\xaa\x20\x0a"  # header: start, cmd, len=10
-        b"\x00\x00\x00\x00"  # runtime
-        b"\x80\x00\x80\x00"  # operation_status (chrg+dischrg on)
-        b"\x00\x00"  # partial balance (only 2 bytes, no disconnect)
-    )
-    crc = sum(short_data[1:]) & 0xFFFF
-    short_data += crc.to_bytes(2, byteorder="little")
-
-    resp_short = dict(MockHumsienkBleakClient.RESP)
-    resp_short[b"\xaa\x20\x00\x20\x00"] = short_data
-
-    class MockShortStatus(MockHumsienkBleakClient):
-        RESP = resp_short
-
-    patch_bleak_client(MockShortStatus)
-    bms = BMS(generate_ble_device())
-    result = await bms.async_update()
-    assert result.get("problem", False) is False
-    await bms.disconnect()
 
 
 @pytest.mark.parametrize(

@@ -97,8 +97,7 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 Each is a 24-bit bitmap where bit 0 = cell 1, bit 1 = cell 2, etc.
 
 - **cell_balance**: a set bit means that cell is actively being balanced.
-  Currently exposed as a scalar `balancer` bool; a per-cell list would be more
-  useful (see [#134](https://github.com/patman15/aiobmsble/issues/134)).
+  Exposed as a scalar `balancer` bool.
 - **cell_disconnect**: a set bit indicates a physically disconnected cell
   (broken wire, faulty connection). Any non-zero value triggers `problem=True`
   in the driver.
