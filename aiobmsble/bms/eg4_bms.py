@@ -105,12 +105,14 @@ class BMS(BaseBMS):
         if len(self._frame) < self._exp_len:
             return
 
-        if (crc := crc_modbus(data[:-2])) != int.from_bytes(
-            data[-2:], byteorder="little"
+        del self._frame[self._exp_len :]
+
+        if (crc := crc_modbus(self._frame[:-2])) != int.from_bytes(
+            self._frame[-2:], byteorder="little"
         ):
             self._log.debug(
                 "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(data[-2:], byteorder="little"),
+                int.from_bytes(self._frame[-2:], byteorder="little"),
                 crc,
             )
             return
