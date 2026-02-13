@@ -5,6 +5,7 @@ from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
+import pytest
 
 from aiobmsble import BMSSample
 from aiobmsble.bms.saftkiste_bms import BMS
@@ -12,28 +13,28 @@ from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests, verify_device_info
 
-_PROTO_DEFS: Final[dict[int, bytearray]] = {
-    0x02: bytearray(
+_PROTO_DEFS: Final[dict[bytes, bytearray]] = {
+    b"\xf0\xff\x02": bytearray(
         b"\xf0\xff\x02\xe0\x93\x04\x00\xa7\x8a\x04\x00\x2c\x01\x0c\x36\xf5\xff\x84\x0d\x7f\x0d\x85"
         b"\x0d\x84\x0d\x21\x00\xb1\x02\xfe\x02\x00\x01\x00\x00\x00\x04\x0e\x00\x00\x00\x03\x00\x03"
         b"\x01\x00\x12"
     ),
-    0x03: bytearray(
+    b"\xf0\xff\x03": bytearray(
         b"\xf0\xff\x03\x00\x00\x43\x74\x29\x78\x4a\x69\x00\x00\x00\x01\x03\xb0\x32\x42\x47\x01\x00"
         b"\xc1\x26\xe0\x93\x04\x00\x00\x03\x03\x2c\xc5\x02\x00\x06\x00\x00\x00\x00\x00\x00\xff\x6e"
     ),
-    0x04: bytearray(
+    b"\xf0\xff\x04": bytearray(
         b"\xf0\xff\x04\x00\x48\xe7\x29\x0a\x63\x38\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
         b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb8"
     ),
-    0x05: bytearray(
+    b"\xf0\xff\x05": bytearray(
         b"\xf0\xff\x04\x00\x00\x00\x00\x00\x00\x00\x00\x10\x00\x00\x00\x2d"
     ),
-    0x10: bytearray(  # correct password response
+    b"\xf0\xff\x10\x41\x42\x43\x31\x32\x33\x00\xe7\x80\x69\x48": bytearray(  # correct password response
         b"\xf0\xff\x00\xe0\x93\x04\x00\x97\x8d\x04\x00\x2c\x01\xa8\x34\xb8\xff\x2f\x0d\x24\x0d\x2d"
         b"\x0d\x28\x0d\x21\x00\x47\x05\xc2\x05\x00\x01\x00\x00\x00\x04\x0e\x6a"
     ),  # wrong password: bytearray(b'\xf0\xff\x10\x00\x07')
-    0x43: bytearray(
+    b"\xf0\xff\x43\x01\x01\xe7\x80\x69\x96": bytearray(
         b"\xf0\xff\x43\x01\x01\xe7\x80\x69\x6f\x23\x27\x23\xe1\x22\x9a\x22\x53\x22\x0d\x22\xc6\x21"
         b"\x7f\x21\x37\x21\xef\x20\xa6\x20\x5d\x20\x14\x20\xcb\x1f\x84\x1f\x46\x1f\x0d\x1f\xf1\x1e"
         b"\xc6\x1e\xa3\x1e\x70\x1e\x2e\x1e\xe7\x1d\x9f\x1d\x57\x1d\x0f\x1d\xc7\x1c\x7f\x1c\x37\x1c"
@@ -58,6 +59,10 @@ _RESULT_DEFS: Final[BMSSample] = {
     "power": -1.522,
     "problem": False,
     "voltage": 13.836,
+    "battery_level": 99.21,
+    "cycle_capacity": 4118.009,
+    "cycle_charge": 297.62999999999994,
+    "runtime": 9740618,
 }
 
 
@@ -70,7 +75,7 @@ class TestBasicBMS(BMSBasicTests):
 class MockSaftkisteBleakClient(MockBleakClient):
     """Emulate a Saftkiste BMS BleakClient."""
 
-    _PROTO: Final[dict[int, bytearray]] = _PROTO_DEFS
+    _RESP: Final[dict[bytes, bytearray]] = _PROTO_DEFS
 
     async def write_gatt_char(
         self,
@@ -83,7 +88,7 @@ class MockSaftkisteBleakClient(MockBleakClient):
         assert self._notify_callback is not None
 
         self._notify_callback(
-            "MockSaftkisteBleakClient", self._PROTO.get(bytes(data)[2], bytearray())
+            "MockSaftkisteBleakClient", self._RESP.get(bytes(data), bytearray())
         )
 
 
@@ -106,3 +111,44 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     await verify_device_info(patch_bleak_client, MockSaftkisteBleakClient, BMS)
+
+
+@pytest.mark.parametrize(
+    ("wrong_response"),
+    [
+        b"",
+        b"\xf0\xff",
+        b"\x00\xff\x03",
+        b"\xf0\xff\x11",
+    ],
+    ids=[
+        "empty",
+        "no_type",
+        "wrong_SOF",
+        "wrong_type",
+    ],
+)
+async def test_invalid_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
+) -> None:
+    """Test data up date with BMS returning invalid data."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(
+        MockSaftkisteBleakClient,
+        "_RESP",
+        _PROTO_DEFS | {b"\xf0\xff\x03": bytearray(wrong_response)},
+    )
+    patch_bleak_client(MockSaftkisteBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = {}
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
+
+    assert not result
+    await bms.disconnect()
