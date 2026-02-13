@@ -12,7 +12,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
-from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
+from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -73,23 +73,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         return "1001"
-
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch the device information via BLE."""
-        info: BMSInfo = await super()._fetch_device_info()
-        try:
-            await self._await_msg(BMS._cmd(0x69, 0x2E))
-            info.update(
-                {
-                    "model": b2str(self._msg[3:27]),
-                    "fw_version": b2str(self._msg[27:33]),
-                    "serial_number": b2str(self._msg[33:39]),
-                }
-            )
-        except TimeoutError:
-            pass
-
-        return info
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
