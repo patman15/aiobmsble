@@ -17,7 +17,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 # Actual recorded packets from device logs
 RECORDED_PACKETS: dict[str, bytearray] = {
@@ -40,6 +40,12 @@ RECORDED_PACKETS: dict[str, bytearray] = {
         "55aa200380aa0140008000000002000000f7040000c800000004010000065eaf7a4ee0f700"
     ),  # fct. 0x40, SW version 0x0104 => 1.4
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockProBMSBleakClient(MockBleakClient):
