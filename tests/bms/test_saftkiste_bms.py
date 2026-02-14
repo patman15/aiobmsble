@@ -60,9 +60,9 @@ _RESULT_DEFS: Final[BMSSample] = {
     "problem": False,
     "voltage": 13.836,
     "battery_level": 99.21,
-    "cycle_capacity": 4118.009,
-    "cycle_charge": 297.62999999999994,
-    "runtime": 9740618,
+    "cycle_charge": 297.639,
+    "cycle_capacity": 4118.133,
+    "runtime": 9740912,
 }
 
 
