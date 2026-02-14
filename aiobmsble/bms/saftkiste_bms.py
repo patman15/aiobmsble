@@ -25,7 +25,8 @@ class BMS(BaseBMS):
     _PASS: Final[bytes] = b"ABC123"
     _HEAD: Final[bytes] = b"\xf0\xff"  # beginning of frame
     _MAX_CELLS: Final[int] = 4
-    _VALID_RSP: Final[frozenset[int]] = frozenset({0x0, 0x2, 0x3, 0x43})
+    _MIN_LEN: Final[int] = 5  # minimum length of valid responst (SOF+type+16bit)
+    _VALID_RSP: Final[frozenset[int]] = frozenset({0x0, 0x2, 0x3, 0x10, 0x43})
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 15, 2, True, lambda x: x / 100, 0x2),
         BMSDp("cycles", 25, 2, False, idx=0x2),  # after cell voltages(!)
@@ -80,6 +81,8 @@ class BMS(BaseBMS):
         await super()._init_connection(char_notify)
         self._log.debug("send password")
         await self._await_msg(BMS._cmd(0x10) + BMS._PASS[:6] + b"\x00\xe7\x80\x69\x48")
+        if 0x0 not in self._msg:
+            raise ConnectionRefusedError("authentication failed")
         await self._await_msg(BMS._cmd(0x43) + b"\x01\x01\xe7\x80\x69\x96")
 
     def _notification_handler(
@@ -90,7 +93,7 @@ class BMS(BaseBMS):
 
         if (
             not data.startswith(BMS._HEAD)
-            or len(data) < 3
+            or len(data) < BMS._MIN_LEN
             or data[2] not in BMS._VALID_RSP
         ):
             self._log.debug("incorrect SOF")
