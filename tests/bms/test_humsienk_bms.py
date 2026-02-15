@@ -7,6 +7,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
 from aiobmsble import BMSSample
+from aiobmsble.basebms import crc_sum
 from aiobmsble.bms.humsienk_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -128,27 +129,33 @@ async def test_device_info(patch_bleak_client) -> None:
 
 
 
-async def test_cell_disconnect(patch_bleak_client) -> None:
+@pytest.mark.parametrize(
+    "disconnect_byte",
+    [14, 15, 16],
+    ids=["byte_14", "byte_15", "byte_16"],
+)
+async def test_cell_disconnect(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    disconnect_byte: int,
+) -> None:
     """Test that cell disconnect bitmap triggers problem flag."""
-    # Modify the 0x20 response to have a non-zero disconnect bitmap (bytes 14-16)
-    # Original: all zeros at data bytes 11-13 (frame bytes 14-16)
-    # Modified: set cell 1 disconnect bit (0x01 at byte 14)
-    resp_disconnect = dict(MockHumsienkBleakClient.RESP)
-    msg20 = bytearray(resp_disconnect[b"\xaa\x20\x00\x20\x00"])
-    msg20[14] = 0x01  # cell 1 disconnected
-    # Recalculate checksum: sum bytes from CMD to end of data (bytes 1 to -2)
-    crc = sum(msg20[1:-2]) & 0xFFFF
-    msg20[-2] = crc & 0xFF
-    msg20[-1] = (crc >> 8) & 0xFF
-    resp_disconnect[b"\xaa\x20\x00\x20\x00"] = msg20
 
-    class MockDisconnect(MockHumsienkBleakClient):
-        RESP = resp_disconnect
+    msg20 = bytearray(MockHumsienkBleakClient.RESP[b"\xaa\x20\x00\x20\x00"])
+    msg20[disconnect_byte] = 0x01
+    msg20[-2:] = crc_sum(msg20[1:-2], 2).to_bytes(2, "little")
 
-    patch_bleak_client(MockDisconnect)
+    monkeypatch.setattr(
+        MockHumsienkBleakClient,
+        "RESP",
+        MockHumsienkBleakClient.RESP | {b"\xaa\x20\x00\x20\x00": msg20},
+    )
+
+    patch_bleak_client(MockHumsienkBleakClient)
     bms = BMS(generate_ble_device())
-    result = await bms.async_update()
-    assert result["problem"] is True
+
+    assert await bms.async_update() == ref_value() | {"problem": True}
+
     await bms.disconnect()
 
 
