@@ -28,12 +28,8 @@ class BMS(BaseBMS):
     }
     _HEAD: Final[bytes] = b"\xaa"  # beginning of frame
     _MIN_LEN: Final[int] = 5  # minimal frame len
-    # Mask to extract alarm/protection bits from operation_status (exclude FET + balance)
-    _ALARM_MASK: Final[int] = 0xFF7F7F7F
+    _ALARM_MASK: Final[int] = 0xFF7F7F7F  # exclude MOSFET, balance status bits
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        # 0x21: Battery info
-        # Voltage is 4 bytes (32-bit); 2 bytes would silently work for ≤65V packs
-        # but overflow for higher-voltage configurations.
         BMSDp("voltage", 3, 4, False, lambda x: x / 1000, 0x21),
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),
         BMSDp("battery_level", 11, 1, False, idx=0x21),
@@ -41,13 +37,11 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 13, 4, False, lambda x: x / 1000, 0x21),
         BMSDp("design_capacity", 17, 4, False, lambda x: round(x / 1000), 0x21),
         BMSDp("cycles", 21, 2, False, idx=0x21),
-        # 0x20: Operating status
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("dischrg_mosfet", 9, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("balancer", 8, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("problem_code", 7, 4, False, lambda x: x & BMS._ALARM_MASK, 0x20),
     )
-    # 0x23 excluded: returns redundant current reading already in 0x21 (see docs)
     _CMDS: Final = frozenset({b"\x20", b"\x21", b"\x22"})
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -133,14 +127,8 @@ class BMS(BaseBMS):
     @cache
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a Humsienk BMS command."""
-        assert len(cmd) == 1
         frame: Final[bytes] = cmd[:1] + b"\x00"
-        # head, cmd, length, 16-bit sum
-        return (
-            BMS._HEAD
-            + frame
-            + crc_sum(frame).to_bytes(2, byteorder="little")
-        )
+        return BMS._HEAD + frame + crc_sum(frame).to_bytes(2, byteorder="little")
 
     async def _await_msg(
         self,

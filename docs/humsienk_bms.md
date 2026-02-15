@@ -19,6 +19,7 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 | `0x20` | Operating status (FETs, alarms, runtime, balance, disconnect) |
 | `0x21` | Battery info (voltage, current, SOC, SOH, capacity, cycles, temps) |
 | `0x22` | Cell voltages (up to 24 cells, 2 bytes each, millivolts LE) |
+| `0x23` | Current info, redundant to 0x21 |
 | `0x40` | Battery chemistry type — single byte at data offset 13 indicating pack composition (e.g. 0=NMC/ternary, 1=LiFePO4). Could be exposed via BMSInfo once a "chemistry" field exists in the schema (see [#136](https://github.com/patman15/aiobmsble/issues/136)) |
 | `0x58` | Configuration (protection thresholds, capacity, cell count) |
 | `0xF5` | Firmware/hardware version (ASCII string) |
@@ -36,13 +37,13 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 
 | Offset | Size | Type | Field | Description |
 |--------|------|------|-------|-------------|
-| 0:4 | 4 | u32 LE | voltage | Pack voltage in mV |
-| 4:8 | 4 | s32 LE | current | Current in mA (positive = charging) |
+| 0 | 4 | u32 LE | voltage | Pack voltage in mV |
+| 4 | 4 | s32 LE | current | Current in mA (positive = charging) |
 | 8 | 1 | u8 | SOC | State of Charge % |
 | 9 | 1 | u8 | SOH | State of Health % |
-| 10:14 | 4 | u32 LE | capacity | Remaining capacity in mAh |
-| 14:18 | 4 | u32 LE | allCapacity | Total/design capacity in mAh |
-| 18:20 | 2 | u16 LE | cycles | Charge cycle count |
+| 10 | 4 | u32 LE | capacity | Remaining capacity in mAh |
+| 14 | 4 | u32 LE | allCapacity | Total/design capacity in mAh |
+| 18 | 2 | u16 LE | cycles | Charge cycle count |
 | 20 | 1 | s8 | temp1 | Cell temperature 1 in °C |
 | 21 | 1 | s8 | temp2 | Cell temperature 2 in °C |
 | 22 | 1 | s8 | temp3 | Cell temperature 3 in °C |
@@ -54,15 +55,15 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 
 | Offset | Size | Type | Field | Description |
 |--------|------|------|-------|-------------|
-| 0:2 | 2 | u16 LE | runtime days | Device uptime days |
+| 0 | 2 | u16 LE | runtime days | Device uptime days |
 | 2 | 1 | u8 | runtime hours | Device uptime hours |
 | 3 | 1 | u8 | runtime minutes | Device uptime minutes |
-| 4:8 | 4 | u32 LE | operation_status | Alarm/protection/FET flags (see below) |
-| 8:11 | 3 | u24 LE | cell_balance | Bitmap of cells being balanced |
-| 11:14 | 3 | u24 LE | cell_disconnect | Bitmap of disconnected cells |
+| 4 | 4 | u32 LE | operation_status | Alarm/protection/FET flags (see below) |
+| 8 | 3 | u24 LE | cell_balance | Bitmap of cells being balanced |
+| 11 | 3 | u24 LE | cell_disconnect | Bitmap of disconnected cells |
 
 > **Note:** Uptime fields (bytes 0–3) are not parsed by the driver. The framework's
-> "runtime" field means "time remaining until empty" (derived from cycle_charge / current),
+> `runtime` field means "time remaining until empty" (derived from `cycle_charge / current`),
 > which is a different concept from device uptime.
 
 ### operation_status bit definitions
@@ -112,27 +113,27 @@ All fields are 2-byte unsigned LE unless noted.
 
 | Offset | Field | Description |
 |--------|-------|-------------|
-| 0:2 | cell_count | Number of cells in series |
-| 2:4 | rated_capacity | Rated capacity in 0.01 Ah |
-| 4:6 | cell_ovp | Cell overvoltage protection threshold (mV) |
-| 6:8 | cell_ovp_recovery | Cell OVP recovery voltage (mV) |
-| 8:10 | ovp_delay | OVP trigger delay (seconds) |
-| 10:12 | cell_uvp | Cell undervoltage protection threshold (mV) |
-| 12:14 | cell_uvp_recovery | Cell UVP recovery voltage (mV) |
-| 14:16 | uvp_delay | UVP trigger delay (seconds) |
-| 16:18 | charge_ocp | Charge overcurrent protection (0.1 A) |
-| 18:20 | charge_ocp_delay | Charge OCP delay (seconds) |
-| 20:22 | discharge_ocp1 | Discharge overcurrent level 1 (0.1 A) |
-| 22:24 | discharge_ocp1_delay | Discharge OCP1 delay (seconds) |
-| 24:26 | discharge_ocp2 | Discharge overcurrent level 2 (0.1 A) |
-| 26:28 | discharge_ocp2_delay | Discharge OCP2 delay (seconds) |
-| 28:30 | charge_high_temp | Charge high temp threshold (deciKelvin) |
-| 30:32 | charge_high_temp_recovery | Charge high temp recovery |
-| 32:34 | charge_low_temp | Charge low temp threshold (deciKelvin) |
-| 34:36 | charge_low_temp_recovery | Charge low temp recovery |
-| 36:38 | discharge_high_temp | Discharge high temp threshold (deciKelvin) |
-| 38:40 | discharge_high_temp_recovery | Discharge high temp recovery |
-| 40:42 | discharge_low_temp | Discharge low temp threshold (deciKelvin) |
-| 42:44 | discharge_low_temp_recovery | Discharge low temp recovery |
+| 0 | cell_count | Number of cells in series |
+| 2 | rated_capacity | Rated capacity in 0.01 Ah |
+| 4 | cell_ovp | Cell overvoltage protection threshold (mV) |
+| 6 | cell_ovp_recovery | Cell OVP recovery voltage (mV) |
+| 8 | ovp_delay | OVP trigger delay (seconds) |
+| 10 | cell_uvp | Cell undervoltage protection threshold (mV) |
+| 12 | cell_uvp_recovery | Cell UVP recovery voltage (mV) |
+| 14 | uvp_delay | UVP trigger delay (seconds) |
+| 16 | charge_ocp | Charge overcurrent protection (0.1 A) |
+| 18 | charge_ocp_delay | Charge OCP delay (seconds) |
+| 20 | discharge_ocp1 | Discharge overcurrent level 1 (0.1 A) |
+| 22 | discharge_ocp1_delay | Discharge OCP1 delay (seconds) |
+| 24 | discharge_ocp2 | Discharge overcurrent level 2 (0.1 A) |
+| 26 | discharge_ocp2_delay | Discharge OCP2 delay (seconds) |
+| 28 | charge_high_temp | Charge high temp threshold (deciKelvin) |
+| 30 | charge_high_temp_recovery | Charge high temp recovery |
+| 32 | charge_low_temp | Charge low temp threshold (deciKelvin) |
+| 34 | charge_low_temp_recovery | Charge low temp recovery |
+| 36 | discharge_high_temp | Discharge high temp threshold (deciKelvin) |
+| 38 | discharge_high_temp_recovery | Discharge high temp recovery |
+| 40 | discharge_low_temp | Discharge low temp threshold (deciKelvin) |
+| 42 | discharge_low_temp_recovery | Discharge low temp recovery |
 
 Temperature conversion: `°C = (raw - 2731) / 10`
