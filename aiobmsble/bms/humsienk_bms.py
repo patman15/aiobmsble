@@ -45,7 +45,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("dischrg_mosfet", 9, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("balancer", 8, 1, False, lambda x: bool(x & 0x80), 0x20),
-        BMSDp("problem_code", 7, 4, False, lambda x, _alarm_mask=_ALARM_MASK: x & _alarm_mask, 0x20),
+        BMSDp("problem_code", 7, 4, False, lambda x: x & BMS._ALARM_MASK, 0x20),
     )
     # 0x23 excluded: returns redundant current reading already in 0x21 (see docs)
     _CMDS: Final = frozenset({b"\x20", b"\x21", b"\x22"})
