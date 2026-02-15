@@ -137,7 +137,10 @@ async def test_device_info(patch_bleak_client) -> None:
     ids=["wrong_SOF", "wrong_CRC", "wrong_len", "wrong_type", "only_SOF", "empty"],
 )
 async def test_invalid_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytes
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
