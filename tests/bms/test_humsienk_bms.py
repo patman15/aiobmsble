@@ -10,6 +10,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.humsienk_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 
 def ref_value() -> BMSSample:
@@ -46,6 +47,11 @@ def ref_value() -> BMSSample:
     }
 
 
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
+
 
 class MockHumsienkBleakClient(MockBleakClient):
     """Emulate a Humsienk BMS BleakClient."""
@@ -70,6 +76,9 @@ class MockHumsienkBleakClient(MockBleakClient):
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\xd2\x03"
         ),  # cell voltages
+        b"\xaa\x23\x00\x23\x00": bytearray(
+            b"\xaa\x23\x04\xdc\xfb\xff\xff\xfc\x03"
+        ),  # current redundant with 0x21
         b"\xaa\x58\x00\x58\x00": bytearray(
             b"\xaa\x58\x30\x04\x00\x98\x3a\x42\x0e\x02\x0d\x04\x00\xc4\x09\xf0\x0a\x04\x00\xf8\x2a"
             b"\x10\x00\x30\x75\x14\x00\x66\x02\x50\x00\x03\x0d\xd1\x0c\xab\x0a\xdd\x0a\x35\x0d\x03"
@@ -95,7 +104,6 @@ class MockHumsienkBleakClient(MockBleakClient):
         )
 
 
-
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Humsienk BMS data update."""
 
@@ -112,14 +120,11 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockHumsienkBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {"hw_version": "V02", "model": "BMC-04S001"}
-    assert BMS.matcher_dict_list()
-
 
 
 async def test_cell_disconnect(patch_bleak_client) -> None:
@@ -144,7 +149,6 @@ async def test_cell_disconnect(patch_bleak_client) -> None:
     result = await bms.async_update()
     assert result["problem"] is True
     await bms.disconnect()
-
 
 
 @pytest.mark.parametrize(

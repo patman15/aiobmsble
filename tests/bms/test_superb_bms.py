@@ -11,7 +11,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.superb_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 BT_FRAME_SIZE = 32
 
@@ -31,6 +31,11 @@ _RESULT_DEFS: Final[BMSSample] = {
     "problem_code": 0,
 }
 
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 class MockSuperBBleakClient(MockBleakClient):
     """Emulate a Super-B BMS BleakClient."""

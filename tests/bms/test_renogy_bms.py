@@ -12,6 +12,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.renogy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 512  # ATT max is 512 bytes
 
@@ -44,6 +45,12 @@ def ref_value() -> BMSSample:
 
 
 BASE_VALUE_CMD: Final[bytes] = b"\x30\x03\x13\xb2\x00\x07\xa4\x8a"
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockRenogyBleakClient(MockBleakClient):
@@ -152,7 +159,10 @@ def fix_response(request) -> bytearray:
 
 
 async def test_invalid_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -176,7 +186,9 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+async def test_problem_response(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
     """Test data update with BMS returning error flags."""
 
     monkeypatch.setattr(
