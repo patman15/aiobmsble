@@ -34,7 +34,6 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 3, 4, False, lambda x: x // 1000, 0x2),
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000, 0x2),
         BMSDp("voltage", 13, 2, False, lambda x: x / 1000, 0x2),
-        BMSDp("battery_level", 22, 2, False, lambda x: x / 100, 0x3),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
