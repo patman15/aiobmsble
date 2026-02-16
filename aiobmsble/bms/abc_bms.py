@@ -89,10 +89,20 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe2"
 
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        """Initialize RX/TX characteristics, force write-without-response mode."""
+        # Pre-set _inv_wr_mode to skip the auto-detection that tries write-with-response
+        # first, which can confuse the BMS firmware.
+        self._inv_wr_mode = self._wr_response(self.uuid_tx())
+        await super()._init_connection(char_notify)
+
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         info: BMSInfo = await super()._fetch_device_info()
-        self._exp_reply = BMS._EXP_REPLY[0xC0]
+        self._exp_reply.clear()
+        self._exp_reply.update(BMS._EXP_REPLY[0xC0])
         await self._await_msg(BMS._cmd(b"\xc0"))
         info.update({"model": b2str(self._msg[0xF1][2:-1])})
         return info
@@ -137,6 +147,7 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         self._msg.clear()
+        self._exp_reply.clear()
         for cmd in (0xC1, 0xC2, 0xC4):
             self._exp_reply.update(BMS._EXP_REPLY[cmd])
             with contextlib.suppress(TimeoutError):
