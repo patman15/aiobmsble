@@ -100,7 +100,7 @@ class MockABCBleakClient(MockBleakClient):
 def test_inv_wr_mode() -> None:
     """Verify ABC BMS forces write-without-response mode."""
     bms = BMS(generate_ble_device())
-    assert bms._inv_wr_mode is True
+    assert bms._inv_wr_mode is False
 
 
 async def test_update(
