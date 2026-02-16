@@ -64,7 +64,7 @@ async def detect_bms() -> None:
                     data: BMSSample = await bms.async_update()
                 logger.info("BMS info: %s", repr(info).replace(", '", ",\n\t'"))
                 logger.info("BMS data: %s", repr(data).replace(", '", ",\n\t'"))
-            except (BleakError, TimeoutError) as exc:
+            except (BleakError, TimeoutError, ConnectionError) as exc:
                 logger.error("Failed to query BMS: %s", type(exc).__name__)
 
     logger.info("done.")
