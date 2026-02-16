@@ -2,6 +2,7 @@
 
 from collections.abc import Buffer, Callable
 from logging import DEBUG
+from string import hexdigits
 from typing import Any, Final, Literal, NoReturn
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
+from netaddr import OUI, NotRegisteredError
 import pytest
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
@@ -163,6 +165,51 @@ class WMTestBMS(MinTestBMS):
 
         return {"problem_code": int.from_bytes(self._data, "big", signed=False)}
 
+class BMSBasicTests:
+    """Base class for BMS tests."""
+    bms_class: type[BaseBMS]
+
+    def test_bms_id(self) -> None:
+        """Test that the BMS returns default information."""
+
+        for key in ("default_manufacturer", "default_model"):
+            assert str(self.bms_class.INFO.get(key, "")).strip()
+        assert len(self.bms_class.bms_id().strip())
+
+
+    def test_matcher_dict(self) -> None:
+        """Test that the BMS returns BT matcher."""
+
+        assert len(self.bms_class.matcher_dict_list())
+        for matcher in self.bms_class.matcher_dict_list():
+
+            if manufacturer_id := matcher.get("manufacturer_id"):
+                assert (
+                    manufacturer_id == manufacturer_id & 0xFFFF
+                ), f"incorrect {manufacturer_id=}"
+
+            if service_uuid := matcher.get("service_uuid"):
+                assert UUID(service_uuid), f"incorrect {service_uuid=}"
+
+            if manufacturer_data_start := matcher.get("manufacturer_data_start"):
+                assert all(
+                    byte == byte & 0xFF for byte in manufacturer_data_start
+                ), "manufacturer_data_start needs to contain Byte values!"
+
+            if oui := matcher.get("oui"):
+                parts: list[str] = oui.split(":")
+                assert len(parts) == 3 and all(
+                    len(part) == 2 and all(c in hexdigits for c in part) for part in parts
+                ), f"incorrect {oui=}"
+                try:
+                    OUI(oui.replace(":", "-"))
+                except NotRegisteredError:
+                    assert (int(parts[0], 16) & 0xC0) not in (
+                        0x00,  # Non-resolvable random private address
+                        0x40,  # Resolvable random private address
+                        # 0x80,  # 	Reserved for future use
+                        # 0xC0,  # Static random device address
+                    ), f"random private address OUI ({oui}) cannot be used for filtering!"
 
 async def verify_device_info(
     patch_bleak_client,

@@ -14,7 +14,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.roypow_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 BT_FRAME_SIZE = 20
 BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module
@@ -43,6 +43,11 @@ def ref_value() -> BMSSample:
         "dischrg_mosfet": True,
     }
 
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 class MockRoyPowBleakClient(MockBleakClient):
     """Emulate a RoyPow BMS BleakClient."""
