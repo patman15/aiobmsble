@@ -35,19 +35,6 @@ class BMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            *[
-                MatcherPattern(
-                    local_name=pattern,
-                    service_uuid=BMS.uuid_services()[0],
-                    connectable=True,
-                )
-                for pattern in (
-                    "Lithionics*",
-                    "LITHIONICS*",
-                    "NeverDie*",
-                    "NEVERDIE*",
-                )
-            ],
             # Seen on Lithionics Li3 packs: "Li3-061322094"
             MatcherPattern(
                 local_name="Li[0-9]-*",
@@ -70,7 +57,7 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-        return "ffe1"
+        raise NotImplementedError
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -107,11 +94,11 @@ class BMS(BaseBMS):
             raise ValueError("invalid primary telemetry frame")
 
         result: BMSSample = {
-            "voltage": round(int(fields[0]) / 100, 3),
-            "cell_voltages": [round(int(value) / 100, 3) for value in fields[1:5]],
+            "voltage": int(fields[0]) / 100,
+            "cell_voltages": [int(value) / 100 for value in fields[1:5]],
             "temp_values": [int(fields[5]), int(fields[6])],
             "temp_sensors": 2,
-            "current": float(int(fields[7])),
+            "current": float(fields[7]),
             "battery_level": int(fields[8]),
             "problem_code": int(fields[9], 16),
         }

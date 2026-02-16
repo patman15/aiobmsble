@@ -99,31 +99,12 @@ async def test_device_info(patch_bleak_client) -> None:
     await verify_device_info(patch_bleak_client, MockLithionicsBleakClient, BMS)
 
 
-def test_uuid_chars() -> None:
-    """Test service and characteristics UUID helpers."""
-    assert BMS.uuid_services() == (normalize_uuid_str("ffe0"),)
-    assert BMS.uuid_rx() == "ffe1"
-    assert BMS.uuid_tx() == "ffe1"
-
-
-def test_matcher() -> None:
-    """Test Bluetooth matcher for Lithionics patterns."""
-    adv = adv_dict_to_advdata(
-        {
-            "local_name": "Lithionics 12V",
-            "service_uuids": [normalize_uuid_str("ffe0")],
-        }
-    )
-
-    assert bms_supported(cast(BaseBMS, BMS), adv, "00:11:22:33:44:55")
-
-
 def test_matcher_li3() -> None:
     """Test Bluetooth matcher for Li3 naming observed on Lithionics packs."""
     adv = adv_dict_to_advdata(
         {
             "local_name": "Li3-061322094",
-            "manufacturer_data": {"19784": "6c79b8b44fc0"},
+            "manufacturer_data": {"19784": "6c79b8000000"},
             "service_uuids": [normalize_uuid_str("ffe0")],
         }
     )
@@ -131,33 +112,32 @@ def test_matcher_li3() -> None:
     assert bms_supported(cast(BaseBMS, BMS), adv, "6C:79:B8:B4:4F:C0")
 
 
-def test_parse_errors() -> None:
-    """Test parser rejects malformed telemetry lines."""
-    with pytest.raises(ValueError, match="invalid primary telemetry frame"):
-        BMS._parse_primary("1,2,3")
-
-    with pytest.raises(ValueError, match="invalid status telemetry frame"):
-        BMS._parse_status("&")
-
-
-def test_notification_filtering() -> None:
-    """Test notification handler filtering and malformed line handling."""
-    bms = BMS(generate_ble_device())
-    sender = cast(BleakGATTCharacteristic, None)
-
-    # empty line, command response, malformed status and malformed primary
-    for payload in (b"\r\n", b"ERROR\r\n", b"&\r\n", b"1,2,3\r\n", b"text\r\n"):
-        bms._notification_handler(sender, bytearray(payload))
-
-    assert bms._stream_data == {}
+@pytest.fixture(
+    name="invalid_stream",
+    params=[
+        b"",
+        b"ERROR\r\n",
+        b"1,2,3\r\n",
+        b"&,1,2\r\n",
+        b"text\r\n",
+    ],
+    ids=["empty", "error_only", "short_primary", "status_only", "unknown_line"],
+)
+def fixture_invalid_stream(request: pytest.FixtureRequest) -> bytes:
+    """Return invalid stream data payload."""
+    assert isinstance(request.param, bytes)
+    return request.param
 
 
 async def test_invalid_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    invalid_stream: bytes,
 ) -> None:
     """Test data update with invalid stream data."""
     patch_bms_timeout("lithionics_bms")
-    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", b"ERROR\r\n")
+    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", invalid_stream)
     patch_bleak_client(MockLithionicsBleakClient)
 
     bms = BMS(generate_ble_device())

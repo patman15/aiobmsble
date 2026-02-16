@@ -1,6 +1,7 @@
 """Test the package main script."""
 
 import argparse
+import asyncio
 from collections.abc import Callable
 from logging import DEBUG, INFO
 import sys
@@ -47,7 +48,7 @@ def setup_logging():
 def asyncio_run():
     """Unittest mock for asyncio_run to check calls to it."""
     with mock.patch("asyncio.run") as m:
-        m.side_effect = lambda coro: coro.close()
+        m.side_effect = lambda coro: asyncio.new_event_loop().run_until_complete(coro)
         yield m
 
 
