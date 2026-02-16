@@ -58,7 +58,7 @@ class BMS(BaseBMS):
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, inv_wr_mode=True)
         self._msg: dict[int, bytes] = {}
         self._exp_reply: set[int] = set()
 

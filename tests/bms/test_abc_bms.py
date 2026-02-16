@@ -97,6 +97,12 @@ class MockABCBleakClient(MockBleakClient):
             await asyncio.sleep(0)
 
 
+def test_inv_wr_mode() -> None:
+    """Verify ABC BMS forces write-without-response mode."""
+    bms = BMS(generate_ble_device())
+    assert bms._inv_wr_mode is True
+
+
 async def test_update(
     patch_bleak_client, patch_bms_timeout, keep_alive_fixture: bool
 ) -> None:
