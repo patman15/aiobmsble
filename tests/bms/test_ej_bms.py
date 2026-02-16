@@ -13,9 +13,15 @@ from aiobmsble.basebms import BaseBMS
 from aiobmsble.bms.ej_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 BT_FRAME_SIZE = 20
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockEJBleakClient(MockBleakClient):

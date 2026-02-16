@@ -13,7 +13,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.ecoworthy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 _PROTO_DEFS: Final[dict[int, dict[int, bytearray]]] = {
     0x1: {  # protocol version 1
@@ -102,6 +102,12 @@ def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
     assert isinstance(request.param, int)
     return request.param
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockECOWBleakClient(MockBleakClient):
