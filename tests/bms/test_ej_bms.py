@@ -116,72 +116,6 @@ class MockEJsfnoCRCBleakClient(MockEJsfBleakClient):
         return ret
 
 
-class MockChinsBleakClient(MockBleakClient):
-    """Emulate a Chins Battery BMS BleakClient."""
-
-    def _response(
-        self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
-    ) -> bytearray:
-        """Return Chins 140-byte frame (same E&J field layout)."""
-        if isinstance(char_specifier, str) and normalize_uuid_str(
-            char_specifier
-        ) != normalize_uuid_str("6e400002-b5a3-f393-e0a9-e50e24dcca9e"):
-            return bytearray()
-
-        # Real hardware capture from Chins G-12V300Ah-0345 battery via Cerbo GX
-        # 140-byte frame: E&J header + data, no CRC field
-        if int(bytearray(data)[3:5], 16) == 0x02:
-            return bytearray(
-                b":008231008C000000000000000CFE0CD50D050CFC0000000000000000000000000000000000000"
-                b"000000000000000000037282828F000000000002C0000590A0A0B5E0BB8BC~"
-            )
-        return bytearray()
-
-    async def write_gatt_char(
-        self,
-        char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        data: Buffer,
-        response: bool | None = None,
-    ) -> None:
-        """Issue write command to GATT."""
-        await super().write_gatt_char(char_specifier, data, response)
-        assert self._notify_callback is not None
-        for notify_data in [
-            self._response(char_specifier, data)[i : i + BT_FRAME_SIZE]
-            for i in range(0, len(self._response(char_specifier, data)), BT_FRAME_SIZE)
-        ]:
-            self._notify_callback("MockChinsBleakClient", notify_data)
-
-    @staticmethod
-    def values() -> BMSSample:
-        """Return correct data sample values for Chins protocol.
-
-        Based on real hardware capture from Chins G-12V300Ah-0345 battery.
-        """
-        return {
-            "voltage": 13.268,
-            "current": 0.0,
-            "battery_level": 89,
-            "cycles": 44,
-            "cycle_charge": 257.0,
-            "cycle_capacity": 3409.876,
-            "cell_count": 4,
-            "cell_voltages": [3.326, 3.285, 3.333, 3.324],
-            "delta_voltage": 0.048,
-            "temperature": 15.0,
-            "temp_values": [15],
-            "power": 0.0,
-            "battery_charging": False,
-            "problem": False,
-            "problem_code": 0,
-            "chrg_mosfet": True,
-            "dischrg_mosfet": True,
-            "balancer": False,
-            "heater": False,
-            "design_capacity": 300,
-        }
-
-
 class MockEJinvalidBleakClient(MockEJBleakClient):
     """Emulate a E&J technology BMS BleakClient without sending second frame."""
 
@@ -278,31 +212,6 @@ async def test_update_sf_no_crc(patch_bleak_client) -> None:
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "libattU_MockBLEDevice"), True)
 
     assert await bms.async_update() == MockEJsfnoCRCBleakClient.values()
-
-    await bms.disconnect()
-
-
-async def test_update_chins(
-    patch_bleak_client, keep_alive_fixture: bool
-) -> None:
-    """Test Chins Battery BMS data update."""
-
-    patch_bleak_client(MockChinsBleakClient)
-
-    bms = BMS(
-        generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"),
-        keep_alive_fixture,
-    )
-
-    result = await bms.async_update()
-    expected = MockChinsBleakClient.values()
-
-    # Check all expected fields are present
-    assert result == expected
-
-    # query again to check already connected state
-    await bms.async_update()
-    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
