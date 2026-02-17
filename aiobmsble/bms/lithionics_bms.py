@@ -93,10 +93,15 @@ class BMS(BaseBMS):
         if len(fields) < BMS._MIN_FIELDS_PRIMARY:
             raise ValueError("invalid primary telemetry frame")
 
+        # Lithionics protocol reports temperatures in Fahrenheit.
+        temp_values: list[float] = [
+            round((int(fields[idx]) - 32) * 5 / 9, 3) for idx in (5, 6)
+        ]
+
         result: BMSSample = {
             "voltage": int(fields[0]) / 100,
             "cell_voltages": [int(value) / 100 for value in fields[1:5]],
-            "temp_values": [int(fields[5]), int(fields[6])],
+            "temp_values": temp_values,
             "temp_sensors": 2,
             "current": float(fields[7]),
             "battery_level": int(fields[8]),
