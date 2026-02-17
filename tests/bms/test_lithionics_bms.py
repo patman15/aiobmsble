@@ -116,12 +116,20 @@ def test_matcher_li3() -> None:
     name="invalid_stream",
     params=[
         b"",
+        b"\r\n",
         b"ERROR\r\n",
         b"1,2,3\r\n",
         b"&,1,2\r\n",
         b"text\r\n",
     ],
-    ids=["empty", "error_only", "short_primary", "status_only", "unknown_line"],
+    ids=[
+        "empty",
+        "blank_line",
+        "error_only",
+        "short_primary",
+        "status_only",
+        "unknown_line",
+    ],
 )
 def fixture_invalid_stream(request: pytest.FixtureRequest) -> bytes:
     """Return invalid stream data payload."""
@@ -148,3 +156,9 @@ async def test_invalid_response(
 
     assert not result
     await bms.disconnect()
+
+
+def test_uuid_tx_not_implemented() -> None:
+    """Test that TX UUID is intentionally not implemented for stream-only protocol."""
+    with pytest.raises(NotImplementedError):
+        BMS.uuid_tx()

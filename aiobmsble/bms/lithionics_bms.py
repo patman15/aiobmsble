@@ -90,8 +90,6 @@ class BMS(BaseBMS):
     @staticmethod
     def _parse_primary(line: str) -> BMSSample:
         fields: list[str] = line.split(",")
-        if len(fields) < BMS._MIN_FIELDS_PRIMARY:
-            raise ValueError("invalid primary telemetry frame")
 
         # Lithionics protocol reports temperatures in Fahrenheit.
         temp_values: list[float] = [
@@ -111,9 +109,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _parse_status(line: str) -> BMSSample:
-        fields: list[str] = line.split(",")
-        if len(fields) < BMS._MIN_FIELDS_STATUS:
-            raise ValueError("invalid status telemetry frame")
+        _fields: list[str] = line.split(",")
         return {}
 
     async def _async_update(self) -> BMSSample:
