@@ -1,7 +1,6 @@
 """Test the E&J technology BMS implementation."""
 
 from collections.abc import Buffer
-from unittest.mock import patch
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -9,7 +8,6 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSSample
-from aiobmsble.basebms import BaseBMS
 from aiobmsble.bms.ej_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -294,7 +292,6 @@ async def test_update_chins(
     bms = BMS(
         generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"),
         keep_alive_fixture,
-        periodic_reconnect=True,
     )
 
     result = await bms.async_update()
@@ -306,101 +303,6 @@ async def test_update_chins(
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
-
-    await bms.disconnect()
-
-
-async def test_chins_reconnect(patch_bleak_client) -> None:
-    """Test periodic reconnection for Chins devices to prevent buffer buildup."""
-
-    patch_bleak_client(MockChinsBleakClient)
-
-    bms = BMS(
-        generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"),
-        True,
-        periodic_reconnect=True,
-    )
-
-    # First update initializes connection timestamp
-    result = await bms.async_update()
-    assert result == MockChinsBleakClient.values()
-
-    # Simulate elapsed time exceeding reconnection interval (300s)
-    with patch("aiobmsble.bms.ej_bms.time") as mock_time:
-        mock_time.monotonic.side_effect = [
-            bms._connection_start_time + 901,  # elapsed check
-            1000.0,  # new connection timestamp after reconnect
-        ]
-        result = await bms.async_update()
-        # Should return cached data during reconnection
-        assert result == MockChinsBleakClient.values()
-
-    await bms.disconnect()
-
-
-async def test_chins_no_reconnect(patch_bleak_client) -> None:
-    """Test that periodic reconnection is disabled by default."""
-
-    patch_bleak_client(MockChinsBleakClient)
-
-    bms = BMS(
-        generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"),
-        keep_alive=True,
-    )
-
-    # First update should work normally
-    result = await bms.async_update()
-    assert result == MockChinsBleakClient.values()
-
-    # Simulate elapsed time exceeding reconnection interval
-    # With periodic_reconnect=False, it should NOT trigger reconnection
-    with patch("aiobmsble.bms.ej_bms.time") as mock_time:
-        mock_time.monotonic.return_value = 99999.0  # way past any interval
-        result = await bms.async_update()
-        # Should still return fresh data, not cached (no reconnection happened)
-        assert result == MockChinsBleakClient.values()
-
-    await bms.disconnect()
-
-
-async def test_chins_stale_recovery(patch_bleak_client) -> None:
-    """Test stale connection recovery for Chins devices.
-
-    If the BMS does not respond (TimeoutError), the driver should
-    disconnect, wait for buffer flush, reconnect, and retry.
-    """
-
-    call_count = 0
-    # _await_msg tries 2 write modes x 3 retries = 6 writes before TimeoutError
-    stale_writes = 2 * BaseBMS.MAX_RETRY
-
-    class MockChinsStaleClient(MockChinsBleakClient):
-        """Simulate a stale BMS that ignores writes until reconnection."""
-
-        async def write_gatt_char(
-            self,
-            char_specifier: BleakGATTCharacteristic | int | str | UUID,
-            data: Buffer,
-            response: bool | None = None,
-        ) -> None:
-            nonlocal call_count
-            call_count += 1
-            if call_count <= stale_writes:
-                # Stale: accept the write but send no notifications (triggers timeout)
-                return
-            await super().write_gatt_char(char_specifier, data, response)
-
-    patch_bleak_client(MockChinsStaleClient)
-
-    bms = BMS(
-        generate_ble_device("05:23:01:64:00:C3", "G-12V300Ah-0345"),
-        True,
-        periodic_reconnect=True,
-    )
-
-    # Should recover from stale connection and return valid data
-    result = await bms.async_update()
-    assert result == MockChinsBleakClient.values()
 
     await bms.disconnect()
 

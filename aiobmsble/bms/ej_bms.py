@@ -4,10 +4,8 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-import asyncio
 from enum import IntEnum
 from string import hexdigits
-import time
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -42,12 +40,6 @@ class BMS(BaseBMS):
     _TAIL: Final[bytes] = b"\x7e"
     _MAX_CELLS: Final[int] = 16
 
-    # Memory protection for Chins devices with nRF52 chips
-    _CHINS_PATTERNS: Final[tuple[str, ...]] = (
-        "G-",  # Chins batteries (e.g., G-12V300Ah-0345)
-    )
-    _RECONNECT_INTERVAL: Final[float] = 900.0  # 15 minutes
-    _BUFFER_FLUSH_DELAY: Final[float] = 5.0  # seconds
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
             "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
@@ -64,29 +56,13 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 52, 1, False, lambda x: bool(x & 0x10), Cmd.RT),
         BMSDp("chrg_mosfet", 52, 1, False, lambda x: bool(x & 0x20), Cmd.RT),
         BMSDp("balancer", 55, 2, False, int, idx=Cmd.RT),
-        BMSDp("heater", 54, 1, False, lambda x: bool(x), Cmd.RT),
+        BMSDp("heater", 54, 1, False, bool, Cmd.RT),
     )
 
-    def __init__(
-        self,
-        ble_device: BLEDevice,
-        keep_alive: bool = True,
-        periodic_reconnect: bool = False,
-    ) -> None:
-        """Initialize BMS.
-
-        Args:
-            ble_device: the Bleak device to connect to
-            keep_alive: if true, the connection will be kept active after each update
-            periodic_reconnect: if true (default), Chins devices will periodically
-                disconnect and reconnect to prevent nRF52 buffer buildup. Also enables
-                stale connection recovery on timeout. Set to false to disable.
-        """
+    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+        """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
         self._msg: bytes = b""
-        self._periodic_reconnect: Final[bool] = periodic_reconnect
-        self._connection_start_time: float = 0.0  # For periodic reconnection
-        self._last_valid_data: BMSSample = {}  # Cache for reconnection window
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -211,24 +187,6 @@ class BMS(BaseBMS):
         self._msg = bytes.fromhex(self._frame[1:-1].decode())
         self._msg_event.set()
 
-    async def _query_data(self, is_chins: bool) -> dict[int, bytes]:
-        """Query BMS for real-time and capacity data.
-
-        For Chins devices, if the initial query times out (stale BMS connection),
-        perform a disconnect/flush/reconnect cycle and retry once.
-        """
-        try:
-            return await self._send_commands()
-        except TimeoutError:
-            if not is_chins:
-                raise
-            self._log.info("Stale connection detected, reconnecting")
-            await self.disconnect()
-            await asyncio.sleep(BMS._BUFFER_FLUSH_DELAY)
-            await self._connect()
-            self._connection_start_time = time.monotonic()
-            return await self._send_commands()
-
     async def _send_commands(self) -> dict[int, bytes]:
         """Send RT (and optionally CAP) commands and return raw response data."""
         raw_data: dict[int, bytes] = {}
@@ -245,36 +203,7 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        # Reconnection logic only active for Chins devices with periodic_reconnect enabled
-        is_chins = self._periodic_reconnect and any(
-            self.name.startswith(pattern) for pattern in BMS._CHINS_PATTERNS
-        )
-
-        if is_chins and self._connection_start_time > 0:
-            elapsed = time.monotonic() - self._connection_start_time
-            if elapsed >= BMS._RECONNECT_INTERVAL:
-                self._log.info(
-                    "Periodic reconnection after %.1fs to prevent buffer buildup", elapsed
-                )
-                # Cache current data to return during reconnection
-                cached_data = self._last_valid_data
-
-                # Disconnect and flush buffers
-                await self.disconnect()
-                await asyncio.sleep(BMS._BUFFER_FLUSH_DELAY)
-
-                # Reconnect
-                await self._connect()
-                self._connection_start_time = time.monotonic()
-
-                # Return cached data during reconnection window
-                return cached_data
-
-        # Initialize connection timestamp on first update
-        if is_chins and self._connection_start_time == 0:
-            self._connection_start_time = time.monotonic()
-
-        raw_data = await self._query_data(is_chins)
+        raw_data = await self._send_commands()
 
         if len(raw_data) != len(list(Cmd)) or not all(raw_data.values()):
             return {}
@@ -287,9 +216,5 @@ class BMS(BaseBMS):
         # design_capacity only available in single-frame (140-byte) variants
         if len(rt_msg) == 0x45:
             result["design_capacity"] = int.from_bytes(rt_msg[66:68], "big") // 10
-
-        # Cache valid data for nRF52 reconnection window
-        if is_chins and result:
-            self._last_valid_data = result
 
         return result
