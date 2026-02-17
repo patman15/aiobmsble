@@ -29,11 +29,11 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 49, 2, False),
         BMSDp("battery_level", 51, 2, False),
         BMSDp("cycle_charge", 45, 2, False, lambda x: x / 10),
-        BMSDp("cycles", 61, 4, False, lambda x: x),
+        BMSDp("cycles", 61, 4, False),
         BMSDp("cell_count", 75, 2, False),
         BMSDp("design_capacity", 77, 2, False, lambda x: x // 10),
         BMSDp("temperature", 39, 2, True),
-        BMSDp("problem_code", 55, 6, False, lambda x: x),
+        BMSDp("problem_code", 55, 6, False),
         BMSDp("balancer", 79, 2, False),
     )
     _OPT_FIELDS: Final[tuple[BMSValue, ...]] = (
