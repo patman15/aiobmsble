@@ -147,7 +147,7 @@ class BaseBMS(ABC):
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
-        return f"{cls.INFO.get('default_manufacturer', "unknown")} {cls.INFO.get('default_model', "unknown")}"
+        return f"{cls.INFO.get('default_manufacturer', 'unknown')} {cls.INFO.get('default_model', 'unknown')}"
 
     @staticmethod
     @abstractmethod
@@ -357,6 +357,22 @@ class BaseBMS(ABC):
             char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
         )
 
+    async def _pre_connect_cleanup(self) -> None:
+        """Called before each connection attempt.
+
+        Override to run platform-specific cleanup, e.g. cancelling stale
+        BlueZ LE connections or clearing half-open handles.  The default
+        implementation is a no-op.
+        """
+
+    async def _on_connect_failure(self, error: BaseException) -> None:
+        """Called after a connection attempt fails.
+
+        Override to run platform-specific recovery, e.g. removing the device
+        from BlueZ or resetting the adapter.  The default implementation is
+        a no-op.  *error* is the exception that caused the failure.
+        """
+
     @final
     async def _connect(self) -> None:
         """Connect to the BMS and setup notification if not connected."""
@@ -373,22 +389,29 @@ class BaseBMS(ABC):
                     "failed to disconnect stale connection (%s)", type(exc).__name__
                 )
 
-            self._log.debug("connecting BMS")
-            self._client = await establish_connection(
-                client_class=BleakClient,
-                device=self._ble_device,
-                name=self._ble_device.address,
-                disconnected_callback=self._on_disconnect,
-                services=[*self.uuid_services(), "180a"],
-            )
+            await self._pre_connect_cleanup()
 
+            self._log.debug("connecting BMS")
             try:
-                await self._init_connection()
-            except Exception as exc:
-                self._log.info(
-                    "failed to initialize BMS connection (%s)", type(exc).__name__
+                self._client = await establish_connection(
+                    client_class=BleakClient,
+                    device=self._ble_device,
+                    name=self._ble_device.address,
+                    disconnected_callback=self._on_disconnect,
+                    services=[*self.uuid_services(), "180a"],
                 )
-                await self.disconnect()
+
+                try:
+                    await self._init_connection()
+                except Exception as exc:
+                    self._log.info(
+                        "failed to initialize BMS connection (%s)",
+                        type(exc).__name__,
+                    )
+                    await self.disconnect()
+                    raise
+            except Exception as exc:
+                await self._on_connect_failure(exc)
                 raise
 
     def _wr_response(self, char: int | str) -> bool:
