@@ -38,9 +38,13 @@ def ref_value() -> BMSSample:
         "cell_voltages": [3.5, 3.5, 3.5, 3.49],
         "temp_values": [12.778, 8.889],
         "temperature": 10.834,
+        "cycle_charge": 319.0,
+        "total_charge": 6391,
+        "cycle_capacity": 4462.81,
         "delta_voltage": 0.01,
         "power": -41.97,
         "battery_charging": False,
+        "runtime": 382800,
         "problem": False,
     }
 
@@ -119,6 +123,7 @@ def test_matcher_li3() -> None:
         b"\r\n",
         b"ERROR\r\n",
         b"1,2,3\r\n",
+        b"&,\r\n",
         b"&,1,2\r\n",
         b"text\r\n",
     ],
@@ -127,6 +132,7 @@ def test_matcher_li3() -> None:
         "blank_line",
         "error_only",
         "short_primary",
+        "short_status",
         "status_only",
         "unknown_line",
     ],
@@ -162,3 +168,37 @@ def test_uuid_tx_not_implemented() -> None:
     """Test that TX UUID is intentionally not implemented for stream-only protocol."""
     with pytest.raises(NotImplementedError):
         BMS.uuid_tx()
+
+
+@pytest.mark.parametrize(
+    ("status_line", "expected"),
+    [
+        ("&,", {}),
+        ("&,1,2", {"cycle_charge": 2.0}),
+    ],
+    ids=["status_min_fields", "status_remaining_ah_only"],
+)
+async def test_status_field_variants(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, status_line: str, expected: BMSSample
+) -> None:
+    """Test status parsing variants with optional fields."""
+    stream = (
+        b"1399,350,350,350,349,55,48,-3,99,000000\r\n"
+        + status_line.encode()
+        + b"\r\n"
+    )
+    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", stream)
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device(name="Lithionics"))
+    result = await bms.async_update()
+
+    for key, value in expected.items():
+        assert result.get(key) == value
+
+    if "cycle_charge" not in expected:
+        assert "cycle_charge" not in result
+    if "total_charge" not in expected:
+        assert "total_charge" not in result
+
+    await bms.disconnect()

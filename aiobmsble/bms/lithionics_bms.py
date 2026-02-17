@@ -109,8 +109,17 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _parse_status(line: str) -> BMSSample:
-        _fields: list[str] = line.split(",")
-        return {}
+        fields: list[str] = line.split(",")
+        result: BMSSample = {}
+
+        # The status stream includes Remaining AH and Total Consumed AH.
+        # Expose them as common aiobmsble keys so HA can surface them.
+        if len(fields) > 2:
+            result["cycle_charge"] = float(fields[2])  # Remaining AH
+        if len(fields) > 3:
+            result["total_charge"] = int(fields[3])  # Total Consumed AH
+
+        return result
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
