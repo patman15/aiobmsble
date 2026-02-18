@@ -25,7 +25,6 @@ class Cmd(IntEnum):
 class BMS(BaseBMS):
     """E&J Technology BMS implementation.
 
-    Supports multiple protocol variants:
     - Standard E&J (two-command protocol: RT + CAP)
     - Metrisun / Chins (single-frame protocol, 140 bytes)
     """
@@ -38,8 +37,8 @@ class BMS(BaseBMS):
     _IGNORE_CRC: Final[str] = "libattU"
     _HEAD: Final[bytes] = b"\x3a"
     _TAIL: Final[bytes] = b"\x7e"
+    _CELL_POS: Final[int] = 12
     _MAX_CELLS: Final[int] = 16
-
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
             "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
@@ -57,6 +56,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 52, 1, False, lambda x: bool(x & 0x20), Cmd.RT),
         BMSDp("balancer", 55, 2, False, int, idx=Cmd.RT),
         BMSDp("heater", 54, 1, False, bool, Cmd.RT),
+        BMSDp("design_capacity", 66, 2, False, lambda x: x // 10, Cmd.RT),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
@@ -95,9 +95,7 @@ class BMS(BaseBMS):
                     "connectable": True,
                 }
             ]
-            + [  # Chins Battery
-                # Pattern: G-{voltage}V{capacity}Ah-{serial}
-                # Example: G-12V300Ah-0345
+            + [  # Chins Battery "G-{voltage}V{capacity}Ah-{serial}"
                 MatcherPattern(local_name="G-[0-9]*V[0-9]*Ah-[0-9]*", connectable=True),
             ]
         )
@@ -187,8 +185,8 @@ class BMS(BaseBMS):
         self._msg = bytes.fromhex(self._frame[1:-1].decode())
         self._msg_event.set()
 
-    async def _send_commands(self) -> dict[int, bytes]:
-        """Send RT (and optionally CAP) commands and return raw response data."""
+    async def _query_bms(self) -> dict[int, bytes]:
+        """Return query result for RT (and optionally CAP) data."""
         raw_data: dict[int, bytes] = {}
         for cmd in (b":000250000E03~", b":001031000E05~"):
             await self._await_msg(cmd)
@@ -203,18 +201,18 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        raw_data = await self._send_commands()
+        raw_data: Final[dict[int, bytes]] = await self._query_bms()
 
         if len(raw_data) != len(list(Cmd)) or not all(raw_data.values()):
             return {}
 
-        rt_msg: bytes = raw_data[Cmd.RT]
-        result = self._decode_data(BMS._FIELDS, raw_data) | BMSSample(
-            cell_voltages=BMS._cell_voltages(rt_msg, cells=BMS._MAX_CELLS, start=12)
+        result: BMSSample = self._decode_data(BMS._FIELDS, raw_data) | BMSSample(
+            cell_voltages=BMS._cell_voltages(
+                raw_data[Cmd.RT], cells=BMS._MAX_CELLS, start=BMS._CELL_POS
+            )
         )
-
         # design_capacity only available in single-frame (140-byte) variants
-        if len(rt_msg) == 0x45:
-            result["design_capacity"] = int.from_bytes(rt_msg[66:68], "big") // 10
+        if not result.get("design_capacity"):
+            result.pop("design_capacity")
 
         return result
