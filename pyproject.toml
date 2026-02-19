@@ -80,6 +80,7 @@ select = [
     "B018",   # Found useless attribute access. Either assign it to a variable or remove it.
     "B023",   # Function definition does not bind loop variable {name}
     "B024",   # `{name}` is an abstract base class, but it has no abstract methods or properties
+    "B025",   # try-except* block with duplicate exception {name}
     "B026",   # Star-arg unpacking after a keyword argument is strongly discouraged
     "B032",   # Possible unintentional type annotation (using :). Did you mean to assign (using =)?
     "B035",   # Dictionary comprehension uses static key
@@ -134,6 +135,7 @@ select = [
     "RUF032", # Decimal() called with float literal argument
     "RUF033", # __post_init__ method with argument defaults
     "RUF034", # Useless if-else condition
+    "RUF059", # unused-unpacked-variable
     "RUF100", # Unused `noqa` directive
     "RUF101", # noqa directives that use redirected rule codes
     "RUF200", # Failed to parse pyproject.toml: {message}
@@ -206,8 +208,6 @@ ignore = [
 
     "TRY003", # Avoid specifying long messages outside the exception class
     "TRY400", # Use `logging.exception` instead of `logging.error`
-    # Ignored due to performance: https://github.com/charliermarsh/ruff/issues/2923
-#    "UP038", # Use `X | Y` in `isinstance` call instead of `(X, Y)`
 #    "UP046", # Non PEP 695 generic class
 #    "UP047", # Non PEP 696 generic function
 #    "UP049", # Avoid private type parameter names
