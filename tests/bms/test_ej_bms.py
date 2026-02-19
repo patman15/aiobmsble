@@ -11,9 +11,15 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.ej_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 BT_FRAME_SIZE = 20
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockEJBleakClient(MockBleakClient):
@@ -94,6 +100,8 @@ class MockEJsfBleakClient(MockEJBleakClient):
             "balancer": 0,
             "chrg_mosfet": True,
             "dischrg_mosfet": True,
+            "heater": False,
+            "design_capacity": 150,
         }
 
 
@@ -163,6 +171,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "balancer": False,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
+        "heater": False,
     }
 
     # query again to check already connected state
