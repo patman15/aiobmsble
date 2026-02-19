@@ -1,21 +1,17 @@
 """Test the Lithionics BMS implementation."""
 
 from collections.abc import Awaitable, Callable
-from typing import Final, cast
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
-from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSSample
-from aiobmsble.basebms import BaseBMS
 from aiobmsble.bms.lithionics_bms import BMS
-from aiobmsble.test_data import adv_dict_to_advdata
-from aiobmsble.utils import bms_supported
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 BT_FRAME_SIZE = 20
 
@@ -47,6 +43,12 @@ def ref_value() -> BMSSample:
         "runtime": 382800,
         "problem": False,
     }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockLithionicsBleakClient(MockBleakClient):
@@ -82,7 +84,9 @@ class MockLithionicsBleakClient(MockBleakClient):
         self._send_data()
 
 
-async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture: bool) -> None:
+async def test_update(
+    monkeypatch, patch_bleak_client, keep_alive_fixture: bool
+) -> None:
     """Test Lithionics BMS data update."""
     monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", STREAM_DATA)
     patch_bleak_client(MockLithionicsBleakClient)
@@ -101,19 +105,6 @@ async def test_update(monkeypatch, patch_bleak_client, keep_alive_fixture: bool)
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     await verify_device_info(patch_bleak_client, MockLithionicsBleakClient, BMS)
-
-
-def test_matcher_li3() -> None:
-    """Test Bluetooth matcher for Li3 naming observed on Lithionics packs."""
-    adv = adv_dict_to_advdata(
-        {
-            "local_name": "Li3-061322094",
-            "manufacturer_data": {"19784": "6c79b8000000"},
-            "service_uuids": [normalize_uuid_str("ffe0")],
-        }
-    )
-
-    assert bms_supported(cast(BaseBMS, BMS), adv, "6C:79:B8:B4:4F:C0")
 
 
 @pytest.fixture(
@@ -179,13 +170,14 @@ def test_uuid_tx_not_implemented() -> None:
     ids=["status_min_fields", "status_remaining_ah_only"],
 )
 async def test_status_field_variants(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, status_line: str, expected: BMSSample
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    status_line: str,
+    expected: BMSSample,
 ) -> None:
     """Test status parsing variants with optional fields."""
     stream = (
-        b"1399,350,350,350,349,55,48,-3,99,000000\r\n"
-        + status_line.encode()
-        + b"\r\n"
+        b"1399,350,350,350,349,55,48,-3,99,000000\r\n" + status_line.encode() + b"\r\n"
     )
     monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", stream)
     patch_bleak_client(MockLithionicsBleakClient)
