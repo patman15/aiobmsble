@@ -489,6 +489,15 @@ async def test_wr_mode_reset(
     assert bms._inv_wr_mode is None
 
 
+def test_inv_wr_mode_parameter() -> None:
+    """Check that inv_wr_mode parameter sets _inv_wr_mode on construction."""
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    assert bms._inv_wr_mode is None
+
+    bms_inv: MinTestBMS = MinTestBMS(generate_ble_device(), inv_wr_mode=True)
+    assert bms_inv._inv_wr_mode is True
+
+
 def test_get_bms_module() -> None:
     """Check that basebms and dummy_bms return correct module name."""
     assert BaseBMS.get_bms_module() == "aiobmsble.basebms"
