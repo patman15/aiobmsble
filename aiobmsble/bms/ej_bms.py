@@ -79,11 +79,6 @@ class BMS(BaseBMS):
                     "connectable": True,
                 },
                 {"local_name": "SV12V*", "manufacturer_id": 33384, "connectable": True},
-                { # AG power
-                    "local_name": "AG???L*",
-                    "manufacturer_id": 21320,
-                    "connectable": True,
-                },
             ]
             + [  # LiTime
                 MatcherPattern(  # LiTime based on serial #
