@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=80", "setuptools-scm[simple]>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "aiobmsble"
-version = "0.18.0-beta.5"
+dynamic = ["version"]
 requires-python = ">=3.12"
 description = "Asynchronous Python library to query battery management systems via Bluetooth Low Energy."
 readme = "README.md"
