@@ -11,14 +11,14 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from collections.abc import Callable
+from contextlib import suppress
 from enum import IntEnum
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Literal, NamedTuple, TypedDict
 
-try:
-    __version__: str = version("aiobmsble")
-except PackageNotFoundError:
-    __version__ = "0.0.0.dev0"
+__version__: str = "0.0.0.dev0"
+with suppress(PackageNotFoundError):
+    __version__ = version("aiobmsble")
 
 type BMSValue = Literal[
     "battery_charging",
