@@ -8,9 +8,7 @@
       "rssi": -71
     },
     "type": "ej_bms",
-    "_comments": [
-      "source LOG"
-    ]
+    "_comments": ["source LOG"]
   },
   {
     "advertisement": {
@@ -76,9 +74,7 @@
       "manufacturer_data": {
         "22618": "36342462a26b"
       },
-      "service_uuids": [
-        "0000ffe0-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
       "rssi": -87
     },
     "type": "ej_bms",
