@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=80", "setuptools-scm[simple]>=8", "wheel"]
+requires = ["setuptools>=80", "setuptools-scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -52,6 +52,9 @@ aiobmsble = "aiobmsble.__main__:main"
 
 [tool.setuptools.package-data]
 "aiobmsble.test_data" = ["*.json"]
+
+[tool.setuptools_scm]
+
 
 [tool.pytest.ini_options]
 minversion = "8.4"
