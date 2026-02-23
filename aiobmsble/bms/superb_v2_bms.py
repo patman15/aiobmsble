@@ -41,7 +41,7 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             MatcherPattern(
-                local_name="Epsilon *",
+                local_name="Epsilon*",
                 manufacturer_id=0x50BE,
                 manufacturer_data_start=list(b"Epsilon V2"),
                 connectable=True,
@@ -49,9 +49,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return ["cf9ccdf7-eee9-43ce-87a5-82b54af5324e"]
+        return ("cf9ccdf7-eee9-43ce-87a5-82b54af5324e",)
 
     @staticmethod
     def uuid_rx() -> str:
