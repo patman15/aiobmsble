@@ -11,7 +11,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.topband_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 BT_FRAME_SIZE = 32
 
@@ -110,6 +110,11 @@ def proto(request: pytest.FixtureRequest) -> int:
     assert isinstance(request.param, int)
     return request.param
 
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 class MockTopbandBleakClient(MockBleakClient):
     """Emulate a Topband BMS BleakClient."""

@@ -27,7 +27,7 @@ class BMS(BaseBMS):
     _IDX_LEN: Final = 1
     _IDX_FCT: Final = 2
     # magic crypt sequence of length 16
-    _CRYPT_SEQ: Final[list[int]] = [2, 5, 4, 3, 1, 4, 1, 6, 8, 3, 7, 2, 5, 8, 9, 3]
+    _CRY_SEQ: Final[tuple[int, ...]] = (2, 5, 4, 3, 1, 4, 1, 6, 8, 3, 7, 2, 5, 8, 9, 3)
 
     class _Response(NamedTuple):
         valid: bool
@@ -43,7 +43,7 @@ class BMS(BaseBMS):
             else "?"
         )
         self._key: int = (
-            sum(BMS._CRYPT_SEQ[int(c, 16)] for c in (f"{int(self.name[10:]):0>4X}"))
+            sum(BMS._CRY_SEQ[int(c, 16)] for c in (f"{int(self.name[10:]):0>4X}"))
             if self._type in "AB"
             else 0
         ) + (5 if (self._type == "A") else 8)
@@ -102,9 +102,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("fff0")]
+        return (normalize_uuid_str("fff0"),)
 
     @staticmethod
     def uuid_rx() -> str:

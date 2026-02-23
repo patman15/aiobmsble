@@ -11,6 +11,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.ant_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE: Final[int] = 20  # ANT BMS frame size
 
@@ -61,6 +62,12 @@ _RESULT_DEFS: Final[BMSSample] = {
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockANTBleakClient(MockBleakClient):

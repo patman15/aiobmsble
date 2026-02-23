@@ -11,6 +11,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.seplos_v2_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
 REF_VALUE: BMSSample = {
@@ -55,6 +56,11 @@ REF_VALUE: BMSSample = {
     "problem_code": 0,
 }
 
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 class MockSeplosv2BleakClient(MockBleakClient):
     """Emulate a Seplos v2 BMS BleakClient."""

@@ -13,7 +13,7 @@ from aiobmsble.basebms import crc_sum
 from aiobmsble.bms.redodo_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 26.556,
@@ -38,6 +38,12 @@ _RESULT_DEFS: Final[BMSSample] = {
     "balancer": 0,
     "heater": False,
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockRedodoBleakClient(MockBleakClient):
@@ -186,8 +192,8 @@ async def test_invalid_response(
                 b"\x00\x00\x65\x01\x93\x55\xaa\x00\x46\x66\x00\x00\xbc\x67\x00\x00\xf5\x0c\xf7\x0c"
                 b"\xfc\x0c\xfb\x0c\xf8\x0c\xf2\x0c\xfa\x0c\xf5\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x65\xfa\xff\xff\x17\x00\x16\x00\xfe\xff\x00\x00"
-                b"\x00\x00\xe9\x1a\x04\x29\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80"
-                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x41\x00\x64\x00\x00\x00\x03\x00\x00\x00"
+                b"\x00\x00\xe9\x1a\x04\x29\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x80\x00\x00\x00\x00\x00\x00\x41\x00\x64\x00\x00\x00\x03\x00\x00\x00"
                 b"\x5f\x01\x00\x00\x22"
             ),
             "last_bit",
@@ -215,7 +221,7 @@ async def test_problem_response(
 
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
-        "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 31),
+        "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 63),
     }
 
     await bms.disconnect()
@@ -232,8 +238,9 @@ async def test_temp_sensor_detection(
     bms = BMS(generate_ble_device())
 
     for response, expected in (
-        (b"", (1, [0])),  # all sensors zero
-        (b"\x00\x00\x17", (2, [0, 23])),  # only second sensor non-zero
+        (b"\x00\x00\x00\x00", (1, [0])),  # all sensors zero
+        (b"\x13\x00\x00\x00", (1, [19])),  # only first sensor non-zero
+        (b"\x00\x00\x17\x00", (2, [0, 23])),  # only second sensor non-zero
         (b"\x17\x00", (2, [23, 0])),  # keep second sensor
         (b"\x15\x00".rjust(10, b"\x00"), (5, [0, 0, 0, 0, 21])),  # all sensors present
         (b"", (5, [0, 0, 0, 0, 0])),  # all sensors still present

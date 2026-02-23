@@ -39,9 +39,9 @@ class BMS(BaseBMS):
         return [MatcherPattern(local_name="Epsilon-*", connectable=True)]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return ["74b9c2d1-dc6d-42cf-a2e9-7398b8fc2e70"]
+        return ("74b9c2d1-dc6d-42cf-a2e9-7398b8fc2e70",)
 
     @staticmethod
     def uuid_rx() -> str:

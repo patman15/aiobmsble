@@ -14,6 +14,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.jbd_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
 
@@ -23,6 +24,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "current": -2.87,
     "battery_level": 100,
     "cycle_charge": 4.98,
+    "design_capacity": 5,
     "cycles": 42,
     "temperature": 22.133,
     "cycle_capacity": 77.688,
@@ -39,6 +41,12 @@ _RESULT_DEFS: Final[BMSSample] = {
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockJBDBleakClient(MockBleakClient):

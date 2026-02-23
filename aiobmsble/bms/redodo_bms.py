@@ -35,13 +35,14 @@ class BMS(BaseBMS):
         BMSDp("cycles", 96, 4, False),
         BMSDp("balancer", 84, 4, False, int),
         BMSDp("heater", 68, 4, False, bool),
-        BMSDp("problem_code", 76, 4, False),
+        BMSDp("problem_code", 76, 8, False),
     )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
         self._temp_sensors: int = 1  # default to 1 temp sensor
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -74,9 +75,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ffe0")]
+        return (normalize_uuid_str("ffe0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -115,9 +116,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         await self._await_msg(b"\x00\x00\x04\x01\x13\x55\xaa\x17")
 
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._msg, byteorder="little"
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=BMS._MAX_CELLS, start=16, byteorder="little"
         )

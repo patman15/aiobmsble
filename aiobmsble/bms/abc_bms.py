@@ -75,9 +75,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ffe0")]
+        return (normalize_uuid_str("ffe0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -92,9 +92,9 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         info: BMSInfo = await super()._fetch_device_info()
-        self._exp_reply = BMS._EXP_REPLY[0xC0]
-        await self._await_msg(BMS._cmd(bytes([0xC0])))
-        info |= {"model": b2str(self._msg[0xF1][2:-1])}
+        self._exp_reply = BMS._EXP_REPLY[0xC0].copy()
+        await self._await_msg(BMS._cmd(b"\xc0"))
+        info.update({"model": b2str(self._msg[0xF1][2:-1])})
         return info
 
     def _notification_handler(
@@ -137,6 +137,7 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         self._msg.clear()
+        self._exp_reply.clear()
         for cmd in (0xC1, 0xC2, 0xC4):
             self._exp_reply.update(BMS._EXP_REPLY[cmd])
             with contextlib.suppress(TimeoutError):
@@ -147,9 +148,7 @@ class BMS(BaseBMS):
             self._log.debug("Incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._msg, byteorder="little"
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         return result | {
             "cell_voltages": BMS._cell_voltages(  # every second value is the cell idx
                 self._msg[0xF4],

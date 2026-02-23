@@ -1,12 +1,24 @@
 """Package for battery management systems (BMS) via Bluetooth LE (aiobmsble).
 
+Asynchronous Library to Query Battery Management Systems via Bluetooth LE
+
+This library is intended to query data from battery management systems
+that use Bluetooth LE. Stand-alone usage is possible in any Python environment
+(with necessary dependencies installed).
+
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from collections.abc import Callable
+from contextlib import suppress
 from enum import IntEnum
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Literal, NamedTuple, TypedDict
+
+__version__: str = "0.0.0.dev0"
+with suppress(PackageNotFoundError):
+    __version__ = version("aiobmsble")
 
 type BMSValue = Literal[
     "battery_charging",
@@ -84,12 +96,12 @@ class BMSSample(TypedDict, total=False):
     pack_count: int  # [#]
     temp_sensors: int  # [#]
     temp_values: list[int | float]  # [°C]
-    problem_code: int  # BMS specific code, 0 no problem
+    problem_code: int  # BMS specific code, 0 no problem, max. 64 bit
 
     # BMS switches
     chrg_mosfet: bool  # True: enabled
     dischrg_mosfet: bool  # True: enabled
-    heater: bool  # True: enabled
+    heater: bool  # True: enabled/heating
 
     # battery pack data
     pack_voltages: list[float]  # [V]

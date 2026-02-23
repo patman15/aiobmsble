@@ -13,8 +13,9 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.ogt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
-base_result: BMSSample = {
+_RESULT_DEFS: Final[BMSSample] = {
     "voltage": 45.681,
     "battery_level": 14,
     "cycles": 99,
@@ -25,6 +26,12 @@ base_result: BMSSample = {
     "power": 56.188,
     "problem": False,
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 # all names result in same encryption key for easier testing
@@ -124,14 +131,14 @@ async def test_update(patch_bleak_client, ogt_bms_name, keep_alive_fixture) -> N
 
     # verify all sensors are reported
     if str(ogt_bms_name)[9] == "A":
-        assert result == base_result | {
+        assert result == _RESULT_DEFS | {
             "current": -1.23,
             "power": -56.188,
             "battery_charging": False,
             "runtime": 7200,
         }
     else:
-        assert result == base_result | {
+        assert result == _RESULT_DEFS | {
             "current": 1.23,
             "delta_voltage": 0.003,
             "power": 56.188,
@@ -164,7 +171,7 @@ async def test_update_16s(monkeypatch, patch_bleak_client) -> None:
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"), False)
 
     # verify all sensors are reported
-    assert await bms.async_update() == base_result | {
+    assert await bms.async_update() == _RESULT_DEFS | {
         "current": 1.23,
         "delta_voltage": 0.003,
         "power": 56.188,

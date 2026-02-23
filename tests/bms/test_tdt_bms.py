@@ -13,6 +13,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.tdt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 27
 
@@ -182,6 +183,11 @@ def proto(request: pytest.FixtureRequest) -> str:
     return request.param
 
 
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
+
 class MockTDTBleakClient(MockBleakClient):
     """Emulate a TDT BMS BleakClient."""
 
@@ -338,6 +344,7 @@ async def test_device_info(
         if protocol_type in ("4S4Tv0.0", "16S6Tv0.4")
         else {
             "sw_version": "6032_10016S000_L_41",
+            "manufacturer": "",
             "serial_number": "60326016207270001",
         }
     )

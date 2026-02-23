@@ -33,9 +33,9 @@ class BMS(BaseBMS):
         return [{"local_name": "dummy", "connectable": True}]  # TODO: define matcher
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("0000")]  # TODO: change service UUID here!
+        return (normalize_uuid_str("0000"),)  # TODO: change service UUID here!
 
     @staticmethod
     def uuid_rx() -> str:

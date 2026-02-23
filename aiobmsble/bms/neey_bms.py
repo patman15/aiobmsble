@@ -21,19 +21,19 @@ class BMS(BaseBMS):
     """Neey smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Neey", "default_model": "Balancer"}
-    _BT_MODULE_MSG: Final = bytes([0x41, 0x54, 0x0D, 0x0A])  # AT\r\n from BLE module
-    _HEAD_RSP: Final = bytes([0x55, 0xAA, 0x11, 0x01])  # start, dev addr, read cmd
-    _HEAD_CMD: Final = bytes([0xAA, 0x55, 0x11, 0x01])  # cmd header (endianness!)
+    _BT_MODULE_MSG: Final = b"\x41\x54\x0d\x0a"  # AT\r\n from BLE module
+    _HEAD_RSP: Final = b"\x55\xaa\x11\x01"  # start, dev addr, read cmd
+    _HEAD_CMD: Final = b"\xaa\x55\x11\x01"  # cmd header (endianness!)
     _TAIL: Final[int] = 0xFF  # end of message
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _MIN_FRAME: Final[int] = 10  # header length
-    _FIELDS: Final[list[tuple[BMSValue, int, str, Callable[[int], Any]]]] = [
+    _FIELDS: Final[tuple[tuple[BMSValue, int, str, Callable[[int], Any]], ...]] = (
         ("voltage", 201, "<f", lambda x: round(x, 3)),
         ("delta_voltage", 209, "<f", lambda x: round(x, 3)),
         ("problem_code", 216, "B", lambda x: x if x in {1, 3, 7, 8, 9, 10, 11} else 0),
         ("balancer", 216, "B", lambda x: (x == 0x5)),
         ("balance_current", 217, "<f", lambda x: round(x, 3)),
-    ]
+    )
 
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize private BMS members."""
@@ -56,9 +56,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ffe0")]
+        return (normalize_uuid_str("ffe0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -87,7 +87,8 @@ class BMS(BaseBMS):
         """Retrieve BMS data update."""
 
         if (
-            len(self._frame) >= self._exp_len or not self._frame.startswith(BMS._HEAD_RSP)
+            len(self._frame) >= self._exp_len
+            or not self._frame.startswith(BMS._HEAD_RSP)
         ) and data.startswith(BMS._HEAD_RSP):
             self._frame.clear()
             self._exp_len = max(
@@ -112,7 +113,7 @@ class BMS(BaseBMS):
         # trim message in case oversized
         if len(self._frame) > self._exp_len:
             self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
-            self._frame = self._frame[: self._exp_len]
+            del self._frame[self._exp_len :]
 
         if self._frame[-1] != BMS._TAIL:
             self._log.debug("incorrect frame end.")
@@ -163,8 +164,8 @@ class BMS(BaseBMS):
         start: int,
         size: int = 2,
         gap: int = 0,
-        byteorder: Literal["little", "big"] = "big",
-        divider: int = 1000,
+        byteorder: Literal["little", "big"] = "little",
+        divider: int = 1,
     ) -> list[float]:
         """Parse cell voltages from message."""
         return [
