@@ -47,7 +47,11 @@ def file_has_field(path: Path, field: str) -> bool:
                     if getattr(item, "key", None) == field:
                         return True
                     # Some modules use tuple/list with the key as first element
-                    if isinstance(item, (tuple, list)) and len(item) and item[0] == field:
+                    if (
+                        isinstance(item, (tuple, list))
+                        and len(item)
+                        and item[0] == field
+                    ):
                         return True
     except ModuleNotFoundError:
         pass

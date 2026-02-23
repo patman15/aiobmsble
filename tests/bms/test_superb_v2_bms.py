@@ -24,6 +24,7 @@ RESP: dict[bytes, bytearray] = {
 
 
 _RESULT_DEFS: Final[BMSSample] = {
+    "balancer": False,
     "battery_charging": False,
     "battery_health": 100,
     "battery_level": 35,
@@ -148,6 +149,7 @@ async def test_update_chrg(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == {
+        "balancer": False,
         "battery_charging": True,
         "battery_health": 100,
         "battery_level": 35,
