@@ -26,8 +26,8 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 19, 1, False, idx=0x0),
         BMSDp("runtime", 20, 4, False, idx=0x0),
         BMSDp("cycles", 18, 1, False, idx=0x0),
-        BMSDp("problem", 1, 1, False, lambda x: not (x & 1), 0x0),
-        BMSDp("balancer", 1, 1, False, lambda x: bool(x & 0x80), 0x0),
+        # BMSDp("problem", ?, 1, False, lambda x: not (x & 1), 0x0),
+        # BMSDp("balancer", ?, 1, False, lambda x: bool(x & 0x80), 0x0),
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS}
 
