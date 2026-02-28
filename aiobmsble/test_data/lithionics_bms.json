@@ -1,0 +1,29 @@
+[
+  {
+    "advertisement": {
+      "local_name": "Li3-061322094",
+      "manufacturer_data": {
+        "19784": "6c79b8000000"
+      },
+      "service_data": {
+        "0000b000-0000-1000-8000-00805f9b34fb": "00000000"
+      },
+      "service_uuids": [
+        "00001800-0000-1000-8000-00805f9b34fb",
+        "00001801-0000-1000-8000-00805f9b34fb",
+        "0000b000-0000-1000-8000-00805f9b34fb",
+        "0000ffe0-0000-1000-8000-00805f9b34fb"
+      ],
+      "platform_data": [
+        "6C:79:B8:00:00:00"
+      ],
+      "tx_power": 0,
+      "rssi": -68
+    },
+    "type": "lithionics_bms",
+    "_comments": [
+      "source debug log from live device scan",
+      "Lithionics Li3 battery advertisement"
+    ]
+  }
+]
