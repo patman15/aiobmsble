@@ -12,7 +12,7 @@ from importlib import import_module
 from pathlib import Path
 import re
 from types import ModuleType
-from typing import Final
+from typing import Any, Final
 
 from aiobmsble import BMSSample, BMSValue
 from aiobmsble.basebms import BaseBMS
@@ -33,17 +33,39 @@ def get_bmssample_fields(init_module: str) -> tuple[BMSValue, ...]:
 
 def file_has_field(path: Path, field: str) -> bool:
     """Check if the given BMS module file references the specified field."""
+    # Prefer checking the imported module/class for _FIELDS so that
+    # inherited fields from a base BMS class (defined in another module)
+    # are correctly detected. Fall back to source text search if import fails.
+    try:
+        module: ModuleType = import_module(f"aiobmsble.bms.{path.stem}")
+        cls: Final[Any | None] = getattr(module, "BMS", None)
+        if cls is not None:
+            fields: Final[Any | None] = getattr(cls, "_FIELDS", None)
+            if fields is not None:
+                for item in fields:
+                    # NamedTuple BMSDp has attribute `key`
+                    if getattr(item, "key", None) == field:
+                        return True
+                    # Some modules use tuple/list with the key as first element
+                    if (
+                        isinstance(item, (tuple, list))
+                        and len(item)
+                        and item[0] == field
+                    ):
+                        return True
+    except ModuleNotFoundError:
+        pass
 
     txt: Final[str] = path.read_text(encoding="utf8")
     patterns: Final[list[str]] = [
-        rf'BMSDp\(\s*["\']{re.escape(field)}["\']',  # field in _FIELDS via BMSDp(...)
+        rf'^\s*BMSDp\(\s*["\']{re.escape(field)}["\']',  # field in _FIELDS via BMSDp(...)
         rf'\bresult\[\s*["\']{re.escape(field)}["\']\s*\]',  # result["field"]
         rf'\bdata\[\s*["\']{re.escape(field)}["\']\s*\]',  # data["field"]
         rf'["\']{re.escape(field)}["\']\s*:',  # dict literal 'field': ...
-        rf'\("{re.escape(field)}", \d+, ',  # tuples ("field", pos, ...
+        rf'\s\("{re.escape(field)}", \d+, ',  # tuples ("field", pos, ...
         # rf"\b{re.escape(field)}\b",  # fallback bareword
     ]
-    return any(re.search(p, txt) for p in patterns)
+    return any(re.search(p, txt, re.MULTILINE) for p in patterns)
 
 
 def get_bms_info(path: Path) -> tuple[str, str]:

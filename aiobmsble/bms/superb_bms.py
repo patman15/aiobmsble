@@ -22,7 +22,7 @@ class BMS(BaseBMS):
     _INFO_LEN: Final[int] = 20
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("battery_level", 2, 1, False),
-        # BMSDp("health", 3, 1, False), // or SoH?
+        BMSDp("battery_health", 3, 1, False),
         BMSDp("runtime", 4, 4, False, float),
         BMSDp("problem_code", 1, 1, False, lambda x: (x & 0x1) ^ 0x1),
         BMSDp("balancer", 1, 1, False, lambda x: bool(x & 0x80)),
