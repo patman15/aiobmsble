@@ -199,28 +199,3 @@ async def test_invalid_response(
 
     assert not result
     await bms.disconnect()
-
-
-# @pytest.mark.parametrize(
-#     ("problem_response"),
-#     [
-#         b"\x00\x74\x5e\x64\x00\x00\x01\xa4\xbe\xcc\xcc\xcd\x41\x62\x89\xc5\x00\x00\x00\x00",
-#         b"\x00\x72\x5e\x64\x00\x00\x01\xa4\xbe\xcc\xcc\xcd\x41\x62\x89\xc5\x00\x00\x00\x00",
-#     ],
-#     ids=["chrg_warning", "dischrg_warning"],
-# )
-# async def test_problem_response(
-#     monkeypatch, patch_bleak_client, problem_response
-# ) -> None:
-#     """Test data update with BMS returning error flags."""
-
-#     monkeypatch.setattr(MockSuperBv2BleakClient, "_RESP", bytearray(problem_response))
-
-#     patch_bleak_client(MockSuperBv2BleakClient)
-
-#     bms = BMS(generate_ble_device())
-
-#     result: BMSSample = await bms.async_update()
-#     assert result == _RESULT_DEFS | {"problem": True, "problem_code": 1}
-
-#     await bms.disconnect()
