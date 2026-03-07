@@ -137,7 +137,6 @@ class BMS(BaseBMS):
                         int.from_bytes(
                             self._msg[BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2],
                             byteorder="big",
-                            signed=True,
                         )
                         - 40
                     ]

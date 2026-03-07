@@ -178,7 +178,7 @@ async def test_device_info(patch_bleak_client) -> None:
     [
         # test ignore invalid MOS after valid read
         ((b"\x00\x30", [8.0]), (b"\x00\x00", [-40.0])),
-        ((b"\x00\x30", [8.0]), (b"\xff\xff", [-41.0])),
+        ((b"\x00\x30", [8.0]), (b"\xff\xff", [65495.0])),
         # test disabling of MOS read after initial invalid value
         ((b"\xff\xff", []), (b"\x00\x30", [])),
         ((b"\x00\x00", []), (b"\x00\x30", [])),
