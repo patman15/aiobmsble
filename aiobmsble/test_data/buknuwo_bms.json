@@ -1,0 +1,15 @@
+[
+  {
+    "advertisement": {
+      "local_name": "CDZG202512050020000242 ",
+      "platform_data": ["B4:69:00:00:00:00"],
+      "rssi": -63,
+      "manufacturer_data": { "65535": "4e" },
+      "service_data": { "0000180a-0000-1000-8000-00805f9b34fb": "" }
+    },
+    "type": "buknuwo_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/621)"
+    ]
+  }
+]
