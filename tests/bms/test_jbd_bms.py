@@ -58,6 +58,7 @@ class MockJBDBleakClient(MockBleakClient):
     CMD_INFO = bytearray(b"\xa5\x03")
     CMD_CELL = bytearray(b"\xa5\x04")
     HW_INFO = bytearray(b"\xa5\x05")
+    ACK_MSG = bytearray(b"\xff\xaa\x15\x01\x00\x16")
     REQUIRE_PASS = False
     UNLOCKED = False
     DEFAULT_SECRET = b"000000"
@@ -81,26 +82,28 @@ class MockJBDBleakClient(MockBleakClient):
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
 
+        _msg: Final[bytes] = bytes(data)
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")
-            and bytearray(data).startswith(b"\xff\xaa\x15")
+            and _msg.startswith(b"\xff\xaa\x15")
             and not self.UNLOCKED
         ):
             self.UNLOCKED = True
             return (
-                bytearray(b"\xff\xaa\x15\x01\x00\x16")
-                if bytes(data)[4:-1] == self.DEFAULT_SECRET
+                MockJBDBleakClient.ACK_MSG
+                if sum(_msg[2:-1]) & 0xFF == _msg[-1]
+                and _msg[4:-1] == self.DEFAULT_SECRET
                 else bytearray(b"\xff\xaa\x15\x01\x01\x17")
             )
 
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")
-            and bytearray(data)[0] == self.HEAD_CMD
+            and _msg[0] == self.HEAD_CMD
             and self.REQUIRE_PASS == self.UNLOCKED
         ):
-            match bytearray(data)[1:3]:
+            match _msg[1:3]:
                 case self.CMD_INFO:
                     return bytearray(
                         b"\xdd\x03\x00\x1d\x06\x18\xfe\xe1\x01\xf2\x01\xf4\x00\x2a\x2c\x7c\x00\x00\x00"
@@ -212,11 +215,43 @@ async def test_update_secret(
     patch_bleak_client(MockJBDBleakClient)
 
     bms = BMS(generate_ble_device(), secret=secret)
-    if secret =="wrong":
+    if secret == "wrong":
         with pytest.raises(PermissionError):
             await bms.async_update()
     else:
         assert await bms.async_update() == _RESULT_DEFS
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    "wrong_init",
+    [
+        b"",
+        b"\xf0\xaa\x15\x01\x00\x16",
+        b"\xff\xaa\x15\x01\x16",
+        b"\xff\xaa\x15\x01\x00\x15",
+        b"\xff\xaa\x16\x01\x00\x17",
+    ],
+    ids=["empty_resp", "wrong_SOF", "wrong_len", "wrong_CRC", "wrong_cmd"],
+)
+async def test_invalid_init(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_init: bytes,
+) -> None:
+    """Test connection init with BMS returning invalid data (wrong CRC)."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(MockJBDBleakClient, "REQUIRE_PASS", True)
+    monkeypatch.setattr(MockJBDBleakClient, "ACK_MSG", bytearray(wrong_init))
+    patch_bleak_client(MockJBDBleakClient)
+
+    bms = BMS(generate_ble_device(), secret="000000")
+
+    with pytest.raises(TimeoutError):
+        _result: BMSSample = await bms.async_update()
 
     await bms.disconnect()
 
