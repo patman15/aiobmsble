@@ -143,7 +143,7 @@ class BMS(BaseBMS):
                     + b"\x15"
                     + len(self._secret).to_bytes(1)
                     + data
-                    + (sum(data) & 0xFF).to_bytes(1)
+                    + ((0x15 + len(self._secret) + sum(data)) & 0xFF).to_bytes(1)
                 )
             except TimeoutError:
                 self._log.warning("Failed to initialize connection with secret.")
