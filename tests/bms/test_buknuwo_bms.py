@@ -9,7 +9,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from aiobmsble.bms.buknuwo_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import BMSBasicTests
+from tests.test_basebms import BMSBasicTests, verify_device_info
 
 BT_FRAME_SIZE = 20
 
@@ -97,6 +97,4 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client(MockBuknuwoBleakClient)
-    bms = BMS(generate_ble_device())
-    assert {"default_manufacturer", "default_model"}.issubset(await bms.device_info())
+    await verify_device_info(patch_bleak_client, MockBleakClient, BMS)
