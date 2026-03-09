@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import argparse
 import asyncio
+import getpass
 import logging
 from typing import Final
 
@@ -41,6 +42,33 @@ async def scan_devices() -> dict[str, tuple[BLEDevice, AdvertisementData]]:
     return scan_result
 
 
+async def _try_query(
+    bms_cls: type[BaseBMS], ble_dev: BLEDevice, secret: str = ""
+) -> bool:
+    """Attempt to query the BMS once. Returns True on success, False on failure."""
+    bms_inst: BaseBMS = (
+        bms_cls(ble_device=ble_dev, secret=secret)
+        if secret
+        else bms_cls(ble_device=ble_dev)
+    )
+    logger.info("Querying BMS%s...", " with secret" if secret else "")
+
+    try:
+        async with bms_inst as bms:
+            info: BMSInfo = await bms.device_info()
+            data: BMSSample = await bms.async_update()
+        logger.info("BMS info: %s", repr(info).replace(", '", ",\n\t'"))
+        logger.info("BMS data: %s", repr(data).replace(", '", ",\n\t'"))
+    except (BleakError, TimeoutError) as exc:
+        logger.error(
+            "Failed to query BMS%s: %s",
+            " with secret" if secret else "",
+            type(exc).__name__,
+        )
+        return False
+    return True
+
+
 async def detect_bms() -> None:
     """Query a Bluetooth device based on the provided arguments."""
 
@@ -57,15 +85,13 @@ async def detect_bms() -> None:
         if bms_cls := await bms_identify(advertisement, ble_dev.address):
             bms_inst: BaseBMS = bms_cls(ble_device=ble_dev)
             logger.info("Found matching BMS type: %s", bms_inst.bms_id())
-            logger.info("Querying BMS ...")
-            try:
-                async with bms_inst as bms:
-                    info: BMSInfo = await bms.device_info()
-                    data: BMSSample = await bms.async_update()
-                logger.info("BMS info: %s", repr(info).replace(", '", ",\n\t'"))
-                logger.info("BMS data: %s", repr(data).replace(", '", ",\n\t'"))
-            except (BleakError, TimeoutError) as exc:
-                logger.error("Failed to query BMS: %s", type(exc).__name__)
+
+            if not await _try_query(bms_cls, ble_dev):
+                if bms_cls.accept_secret:
+                    secret: str = getpass.getpass(
+                        f"Enter secret for {bms_cls.__name__}: "
+                    )
+                    await _try_query(bms_cls, ble_dev, secret)
 
     logger.info("done.")
 
