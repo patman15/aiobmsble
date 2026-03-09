@@ -42,10 +42,11 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/patman15/aiobmsble/"
-Documentation = "https://github.com/patman15/aiobmsble/?tab=readme-ov-file#aiobmsble"
-"Source Code" = "https://github.com/patman15/aiobmsble/"
 "Bug Reports" = "https://github.com/patman15/aiobmsble/issues"
+Changelog = "https://github.com/patman15/aiobmsble/releases"
+Documentation = "https://patman15.github.io/aiobmsble/"
+Homepage = "https://github.com/patman15/aiobmsble/?tab=readme-ov-file#aiobmsble"
+Repository = "https://github.com/patman15/aiobmsble.git"
 
 [project.scripts]
 aiobmsble = "aiobmsble.__main__:main"

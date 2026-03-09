@@ -1,11 +1,13 @@
 """Test the JBD BMS implementation."""
 
 import asyncio
-from collections.abc import Buffer
-from typing import Final
+from collections.abc import Buffer, Callable, Iterable
+from typing import Any, Final
 from uuid import UUID
 
+from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
+from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
@@ -56,31 +58,65 @@ class MockJBDBleakClient(MockBleakClient):
     CMD_INFO = bytearray(b"\xa5\x03")
     CMD_CELL = bytearray(b"\xa5\x04")
     HW_INFO = bytearray(b"\xa5\x05")
+    ACK_MSG = bytearray(b"\xff\xaa\x15\x01\x00\x16")
+    REQUIRE_PASS = False
+    UNLOCKED = False
+    DEFAULT_SECRET = b"000000"
 
     _tasks: set[asyncio.Task[None]] = set()
+
+    def __init__(
+        self,
+        address_or_ble_device: BLEDevice,
+        disconnected_callback: Callable[[BleakClient], None] | None,
+        services: Iterable[str] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize MockBleakClient."""
+        super().__init__(
+            address_or_ble_device, disconnected_callback, services, **kwargs
+        )
+        self._services = ["ff01", "ff02"]
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
 
+        _msg: Final[bytes] = bytes(data)
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")
-            and bytearray(data)[0] == self.HEAD_CMD
+            and _msg.startswith(b"\xff\xaa\x15")
+            and not self.UNLOCKED
         ):
-            if bytearray(data)[1:3] == self.CMD_INFO:
-                return bytearray(
-                    b"\xdd\x03\x00\x1d\x06\x18\xfe\xe1\x01\xf2\x01\xf4\x00\x2a\x2c\x7c\x00\x00\x00"
-                    b"\x00\x00\x00\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x84\x77"
-                )  # {'voltage': 15.6, 'current': -2.87, 'battery_level': 100, 'cycle_charge': 4.98, 'cycles': 42, 'temperature': 22.133333333333347}
-            if bytearray(data)[1:3] == self.CMD_CELL:
-                return bytearray(
-                    b"\xdd\x04\x00\x08\x0d\x66\x0d\x61\x0d\x68\x0d\x59\xfe\x3c\x77"
-                )  # {'cell#0': 3.43, 'cell#1': 3.425, 'cell#2': 3.432, 'cell#3': 3.417}
-            if bytearray(data)[1:3] == self.HW_INFO:
-                return bytearray(
-                    b"\xdd\x05\x00\x0a\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\xfd\xe9\x77"
-                )  # hardware version 0123456789
+            self.UNLOCKED = True
+            return (
+                MockJBDBleakClient.ACK_MSG
+                if sum(_msg[2:-1]) & 0xFF == _msg[-1]
+                and _msg[4:-1] == self.DEFAULT_SECRET
+                else bytearray(b"\xff\xaa\x15\x01\x01\x17")
+            )
+
+        if (
+            isinstance(char_specifier, str)
+            and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")
+            and _msg[0] == self.HEAD_CMD
+            and self.REQUIRE_PASS == self.UNLOCKED
+        ):
+            match _msg[1:3]:
+                case self.CMD_INFO:
+                    return bytearray(
+                        b"\xdd\x03\x00\x1d\x06\x18\xfe\xe1\x01\xf2\x01\xf4\x00\x2a\x2c\x7c\x00\x00\x00"
+                        b"\x00\x00\x00\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x84\x77"
+                    )  # {'voltage': 15.6, 'current': -2.87, 'battery_level': 100, 'cycle_charge': 4.98, 'cycles': 42, 'temperature': 22.133333333333347}
+                case self.CMD_CELL:
+                    return bytearray(
+                        b"\xdd\x04\x00\x08\x0d\x66\x0d\x61\x0d\x68\x0d\x59\xfe\x3c\x77"
+                    )  # {'cell#0': 3.43, 'cell#1': 3.425, 'cell#2': 3.432, 'cell#3': 3.417}
+                case self.HW_INFO:
+                    return bytearray(
+                        b"\xdd\x05\x00\x0a\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\xfd\xe9\x77"
+                    )  # hardware version 0123456789
         return bytearray()
 
     async def _send_data(self, char_specifier, data) -> None:
@@ -107,7 +143,9 @@ class MockJBDBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        _task: asyncio.Task[None] = asyncio.create_task(self._send_data(char_specifier, data))
+        _task: asyncio.Task[None] = asyncio.create_task(
+            self._send_data(char_specifier, data)
+        )
         self._tasks.add(_task)
         _task.add_done_callback(self._tasks.discard)
 
@@ -161,6 +199,59 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    "secret", ["000000", "wrong"], ids=["correct_secret", "wrong_secret"]
+)
+async def test_update_secret(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, secret: str
+) -> None:
+    """Test JBD BMS data update."""
+
+    monkeypatch.setattr(MockJBDBleakClient, "REQUIRE_PASS", True)
+    patch_bleak_client(MockJBDBleakClient)
+
+    bms = BMS(generate_ble_device(), secret=secret)
+    if secret == "wrong":
+        with pytest.raises(PermissionError):
+            await bms.async_update()
+    else:
+        assert await bms.async_update() == _RESULT_DEFS
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    "wrong_init",
+    [
+        b"",
+        b"\xf0\xaa\x15\x01\x00\x16",
+        b"\xff\xaa\x15\x01\x16",
+        b"\xff\xaa\x15\x01\x00\x15",
+        b"\xff\xaa\x16\x01\x00\x17",
+    ],
+    ids=["empty_resp", "wrong_SOF", "wrong_len", "wrong_CRC", "wrong_cmd"],
+)
+async def test_invalid_init(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_init: bytes,
+) -> None:
+    """Test connection init with BMS returning invalid data (wrong CRC)."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(MockJBDBleakClient, "REQUIRE_PASS", True)
+    monkeypatch.setattr(MockJBDBleakClient, "ACK_MSG", bytearray(wrong_init))
+    patch_bleak_client(MockJBDBleakClient)
+
+    bms = BMS(generate_ble_device(), secret="000000")
+
+    with pytest.raises(TimeoutError):
+        _result: BMSSample = await bms.async_update()
 
     await bms.disconnect()
 
