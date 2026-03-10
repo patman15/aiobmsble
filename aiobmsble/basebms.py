@@ -65,6 +65,7 @@ class BaseBMS(ABC):
         keep_alive: bool = True,
         secret: str = "",
         logger_name: str = "",
+        inv_wr_mode: bool | None = None,
     ) -> None:
         """Initialize the BMS.
 
@@ -80,6 +81,9 @@ class BaseBMS(ABC):
                 `async with` context manager (requires `keep_alive=True`).
             secret (str): optional secret for authentication, if the BMS accepts it (see `accept_secret`).
             logger_name (str): name of the logger for the BMS instance, default: module name
+            inv_wr_mode (bool | None): initial write mode inversion setting. `None` (default)
+                enables auto-detection, `True` forces write-without-response for characteristics
+                that support both modes.
 
         """
         assert getattr(self, "_notification_handler", None) is not None, (
@@ -91,7 +95,7 @@ class BaseBMS(ABC):
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
         self.name: Final[str] = self._ble_device.name or "undefined"
-        self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
+        self._inv_wr_mode: bool | None = inv_wr_mode  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
         self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
