@@ -1,6 +1,19 @@
-# JBD BMS – Chins Extended Fields
+# JBD BMS
 
-## Overview
+## Authentication flow
+
+| Message| Header | Cmd | Length | Data | Checksum
+|---|---|---|---|---|---|
+| Cmd | ff aa | 15 | 06 | 30 30 30 30 30 30 | 3b
+| ACK | ff aa | 15 | 01 | 00 | 16
+| NACK | ff aa | 15 | 01 | 01 | 17
+
+Checksum is the 8-Bit sum of `Cmd, Length, Data` fields.
+Default password is "000000".
+
+## Chins Extended Fields
+
+### Overview
 
 Chins JBD batteries (matched by OUI `A4:C1:38`, `10:A5:62`, etc.) return
 a longer 0x03 info response than standard JBD devices. The standard frame
@@ -14,7 +27,7 @@ maintainability, the decision was made not to parse the extended fields
 at this time. This document preserves the protocol details and a
 reference implementation in case they need to be added in the future.
 
-## Extended Field Layout
+### Extended Field Layout
 
 The extended fields begin at offset `27 + (temp_sensors * 2)` in the
 response frame:
@@ -28,7 +41,7 @@ response frame:
 
 The frame ends with CRC (2 bytes) + tail (`0x77`) after the extended data.
 
-## Echo Behavior on Current Firmware
+### Echo Behavior on Current Firmware
 
 On observed Chins JBD firmware (12V 300Ah, hw_version `J-12300-241118-069`,
 captured via BLE on Cerbo GX from device `A4:C1:38:33:41:24`), the extended
@@ -42,7 +55,7 @@ This produces a spurious `balance_current` reading of ~196 A on a 300 Ah
 battery if parsed without validation, because the remaining capacity
 raw value (19630 = 196.30 Ah) is interpreted as current (196.30 A).
 
-## Example Frame
+### Example Frame
 
 Chins 0x03 response (1 temp sensor, `data_len=0x22`):
 
@@ -73,7 +86,7 @@ fb 37                               # CRC
 77                                  # tail
 ```
 
-## Safe Parsing
+### Safe Parsing
 
 If the extended fields need to be parsed in the future (e.g., if Chins
 firmware begins populating them with independent data), the echo must be

@@ -1,5 +1,4 @@
 """Test the package main script."""
-
 import argparse
 import asyncio
 from collections.abc import Callable
@@ -15,6 +14,7 @@ import pytest
 
 from aiobmsble import BMSSample
 import aiobmsble.__main__ as main_mod
+from aiobmsble.bms.dummy_bms import BMS as DummyBMS
 from aiobmsble.test_data import adv_dict_to_advdata
 
 
@@ -25,13 +25,13 @@ async def mock_discover(
     mock_mac_unknown: Final[str] = "00:00:00:00:00:00"
     mock_mac: Final[str] = "11:22:33:44:55:66"
     mock_device: BLEDevice = BLEDevice(mock_mac, "Dummy BMS", None)
-    mock_adv: AdvertisementData = adv_dict_to_advdata({"local_name":"dummy"})
+    mock_adv: AdvertisementData = adv_dict_to_advdata({"local_name": "dummy"})
     assert timeout >= 0, "timeout cannot be negative."
     assert return_adv, "mock only works with advertisement info."
     return {
         mock_mac_unknown: (
             BLEDevice(mock_mac_unknown, "Unknown Device", None),
-            adv_dict_to_advdata({"local_name":"unknown_device"}),
+            adv_dict_to_advdata({"local_name": "unknown_device"}),
         ),
         mock_mac: (mock_device, mock_adv),
     }
@@ -107,13 +107,69 @@ async def test_bms_fail(
     assert "Failed to query BMS: TimeoutError" in caplog.text
 
 
+async def test_bms_retry_with_secret(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify that a failed query will be retried when a BMS accepts a secret.
+
+    The first call to ``_async_update`` simulates a timeout while no secret is
+    supplied. ``detect_bms`` should catch the error, prompt for a secret via
+    :func:`getpass.getpass`, and attempt the query again with the provided
+    value.  The second attempt returns a valid sample which is logged.
+    """
+
+    # prepare BLE scanning and client patching as in other tests
+    monkeypatch.setattr("aiobmsble.__main__.BleakScanner.discover", mock_discover)
+
+    DummyBMS.accept_secret = True
+    orig_init = DummyBMS.__init__
+
+    def init_with_secret(self, ble_device, keep_alive=True, secret="") -> None:
+        # call original initializer and remember the secret
+        orig_init(self, ble_device, keep_alive)
+        self._secret = secret
+
+    monkeypatch.setattr(DummyBMS, "__init__", init_with_secret)
+
+    attempts: list[str] = []
+
+    async def fake_update(self) -> BMSSample:
+        # record the secret used for each invocation
+        attempts.append(getattr(self, "_secret", ""))
+        if not getattr(self, "_secret", ""):
+            raise TimeoutError
+        return {"voltage": 99}
+
+    monkeypatch.setattr(DummyBMS, "_async_update", fake_update)
+
+    # patch getpass to avoid interactive prompt
+    monkeypatch.setattr("getpass.getpass", lambda prompt="": "secret123")
+
+    patch_bleak_client()
+    with caplog.at_level(INFO):
+        await main_mod.detect_bms()
+
+    assert "Failed to query BMS: TimeoutError" in caplog.text
+    assert "Querying BMS with secret..." in caplog.text
+    assert "BMS data" in caplog.text
+    # ensure we attempted without and then with the secret
+    assert attempts == ["", "secret123"]
+
+
 def test_main_parses_logfile_and_verbose(
     monkeypatch: pytest.MonkeyPatch,
     mock_setup_logging: mock.MagicMock | mock.AsyncMock,
     mock_asyncio_run: mock.MagicMock | mock.AsyncMock,
 ) -> None:
     """Check that command line parses log file option and verbosity level."""
+
+    async def patch_scan_devices() -> dict[str, tuple[BLEDevice, AdvertisementData]]:
+        return {}
+
     monkeypatch.setattr(sys, "argv", ["prog", "-l", "test.log", "-v"])
+    monkeypatch.setattr(main_mod, "scan_devices", patch_scan_devices)
     main_mod.main()
     args = mock_setup_logging.call_args[0][0]
     assert mock_setup_logging.called

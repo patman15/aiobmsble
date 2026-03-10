@@ -38,6 +38,8 @@ class BaseBMS(ABC):
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
 
+    accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
+
     type _InfoCharType = Literal[
         "model",
         "serial_number",
@@ -61,6 +63,7 @@ class BaseBMS(ABC):
         self,
         ble_device: BLEDevice,
         keep_alive: bool = True,
+        secret: str = "",
         logger_name: str = "",
     ) -> None:
         """Initialize the BMS.
@@ -75,6 +78,7 @@ class BaseBMS(ABC):
             keep_alive (bool): if true, the connection will be kept active after each update.
                 Make sure to call `disconnect()` when done using the BMS class or better use
                 `async with` context manager (requires `keep_alive=True`).
+            secret (str): optional secret for authentication, if the BMS accepts it (see `accept_secret`).
             logger_name (str): name of the logger for the BMS instance, default: module name
 
         """
