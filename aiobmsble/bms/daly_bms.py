@@ -27,8 +27,7 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 32
     _MAX_TEMP: Final[int] = 8
     _INFO_LEN: Final[int] = 84 + _HEAD_LEN + _CRC_LEN + _MAX_CELLS + _MAX_TEMP
-    _MOS_TEMP_POS: Final[int] = _HEAD_LEN + 8
-    MOS_NOT_AVAILABLE: Final[tuple[str]] = ("DL-FB4C2E0",)
+    _MOSTEMP_POS: Final[int] = _HEAD_LEN + 8
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 80, 2, False, lambda x: x / 10),
         BMSDp("current", 82, 2, False, lambda x: (x - 30000) / 10),
@@ -48,6 +47,7 @@ class BMS(BaseBMS):
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive)
         self._msg: bytes = b""
+        self._mos_avail: bool | None = None
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -119,25 +119,31 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         result: BMSSample = {}
-        if (  # do not query devices that do not support MOS temperature, e.g. Bulltron
-            not self.name.startswith(BMS.MOS_NOT_AVAILABLE)
-        ):
+        if self._mos_avail in (True, None):
             try:
-                # request MOS temperature (possible outcome: response, empty response, no response)
+                # request MOS temperature (possible: response, stuck response, no response)
                 await self._await_msg(BMS._HEAD_READ + BMS._MOS_INFO)
 
-                if sum(self._msg[BMS._MOS_TEMP_POS :][:2]):
-                    self._log.debug("MOS info: %s", self._msg)
+                if self._mos_avail is None and self._msg[
+                    BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2
+                ] in (
+                    b"\x00\x00",
+                    b"\xff\xff",
+                ):
+                    self._log.debug("MOS temperature invalid, deactivating.")
+                    self._mos_avail = False
+                else:
                     result["temp_values"] = [
                         int.from_bytes(
-                            self._msg[BMS._MOS_TEMP_POS :][:2],
+                            self._msg[BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2],
                             byteorder="big",
-                            signed=True,
                         )
                         - 40
                     ]
+                    self._mos_avail = True
             except TimeoutError:
-                self._log.debug("no MOS temperature available.")
+                self._log.debug("MOS temperature read failed, deactivating.")
+                self._mos_avail = False
 
         await self._await_msg(BMS._HEAD_READ + BMS._CMD_INFO)
 
