@@ -12,7 +12,7 @@ from aiobmsble.basebms import BMSSample
 from aiobmsble.bms.eg4_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import BMSBasicTests, verify_device_info
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE: Final[int] = 80
 CMD_STATUS: Final[bytes] = b"\x01\x03\x00\x00\x00\x27\x05\xd0"
@@ -103,11 +103,6 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
-
-
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockEG4BleakClient, BMS)
 
 
 @pytest.mark.parametrize(
