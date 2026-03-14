@@ -41,9 +41,15 @@ class BMS(BaseBMS):
         {(0x51, b""), (0x61, b"\x00"), (0x62, b"")}
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._exp_len: int = BMS._MIN_LEN
         self._exp_reply: set[int] = set()

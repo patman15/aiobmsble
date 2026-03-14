@@ -48,7 +48,9 @@ class BMS(BaseBMS):
         BMSDp("cycles", 46, 2, False, idx=_EIA_LEN),
         BMSDp("battery_level", 48, 2, False, lambda x: x / 10, _EIA_LEN),
         BMSDp("battery_health", 50, 2, False, lambda x: x / 10, _EIA_LEN),
-        BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, _EIC_LEN),
+        BMSDp(
+            "problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, _EIC_LEN
+        ),
         BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), _EIC_LEN),
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), _EIC_LEN),
         BMSDp("heater", 7, 1, False, lambda x: bool(x & 8), _EIC_LEN),
@@ -68,9 +70,15 @@ class BMS(BaseBMS):
         | {field[2] for field in _PQUERY.values()}
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._pack_count: int = 0  # number of battery packs
         self._pkglen: int = 0  # expected packet length

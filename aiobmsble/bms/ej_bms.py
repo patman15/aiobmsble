@@ -59,9 +59,15 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 66, 2, False, lambda x: x // 10, Cmd.RT),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
 
     @staticmethod

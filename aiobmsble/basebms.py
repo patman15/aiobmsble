@@ -82,12 +82,12 @@ class BaseBMS(ABC):
             logger_name (str): name of the logger for the BMS instance, default: module name
 
         """
-        assert getattr(self, "_notification_handler", None) is not None, (
-            "BMS class must define `_notification_handler` method"
-        )
-        assert {"default_manufacturer", "default_model"}.issubset(self.INFO), (
-            "BMS class must define `INFO`"
-        )
+        assert (
+            getattr(self, "_notification_handler", None) is not None
+        ), "BMS class must define `_notification_handler` method"
+        assert {"default_manufacturer", "default_model"}.issubset(
+            self.INFO
+        ), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
         self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
@@ -619,7 +619,8 @@ class BaseBMS(ABC):
                 (
                     value := int.from_bytes(
                         data[
-                            start + idx * (size + gap) : start
+                            start
+                            + idx * (size + gap) : start
                             + idx * (size + gap)
                             + size
                         ],
