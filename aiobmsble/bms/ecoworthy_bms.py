@@ -44,9 +44,15 @@ class BMS(BaseBMS):
 
     _CMDS: Final = frozenset({field.idx for field in _FIELDS_V1})
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._mac_head: Final[tuple[bytes, ...]] = tuple(
             int(self._ble_device.address.replace(":", ""), 16).to_bytes(6) + head
             for head in BMS._HEAD
@@ -100,9 +106,7 @@ class BMS(BaseBMS):
 
         # copy final data without message type and adapt to protocol type
         shift: Final[bool] = data.startswith(self._mac_head)
-        self._msg[data[6 if shift else 0]] = bytes(2 if shift else 0) + bytes(
-            data
-        )
+        self._msg[data[6 if shift else 0]] = bytes(2 if shift else 0) + bytes(data)
         if BMS._CMDS.issubset(self._msg.keys()):
             self._msg_event.set()
 
