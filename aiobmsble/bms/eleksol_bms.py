@@ -41,9 +41,9 @@ class BMS(JbdBMS):
     @staticmethod
     def uuid_rx() -> str:
         """Return 16-bit UUID of characteristic that provides notification/read property."""
-        return "ff08"
+        return "ff07"
 
     @staticmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-        return "ff07"
+        return "ff08"
