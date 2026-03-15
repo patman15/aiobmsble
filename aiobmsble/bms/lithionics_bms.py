@@ -26,9 +26,15 @@ class BMS(BaseBMS):
     _MIN_FIELDS_PRIMARY: Final[int] = 10
     _MIN_FIELDS_STATUS: Final[int] = 3
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._stream_data: dict[str, list[str]] = {}
 
     @staticmethod

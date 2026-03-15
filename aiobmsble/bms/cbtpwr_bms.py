@@ -39,10 +39,16 @@ class BMS(BaseBMS):
     )
     _CMDS: Final = frozenset({field.idx for field in _FIELDS})
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
-        self._msg: bytes = b""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
+        self._msg: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -106,7 +112,7 @@ class BMS(BaseBMS):
             )
             return
 
-        self._msg = bytes(data)
+        self._msg[data[2]] = bytes(data)
         self._msg_event.set()
 
     @staticmethod
@@ -122,41 +128,24 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        resp_cache: dict[int, bytes] = {}  # avoid multiple queries
         for cmd in BMS._CMDS:
-            self._log.debug("request command 0x%X.", cmd)
-            try:
-                await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
-            except TimeoutError:
-                continue
-            if cmd != self._msg[BMS._CMD_POS]:
-                self._log.debug(
-                    "incorrect response 0x%X to command 0x%X",
-                    self._msg[BMS._CMD_POS],
-                    cmd,
-                )
-            resp_cache[self._msg[BMS._CMD_POS]] = self._msg
+            await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
+        if not BMS._CMDS.issubset(set(self._msg.keys())):
+            self._log.debug("Incomplete data set %s", self._msg.keys())
+            raise ValueError("BMS data incomplete.")
 
         voltages: list[float] = []
         for cmd in BMS._CELLV_CMDS:
-            try:
-                await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
-            except TimeoutError:
-                break
+            await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
             cells: list[float] = BMS._cell_voltages(
-                self._msg, cells=5, start=4, byteorder="little"
+                self._msg[cmd], cells=5, start=4, byteorder="little"
             )
             voltages.extend(cells)
             if len(voltages) % 5 or len(cells) == 0:
                 break
 
-        data: BMSSample = BMS._decode_data(BMS._FIELDS, resp_cache, byteorder="little")
+        data: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
 
-        # get cycle charge from design capacity and SoC
-        if data.get("design_capacity") and data.get("battery_level"):
-            data["cycle_charge"] = (
-                data.get("design_capacity", 0) * data.get("battery_level", 0) / 100
-            )
         # remove runtime if not discharging
         if data.get("current", 0) >= 0:
             data.pop("runtime", None)

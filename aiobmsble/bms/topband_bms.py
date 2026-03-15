@@ -20,7 +20,11 @@ class BMS(BaseBMS):
     """Ective BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Topband", "default_model": "smart BMS"}
-    _HEAD_RSP: Final[tuple[bytes, ...]] = (b"\x5e", b"\x83", b"\xb0")  # header for responses
+    _HEAD_RSP: Final[tuple[bytes, ...]] = (
+        b"\x5e",
+        b"\x83",
+        b"\xb0",
+    )  # header for responses
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
@@ -34,9 +38,15 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 18, 1, False),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
