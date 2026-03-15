@@ -35,10 +35,18 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000, 0x2),
         BMSDp("voltage", 13, 2, False, lambda x: x / 1000, 0x2),
     )
+    accept_secret: bool = True
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
+        self._secret: Final[str] = secret
         self._msg: dict[int, bytes] = {}
 
     @staticmethod
@@ -81,7 +89,12 @@ class BMS(BaseBMS):
     ) -> None:
         await super()._init_connection(char_notify)
         self._log.debug("send password")
-        await self._await_msg(BMS._cmd(0x10) + BMS._PASS[:6] + b"\x00\xe7\x80\x69\x48")
+        try:
+            #await self._await_msg(BMS._cmd(0x10) + BMS._PASS[:6] + b"\x00\xe7\x80\x69\x48")
+            await self._await_msg(bytes.fromhex(self._secret))
+        except ValueError:
+            self._log.error("Secret needs to be a pure HEX string!")
+            raise
         if 0x0 not in self._msg:
             raise ConnectionRefusedError("authentication failed")
         await self._await_msg(BMS._cmd(0x43) + b"\x01\x01\xe7\x80\x69\x96")
