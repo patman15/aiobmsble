@@ -30,9 +30,15 @@ class BMS(RenogyBMS):
         # https://github.com/patman15/BMS_BLE-HA/issues/596
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._char_write_handle: int = -1
 
     @staticmethod
