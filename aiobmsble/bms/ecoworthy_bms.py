@@ -41,7 +41,9 @@ class BMS(BaseBMS):
         )
         for field in _FIELDS_V1
     )
-
+    _QUERY_CMD: Final[bytes] = (
+        b"\xff\x08\x02\x00\x0b\x01\x00\x14\x01\xff\xff\xff\xff\xff\xff\xff\x65\xef"
+    )
     _CMDS: Final = frozenset({field.idx for field in _FIELDS_V1})
 
     def __init__(
@@ -113,8 +115,10 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        self._msg.clear()
-        self._msg_event.clear()  # clear event to ensure new data is acquired
+        if not self._msg_event.is_set():
+            self._log.debug("requesting data update")
+            await self._await_msg(BMS._QUERY_CMD, wait_for_notify=False)
+
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
         result: BMSSample = BMS._decode_data(
@@ -137,5 +141,8 @@ class BMS(BaseBMS):
             start=BMS._TEMP_POS + 2,
             divider=10,
         )
+
+        self._msg.clear()
+        self._msg_event.clear()  # clear event to ensure new data is acquired
 
         return result
