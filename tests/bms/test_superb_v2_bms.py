@@ -12,7 +12,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.superb_v2_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import BMSBasicTests, verify_device_info
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 32
 
@@ -161,11 +161,6 @@ async def test_update_chrg(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     }
 
     await bms.disconnect()
-
-
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockSuperBv2BleakClient, BMS)
 
 
 @pytest.mark.parametrize(

@@ -17,7 +17,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import BMSBasicTests, verify_device_info
+from tests.test_basebms import BMSBasicTests
 
 # Actual recorded packets from device logs
 RECORDED_PACKETS: dict[str, bytearray] = {
@@ -180,11 +180,6 @@ async def test_async_update_with_protection(patch_bleak_client) -> None:
         "problem": True,
     }
     await bms.disconnect()
-
-
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockProBMSBleakClient, BMS)
 
 
 @pytest.mark.asyncio
