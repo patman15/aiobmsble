@@ -23,7 +23,7 @@ from bleak.exc import (
 )
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, __version__
 
 
 class BaseBMS(ABC):
@@ -37,6 +37,8 @@ class BaseBMS(ABC):
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
+
+    accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
 
     type _InfoCharType = Literal[
         "model",
@@ -61,6 +63,7 @@ class BaseBMS(ABC):
         self,
         ble_device: BLEDevice,
         keep_alive: bool = True,
+        secret: str = "",
         logger_name: str = "",
     ) -> None:
         """Initialize the BMS.
@@ -75,18 +78,19 @@ class BaseBMS(ABC):
             keep_alive (bool): if true, the connection will be kept active after each update.
                 Make sure to call `disconnect()` when done using the BMS class or better use
                 `async with` context manager (requires `keep_alive=True`).
+            secret (str): optional secret for authentication, if the BMS accepts it (see `accept_secret`).
             logger_name (str): name of the logger for the BMS instance, default: module name
 
         """
-        assert getattr(self, "_notification_handler", None) is not None, (
-            "BMS class must define `_notification_handler` method"
-        )
-        assert {"default_manufacturer", "default_model"}.issubset(self.INFO), (
-            "BMS class must define `INFO`"
-        )
+        assert (
+            getattr(self, "_notification_handler", None) is not None
+        ), "BMS class must define `_notification_handler` method"
+        assert {"default_manufacturer", "default_model"}.issubset(
+            self.INFO
+        ), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
-        self.name: Final[str] = self._ble_device.name or "undefined"
+        self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         logger_name = logger_name or self.__class__.__module__
         self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
@@ -97,7 +101,10 @@ class BaseBMS(ABC):
         )
 
         self._log.debug(
-            "initializing %s, BT address: %s", self.bms_id(), ble_device.address
+            "%s: initializing %s, BT address: %s",
+            __version__,
+            self.bms_id(),
+            ble_device.address,
         )
         self._client: BleakClient = BleakClient(
             self._ble_device,
@@ -612,7 +619,8 @@ class BaseBMS(ABC):
                 (
                     value := int.from_bytes(
                         data[
-                            start + idx * (size + gap) : start
+                            start
+                            + idx * (size + gap) : start
                             + idx * (size + gap)
                             + size
                         ],

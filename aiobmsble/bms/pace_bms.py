@@ -40,9 +40,15 @@ class BMS(BaseBMS):
         # BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._valid_reply: bytes = b""  # expected reply type
         self._msg: bytes = b""
 

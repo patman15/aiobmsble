@@ -43,9 +43,15 @@ class BMS(BaseBMS):
     )  # problem code, switches are not included in the list, but extra
     _CMDS: Final = frozenset({field.idx for field in _FIELDS} | {0x8D})
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._cmd_heads: set[int] = BMS._CMD_HEADS
         self._exp_len: int = 0

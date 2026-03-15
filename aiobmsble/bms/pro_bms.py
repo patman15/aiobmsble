@@ -52,9 +52,15 @@ class BMS(BaseBMS):
         BMSDp("power", 32, 4, False, lambda x: x / 100),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._valid_reply: int = BMS._RT_DATA
         self._msg: bytes = b""
 
@@ -131,9 +137,7 @@ class BMS(BaseBMS):
             await self.disconnect()
             raise
 
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._msg, byteorder="little"
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         result["power"] = result.get("power", 0) * (
             -1 if result.get("current", 0) < 0 else 1
         )

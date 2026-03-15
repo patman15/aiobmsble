@@ -73,7 +73,8 @@ class MockProBMSBleakClient(MockBleakClient):
         while not self._stop_streaming:
             if self._notify_callback and self._test_packet:
                 self._notify_callback(None, self._test_packet)
-            await asyncio.sleep(0.5)  # Send data every 500ms
+            # Send data every 10ms (real 500ms) to speed up tests
+            await asyncio.sleep(0.01)
 
     async def write_gatt_char(self, char_specifier, data, response=None):
         """Mock write to handle initialization and data requests."""

@@ -23,9 +23,17 @@ class BMS(BaseBMS):
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    # accept_secret: bool = True  # if the BMS accepts a secret for authentication
+
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:

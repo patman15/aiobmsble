@@ -100,6 +100,8 @@ class MockEJsfBleakClient(MockEJBleakClient):
             "balancer": 0,
             "chrg_mosfet": True,
             "dischrg_mosfet": True,
+            "heater": False,
+            "design_capacity": 150,
         }
 
 
@@ -169,6 +171,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "balancer": False,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
+        "heater": False,
     }
 
     # query again to check already connected state

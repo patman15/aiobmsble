@@ -142,7 +142,7 @@ _PROTO_DEFS: Final[dict[str, dict[str, bytearray]]] = {
             b"\xb0\xcf\x07\x00\x00\xbb"
         ),  # 53.224V, 25%, 31.881A, cycles:9, 16.367°C, Float, timer: 677s,
     },
-    "JK02_32S_v19": {  # JK02_32 (SW: V19.05)
+    "JK02_32S_v19.05": {  # JK02_32 (SW: V19.05)
         "dev": bytearray(
             b"\x55\xaa\xeb\x90\x03\x98\x4a\x4b\x5f\x50\x42\x32\x41\x31\x36\x53\x32\x30\x50\x00\x00"
             b"\x00\x31\x39\x41\x00\x00\x00\x00\x00\x31\x39\x2e\x30\x35\x00\x00\x00\x48\x73\x08\x00"
@@ -179,6 +179,45 @@ _PROTO_DEFS: Final[dict[str, dict[str, bytearray]]] = {
             b"\x00\x00\x00\x01\x00\xa5\x02\x02\x00\x00\x00\x00\x00\x00\xfe\xff\x7f\xdc\x2f\x01\x01"
             b"\xb0\xcf\x07\x00\x00\xbb"
         ),  # 53.224V, 25%, 31.881A, cycles:9, 16.367°C, Float, timer: 677s,
+    },
+    "JK02_32S_v19.27": {  # JK02_32 (SW: V19.27)
+        "dev": bytearray(
+            b"\x55\xaa\xeb\x90\x03\xda\x4a\x4b\x2d\x50\x42\x32\x41\x31\x36\x53\x32\x30\x50\x00\x00"
+            b"\x10\x31\x39\x41\x00\x00\x00\x00\x00\x31\x39\x2e\x32\x37\x00\x00\x00\xc0\x2d\x21\x00"
+            b"\x6c\x00\x00\x00\x44\x47\x20\x53\x6d\x61\x72\x74\x20\x42\x4d\x53\x00\x00\x00\x00\x31"
+            b"\x35\x35\x33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x32\x35\x31\x32\x32\x31"
+            b"\x00\x00\x35\x31\x30\x32\x30\x42\x4f\x34\x39\x30\x30\x30\x34\x32\x32\x00\x4a\x4b\x2d"
+            b"\x42\x4d\x53\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x39\x32\x32\x37\x34\x36\x30\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x4a\x4b\x2d\x42\x4d\x53\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\xff\xff\xff\xff\xaf\xe9\x8d\x0f\x00\x00\x00\x00\x90\x1f\x00\x00\x00\x00"
+            b"\xc0\xd8\xf7\xfe\xef\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x00\xfb\xe6\x00"
+            b"\x00\x43\x45\x48\x4d\x50\x52\x54\x00\x00\x00\x00\x00\xff\x0f\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x15\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x09\x08\x00\x01\x64\x00\x00\x00\x5f\x00\x00\x00\x3c\x00\x00\x00\x32\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10\x0e\x00\x00\x05\x32\x01\x1e\x0f\x03\xa4"
+            b"\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\xfe\x9f\xeb\xfe\x19\x00\x00"
+            b"\x00\x00\x00\x00\x02\xd2"
+        ),
+        "ack": bytearray(
+            b"\xaa\x55\x90\xeb\xc8\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x44"
+        ),
+        "cell": bytearray(
+            b"\x55\xaa\xeb\x90\x02\xda\xec\x0c\xf0\x0c\xf0\x0c\xeb\x0c\xef\x0c\xef\x0c\xf0\x0c\xed"
+            b"\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\xff\x00\x00\x00\xee\x0c\x05\x00\x01\x03\x61\x00\x5c\x00"
+            b"\x5f\x00\x55\x00\x60\x00\x57\x00\x65\x00\x57\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x06\x01\x00"
+            b"\x00\x00\x00\x71\x67\x00\x00\xfe\x2c\x05\x00\x74\xce\xff\xff\xe9\x00\xec\x00\x00\x00"
+            b"\x00\x00\xc6\x07\x01\x4e\x48\xba\x03\x00\x90\xca\x04\x00\x0f\x00\x00\x00\xe9\x24\x4a"
+            b"\x00\x64\x00\x00\x00\x0f\x2e\x21\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\xff\x00\x01\x00\x00\x00\x6f\x24\x00\x00\x67\x00\x1c\xf9\x3e\x40\x00"
+            b"\x00\xd8\x00\x58\x0a\x00\x00\x00\x01\x01\x01\x00\x06\x01\x00\x71\x28\x1f\x00\x00\x00"
+            b"\x00\x00\x06\x01\xf5\x00\xf0\x00\x01\x00\x92\xb1\x83\x0b\x3b\x04\x00\x00\x80\x51\x01"
+            b"\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xfe\xff\x7f\xdd\x2f\x01\x01"
+            b"\xb0\x0f\x07\x00\x00\x84"
+        ),
     },
 }
 
@@ -220,7 +259,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "temp_sensors": 7,
         "problem": False,
         "problem_code": 0,
-        "balancer": True,
+        "balancer": False,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
     },
@@ -291,7 +330,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
     },
-    "JK02_32S_v19": {
+    "JK02_32S_v19.05": {
         "cell_count": 16,
         "delta_voltage": 0.016,
         "battery_mode": BMSMode.FLOAT,
@@ -333,6 +372,32 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
     },
+    "JK02_32S_v19.27": {
+        "voltage": 26.481,
+        "current": -12.684,
+        "problem_code": 0,
+        "balance_current": 1.99,
+        "balancer": True,
+        "battery_level": 78,
+        "cycle_charge": 244.296,
+        "design_capacity": 314,
+        "cycles": 15,
+        "battery_health": 100,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
+        "temp_sensors": 255,
+        "cell_count": 8,
+        "delta_voltage": 0.005,
+        "battery_mode": BMSMode.BULK,
+        "temp_values": [26.2, 23.3, 23.6, 26.2, 24.5, 24.0],
+        "cell_voltages": [3.308, 3.312, 3.312, 3.307, 3.311, 3.311, 3.312, 3.309],
+        "cycle_capacity": 6469.202,
+        "power": -335.885,
+        "battery_charging": False,
+        "runtime": 69336,
+        "temperature": 24.633,
+        "problem": False,
+    },
 }
 
 _DEV_DEFS: Final[dict[str, BMSInfo]] = {
@@ -357,19 +422,32 @@ _DEV_DEFS: Final[dict[str, BMSInfo]] = {
         "name": "41018492555",
         "serial_number": "41018492",
     },
-    "JK02_32S_v19": {
+    "JK02_32S_v19.05": {
         "model": "JK_PB2A16S20P",
         "hw_version": "19A",
         "sw_version": "19.05",
         "name": "Baterie 1",
         "serial_number": "50321484",
     },
+    "JK02_32S_v19.27": {
+        "model": "JK-PB2A16S20P",
+        "hw_version": "19A",
+        "sw_version": "19.27",
+        "name": "DG Smart BMS",
+        "serial_number": "51020BO4",
+    },
 }
 
 
 @pytest.fixture(
     name="protocol_type",
-    params=["JK02_24S", "JK02_32S", "JK02_32S_v15", "JK02_32S_v19"],
+    params=[
+        "JK02_24S",
+        "JK02_32S",
+        "JK02_32S_v15",
+        "JK02_32S_v19.05",
+        "JK02_32S_v19.27",
+    ],
 )
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
@@ -596,8 +674,10 @@ async def test_hide_temp_sensors(
         ref_result |= {"temp_sensors": 3, "temperature": 18.1}
     elif protocol_type == "JK02_32S":
         ref_result |= {"temp_sensors": 251, "temperature": 31.0}
-    elif protocol_type in ("JK02_32S_v15", "JK02_32S_v19"):
+    elif protocol_type in ("JK02_32S_v15", "JK02_32S_v19.05"):
         ref_result |= {"temp_sensors": 251, "temperature": 18.0}
+    elif protocol_type == "JK02_32S_v19.27":
+        ref_result |= {"temp_sensors": 251, "temperature": 25.225}
 
     temp_values: list[int | float] = ref_result.get("temp_values", [])
     temp_values.pop(1)  # remove sensor 1

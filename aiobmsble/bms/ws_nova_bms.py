@@ -25,7 +25,7 @@ class BMS(BaseBMS):
     }
     _HEAD: Final[bytes] = b"\x3a"  # beginning of frame
     _TAIL: Final[bytes] = b"\x7e"  # end of frame
-    _MIN_LEN: Final[int] = 238 # heater*2 + tail
+    _MIN_LEN: Final[int] = 238  # heater*2 + tail
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
             "current",
@@ -43,9 +43,15 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 0, 2, False, lambda x: x & 0x0FFC),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
 
     @staticmethod

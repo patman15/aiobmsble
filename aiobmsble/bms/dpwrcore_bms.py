@@ -60,9 +60,15 @@ class BMS(BaseBMS):
     )
     _CMDS: Final = frozenset({Cmd(field.idx) for field in _FIELDS})
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         assert self._ble_device.name is not None  # required for unlock
         self._msg: dict[int, bytes] = {}
 

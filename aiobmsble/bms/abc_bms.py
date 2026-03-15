@@ -56,9 +56,15 @@ class BMS(BaseBMS):
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS} | {0xF4}  # cell voltages
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._exp_reply: set[int] = set()
 
@@ -92,7 +98,7 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         info: BMSInfo = await super()._fetch_device_info()
-        self._exp_reply = BMS._EXP_REPLY[0xC0]
+        self._exp_reply = BMS._EXP_REPLY[0xC0].copy()
         await self._await_msg(BMS._cmd(b"\xc0"))
         info.update({"model": b2str(self._msg[0xF1][2:-1])})
         return info
@@ -137,6 +143,7 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         self._msg.clear()
+        self._exp_reply.clear()
         for cmd in (0xC1, 0xC2, 0xC4):
             self._exp_reply.update(BMS._EXP_REPLY[cmd])
             with contextlib.suppress(TimeoutError):

@@ -90,6 +90,7 @@ class MockBleakClient(BleakClient):
         )  # call with address to avoid backend resolving
         self._connected: bool = False
         self._notify_callback: Callable | None = None
+        self._enabled_notify: set[BleakGATTCharacteristic | int | str | UUID] = set()
         self._disconnect_callback: Callable[[BleakClient], None] | None = (
             disconnected_callback
         )
@@ -130,7 +131,20 @@ class MockBleakClient(BleakClient):
         """Mock start_notify."""
         LOGGER.debug("MockBleakClient start_notify for %s", char_specifier)
         assert self._connected, "start_notify called, but client not connected."
+        assert (
+            char_specifier not in self._enabled_notify
+        ), "start_notify called, but already notifying."
         self._notify_callback = callback
+        self._enabled_notify.add(char_specifier)
+
+    async def stop_notify(
+        self, char_specifier: BleakGATTCharacteristic | int | str | UUID
+    ) -> None:
+        """Mock stop_notify."""
+        LOGGER.debug("MockBleakClient stop_notify for %s", char_specifier)
+        assert self._connected, "stop_notify called, but client not connected."
+        self._notify_callback = None
+        self._enabled_notify.remove(char_specifier)
 
     async def write_gatt_char(
         self,

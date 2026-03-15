@@ -64,15 +64,21 @@ class BMS(BaseBMS):
     _TEMP_START: Final[int] = 97
     _TEMP_MOS_OFFSET: Final[int] = 117
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [MatcherPattern(local_name="BMS-????????????????*", connectable=True)]
+        return [MatcherPattern(local_name="BMS-[0-9A-F]*", connectable=True)]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
