@@ -15,8 +15,6 @@ class BMS(JbdBMS):
 
     INFO: BMSInfo = {"default_manufacturer": "Jiabaida", "default_model": "Eleksol BMS"}
 
-    # accept_secret: bool = True
-
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
