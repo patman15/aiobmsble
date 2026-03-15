@@ -39,7 +39,6 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2)),
         BMSDp("temp_sensors", 26, 1, False),  # count is not limited
     )  # general protocol v4
-
     accept_secret: bool = True
 
     def __init__(
