@@ -22,7 +22,6 @@ class BMS(BaseBMS):
         "default_manufacturer": "Batterieschmiede",
         "default_model": "Saftkiste BMS",
     }
-    _PASS: Final[bytes] = b"ABC123"
     _HEAD: Final[bytes] = b"\xf0\xff"  # beginning of frame
     _MAX_CELLS: Final[int] = 4
     _MIN_LEN: Final[int] = 5  # minimum length of valid responst (SOF+type+16bit)

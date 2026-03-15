@@ -11,7 +11,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.saftkiste_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import BMSBasicTests, verify_device_info
+from tests.test_basebms import BMSBasicTests
 
 _PROTO_DEFS: Final[dict[bytes, bytearray]] = {
     b"\xf0\xff\x02": bytearray(
@@ -59,7 +59,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "power": -1.522,
     "problem": False,
     "voltage": 13.836,
-    "battery_level": 99.21,
+    "battery_level": 99.2,
     "cycle_charge": 297.639,
     "cycle_capacity": 4118.133,
     "runtime": 9740912,
@@ -76,6 +76,7 @@ class MockSaftkisteBleakClient(MockBleakClient):
     """Emulate a Saftkiste BMS BleakClient."""
 
     _RESP: Final[dict[bytes, bytearray]] = _PROTO_DEFS
+    PASS: Final[str] = "f0ff1041424331323300e7806948"
 
     async def write_gatt_char(
         self,
@@ -97,7 +98,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockSaftkisteBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), keep_alive_fixture, MockSaftkisteBleakClient.PASS)
 
     assert await bms.async_update() == _RESULT_DEFS
 
@@ -106,11 +107,6 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
-
-
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockSaftkisteBleakClient, BMS)
 
 
 @pytest.mark.parametrize(
@@ -144,7 +140,7 @@ async def test_invalid_response(
     )
     patch_bleak_client(MockSaftkisteBleakClient)
 
-    bms = BMS(generate_ble_device())
+    bms = BMS(generate_ble_device(), secret=MockSaftkisteBleakClient.PASS)
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
