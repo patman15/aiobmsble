@@ -86,7 +86,7 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-        raise NotImplementedError
+        return "fff2"
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

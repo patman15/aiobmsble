@@ -182,17 +182,6 @@ async def test_device_info(patch_bleak_client) -> None:
     await verify_device_info(patch_bleak_client, MockECOWBleakClient, BMS)
 
 
-async def test_tx_notimplemented(patch_bleak_client) -> None:
-    """Test ECO-WORTHY BMS uuid_tx not implemented for coverage."""
-
-    patch_bleak_client(MockECOWBleakClient)
-
-    bms = BMS(generate_ble_device(), False)
-
-    with pytest.raises(NotImplementedError):
-        _ret: str = bms.uuid_tx()
-
-
 @pytest.fixture(
     name="wrong_response",
     params=[
