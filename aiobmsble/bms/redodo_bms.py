@@ -77,6 +77,8 @@ class BMS(BaseBMS):
                 "LT-24???B-A0[1-9]*",
                 "LT-24???B-A[1-9]*",
                 "LT-51*",
+                "S-12*", # Starry Sea
+                "SS-12*", # Starry Sea
             )
         ]
 
