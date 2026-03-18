@@ -1,0 +1,39 @@
+"""Module to support Dyness Junior BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
+
+from bleak.uuids import normalize_uuid_str
+
+from aiobmsble import BMSInfo, MatcherPattern
+from aiobmsble.bms.jbd_bms import BMS as JbdBMS
+
+
+class BMS(JbdBMS):
+    """Dyness Junior BMS implementation."""
+
+    INFO: BMSInfo = {
+        "default_manufacturer": "Dyness",
+        "default_model": "Junior BMS",
+    }
+
+    @staticmethod
+    def matcher_dict_list() -> list[MatcherPattern]:
+        """Provide BluetoothMatcher definition."""
+        return [{"local_name": "R05*", "connectable": True}]
+
+    @staticmethod
+    def uuid_services() -> tuple[str, ...]:
+        """Return list of 128-bit UUIDs of services required by BMS."""
+        return (normalize_uuid_str("fe00"),)
+
+    @staticmethod
+    def uuid_rx() -> str:
+        """Return 16-bit UUID of characteristic that provides notification/read property."""
+        return "fe02"
+
+    @staticmethod
+    def uuid_tx() -> str:
+        """Return 16-bit UUID of characteristic that provides write property."""
+        return "fe01"
