@@ -25,14 +25,20 @@ class BMS(BaseBMS):
     _HEAD: Final[bytes] = b"\x01\x03"  # dev, read (0x03)
     _MIN_LEN: Final[int] = 5  # length of frame, including SOF and checksum
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("current", 0, 2, True, lambda x: x / 100),
-        BMSDp("voltage", 2, 2, False, lambda x: x / 100),
-        BMSDp("battery_level", 4, 2, False),
+        BMSDp("current", 3, 2, True, lambda x: x / 100),
+        BMSDp("voltage", 5, 2, False, lambda x: x / 100),
+        BMSDp("battery_level", 7, 2, False),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._exp_len: int = 0
         self._msg: bytes = b""
 
@@ -55,10 +61,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return UUID of characteristic that provides write property."""
         return "00002760-08c2-11e1-9073-0e8ac72e0001"
-
-    # @staticmethod
-    # def _raw_values() -> frozenset[BMSValue]:
-    #     return frozenset({"runtime"})  # never calculate, e.g. runtime
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -108,6 +110,6 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(BMS._cmd(0x0, 0xf))
+        await self._await_msg(BMS._cmd(0x0, 0x3))
 
         return BMS._decode_data(BMS._FIELDS, self._msg)
