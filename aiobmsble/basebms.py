@@ -361,7 +361,7 @@ class BaseBMS(ABC):
             "start notify on RX characteristic %s", str(char_notify or self.uuid_rx())
         )
         await self._client.start_notify(
-            char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
+            char_notify or self.uuid_rx(), getattr(self, "_notification_handler"), bluez={"use_start_notify": True}
         )
 
     @final

@@ -139,7 +139,11 @@ class BMS(BaseBMS):
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         if self._secret:
-            await self._client.start_notify(BMS.uuid_rx(), self._notify_init_handler)
+            await self._client.start_notify(
+                BMS.uuid_rx(),
+                self._notify_init_handler,
+                bluez={"use_start_notify": True},
+            )
             data: Final[bytes] = self._secret.encode(encoding="ASCII")
             try:
                 await self._await_msg(
