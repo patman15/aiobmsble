@@ -28,6 +28,7 @@ class BMS(BaseBMS):
         BMSDp("current", 3, 2, True, lambda x: x / 100),
         BMSDp("voltage", 5, 2, False, lambda x: x / 100),
         BMSDp("battery_level", 7, 2, False),
+        BMSDp("battery_health", 9, 2, False),
     )
 
     def __init__(
@@ -110,6 +111,6 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(BMS._cmd(0x0, 0x3))
+        await self._await_msg(BMS._cmd(0x0, 0xd))
 
         return BMS._decode_data(BMS._FIELDS, self._msg)
