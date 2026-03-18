@@ -41,7 +41,8 @@ class BMS(BaseBMS):
         )
         for field in _FIELDS_V1
     )
-    _QUERY_CMD: Final[bytes] = (
+    _QUERY_CMDS: Final[tuple[bytes, ...]] = (
+        b"\xff\x08\x02\x00\x0b\x01\x00\x64\x01\xff\xff\xff\xff\xff\xff\xff\x00\x2d",
         b"\xff\x08\x02\x00\x0b\x01\x00\x14\x01\xff\xff\xff\xff\xff\xff\xff\x65\xef"
     )
     _CMDS: Final = frozenset({field.idx for field in _FIELDS_V1})
@@ -117,7 +118,8 @@ class BMS(BaseBMS):
 
         if not self._msg_event.is_set():
             self._log.debug("requesting data update")
-            await self._await_msg(BMS._QUERY_CMD, wait_for_notify=False)
+            for cmd in BMS._QUERY_CMDS:
+                await self._await_msg(cmd, wait_for_notify=False)
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
