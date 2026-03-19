@@ -51,7 +51,6 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive, secret, logger_name)
-        self._secret: Final[str] = secret
         self._valid_reply: int = 0x00
         self._msg: bytes = b""
 
