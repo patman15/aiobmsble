@@ -25,7 +25,7 @@ class BMS(JbdBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [{"local_name": "R05*", "connectable": True}]
+        return [{"local_name": "R07*", "connectable": True}]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
