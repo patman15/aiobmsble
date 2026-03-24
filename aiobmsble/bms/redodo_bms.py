@@ -61,14 +61,14 @@ class BMS(BaseBMS):
                 "connectable": True,
             }
             for pattern in (
-                "R-12*",
-                "R-24*",
-                "RO-12*",
-                "RO-24*",
                 "P-12*",
                 "P-24*",
                 "PQ-12*",
                 "PQ-24*",
+                "R-12*",
+                "R-24*",
+                "RO-12*",
+                "RO-24*",
                 "L-12*",  # vv *** LiTime *** vv
                 "L-24*",
                 "L-51*",
@@ -77,6 +77,8 @@ class BMS(BaseBMS):
                 "LT-24???B-A0[1-9]*",
                 "LT-24???B-A[1-9]*",
                 "LT-51*",
+                "S-*",  # Starry Sea by Litime
+                "SS-*",  # Starry Sea
             )
         ]
 
