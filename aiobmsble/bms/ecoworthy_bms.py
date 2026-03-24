@@ -43,7 +43,7 @@ class BMS(BaseBMS):
     )
     _QUERY_CMDS: Final[tuple[bytes, ...]] = (
         b"\xff\x08\x02\x00\x0b\x01\x00\x64\x01\xff\xff\xff\xff\xff\xff\xff\x00\x2d",
-        b"\xff\x08\x02\x00\x0b\x01\x00\x14\x01\xff\xff\xff\xff\xff\xff\xff\x65\xef"
+        b"\xff\x08\x02\x00\x0b\x01\x00\x14\x01\xff\xff\xff\xff\xff\xff\xff\x65\xef",
     )
     _CMDS: Final = frozenset({field.idx for field in _FIELDS_V1})
 
@@ -118,8 +118,13 @@ class BMS(BaseBMS):
 
         if not self._msg_event.is_set():
             self._log.debug("requesting data update")
+            self._msg.update(
+                {0xA1: b"", 0xA2: b""}
+            )  # prepare empty set to only wait for any message from the BMS
             for cmd in BMS._QUERY_CMDS:
-                await self._await_msg(cmd, wait_for_notify=False)
+                await self._await_msg(cmd)
+            self._msg.clear()
+            self._msg_event.clear()
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
