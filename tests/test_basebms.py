@@ -165,8 +165,10 @@ class WMTestBMS(MinTestBMS):
 
         return {"problem_code": int.from_bytes(self._data, "big", signed=False)}
 
+
 class BMSBasicTests:
     """Base class for BMS tests."""
+
     bms_class: type[BaseBMS]
 
     def test_bms_id(self) -> None:
@@ -175,7 +177,6 @@ class BMSBasicTests:
         for key in ("default_manufacturer", "default_model"):
             assert str(self.bms_class.INFO.get(key, "")).strip()
         assert len(self.bms_class.bms_id().strip())
-
 
     def test_matcher_dict(self) -> None:
         """Test that the BMS returns BT matcher."""
@@ -199,7 +200,8 @@ class BMSBasicTests:
             if oui := matcher.get("oui"):
                 parts: list[str] = oui.split(":")
                 assert len(parts) == 3 and all(
-                    len(part) == 2 and all(c in hexdigits for c in part) for part in parts
+                    len(part) == 2 and all(c in hexdigits for c in part)
+                    for part in parts
                 ), f"incorrect {oui=}"
                 try:
                     OUI(oui.replace(":", "-"))
