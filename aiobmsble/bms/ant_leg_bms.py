@@ -23,16 +23,17 @@ class BMS(BaseBMS):
         SET = 0xA5
 
     class ADR(IntEnum):
-        """Addresses for ANT BMS."""
+        """Address codes for ANT BMS."""
 
         STATUS = 0x00
-        SECRET = 0xF1
 
     INFO: BMSInfo = {"default_manufacturer": "ANT", "default_model": "legacy smart BMS"}
     _RX_HEADER: Final[bytes] = b"\xaa\x55\xaa"
     _RX_HEADER_RSP_STAT: Final[bytes] = b"\xaa\x55\xaa\xff"
+
     _RSP_STAT: Final[int] = 0xFF
     _RSP_STAT_LEN: Final[int] = 140
+
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 10),
         BMSDp("current", 70, 4, True, lambda x: x / -10),
@@ -54,8 +55,6 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 104, 1, False, lambda x: x == 0x1),
         BMSDp("balancer", 105, 1, False, lambda x: bool(x & 0x4)),
     )
-
-    accept_secret: bool = True
 
     def __init__(
         self,
@@ -83,7 +82,7 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return (normalize_uuid_str("ffe0"),)
+        return (normalize_uuid_str("ffe0"),)  # change service UUID here!
 
     @staticmethod
     def uuid_rx() -> str:
@@ -95,22 +94,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        """Initialize RX/TX characteristics and protocol state."""
-        await super()._init_connection(char_notify)
-        if self._secret:
-            if len(self._secret) != 8:
-                raise ValueError("Secret must be 8 characters long")
-
-            _pwd: Final[bytes] = self._secret.encode("ascii")
-            for i in range(4):
-                value: int = int.from_bytes(_pwd[i * 2 : i * 2 + 2], "big")
-                await self._await_msg(
-                    self._cmd(BMS.CMD.SET, BMS.ADR.SECRET + i, value),
-                    wait_for_notify=False,
-                )
+    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
