@@ -24,6 +24,7 @@ class BMS(BaseBMS):
     _MIN_LEN: Final[int] = 10  # frame length without data
     _CMD_STAT: Final[int] = 0x01
     _CMD_DEV: Final[int] = 0x02
+    _CMD_AUTH: Final[int] = 0x23
     _TEMP_POS: Final[int] = 8
     _MAX_TEMPS: Final[int] = 6
     _CELL_COUNT: Final[int] = 9
@@ -51,6 +52,7 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 47, 1, False, lambda x: x == 0x1),
         BMSDp("balancer", 48, 1, False, lambda x: bool(x & 0x4)),
     )
+    accept_secret: bool = True
 
     def __init__(
         self,
@@ -107,6 +109,16 @@ class BMS(BaseBMS):
         """Initialize RX/TX characteristics and protocol state."""
         await super()._init_connection(char_notify)
         self._exp_len = 0
+        if self._secret:
+            await self._await_msg(
+                self._cmd(
+                    BMS._CMD_AUTH,
+                    0x6A01,
+                    len(self._secret),
+                    self._secret.encode("ASCII"),
+                ),
+                wait_for_notify=False,
+            )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -161,12 +173,13 @@ class BMS(BaseBMS):
 
     @staticmethod
     @cache
-    def _cmd(cmd: int, adr: int, value: int) -> bytes:
-        """Assemble a ANT BMS command."""
+    def _cmd(cmd: int, adr: int, length: int, data: bytes = b"") -> bytes:
+        """Assemble an ANT BMS command."""
         frame: bytearray = (
             bytearray([*BMS._HEAD, cmd & 0xFF])
             + adr.to_bytes(2, "little")
-            + int.to_bytes(value & 0xFF, 1)
+            + int.to_bytes(length & 0xFF, 1)
+            + data
         )
         frame.extend(int.to_bytes(crc_modbus(frame[1:]), 2, "little"))
         return bytes(frame) + BMS._TAIL
