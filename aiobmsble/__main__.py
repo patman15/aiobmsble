@@ -78,7 +78,7 @@ async def identify_bms_from_json(json_str: str) -> None:
         json_str: JSON string containing advertisement data with 'address' field.
     """
     try:
-        adv_dict: dict = json.loads(json_str)
+        adv_dict: dict[str, Any] = json.loads(json_str)
     except json.JSONDecodeError as exc:
         logger.error("Failed to parse JSON: %s", exc)
         return
