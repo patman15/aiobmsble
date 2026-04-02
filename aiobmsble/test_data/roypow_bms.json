@@ -67,5 +67,22 @@
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/618)",
       "Lion Energy Safari UT1300"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": " S12100A LI00735 ",
+      "rssi": -86,
+      "platform_data": ["77:77:19:00:00:00"],
+      "manufacturer_data": { "52083": "88a0777719000000" },
+      "service_uuids": [
+        "0000ffe0-0000-1000-8000-00805f9b34fb",
+        "0000fee7-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "roypow_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/661)",
+      "PowerUrus 12V 100AH LiFePO4 Deep Cycle"
+    ]
   }
 ]
