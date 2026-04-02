@@ -49,7 +49,12 @@ In order to identify all devices that are reachable and supported by the library
 ```bash
 aiobmsble
 ```
-from the command line after [installation](#installation). 
+from the command line after [installation](#installation).
+
+```bash
+aiobmsble --json '{"local_name": "dummy"}'
+```
+returns the BMS type using the JSON advertisement data, e.g. from [Home Assistant Bluetooth Advertisement Monitor](https://www.home-assistant.io/integrations/bluetooth/#advertisement-monitor).
 
 ### From your Python code
 In case you need a reference to include the code into your library, please see [\_\_main\_\_.py](/aiobmsble/__main__.py).
