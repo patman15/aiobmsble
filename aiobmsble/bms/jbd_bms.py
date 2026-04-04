@@ -64,6 +64,7 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in (
+                "DWF*",  # Daren BMS, Docan battery
                 "JBD-*",
                 "N-?????BL*",  # Nordström battery
                 "SX1*",  # Supervolt v3

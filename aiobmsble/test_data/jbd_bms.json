@@ -575,5 +575,17 @@
     "_comments": [
       "source advmon (https://github.com/patman15/aiobmsble/pull/170)"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "DWF3C8A1F7C1235",
+      "platform_data": ["3C:8A:1F:00:00:00"],
+      "rssi": -79,
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/604)"
+    ]
   }
 ]
