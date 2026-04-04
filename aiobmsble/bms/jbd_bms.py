@@ -51,7 +51,6 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive, secret, logger_name)
-        self._secret: Final[str] = secret
         self._valid_reply: int = 0x00
         self._msg: bytes = b""
 
@@ -66,6 +65,7 @@ class BMS(BaseBMS):
             )
             for pattern in (
                 "JBD-*",
+                "N-?????BL*",  # Nordström battery
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
                 "SBL-*",  # SBL

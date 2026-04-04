@@ -204,7 +204,7 @@ def patch_bms_timeout(
 ) -> Callable[[str | None, float], None]:
     """Fixture to patch BMS.TIMEOUT for different BMS classes."""
 
-    def _patch_timeout(bms_class: str | None = None, timeout: float = 0.001) -> None:
+    def _patch_timeout(bms_class: str | None = None, timeout: float = 1e-6) -> None:
         patch_class: str = (
             f"bms.{bms_class}.BMS.TIMEOUT"
             if bms_class

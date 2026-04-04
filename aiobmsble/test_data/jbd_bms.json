@@ -560,5 +560,20 @@
       "BMS model: DP04S007 V1.7",
       "BMS version: 2.a"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "N-12100BL250042   ",
+      "manufacturer_data": {
+        "123": "02ffff7d"
+      },
+      "rssi": -58,
+      "platform_data": ["96:68:01:00:00:00"],
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/pull/170)"
+    ]
   }
 ]
