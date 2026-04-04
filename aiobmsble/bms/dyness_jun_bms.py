@@ -20,7 +20,7 @@ class BMS(JbdBMS):
         "default_manufacturer": "Dyness",
         "default_model": "Junior BMS",
     }
-    _INIT_CMD: Final[bytes] = b"\xff\xaa\x55\x00\x00\x77"  # initialization command
+    _INIT_CMD: Final[bytes] = b"\xaa\x55\x00\x00\x56"  # initialization command
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
