@@ -72,9 +72,8 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "ANT-BLE*",
+                "local_name": "ANT-BLE[01]*",
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": 1623,
                 "connectable": True,
             }
         ]
