@@ -1,7 +1,7 @@
 """Test the ECO-WORTHY implementation."""
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Buffer, Callable
 import contextlib
 from typing import Final
 from uuid import UUID
@@ -33,17 +33,17 @@ _PROTO_DEFS: Final[dict[int, dict[int, bytearray]]] = {
     },
     0x2: {  # protocol version 2, MAC in front
         0xA1: bytearray(
-            b"\xe2\xe7\x79\x8f\x4c\x66\xa1\x00\x00\x08\x03\x44\x00\x08\x00\x62\x00\x64\x05\x30\xff"
+            b"\xe2\xe7\x79\x00\x00\x00\xa1\x00\x00\x08\x03\x44\x00\x08\x00\x62\x00\x64\x05\x30\xff"
             b"\xc4\x00\x00\x27\x10\x00\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x02"
             b"\x00\x00\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00"
-            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x3d\x87"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xd3\xf6"
         ),
         0xA2: bytearray(  # 4 cells, 2 temp sensors
-            b"\xe2\xe7\x79\x8f\x4c\x66\xa2\x00\x00\x08\x03\x56\x00\x04\x0c\xfb\x0c\xfc\x0c\xfb\x0c"
+            b"\xe2\xe7\x79\x00\x00\x00\xa2\x00\x00\x08\x03\x56\x00\x04\x0c\xfb\x0c\xfc\x0c\xfb\x0c"
             b"\xf5\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
             b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
             b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x02\x00\xdc\x00\xd6"
-            b"\xfc\x18\xfc\x18\xfc\x18\xfc\x18\xfc\x18\xfc\x18\xfc\x18\x30\x58"
+            b"\xfc\x18\xfc\x18\xfc\x18\xfc\x18\xfc\x18\xfc\x18\xfc\x18\x11\x0e"
         ),
     },
 }
@@ -131,7 +131,7 @@ class MockECOWBleakClient(MockBleakClient):
         while True:
             for msg in self.RESP.values():
                 self._notify_callback("MockECOWBleakClient", msg)
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(1e-6)
 
     async def start_notify(
         self,
@@ -155,6 +155,39 @@ class MockECOWBleakClient(MockBleakClient):
         await super().disconnect()
 
 
+class MockECOWStreamBleakClient(MockECOWBleakClient):
+    """Emulate a ECO-WORTHY BMS BleakClient that does not stream without unlocking."""
+
+    _unlock_cmd: set = set()
+
+    async def start_notify(
+        self,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        callback: Callable[
+            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
+        ],
+        **kwargs,
+    ) -> None:
+        """Issue write command to GATT."""
+        await MockBleakClient.start_notify(self, char_specifier, callback, **kwargs)
+
+    async def write_gatt_char(
+        self,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        data: Buffer,
+        response: bool | None = None,
+    ) -> None:
+        """Issue write command to GATT and unlock response."""
+        await MockBleakClient.write_gatt_char(self, char_specifier, data, response)
+        assert self._notify_callback is not None
+        # send any valid response
+        self._notify_callback("MockECOWBleakClient", self.RESP[0xA1])
+
+        self._unlock_cmd.update({bytes(data)[-2:]})  # store CRC of received command
+        if {b"\x00\x2d", b"\x65\xef"}.issubset(self._unlock_cmd):
+            self._task = asyncio.create_task(self._notify())
+
+
 async def test_update(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
@@ -166,10 +199,9 @@ async def test_update(
     monkeypatch.setattr(MockECOWBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockECOWBleakClient)
 
-    bms = BMS(generate_ble_device("e2:e7:79:8f:4c:66"), keep_alive_fixture)
-
+    bms = BMS(generate_ble_device("e2:e7:79:00:00:00"), keep_alive_fixture)
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
-
+    await asyncio.sleep(1e-3)
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
@@ -177,15 +209,23 @@ async def test_update(
     await bms.disconnect()
 
 
-async def test_tx_notimplemented(patch_bleak_client) -> None:
-    """Test ECO-WORTHY BMS uuid_tx not implemented for coverage."""
+async def test_unlock_update(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+) -> None:
+    """Test ECO-WORTHY BMS data update."""
 
-    patch_bleak_client(MockECOWBleakClient)
+    monkeypatch.setattr(MockECOWStreamBleakClient, "RESP", next(reversed(_PROTO_DEFS.values())))
+    patch_bleak_client(MockECOWStreamBleakClient)
 
-    bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device("e2:e7:79:00:00:00"))
 
-    with pytest.raises(NotImplementedError):
-        _ret: str = bms.uuid_tx()
+    assert await bms.async_update() == next(reversed(_RESULT_DEFS.values()))
+
+    # query again to check already connected state
+    await bms.async_update()
+
+    await bms.disconnect()
 
 
 @pytest.fixture(
@@ -243,7 +283,8 @@ async def test_invalid_response(
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
-    patch_bms_timeout("ecoworthy_bms")
+    patch_bms_timeout()
+    patch_bms_timeout("ecoworthy_bms")  # requires both patches
 
     monkeypatch.setattr(MockECOWBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     monkeypatch.setattr(

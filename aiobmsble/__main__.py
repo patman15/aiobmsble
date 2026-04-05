@@ -7,8 +7,9 @@ License: Apache-2.0, http://www.apache.org/licenses/
 import argparse
 import asyncio
 import getpass
+import json
 import logging
-from typing import Final
+from typing import Any, Final
 
 from bleak import BleakScanner
 from bleak.backends.device import BLEDevice
@@ -17,6 +18,7 @@ from bleak.exc import BleakError
 
 from aiobmsble import BMSInfo, BMSSample, __version__
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.test_data import adv_dict_to_advdata
 from aiobmsble.utils import bms_identify
 
 logging.basicConfig(
@@ -69,6 +71,45 @@ async def _try_query(
     return True
 
 
+async def identify_bms_from_json(json_str: str) -> None:
+    """Identify BMS type from advertisement data provided as JSON string.
+
+    Args:
+        json_str: JSON string containing advertisement data with 'address' field.
+    """
+    try:
+        adv_dict: dict[str, Any] = json.loads(json_str)
+    except json.JSONDecodeError as exc:
+        logger.error("Failed to parse JSON: %s", exc)
+        return
+
+    # Map 'name' to 'local_name' if present
+    if "name" in adv_dict and "local_name" not in adv_dict:
+        adv_dict["local_name"] = adv_dict.pop("name")
+
+    # Remove fields not used by AdvertisementData
+    filtered_dict: dict[str, Any] = {
+        k: v for k, v in adv_dict.items() if k in AdvertisementData._fields
+    }
+
+    try:
+        # Convert dictionary to AdvertisementData
+        adv_data: AdvertisementData = adv_dict_to_advdata(filtered_dict)
+    except (AssertionError, IndexError, ValueError) as exc:
+        logger.error("Failed to convert advertisement data: %s", exc)
+        return
+
+    # Identify BMS
+    if (
+        bms_cls_result := await bms_identify(adv_data, adv_dict.get("address", ""))
+    ) is not None:
+
+        logger.info("BMS Type: %s", bms_cls_result.bms_id())
+        return
+
+    logger.info("No matching BMS type found for the given advertisement data")
+
+
 async def detect_bms() -> None:
     """Query a Bluetooth device based on the provided arguments."""
 
@@ -115,16 +156,26 @@ def setup_logging(args: argparse.Namespace) -> None:
 def main() -> None:
     """Entry point for the script to run the BMS detection."""
     parser = argparse.ArgumentParser(
-        description="Reference script for 'aiobmsble' to show all recognized BMS in range."
+        description="Reference script for 'aiobmsble' to show all recognized BMS in range or identify BMS from JSON advertisement."
+    )
+    parser.add_argument(
+        "-j",
+        "--json",
+        type=str,
+        help="JSON string containing advertisement data to identify BMS type",
     )
     parser.add_argument("-l", "--logfile", type=str, help="Path to the log file")
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable debug logging"
     )
 
-    setup_logging(parser.parse_args())
+    args = parser.parse_args()
+    setup_logging(args)
 
-    asyncio.run(detect_bms())
+    if args.json:
+        asyncio.run(identify_bms_from_json(args.json))
+    else:
+        asyncio.run(detect_bms())
 
 
 if __name__ == "__main__":
