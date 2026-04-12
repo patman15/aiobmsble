@@ -24,11 +24,14 @@ class BMS(BaseBMS):
     }
     _HEAD: Final[bytes] = b"\x01\x03"  # dev, read (0x03)
     _MIN_LEN: Final[int] = 5  # length of frame, including SOF and checksum
+    _MAX_TEMP: Final[int] = 10  # maximum number of cell temperatures
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 3, 2, True, lambda x: x / 100),
         BMSDp("voltage", 5, 2, False, lambda x: x / 100),
         BMSDp("battery_level", 7, 2, False),
         BMSDp("battery_health", 9, 2, False),
+        BMSDp("cycle_charge", 11, 2, False, lambda x: x / 100),
+        BMSDp("design_capacity", 15, 2, False, lambda x: x // 100),
     )
 
     def __init__(
@@ -111,6 +114,20 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(BMS._cmd(0x0, 0xd))
+        await self._await_msg(BMS._cmd(0x0, 0xD))
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
-        return BMS._decode_data(BMS._FIELDS, self._msg)
+        await self._await_msg(BMS._cmd(0x39, 1))
+        result["temp_values"] = BMS._temp_values(
+            self._msg, values=1, start=3, divider=10
+        )
+
+        await self._await_msg(BMS._cmd(0x2E, BMS._MAX_TEMP + 1))
+        result["temp_sensors"] = int.from_bytes(self._msg[3:5], "big")
+        result["temp_values"].extend(
+            BMS._temp_values(
+                self._msg, values=result.get("temp_sensors", 0), start=5, divider=10
+            )
+        )
+
+        return result
