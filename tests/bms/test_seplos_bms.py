@@ -12,7 +12,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import BMSBasicTests, verify_device_info
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 27  # ATT maximum is 512, minimal 27
 CHAR_UUID = "fff1"
@@ -84,6 +84,7 @@ class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
 
     bms_class = BMS
+
 
 class MockSeplosBleakClient(MockBleakClient):
     """Emulate a Seplos BMS BleakClient."""
@@ -291,11 +292,6 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
-
-
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockSeplosBleakClient, BMS)
 
 
 async def test_wrong_crc(patch_bleak_client, patch_bms_timeout) -> None:

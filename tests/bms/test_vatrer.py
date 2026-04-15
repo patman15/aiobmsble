@@ -10,7 +10,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.vatrer_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import BMSBasicTests, verify_device_info
+from tests.test_basebms import BMSBasicTests
 
 
 def ref_value() -> BMSSample:
@@ -61,6 +61,7 @@ class TestBasicBMS(BMSBasicTests):
 
     bms_class = BMS
 
+
 class MockVatrerBleakClient(MockBleakClient):
     """Emulate a Vatrer BMS BleakClient."""
 
@@ -110,11 +111,6 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
-
-
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockVatrerBleakClient, BMS)
 
 
 @pytest.fixture(

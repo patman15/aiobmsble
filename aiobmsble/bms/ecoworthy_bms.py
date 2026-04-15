@@ -18,7 +18,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """ECO-WORTHY BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "ECO-WORTHY", "default_model": "BW02"}
+    INFO: BMSInfo = {"default_manufacturer": "ECO-WORTHY", "default_model": "BW 02/0B"}
     _HEAD: Final[tuple[bytes, ...]] = (b"\xa1", b"\xa2")
     _CELL_POS: Final[int] = 14
     _TEMP_POS: Final[int] = 80
@@ -41,7 +41,10 @@ class BMS(BaseBMS):
         )
         for field in _FIELDS_V1
     )
-
+    _INIT_CMDS: Final[tuple[bytes, ...]] = (
+        b"\xff\x08\x02\x00\x0b\x01\x00\x64\x01\xff\xff\xff\xff\xff\xff\xff\x00\x2d",
+        b"\xff\x08\x02\x00\x0b\x01\x00\x14\x01\xff\xff\xff\xff\xff\xff\xff\x65\xef",
+    )
     _CMDS: Final = frozenset({field.idx for field in _FIELDS_V1})
 
     def __init__(
@@ -84,7 +87,7 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-        raise NotImplementedError
+        return "fff2"
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -113,8 +116,16 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        self._msg.clear()
-        self._msg_event.clear()  # clear event to ensure new data is acquired
+        if not self._msg_event.is_set():
+            self._log.debug("requesting data update")
+            self._msg.update(
+                {0xA1: b"", 0xA2: b""}
+            )  # empty dictionary, i.e. wait for any BMS message
+            for cmd in BMS._INIT_CMDS:
+                await self._await_msg(cmd)
+            self._msg.clear()
+            self._msg_event.clear()
+
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
         result: BMSSample = BMS._decode_data(
@@ -137,5 +148,8 @@ class BMS(BaseBMS):
             start=BMS._TEMP_POS + 2,
             divider=10,
         )
+
+        self._msg.clear()
+        self._msg_event.clear()  # clear event to ensure new data is acquired
 
         return result
