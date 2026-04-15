@@ -57,7 +57,7 @@ class MockBuknuwoBleakClient(MockBleakClient):
         b"\x01\x03\x00\x2e\x00\x0b\x64\x04": bytearray(
             b"\x01\x03\x16\x00\x01\x00\xc3\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\xc8\xe7"
-        ),  #  cell count + temperatures
+        ),  #  temp count + temperatures
     }
 
     async def write_gatt_char(
@@ -91,6 +91,9 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     assert await bms.async_update() == {
         "battery_level": 99,
         "battery_health": 100,
+        "cycles": 1,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
         "voltage": 13.69,
         "current": 3.88,
         "temperature": 19.1,
@@ -101,7 +104,8 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "temp_sensors": 1,
         "temp_values": [18.7, 19.5],
         "power": 53.117,
-        "problem": False,
+        "problem": True,
+        "problem_code": 0x480000000,
     }
 
     # query again to check already connected state

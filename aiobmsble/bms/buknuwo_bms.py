@@ -25,6 +25,7 @@ class BMS(BaseBMS):
     _HEAD: Final[bytes] = b"\x01\x03"  # dev, read (0x03)
     _MIN_LEN: Final[int] = 5  # length of frame, including SOF and checksum
     _MAX_TEMP: Final[int] = 10  # maximum number of cell temperatures
+    _PRB_MASK: Final[int] = 0xFF3FFF7F007F
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 3, 2, True, lambda x: x / 100),
         BMSDp("voltage", 5, 2, False, lambda x: x / 100),
@@ -32,6 +33,10 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 9, 2, False),
         BMSDp("cycle_charge", 11, 2, False, lambda x: x / 100),
         BMSDp("design_capacity", 15, 2, False, lambda x: x // 100),
+        BMSDp("cycles", 17, 2, False),
+        BMSDp("chrg_mosfet", 25, 1, False, lambda x: bool(x & 0x4)),
+        BMSDp("dischrg_mosfet", 25, 1, False, lambda x: bool(x & 0x8)),
+        BMSDp("problem_code", 21, 6, False, lambda x: x & BMS._PRB_MASK),
     )
 
     def __init__(
