@@ -89,7 +89,7 @@ class BMS(BaseBMS):
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        if len(self._frame) < self._frame[2] + BMS._MIN_LEN:
+        if len(self._frame) < 3 or len(self._frame) < self._frame[2] + BMS._MIN_LEN:
             return
 
         if (crc := crc_modbus(self._frame[:-2])) != int.from_bytes(
