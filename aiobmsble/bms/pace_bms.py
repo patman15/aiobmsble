@@ -119,7 +119,7 @@ class BMS(BaseBMS):
     def _cmd(cmd: bytes, data: bytes = b"") -> bytes:
         """Assemble a Pace BMS command."""
         frame: bytearray = bytearray(BMS._HEAD) + cmd + len(data).to_bytes(1) + data
-        frame += int.to_bytes(crc_modbus(frame), 2, byteorder="big") + BMS._TAIL
+        frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="big") + BMS._TAIL)
         return bytes(frame)
 
     async def _await_msg(

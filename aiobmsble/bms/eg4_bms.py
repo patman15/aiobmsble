@@ -93,7 +93,7 @@ class BMS(BaseBMS):
             self._exp_len = BMS._MIN_LEN + data[2]
             self._frame = bytearray()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -122,9 +122,9 @@ class BMS(BaseBMS):
     def _cmd(address: int, count: int) -> bytes:
         """Assemble a EG4 BMS command."""
         frame: bytearray = bytearray(BMS._HEAD)
-        frame += int.to_bytes(address, 2, byteorder="big")
-        frame += int.to_bytes(count, 2, byteorder="big")
-        frame += int.to_bytes(crc_modbus(frame), 2, byteorder="little")
+        frame.extend(int.to_bytes(address, 2, byteorder="big"))
+        frame.extend(int.to_bytes(count, 2, byteorder="big"))
+        frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
         return bytes(frame)
 
     async def _async_update(self) -> BMSSample:

@@ -133,7 +133,7 @@ class BMS(BaseBMS):
             self._frame = bytearray()
             self._exp_len = data[5] + BMS._MIN_LEN
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )

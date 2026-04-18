@@ -49,7 +49,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x4), 0x3),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2), 0x3),
     )
-    _CMDS: Final = frozenset({field.idx for field in _FIELDS}) | {0x2}
+    _CMDS: Final = frozenset(field.idx for field in _FIELDS) | {0x2}
 
     def __init__(
         self,
@@ -108,7 +108,7 @@ class BMS(BaseBMS):
             self._exp_len = data[len(BMS._HEAD)]
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
