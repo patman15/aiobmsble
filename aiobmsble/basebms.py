@@ -683,7 +683,7 @@ def crc_xmodem(data: bytes | bytearray) -> int:
 
 def crc8(data: bytes | bytearray) -> int:
     """Calculate CRC-8/MAXIM-DOW."""
-    crc: int = 0x00  # Initialwert für CRC
+    crc: int = 0x00
 
     for byte in data:
         crc ^= byte
