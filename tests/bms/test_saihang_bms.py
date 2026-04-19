@@ -7,7 +7,9 @@ from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
+import pytest
 
+from aiobmsble import BMSSample
 from aiobmsble.bms.saihang_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -110,12 +112,46 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     await bms.disconnect()
 
+
 def test_uuid_tx_not_used() -> None:
     """Test that TX UUID is intentionally not used."""
     assert BMS.uuid_tx() == "fffb"
 
-# async def test_device_info(patch_bleak_client) -> None:
-#     """Test that the BMS returns initialized dynamic device information."""
-#     patch_bleak_client(MockSaihangBleakClient)
-#     bms = BMS(generate_ble_device())
-#     assert {"default_manufacturer", "default_model"}.issubset(await bms.device_info())
+
+@pytest.mark.parametrize(
+    ("wrong_response"),
+    [
+        b"",
+        b"\xa5\xa5\x00\x03\x90\x71\x5c",
+        b"\xa5\xa6" + MockSaihangBleakClient._RESP[2:],
+        MockSaihangBleakClient._RESP[:-2] + b"\x00\x00",
+        b"\xa5\xa5\x00\x03\x89" + MockSaihangBleakClient._RESP[5:-2] + b"\xfc\x79",
+    ],
+    ids=[
+        "empty",
+        "minimal",
+        "wrong_SOF",
+        "wrong_CRC",
+        "wrong_length",
+    ],
+)
+async def test_invalid_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
+) -> None:
+    """Test data up date with BMS returning invalid data."""
+
+    patch_bms_timeout("saihang_bms")
+    monkeypatch.setattr(MockSaihangBleakClient, "_RESP", bytearray(wrong_response))
+    patch_bleak_client(MockSaihangBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = {}
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
+
+    assert not result
+    await bms.disconnect()
