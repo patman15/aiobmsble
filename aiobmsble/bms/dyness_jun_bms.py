@@ -20,7 +20,7 @@ class BMS(JbdBMS):
         "default_manufacturer": "Dyness",
         "default_model": "Junior BMS",
     }
-    _INIT_CMD: Final[bytes] = b"\xaa\x55\x00\x00\x56"  # initialization command
+    _INIT_CMD: Final[bytes] = b"\xaa\x55\x01\x00\x00\x56"  # initialization command
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -45,5 +45,7 @@ class BMS(JbdBMS):
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
-        await self._await_msg(BMS._INIT_CMD, normalize_uuid_str("fed5"), wait_for_notify=False)
+        await self._await_msg(
+            BMS._INIT_CMD, normalize_uuid_str("fed5"), wait_for_notify=False
+        )
         await super()._init_connection(char_notify)
