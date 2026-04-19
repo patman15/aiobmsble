@@ -23,11 +23,10 @@ class BMS(BaseBMS):
         "default_model": "intelligent BMS",
     }
     _HEAD: Final[bytes] = b"\xa5\xa5"  # beginning of frame
-    _MIN_FRAME_LEN: Final[int] = (
-        7  # minimum length of frame, including SOF and checksum
-    )
+    _MIN_FRAME_LEN: Final[int] = 7  # min frame length, including SOF and CRC
     _MAX_TEMP: Final[int] = 10
     _MAX_CELLS: Final[int] = 20
+    _SRV_UUID: Final[str] = "11110003-1111-1111-1111-111111111111"
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 5, 4, True, lambda x: x / 100),
         BMSDp("voltage", 9, 4, False, lambda x: x / 100),
@@ -62,7 +61,7 @@ class BMS(BaseBMS):
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
             }
-        ]  # TODO: define matcher
+        ]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
@@ -85,9 +84,14 @@ class BMS(BaseBMS):
     #         default_manufacturer="Dummy manufacturer", default_model="Dummy BMS"
     #     )  # TODO: implement query code or remove function to query service 0x180A
 
-    # @staticmethod
-    # def _raw_values() -> frozenset[BMSValue]:
-    #     return frozenset({"runtime"})  # never calculate, e.g. runtime
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        """Initialize RX/TX characteristics and protocol state."""
+        await super()._init_connection(char_notify)
+        await self._client.start_notify(
+            BMS._SRV_UUID, getattr(self, "_notification_handler")
+        )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -118,7 +122,7 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT*2)
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
         result["cell_voltages"] = BMS._cell_voltages(
