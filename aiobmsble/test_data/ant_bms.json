@@ -28,5 +28,18 @@
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/668)"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "ANT@BLE24CBUB-1231\r",
+      "platform_data": ["64:9B:F8:2E:A6:6A"],
+      "rssi": -73,
+      "manufacturer_data": { "5000": "649bf82ea66a22113322" },
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "ant_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/675)"
+    ]
   }
 ]
