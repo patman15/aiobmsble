@@ -25,7 +25,7 @@ class BMS(BaseBMS):
     _MIN_FRAME_LEN: Final[int] = 7  # min frame length, including SOF and CRC
     _MAX_TEMP: Final[int] = 10
     _MAX_CELLS: Final[int] = 20
-    _EXT_UUID: Final[str] = "11110003-1111-1111-1111-111111111111"
+    # _EXT_UUID: Final[str] = "11110003-1111-1111-1111-111111111111"
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 5, 4, True, lambda x: x / 100),
         BMSDp("voltage", 9, 4, False, lambda x: x / 100),
@@ -65,7 +65,9 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return (normalize_uuid_str("fffa"), "11110001-1111-1111-1111-111111111111")
+        return (
+            normalize_uuid_str("fffa"),
+        )  # , "11110001-1111-1111-1111-111111111111")
 
     @staticmethod
     def uuid_rx() -> str:
@@ -83,14 +85,14 @@ class BMS(BaseBMS):
     #         default_manufacturer="Dummy manufacturer", default_model="Dummy BMS"
     #     )  # TODO: implement query code or remove function to query service 0x180A
 
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        """Initialize RX/TX characteristics and protocol state."""
-        await super()._init_connection(char_notify)
-        await self._client.start_notify(
-            BMS._EXT_UUID, getattr(self, "_notification_handler")
-        )
+    # async def _init_connection(
+    #     self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    # ) -> None:
+    #     """Initialize RX/TX characteristics and protocol state."""
+    #     await super()._init_connection(char_notify)
+    #     await self._client.start_notify(
+    #         BMS._EXT_UUID, getattr(self, "_notification_handler")
+    #     )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
