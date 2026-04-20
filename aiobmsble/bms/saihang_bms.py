@@ -4,7 +4,6 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-import asyncio
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -122,7 +121,7 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT*2)
+        await self._await_msg(BMS._HEAD + b"\x00\x03\x00\x00\x00\x48\x44\x2d")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
         result["cell_voltages"] = BMS._cell_voltages(

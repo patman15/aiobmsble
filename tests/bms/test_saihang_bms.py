@@ -1,8 +1,6 @@
 """Test the Saihang BMS implementation."""
 
-import asyncio
-from collections.abc import Awaitable, Callable
-import contextlib
+from collections.abc import Buffer
 from typing import Final
 from uuid import UUID
 
@@ -34,39 +32,25 @@ class MockSaihangBleakClient(MockBleakClient):
         b"\xa4\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x6d\x60\x00\x00\x72"
         b"\x10\x00\x00\x68\x10\x00\x0a\x0d\xac\x0e\x42\x0d\x02\x00\x0a\x00\x00\x9a\x5a"
     )
-    _task: asyncio.Task[None] | None = None
 
-    async def _notify(self) -> None:
-        """Notify function."""
+    async def write_gatt_char(
+        self,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        data: Buffer,
+        response: bool | None = None,
+    ) -> None:
+        """Issue write command to GATT."""
+
+        await super().write_gatt_char(char_specifier, data, response)
 
         assert (
             self._notify_callback
         ), "write to characteristics but notification not enabled"
 
-        while True:
-            self._notify_callback("MockECOWBleakClient", self._RESP)
-            await asyncio.sleep(1e-6)
+        if bytes(data) != b"\xa5\xa5\x00\x03\x00\x00\x00\x48\x44\x2d":
+            return
 
-    async def start_notify(
-        self,
-        char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[
-            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-        ],
-        **kwargs,
-    ) -> None:
-        """Issue write command to GATT."""
-        await super().start_notify(char_specifier, callback, **kwargs)
-
-        self._task = asyncio.create_task(self._notify())
-
-    async def disconnect(self) -> None:
-        """Mock disconnect and wait for send task."""
-        if self._task is not None:
-            self._task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._task
-        await super().disconnect()
+        self._notify_callback("MockRoyPowBleakClient", self._RESP)
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
@@ -143,7 +127,7 @@ async def test_invalid_response(
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
-    patch_bms_timeout("saihang_bms")
+    patch_bms_timeout()
     monkeypatch.setattr(MockSaihangBleakClient, "_RESP", bytearray(wrong_response))
     patch_bleak_client(MockSaihangBleakClient)
 
