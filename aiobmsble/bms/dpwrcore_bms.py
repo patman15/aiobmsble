@@ -58,7 +58,7 @@ class BMS(BaseBMS):
         BMSDp("cycles", 8, 2, False, idx=Cmd.LEGINFO2),
         BMSDp("problem_code", 15, 1, False, lambda x: x & 0xFF, Cmd.LEGINFO1),
     )
-    _CMDS: Final = frozenset({Cmd(field.idx) for field in _FIELDS})
+    _CMDS: Final = frozenset(Cmd(field.idx) for field in _FIELDS)
 
     def __init__(
         self,
@@ -122,7 +122,7 @@ class BMS(BaseBMS):
         if page == 1:
             self._frame.clear()
 
-        self._frame += data[2 : data[0] + 2]
+        self._frame.extend(data[2 : data[0] + 2])
 
         self._log.debug("(%s): %s", "start" if page == 1 else "cnt.", data)
 
@@ -158,7 +158,7 @@ class BMS(BaseBMS):
             + b"\x0d\x0a"
         )
         frame = bytearray([len(frame) + 2, 0x11]) + frame
-        frame += bytes(BMS._PAGE_LEN - len(frame))
+        frame.extend(bytes(BMS._PAGE_LEN - len(frame)))
 
         return bytes(frame)
 

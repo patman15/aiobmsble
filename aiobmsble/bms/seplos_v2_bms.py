@@ -103,7 +103,7 @@ class BMS(BaseBMS):
             self._exp_len = BMS._MIN_LEN + int.from_bytes(data[5:7])
             self._frame = bytearray()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -159,8 +159,8 @@ class BMS(BaseBMS):
         """Assemble a Seplos V2 BMS command."""
         assert cmd in (0x47, 0x51, 0x61, 0x62, 0x04)  # allow only read commands
         frame = bytearray([*BMS._HEAD, BMS._CMD_VER, address, 0x46, cmd])
-        frame += len(data).to_bytes(2, "big", signed=False) + data
-        frame += int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL
+        frame.extend(len(data).to_bytes(2, "big", signed=False) + data)
+        frame.extend(int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL)
         return bytes(frame)
 
     async def _async_update(self) -> BMSSample:

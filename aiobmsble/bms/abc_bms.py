@@ -150,7 +150,7 @@ class BMS(BaseBMS):
                 await self._await_msg(BMS._cmd(bytes([cmd])))
 
         # check all responses are here, 0xF9 is not mandatory (not all BMS report it)
-        if not BMS._RESPS.issubset(set(self._msg.keys()) | {0xF9}):
+        if not BMS._RESPS.issubset(self._msg.keys() | {0xF9}):
             self._log.debug("Incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
