@@ -37,7 +37,7 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 32, 1, False, lambda x: bool(x & 0x20), 0x24),
         BMSDp("balancer", 35, 4, False, idx=0x24),
     )
-    _RESPS: Final = frozenset({field.idx for field in _FIELDS})
+    _RESPS: Final = frozenset(field.idx for field in _FIELDS)
     _CMDS: Final[frozenset[tuple[int, int]]] = frozenset(
         {(0x0, 0x14), (0x34, 0x12), (0x15, 0x1F)}
     )

@@ -64,6 +64,7 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in (
+                "DWF*",  # Daren BMS, Docan battery
                 "JBD-*",
                 "N-?????BL*",  # Nordström battery
                 "SX1*",  # Supervolt v3
@@ -173,7 +174,7 @@ class BMS(BaseBMS):
         ):
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )

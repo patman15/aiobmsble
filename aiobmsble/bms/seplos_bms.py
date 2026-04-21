@@ -138,7 +138,7 @@ class BMS(BaseBMS):
             self._frame.clear()
             self._pkglen = BMS._HEAD_LEN + BMS._CRC_LEN
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -193,9 +193,9 @@ class BMS(BaseBMS):
         assert cmd in (0x01, 0x04)  # allow only read commands
         assert start >= 0 and count > 0 and start + count <= 0xFFFF
         frame: bytearray = bytearray([device, cmd])
-        frame += int.to_bytes(start, 2, byteorder="big")
-        frame += int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big")
-        frame += int.to_bytes(crc_modbus(frame), 2, byteorder="little")
+        frame.extend(int.to_bytes(start, 2, byteorder="big"))
+        frame.extend(int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big"))
+        frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
         return bytes(frame)
 
     async def _async_update(self) -> BMSSample:
