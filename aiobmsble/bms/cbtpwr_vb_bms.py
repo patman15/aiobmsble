@@ -93,7 +93,7 @@ class BMS(BaseBMS):
             except ValueError:
                 self._exp_len = 0
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )

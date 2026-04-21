@@ -56,7 +56,7 @@ class BaseBMS(ABC):
             self, msg: str, kwargs: MutableMapping[str, Any]
         ) -> tuple[str, MutableMapping[str, Any]]:
             """Process the logging message."""
-            prefix: str = str(self.extra.get("prefix") if self.extra else "")
+            prefix: Final[str] = str(self.extra.get("prefix") if self.extra else "")
             return (f"{prefix} {msg}", kwargs)
 
     def __init__(
@@ -476,7 +476,7 @@ class BaseBMS(ABC):
     async def disconnect(self, reset: bool = False) -> None:
         """Disconnect the BMS, includes stopping notifications."""
 
-        self._log.debug("disconnecting BMS (%s)", str(self._client.is_connected))
+        self._log.debug("disconnecting BMS (%s)", self._client.is_connected)
         try:
             self._msg_event.clear()
             if reset:

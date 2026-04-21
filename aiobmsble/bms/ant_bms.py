@@ -72,9 +72,8 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "ANT-BLE*",
+                "local_name": "ANT?BLE[23]*",
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": 0x2313,
                 "connectable": True,
             }
         ]
@@ -133,7 +132,7 @@ class BMS(BaseBMS):
             self._frame = bytearray()
             self._exp_len = data[5] + BMS._MIN_LEN
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
