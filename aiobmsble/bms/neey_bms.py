@@ -102,7 +102,7 @@ class BMS(BaseBMS):
                 BMS._MIN_FRAME,
             )
 
-        self._frame += data
+        self._frame.extend(data)
 
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
@@ -159,7 +159,7 @@ class BMS(BaseBMS):
         frame: bytearray = bytearray(  # 0x14 frame length
             [*BMS._HEAD_CMD, cmd[0], reg & 0xFF, 0x14, *value]
         ) + bytes(11 - len(value))
-        frame += bytes([crc_sum(frame), BMS._TAIL])
+        frame.extend(bytes([crc_sum(frame), BMS._TAIL]))
         return bytes(frame)
 
     @staticmethod

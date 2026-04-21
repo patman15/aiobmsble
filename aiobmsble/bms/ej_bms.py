@@ -134,7 +134,7 @@ class BMS(BaseBMS):
         if data.startswith(BMS._HEAD):  # check for beginning of frame
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
 
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
@@ -209,7 +209,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         raw_data: Final[dict[int, bytes]] = await self._query_bms()
 
-        if len(raw_data) != len(list(Cmd)) or not all(raw_data.values()):
+        if len(raw_data) != len(Cmd) or not all(raw_data.values()):
             return {}
 
         result: BMSSample = self._decode_data(BMS._FIELDS, raw_data) | BMSSample(

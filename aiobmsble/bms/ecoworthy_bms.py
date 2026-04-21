@@ -45,7 +45,7 @@ class BMS(BaseBMS):
         b"\xff\x08\x02\x00\x0b\x01\x00\x64\x01\xff\xff\xff\xff\xff\xff\xff\x00\x2d",
         b"\xff\x08\x02\x00\x0b\x01\x00\x14\x01\xff\xff\xff\xff\xff\xff\xff\x65\xef",
     )
-    _CMDS: Final = frozenset({field.idx for field in _FIELDS_V1})
+    _CMDS: Final = frozenset(field.idx for field in _FIELDS_V1)
 
     def __init__(
         self,

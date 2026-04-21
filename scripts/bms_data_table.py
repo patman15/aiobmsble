@@ -18,10 +18,10 @@ from aiobmsble import BMSSample, BMSValue
 from aiobmsble.basebms import BaseBMS
 
 ALWAYS_CALC: Final[frozenset[str]] = frozenset({"problem"})
-ROOT: Final = Path(__file__).parents[1]
-BMS_DIR: Final = ROOT / "aiobmsble" / "bms"
-CSV_FILE: Final = ROOT / "docs" / "available_bms_data.csv"
-INIT: Final = "aiobmsble"
+ROOT: Final[Path] = Path(__file__).parents[1]
+BMS_DIR: Final[Path] = ROOT / "aiobmsble" / "bms"
+CSV_FILE: Final[Path] = ROOT / "docs" / "available_bms_data.csv"
+INIT: Final[str] = "aiobmsble"
 
 
 def get_bmssample_fields(init_module: str) -> tuple[BMSValue, ...]:
@@ -127,10 +127,12 @@ def main() -> None:
 
         rows.append([bms_name, *marks])
 
-    with Path.open(CSV_FILE, "w", newline="") as csvfile:
+    rows_sorted: Final = sorted(rows, key = lambda row: (row[0], row[1][1:-1]))
+
+    with Path.open(CSV_FILE, "w", encoding="UTF-8", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(header)
-        writer.writerows(rows)
+        writer.writerows(rows_sorted)
 
 
 if __name__ == "__main__":

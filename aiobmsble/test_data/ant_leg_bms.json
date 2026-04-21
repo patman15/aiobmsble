@@ -12,8 +12,6 @@
       "rssi": -31
     },
     "type": "ant_leg_bms",
-    "_comments": [
-      "source HA Bluetooth"
-    ]
+    "_comments": ["source HA Bluetooth"]
   }
 ]

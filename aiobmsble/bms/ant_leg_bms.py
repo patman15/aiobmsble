@@ -73,9 +73,8 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "ANT-BLE*",
+                "local_name": "ANT-BLE[01]*",
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": 1623,
                 "connectable": True,
             }
         ]
@@ -125,7 +124,7 @@ class BMS(BaseBMS):
             self._log.debug("invalid start of frame")
             return
 
-        self._frame += data
+        self._frame.extend(data)
 
         _data_len: Final[int] = len(self._frame)
         if _data_len < BMS._RSP_STAT_LEN:
@@ -154,8 +153,8 @@ class BMS(BaseBMS):
     def _cmd(cmd: CMD, adr: ADR, value: int = 0x0000) -> bytes:
         """Assemble a ANT BMS command."""
         _frame = bytearray((cmd, cmd, adr))
-        _frame += value.to_bytes(2, "big")
-        _frame += crc_sum(_frame[2:], 1).to_bytes(1, "big")
+        _frame.extend(value.to_bytes(2, "big"))
+        _frame.extend(crc_sum(_frame[2:], 1).to_bytes(1, "big"))
         return bytes(_frame)
 
     async def _async_update(self) -> BMSSample:
