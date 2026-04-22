@@ -2,9 +2,7 @@
   {
     "advertisement": {
       "local_name": "SOK-24V1127",
-      "service_uuids": [
-        "0000fff0-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000fff0-0000-1000-8000-00805f9b34fb"],
       "rssi": -94
     },
     "type": "abc_bms",
@@ -30,5 +28,16 @@
     "_comments": [
       "source log (https://github.com/patman15/BMS_BLE-HA/issues/394)"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "SK48V100N3900089",
+      "platform_data": ["40:D6:3C:00:00:00"],
+      "rssi": -58
+    },
+    "type": "abc_bms",
+    "_comments": [
+      "source log (https://github.com/patman15/BMS_BLE-HA/issues/677)"
+    ]    
   }
 ]
