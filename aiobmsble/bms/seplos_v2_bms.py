@@ -124,12 +124,12 @@ class BMS(BaseBMS):
             self._log.debug("BMS reported error code: 0x%X", self._frame[4])
             return
 
-        if (crc := crc_xmodem(self._frame[1:-3])) != int.from_bytes(self._frame[-3:-1]):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                crc,
-                int.from_bytes(self._frame[-3:-1]),
-            )
+        if not self._check_integrity(
+            self._frame,
+            lambda x: crc_xmodem(x[1:-3]),
+            slice(None, None),
+            slice(-3, -1),
+        ):
             return
 
         self._log.debug(

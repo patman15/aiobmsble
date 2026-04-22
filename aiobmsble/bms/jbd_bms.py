@@ -125,8 +125,10 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length")
             return
 
-        if (crc := crc_sum(data[2:-1])) != data[-1]:
-            self._log.debug("invalid checksum 0x%X != 0x%X", data[-1], crc)
+
+        if not self._check_integrity(
+            data, crc_sum, slice(2, -1), slice(-1, None)
+        ):
             return
 
         if data[2] != 0x15 or data[3] != 0x01:
@@ -192,14 +194,12 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame end (length: %i).", len(self._frame))
             return
 
-        if (crc := BMS._crc(self._frame[2 : frame_end - 2])) != int.from_bytes(
-            self._frame[frame_end - 2 : frame_end], "big"
+        if not self._check_integrity(
+            self._frame,
+            BMS._crc,
+            slice(2, frame_end - 2),
+            slice(frame_end - 2, frame_end),
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[frame_end - 2 : frame_end], "big"),
-                crc,
-            )
             return
 
         if len(self._frame) != BMS._INFO_LEN + self._frame[3]:
@@ -213,7 +213,7 @@ class BMS(BaseBMS):
         self._msg_event.set()
 
     @staticmethod
-    def _crc(frame: bytearray) -> int:
+    def _crc(frame: bytes | bytearray) -> int:
         """Calculate JBD frame CRC."""
         return 0x10000 - sum(frame)
 

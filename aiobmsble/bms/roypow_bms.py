@@ -127,12 +127,12 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if (crc := BMS._crc(self._frame[len(BMS._HEAD) : end_idx - 1])) != self._frame[
-            end_idx - 1
-        ]:
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X", self._frame[end_idx - 1], crc
-            )
+        if not self._check_integrity(
+            self._frame,
+            BMS._crc,
+            slice(len(BMS._HEAD), end_idx - 1),
+            slice(end_idx - 1, end_idx),
+        ):
             self._frame.clear()
             return
 

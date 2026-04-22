@@ -127,14 +127,12 @@ class BMS(BaseBMS):
         self._log.debug("(%s): %s", "start" if page == 1 else "cnt.", data)
 
         if page == data[1] & 0xF:  # check if last page
-            if (crc := BMS._crc(self._frame[3:-4])) != int.from_bytes(
-                self._frame[-4:-2], byteorder="big"
+            if not self._check_integrity(
+                self._frame,
+                BMS._crc,
+                slice(3, -4),
+                slice(-4, -2),
             ):
-                self._log.debug(
-                    "incorrect checksum: 0x%X != 0x%X",
-                    int.from_bytes(self._frame[-4:-2], byteorder="big"),
-                    crc,
-                )
                 self._frame.clear()
                 self._msg = {}  # reset invalid data
                 return
@@ -143,7 +141,7 @@ class BMS(BaseBMS):
             self._msg_event.set()
 
     @staticmethod
-    def _crc(data: bytearray) -> int:
+    def _crc(data: bytes | bytearray) -> int:
         return sum(data) + 8
 
     @staticmethod

@@ -99,12 +99,13 @@ class BMS(BaseBMS):
             self._log.debug("invalid frame type: '%s'", data[0:1].hex())
             return
 
-        if (crc := crc_modbus(data[:-2])) != int.from_bytes(data[-2:], "little"):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(data[-2:], "little"),
-                crc,
-            )
+        if not self._check_integrity(
+            data,
+            crc_modbus,
+            slice(None, -2),
+            slice(-2, None),
+            "little",
+        ):
             return
 
         # copy final data without message type and adapt to protocol type

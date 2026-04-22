@@ -151,8 +151,12 @@ class BMS(BaseBMS):
             self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
             del self._frame[BMS._INFO_LEN :]
 
-        if (crc := crc_sum(self._frame[:-1])) != self._frame[-1]:
-            self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-1], crc)
+        if not self._check_integrity(
+            self._frame,
+            crc_sum,
+            slice(None, -1),
+            slice(-1, None),
+        ):
             return
 
         self._msg = bytes(self._frame)

@@ -119,12 +119,13 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if (local_crc := crc_sum(self._frame[4:-2], 2)) != (
-            remote_crc := int.from_bytes(
-                self._frame[-2:], byteorder="big", signed=False
-            )
+        if not self._check_integrity(
+            self._frame,
+            lambda x: crc_sum(x[4:-2], 2),
+            slice(None, None),
+            slice(-2, None),
+            "big",
         ):
-            self._log.debug("invalid checksum 0x%X != 0x%X", local_crc, remote_crc)
             self._frame.clear()
             return
 

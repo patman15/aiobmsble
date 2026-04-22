@@ -155,16 +155,13 @@ class BMS(BaseBMS):
             self._log.debug("invalid frame end")
             return
 
-        if (crc := crc_modbus(self._frame[1 : self._exp_len - 4])) != int.from_bytes(
-            self._frame[self._exp_len - 4 : self._exp_len - 2], "little"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(1, self._exp_len - 4),
+            slice(self._exp_len - 4, self._exp_len - 2),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(
-                    self._frame[self._exp_len - 4 : self._exp_len - 2], "little"
-                ),
-                crc,
-            )
             return
 
         self._msg = bytes(self._frame)

@@ -135,8 +135,12 @@ class BMS(BaseBMS):
             )
             return
 
-        if (crc := crc_sum(self._frame[:-2])) != self._frame[-2]:
-            self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-2], crc)
+        if not self._check_integrity(
+            self._frame,
+            crc_sum,
+            slice(None, -2),
+            slice(-2, -1),
+        ):
             return
 
         self._msg = bytes(self._frame)
