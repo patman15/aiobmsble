@@ -158,7 +158,7 @@ class BMS(BaseBMS):
             return
 
         if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
-            self._log.debug("incorrect frame encoding.")
+            self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
 

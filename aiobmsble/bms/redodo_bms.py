@@ -106,7 +106,7 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         if len(data) < 3 or not data.startswith(b"\x00\x00"):
-            self._log.debug("incorrect SOF.")
+            self._log.debug("incorrect SOF")
             return
 
         if len(data) != data[2] + BMS._HEAD_LEN + 1:  # add header length and CRC

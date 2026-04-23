@@ -94,11 +94,11 @@ class BMS(BaseBMS):
             return
 
         if not data.startswith(BMS._HEAD):
-            self._log.debug("incorrect SOF.")
+            self._log.debug("incorrect SOF")
             return
 
         if not data.endswith(BMS._TAIL):
-            self._log.debug("incorrect EOF.")
+            self._log.debug("incorrect EOF")
             return
 
         self._msg[data[2]] = bytes(data)
