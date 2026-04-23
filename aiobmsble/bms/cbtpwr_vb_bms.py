@@ -116,10 +116,9 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if (crc := lrc_modbus(self._frame[1:-5])) != int(self._frame[-5:-1], 16):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X", crc, int(self._frame[-5:-1], 16)
-            )
+        if not self._check_integrity(
+            self._frame, lrc_modbus, slice(1, -5), int(self._frame[-5:-1], 16), "little"
+        ):
             self._frame.clear()
             return
 

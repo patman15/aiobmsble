@@ -638,7 +638,7 @@ class BaseBMS(ABC):
         data: bytes | bytearray,
         integrity_func: Callable[[bytes | bytearray], int],
         dic_data_slice: slice,
-        dic_expected_slice: slice,
+        dic_expected: slice | int,
         byteorder: Literal["little", "big"] = "big",
     ) -> bool:
         """Check data integrity of frame data.
@@ -647,14 +647,18 @@ class BaseBMS(ABC):
             data: The frame data to check
             integrity_func: Function to calculate data integrity code (DIC, e.g. CRC/checksum)
             dic_data_slice: Slice of data to calculate DIC on
-            dic_expected_slice: Slice where expected DIC is stored
+            dic_expected: Slice where expected DIC is stored or expected DIC as int
             byteorder: Byte order for reading expected DIC
 
         Returns:
             bool: True if data integrity code (DIC) is valid, False otherwise
         """
         calc_dic: Final[int] = integrity_func(data[dic_data_slice])
-        exp_dic: Final[int] = int.from_bytes(data[dic_expected_slice], byteorder)
+        exp_dic: Final[int] = (
+            int.from_bytes(data[dic_expected], byteorder)
+            if isinstance(dic_expected, slice)
+            else dic_expected
+        )
         if calc_dic != exp_dic:
             self._log.debug("invalid checksum 0x%X != 0x%X", exp_dic, calc_dic)
             return False
