@@ -124,7 +124,7 @@ class BMS(BaseBMS):
         for addr, length in BMS._CMDS:
             await self._await_msg(BMS._cmd(addr, length))
         if not BMS._RESPS.issubset(set(self._msg.keys())):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise TimeoutError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)

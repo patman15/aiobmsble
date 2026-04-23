@@ -153,7 +153,7 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.endswith(BMS._TAIL):
-            self._log.debug("incorrect EOF: %s", data)
+            self._log.debug("incorrect EOF")
             self._frame.clear()
             return
 

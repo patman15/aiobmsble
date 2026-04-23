@@ -75,8 +75,6 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe9"
 
-    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -89,7 +87,7 @@ class BMS(BaseBMS):
                 self._exp_len = length & 0xFFF
                 if BMS.lencs(length) != length >> 12:
                     self._exp_len = 0
-                    self._log.debug("incorrect length checksum.")
+                    self._log.debug("incorrect length checksum")
             except ValueError:
                 self._exp_len = 0
 
@@ -102,12 +100,12 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.endswith(BMS._TAIL):
-            self._log.debug("incorrect EOF: %s", data)
+            self._log.debug("incorrect EOF")
             self._frame.clear()
             return
 
         if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
-            self._log.debug("incorrect frame encoding.")
+            self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
 

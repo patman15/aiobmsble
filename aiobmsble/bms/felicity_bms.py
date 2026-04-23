@@ -110,7 +110,7 @@ class BMS(BaseBMS):
             return
 
         if (ver := self._msg.get("CommVer", 0)) != 1:
-            self._log.debug("Unknown protocol version (%i)", ver)
+            self._log.debug("unknown protocol version (%i)", ver)
             return
 
         self._msg_event.set()

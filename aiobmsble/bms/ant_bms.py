@@ -152,7 +152,7 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.endswith(BMS._TAIL):
-            self._log.debug("invalid frame end")
+            self._log.debug("invalid EOF")
             return
 
         if not self._check_integrity(

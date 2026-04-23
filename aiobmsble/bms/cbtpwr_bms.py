@@ -99,7 +99,7 @@ class BMS(BaseBMS):
             return
 
         if not data.startswith(BMS._HEAD) or not data.endswith(BMS._TAIL_RX):
-            self._log.debug("incorrect frame start/end: %s", data)
+            self._log.debug("incorrect SOF/EOF: %s", data)
             return
 
         if not self._check_integrity(
@@ -129,7 +129,7 @@ class BMS(BaseBMS):
         for cmd in BMS._CMDS:
             await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
         if not BMS._CMDS.issubset(set(self._msg.keys())):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
         voltages: list[float] = []

@@ -142,7 +142,7 @@ class BMS(BaseBMS):
 
         # set BMS ready if msg is attached to last responses (v19.05)
         if self._frame[BMS._INFO_LEN :].startswith(BMS._READY_MSG):
-            self._log.debug("BMS ready.")
+            self._log.debug("BMS ready")
             self._bms_ready = True
             del self._frame[BMS._INFO_LEN :]
 
@@ -185,7 +185,7 @@ class BMS(BaseBMS):
                     ):
                         self._char_write_handle = char.handle
         if char_notify_handle == -1 or self._char_write_handle == -1:
-            self._log.debug("failed to detect characteristics.")
+            self._log.debug("failed to detect characteristics")
             await self._client.disconnect()
             raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
         self._log.debug(

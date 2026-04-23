@@ -153,10 +153,10 @@ class BMS(BaseBMS):
                     + ((0x15 + len(self._secret) + sum(data)) & 0xFF).to_bytes(1)
                 )
             except TimeoutError:
-                self._log.warning("Failed to initialize connection with secret.")
+                self._log.warning("Failed to initialize connection with secret")
                 raise
             if self._msg[4] != 0x00:
-                self._log.warning("Incorrect secret.")
+                self._log.warning("incorrect secret")
                 raise PermissionError("Incorrect secret.")
 
             await self._client.stop_notify(BMS.uuid_rx())

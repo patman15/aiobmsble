@@ -112,7 +112,7 @@ class BMS(BaseBMS):
 
         # ignore ACK responses
         if data[0] & 0x80:
-            self._log.debug("ignore acknowledge message")
+            self._log.debug("ignoring ACK message")
             return
 
         # acknowledge received frame
@@ -189,7 +189,7 @@ class BMS(BaseBMS):
             await self._await_msg(self._cmd(request, b""))
 
         if not BMS._CMDS.issubset(set(self._msg.keys())):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)

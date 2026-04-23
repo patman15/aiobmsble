@@ -105,7 +105,7 @@ class BMS(BaseBMS):
         if data.startswith(BMS._RX_HEADER_RSP_STAT):
             self._frame = bytearray()
         elif not self._frame:
-            self._log.debug("invalid start of frame")
+            self._log.debug("invalid SOF")
             return
 
         self._frame.extend(data)

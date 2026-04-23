@@ -123,7 +123,7 @@ class BMS(BaseBMS):
 
         end_idx: Final[int] = BMS._MIN_LEN + self._exp_len - 1
         if self._frame[end_idx] != BMS._TAIL:
-            self._log.debug("incorrect EOF: %s", self._frame)
+            self._log.debug("incorrect EOF")
             self._frame.clear()
             return
 
@@ -164,7 +164,7 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(bytes([0xFF, cmd])))
 
         if not BMS._CMDS.issubset(self._msg.keys()):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)

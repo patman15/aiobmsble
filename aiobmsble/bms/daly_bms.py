@@ -135,7 +135,7 @@ class BMS(BaseBMS):
                     b"\x00\x00",
                     b"\xff\xff",
                 ):
-                    self._log.debug("MOS temperature invalid, deactivating.")
+                    self._log.debug("MOS temperature invalid, deactivating")
                     self._mos_avail = False
                 else:
                     result["temp_values"] = [
@@ -147,7 +147,7 @@ class BMS(BaseBMS):
                     ]
                     self._mos_avail = True
             except TimeoutError:
-                self._log.debug("MOS temperature read failed, deactivating.")
+                self._log.debug("MOS temperature read failed, deactivating")
                 self._mos_avail = False
 
         await self._await_msg(BMS._HEAD_READ + BMS._CMD_INFO)
