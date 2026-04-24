@@ -118,7 +118,7 @@ class BMS(BaseBMS):
             and len(self._frame) >= self._exp_len
         ):
             self._exp_len = BMS._INFO_LEN + int.from_bytes(data[6:8])
-            self._frame = bytearray()
+            self._frame.clear()
 
         self._frame.extend(data)
         self._log.debug(

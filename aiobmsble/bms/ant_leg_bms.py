@@ -103,7 +103,7 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         if data.startswith(BMS._RX_HEADER_RSP_STAT):
-            self._frame = bytearray()
+            self._frame.clear()
         elif not self._frame:
             self._log.debug("invalid SOF")
             return

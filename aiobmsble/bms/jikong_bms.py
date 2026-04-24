@@ -144,7 +144,6 @@ class BMS(BaseBMS):
         if self._frame[BMS._INFO_LEN :].startswith(BMS._READY_MSG):
             self._log.debug("BMS ready")
             self._bms_ready = True
-            del self._frame[BMS._INFO_LEN :]
 
         # trim message in case oversized
         if len(self._frame) > BMS._INFO_LEN:

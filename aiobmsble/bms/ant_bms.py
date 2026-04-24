@@ -129,7 +129,7 @@ class BMS(BaseBMS):
             and len(self._frame) >= self._exp_len
             and len(data) >= BMS._MIN_LEN
         ):
-            self._frame = bytearray()
+            self._frame.clear()
             self._exp_len = data[5] + BMS._MIN_LEN
 
         self._frame.extend(data)
