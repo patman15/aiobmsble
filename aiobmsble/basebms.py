@@ -633,6 +633,7 @@ class BaseBMS(ABC):
             )
         ]
 
+    @final
     def _check_integrity(
         self,
         data: bytes | bytearray,
