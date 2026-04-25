@@ -117,12 +117,7 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length")
             return
 
-        if not self._check_integrity(
-            data,
-            crc8,
-            slice(None, -1),
-            slice(-1, None),
-        ):
+        if not self._check_integrity(data, crc8, slice(None, -1), slice(-1, None)):
             return
 
         if data[1] == 0xF4 and 0xF4 in self._msg:

@@ -151,10 +151,7 @@ class BMS(BaseBMS):
             del self._frame[BMS._INFO_LEN :]
 
         if not self._check_integrity(
-            self._frame,
-            crc_sum,
-            slice(None, -1),
-            slice(-1, None),
+            self._frame, crc_sum, slice(None, -1), slice(-1, None)
         ):
             return
 

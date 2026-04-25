@@ -128,10 +128,7 @@ class BMS(BaseBMS):
 
         if page == data[1] & 0xF:  # check if last page
             if not self._check_integrity(
-                self._frame,
-                BMS._crc,
-                slice(3, -4),
-                slice(-4, -2),
+                self._frame, BMS._crc, slice(3, -4), slice(-4, -2)
             ):
                 self._frame.clear()
                 self._msg = {}  # reset invalid data

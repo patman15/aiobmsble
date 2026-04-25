@@ -112,10 +112,7 @@ class BMS(BaseBMS):
         )
 
         if not self._check_integrity(
-            _dec,
-            lambda x: crc_sum(x, 2),
-            slice(None, -2),
-            slice(-2, None),
+            _dec, lambda x: crc_sum(x, 2), slice(None, -2), slice(-2, None)
         ):
             self._frame.clear()
             return
