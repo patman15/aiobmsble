@@ -93,14 +93,13 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length: %i != %i", len(data), data[2] + 5)
             return
 
-        if (crc := crc_modbus(data[: BMS._CRC_POS])) != int.from_bytes(
-            data[BMS._CRC_POS :], "little"
+        if not self._check_integrity(
+            data,
+            crc_modbus,
+            slice(None, BMS._CRC_POS),
+            slice(BMS._CRC_POS, None),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                crc,
-                int.from_bytes(data[BMS._CRC_POS :], "little"),
-            )
             return
 
         self._msg = bytes(data)

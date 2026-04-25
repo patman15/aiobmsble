@@ -102,7 +102,7 @@ class BMS(BaseBMS):
             and data[1] in {*BMS._CMDS, *BMS._INIT_CMDS}
             and len(self._frame) >= BMS._MIN_LEN + self._frame[2]
         ):
-            self._frame = bytearray()
+            self._frame.clear()
 
         self._frame.extend(data)
         self._log.debug(

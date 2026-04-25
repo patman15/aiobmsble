@@ -106,15 +106,19 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         if len(data) < 3 or not data.startswith(b"\x00\x00"):
-            self._log.debug("incorrect SOF.")
+            self._log.debug("incorrect SOF")
             return
 
         if len(data) != data[2] + BMS._HEAD_LEN + 1:  # add header length and CRC
             self._log.debug("incorrect frame length (%i)", len(data))
             return
 
-        if (crc := crc_sum(data[:-1])) != data[-1]:
-            self._log.debug("invalid checksum 0x%X != 0x%X", data[len(data) - 1], crc)
+        if not self._check_integrity(
+            data,
+            crc_sum,
+            slice(None, -1),
+            slice(-1, None),
+        ):
             return
 
         self._msg = bytes(data)

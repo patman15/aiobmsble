@@ -103,9 +103,9 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         if data.startswith(BMS._RX_HEADER_RSP_STAT):
-            self._frame = bytearray()
+            self._frame.clear()
         elif not self._frame:
-            self._log.debug("invalid start of frame")
+            self._log.debug("invalid SOF")
             return
 
         self._frame.extend(data)
@@ -119,12 +119,13 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if (local_crc := crc_sum(self._frame[4:-2], 2)) != (
-            remote_crc := int.from_bytes(
-                self._frame[-2:], byteorder="big", signed=False
-            )
+        if not self._check_integrity(
+            self._frame,
+            lambda x: crc_sum(x[4:-2], 2),
+            slice(None, None),
+            slice(-2, None),
+            "big",
         ):
-            self._log.debug("invalid checksum 0x%X != 0x%X", local_crc, remote_crc)
             self._frame.clear()
             return
 
