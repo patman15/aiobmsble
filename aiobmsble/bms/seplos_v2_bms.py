@@ -125,10 +125,7 @@ class BMS(BaseBMS):
             return
 
         if not self._check_integrity(
-            self._frame,
-            lambda x: crc_xmodem(x[1:-3]),
-            slice(None, None),
-            slice(-3, -1),
+            self._frame, lambda x: crc_xmodem(x[1:-3]), slice(None, None), slice(-3, -1)
         ):
             return
 
@@ -160,7 +157,9 @@ class BMS(BaseBMS):
         assert cmd in (0x47, 0x51, 0x61, 0x62, 0x04)  # allow only read commands
         frame = bytearray([*BMS._HEAD, BMS._CMD_VER, address, 0x46, cmd])
         frame.extend(len(data).to_bytes(2, "big", signed=False) + data)
-        frame.extend(int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL)
+        frame.extend(
+            int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL
+        )
         return bytes(frame)
 
     async def _async_update(self) -> BMSSample:

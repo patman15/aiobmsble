@@ -136,10 +136,7 @@ class BMS(BaseBMS):
             return
 
         if not self._check_integrity(
-            self._frame,
-            crc_sum,
-            slice(None, -2),
-            slice(-2, -1),
+            self._frame, crc_sum, slice(None, -2), slice(-2, -1)
         ):
             return
 
