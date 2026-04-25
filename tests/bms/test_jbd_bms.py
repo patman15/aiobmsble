@@ -55,9 +55,9 @@ class MockJBDBleakClient(MockBleakClient):
     """Emulate a JBD BMS BleakClient."""
 
     HEAD_CMD = 0xDD
-    CMD_INFO = bytearray(b"\xa5\x03")
-    CMD_CELL = bytearray(b"\xa5\x04")
-    HW_INFO = bytearray(b"\xa5\x05")
+    CMD_INFO = b"\xa5\x03"
+    CMD_CELL = b"\xa5\x04"
+    HW_INFO = b"\xa5\x05"
     ACK_MSG = bytearray(b"\xff\xaa\x15\x01\x00\x16")
     REQUIRE_PASS = False
     UNLOCKED = False
@@ -164,15 +164,15 @@ class MockOversizedBleakClient(MockJBDBleakClient):
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")
-            and bytearray(data)[0] == self.HEAD_CMD
+            and bytes(data)[0] == self.HEAD_CMD
         ):
-            if bytearray(data)[1:3] == self.CMD_INFO:
+            if bytes(data)[1:3] == self.CMD_INFO:
                 return bytearray(
                     b"\xdd\x03\x00\x1d\x06\x18\xfe\xe1\x01\xf2\x01\xf4\x00\x2a\x2c\x7c\x00\x00\x00"
                     b"\x00\x00\x00\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x84\x77"
                     b"\00\00\00\00\00\00"  # oversized response
                 )  # {'voltage': 15.6, 'current': -2.87, 'battery_level': 100, 'cycle_charge': 4.98, 'cycles': 42, 'temperature': 22.133333333333347}
-            if bytearray(data)[1:3] == self.CMD_CELL:
+            if bytes(data)[1:3] == self.CMD_CELL:
                 return bytearray(
                     b"\xdd\x04\x00\x08\x0d\x66\x0d\x61\x0d\x68\x0d\x59\xfe\x3c\x77"
                     b"\00\00\00\00\00\00\00\00\00\00\00\00"  # oversized response
