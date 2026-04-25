@@ -147,14 +147,13 @@ class BMS(BaseBMS):
         if len(self._frame) < self._pkglen:
             return
 
-        if (crc := crc_modbus(self._frame[: self._pkglen - 2])) != int.from_bytes(
-            self._frame[self._pkglen - 2 : self._pkglen], "little"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(None, self._pkglen - 2),
+            slice(self._pkglen - 2, self._pkglen),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[self._pkglen - 2 : self._pkglen], "little"),
-                crc,
-            )
             self._frame.clear()
             return
 

@@ -95,14 +95,13 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length")
             return
 
-        if (crc := crc_modbus(data[:-2])) != int.from_bytes(
-            data[-2:], byteorder="little"
+        if not self._check_integrity(
+            data,
+            crc_modbus,
+            slice(None, -2),
+            slice(-2, None),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(data[-2:], "little"),
-                crc,
-            )
             return
 
         self._msg[data[2]] = bytes(data)
@@ -125,7 +124,7 @@ class BMS(BaseBMS):
         for addr, length in BMS._CMDS:
             await self._await_msg(BMS._cmd(addr, length))
         if not BMS._RESPS.issubset(set(self._msg.keys())):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise TimeoutError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)

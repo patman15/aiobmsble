@@ -110,7 +110,7 @@ class BMS(BaseBMS):
             return
 
         if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
-            self._log.debug("incorrect frame encoding.")
+            self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
 
@@ -119,7 +119,7 @@ class BMS(BaseBMS):
         # incoming frames seem to have invalid checksum, thus not checked here
 
         if not _dec.startswith(b"\x01\x54"):
-            self._log.debug("incorrect frame type.")
+            self._log.debug("incorrect frame type")
             self._frame.clear()
             return
 

@@ -116,14 +116,9 @@ class BMS(BaseBMS):
             self._log.debug("unexpected response (type 0x%X)", data[1])
             return
 
-        if (crc := crc_sum(data[1:-2], 2)) != int.from_bytes(
-            data[-2:], byteorder="little"
+        if not self._check_integrity(
+            data, lambda x: crc_sum(x, 2), slice(1, -2), slice(-2, None), "little"
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(data[-2:], byteorder="little"),
-                crc,
-            )
             return
 
         self._msg[data[1]] = bytes(data)

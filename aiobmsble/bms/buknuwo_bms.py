@@ -82,7 +82,7 @@ class BMS(BaseBMS):
             and len(self._frame) >= self._exp_len
         ):
             self._exp_len = BMS._MIN_LEN + data[2]
-            self._frame = bytearray()
+            self._frame.clear()
 
         self._frame.extend(data)
         self._log.debug(
@@ -92,14 +92,13 @@ class BMS(BaseBMS):
         if len(self._frame) < 3 or len(self._frame) < self._frame[2] + BMS._MIN_LEN:
             return
 
-        if (crc := crc_modbus(self._frame[:-2])) != int.from_bytes(
-            self._frame[-2:], byteorder="little"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(None, -2),
+            slice(-2, None),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[-2:], "little"),
-                crc,
-            )
             return
 
         self._msg = bytes(self._frame)

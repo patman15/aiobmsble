@@ -153,12 +153,12 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.endswith(BMS._TAIL):
-            self._log.debug("incorrect EOF: %s", data)
+            self._log.debug("incorrect EOF")
             self._frame.clear()
             return
 
         if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
-            self._log.debug("incorrect frame encoding.")
+            self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
 
@@ -171,13 +171,12 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if not self.name.startswith(BMS._IGNORE_CRC) and (
-            crc := crc_sum(self._frame[1:-3]) ^ 0xFF
-        ) != int(self._frame[-3:-1], 16):
-            # libattU firmware uses no CRC, so we ignore it
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X", int(self._frame[-3:-1], 16), crc
-            )
+        if not self.name.startswith(BMS._IGNORE_CRC) and not self._check_integrity(
+            self._frame,
+            lambda x: crc_sum(x) ^ 0xFF,
+            slice(1, -3),
+            int(self._frame[-3:-1], 16),
+        ):
             self._frame.clear()
             return
 

@@ -113,7 +113,7 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.startswith(BMS._HEAD_RSP):
-            self._log.debug("incorrect frame start.")
+            self._log.debug("incorrect SOF")
             return
 
         # trim message in case oversized
@@ -122,7 +122,7 @@ class BMS(BaseBMS):
             del self._frame[self._exp_len :]
 
         if self._frame[-1] != BMS._TAIL:
-            self._log.debug("incorrect frame end.")
+            self._log.debug("incorrect EOF")
             return
 
         # check that message type is expected
@@ -135,8 +135,9 @@ class BMS(BaseBMS):
             )
             return
 
-        if (crc := crc_sum(self._frame[:-2])) != self._frame[-2]:
-            self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-2], crc)
+        if not self._check_integrity(
+            self._frame, crc_sum, slice(None, -2), slice(-2, -1)
+        ):
             return
 
         self._msg = bytes(self._frame)

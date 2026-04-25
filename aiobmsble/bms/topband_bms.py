@@ -111,10 +111,9 @@ class BMS(BaseBMS):
             self._frame.strip(b"".join(BMS._HEAD_RSP)).decode()
         )
 
-        if (crc := crc_sum(_dec[:-2], 2)) != int.from_bytes(_dec[-2:]):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X", int.from_bytes(_dec[-2:]), crc
-            )
+        if not self._check_integrity(
+            _dec, lambda x: crc_sum(x, 2), slice(None, -2), slice(-2, None)
+        ):
             self._frame.clear()
             return
 

@@ -118,7 +118,7 @@ class BMS(BaseBMS):
             and len(self._frame) >= self._exp_len
         ):
             self._exp_len = BMS._INFO_LEN + int.from_bytes(data[6:8])
-            self._frame = bytearray()
+            self._frame.clear()
 
         self._frame.extend(data)
         self._log.debug(
@@ -141,14 +141,13 @@ class BMS(BaseBMS):
             self._log.debug("BMS reported error code: 0x%X", self._frame[4])
             return
 
-        if (crc := crc_modbus(self._frame[:-3])) != int.from_bytes(
-            self._frame[-3:-1], "big"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(None, -3),
+            slice(-3, -1),
+            "big",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[-3:-1], "big"),
-                crc,
-            )
             return
         self._msg[self._frame[5]] = bytes(self._frame)
         self._msg_event.set()

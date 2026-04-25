@@ -150,14 +150,9 @@ class BMS(BaseBMS):
         # Truncate if we received extra data
         del self._frame[expected_len:]
 
-        # Verify CRC
-        received_crc: Final[int] = int.from_bytes(self._frame[-2:], byteorder="little")
-        calculated_crc: Final[int] = crc_modbus(self._frame[:-2])
-
-        if received_crc != calculated_crc:
-            self._log.debug(
-                "invalid CRC: 0x%04X != 0x%04X", received_crc, calculated_crc
-            )
+        if not self._check_integrity(
+            self._frame, crc_modbus, slice(None, -2), slice(-2, None), "little"
+        ):
             self._frame.clear()
             return
 
