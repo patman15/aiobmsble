@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import asyncio
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -45,7 +46,9 @@ class BMS(JbdBMS):
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
+        await super()._init_connection(char_notify)
+        await asyncio.sleep(1)  # wait for BMS to process initialization command
         await self._await_msg(
             BMS._INIT_CMD, normalize_uuid_str("fed5"), wait_for_notify=False
         )
-        await super()._init_connection(char_notify)
+        await asyncio.sleep(5)  # wait for BMS to process initialization command
