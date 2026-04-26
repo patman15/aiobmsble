@@ -6,6 +6,7 @@ from string import hexdigits
 from typing import Any, Final, Literal, NoReturn
 from uuid import UUID
 
+import aiooui
 from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -13,7 +14,6 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
-from netaddr import OUI, NotRegisteredError
 import pytest
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
@@ -178,7 +178,7 @@ class BMSBasicTests:
             assert str(self.bms_class.INFO.get(key, "")).strip()
         assert len(self.bms_class.bms_id().strip())
 
-    def test_matcher_dict(self) -> None:
+    async def test_matcher_dict(self) -> None:
         """Test that the BMS returns BT matcher."""
 
         assert len(self.bms_class.matcher_dict_list())
@@ -203,9 +203,10 @@ class BMSBasicTests:
                     len(part) == 2 and all(c in hexdigits for c in part)
                     for part in parts
                 ), f"incorrect {oui=}"
-                try:
-                    OUI(oui.replace(":", "-"))
-                except NotRegisteredError:
+                if not aiooui.is_loaded():
+                    await aiooui.async_load()
+                if aiooui.get_vendor(oui) is None:
+                    # OUI is not registered
                     assert (int(parts[0], 16) & 0xC0) not in (
                         0x00,  # Non-resolvable random private address
                         0x40,  # Resolvable random private address
