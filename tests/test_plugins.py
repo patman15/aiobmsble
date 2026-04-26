@@ -11,7 +11,7 @@ def test_advertisements_unique() -> None:
             supported: bool = bms_supported(bms_under_test.BMS, adv, mac_addr)
             assert supported == (
                 f"aiobmsble.bms.{bms_real}" == bms_under_test.__name__
-            ), f"{adv} {"incorrectly matches"if supported else "does not match"} {bms_under_test}!"
+            ), f"{adv} {"incorrectly matches"if supported else "does not match"} {bms_under_test.__name__}!"
 
 
 def test_advertisements_ignore() -> None:
@@ -21,4 +21,4 @@ def test_advertisements_ignore() -> None:
             supported: bool = bms_supported(bms_under_test.BMS, adv, mac_addr)
             assert (
                 not supported
-            ), f"{adv} incorrectly matches {bms_under_test}! {reason=}"
+            ), f"{adv} incorrectly matches {bms_under_test.__name__}! {reason=}"
