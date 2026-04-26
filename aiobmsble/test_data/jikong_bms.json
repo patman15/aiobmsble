@@ -5,9 +5,7 @@
       "manufacturer_data": {
         "2917": "88a0c847800fd5c5"
       },
-      "service_uuids": [
-        "0000ffe0-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
       "rssi": -83
     },
     "type": "jikong_bms",
@@ -19,15 +17,11 @@
       "manufacturer_data": {
         "2917": "88a0c847800d086b"
       },
-      "service_uuids": [
-        "0000ffe0-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
       "rssi": -68
     },
     "type": "jikong_bms",
-    "_comments": [
-      "source LOG"
-    ]
+    "_comments": ["source LOG"]
   },
   {
     "advertisement": {
@@ -47,17 +41,13 @@
       "rssi": -67
     },
     "type": "jikong_bms",
-    "_comments": [
-      "source LOG"
-    ]
+    "_comments": ["source LOG"]
   },
   {
     "advertisement": {
       "local_name": "506036N46002293-00",
       "rssi": -84,
-      "platform_data": [
-        "A4:C1:38:00:00:00"
-      ],
+      "platform_data": ["A4:C1:38:00:00:00"],
       "manufacturer_data": {
         "2917": "88a0a4c13801085a"
       },
@@ -69,6 +59,19 @@
     "type": "jikong_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/527)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "JK-BD4A8S-4P",
+      "platform_data": ["20:25:03:32:09:75"],
+      "rssi": -79,
+      "manufacturer_data": { "19274": "0001" },
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "jikong_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/682)"
     ]
   }
 ]
