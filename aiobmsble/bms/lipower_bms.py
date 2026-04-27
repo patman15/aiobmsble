@@ -18,8 +18,7 @@ class BMS(BaseBMS):
     """LiPower BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Ective", "default_model": "LiPower BMS"}
-    # _HEADS: Final[tuple[bytes, ...]] = (b"\x22\x03", b"\x0b\x03")  # alternative heads
-    _DEV_IDS: Final[tuple[int, ...]] = (0x22, 0x0B)  # alternative device IDs
+    _DEV_IDS: Final[tuple[bytes, ...]] = (b"\x22", b"\x0B")  # alternative device IDs
     _MIN_LEN: Final[int] = 5  # minimal frame length, including SOF and checksum
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 15, 2, False, lambda x: x / 10),
@@ -47,7 +46,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive, secret, logger_name)
-        self._heads: tuple[int, ...] = BMS._DEV_IDS
+        self._heads: tuple[bytes, ...] = BMS._DEV_IDS
         self._msg: bytes = b""
 
     @staticmethod
@@ -76,7 +75,7 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
-        if (data[0] not in self._heads) or len(data) < BMS._MIN_LEN:
+        if (not data.startswith(self._heads)) or len(data) < BMS._MIN_LEN:
             self._log.debug("incorrect SOF")
             return
 
@@ -101,10 +100,10 @@ class BMS(BaseBMS):
         for head in self._heads:
             try:
                 await self._await_msg(
-                    BMS._cmd_modbus(dev_id=head, addr=0x400, count=0x8)
+                    BMS._cmd_modbus(dev_id=int.from_bytes(head), addr=0x400, count=0x8)
                 )
                 if len(self._heads) > 1:
-                    self._log.debug("detected frame head: %s", hex(head))
+                    self._log.debug("detected frame head: %s", head.hex())
                     self._heads = (head,)  # set to single head for further commands
                 break
             except TimeoutError:
