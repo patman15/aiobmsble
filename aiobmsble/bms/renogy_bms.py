@@ -3,7 +3,6 @@
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 """
 
-from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -72,7 +71,7 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_msg(self._cmd(0x13F0, 0x1C))
+        await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13F0, count=0x1C))
         return {
             "serial_number": b2str(self._msg[15:31]),
             "name": b2str(self._msg[39:55]),
@@ -109,23 +108,13 @@ class BMS(BaseBMS):
     def _read_int16(data: bytes, pos: int, signed: bool = False) -> int:
         return int.from_bytes(data[pos : pos + 2], byteorder="big", signed=signed)
 
-    @staticmethod
-    @cache
-    def _cmd(addr: int, words: int) -> bytes:
-        """Assemble a Renogy BMS command (MODBUS)."""
-        frame: bytearray = (
-            bytearray(BMS._HEAD) + addr.to_bytes(2, "big") + words.to_bytes(2, "big")
-        )
-        frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
-        return bytes(frame)
-
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await self._await_msg(self._cmd(0x13B2, 0x7))
+        await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13B2, count=0x7))
         result: BMSSample = BMS._decode_data(type(self).FIELDS, self._msg)
 
-        await self._await_msg(self._cmd(0x1388, 0x22))
+        await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x1388, count=0x22))
         result["cell_count"] = BMS._read_int16(self._msg, BMS._CELL_POS)
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg,
@@ -143,7 +132,7 @@ class BMS(BaseBMS):
             divider=10,
         )
 
-        await self._await_msg(self._cmd(0x13EC, 0x8))
+        await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13EC, count=0x8))
         result["problem_code"] = int.from_bytes(self._msg[3:17], byteorder="big") & (
             ~0xE
         )
