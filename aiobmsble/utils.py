@@ -179,3 +179,63 @@ def bms_supported(bms: BaseBMS, adv_data: AdvertisementData, mac_addr: str) -> b
         if _advertisement_matches(matcher, adv_data, mac_addr):
             return True
     return False
+
+
+class StreamParser:
+    """Stream parsers with start/end and escape handling."""
+
+    MAX_SIZE: Final[int] = 1024  # buffer size limit
+
+    def __init__(self, DLE: int = 0x10, STX: int = 0x02, ETX: int = 0x03) -> None:
+        """Initialize parser with specified control characters.
+
+        Args:
+            DLE (bytes): Data Link Escape character used for escaping control characters in the stream.
+            STX (bytes): Start of Text character indicating the beginning of a frame in the stream.
+            ETX (bytes): ETX character indicating the end of a frame in the stream.
+
+        """
+        self.DLE: Final[int] = DLE
+        self.STX: Final[int] = STX
+        self.ETX: Final[int] = ETX
+        self._in_frame: bool = False
+        self._escaped: bool = False
+        self._buffer: bytearray = bytearray()
+
+    def feed(self, data: bytes | bytearray) -> bytes | None:
+        """Feed arbitrary chunks of bytes."""
+        result_frame: bytes | None = None
+
+        for b in data:
+            if not self._in_frame:
+                # Look for escaped STX to start a frame
+                if self._escaped and b == self.STX:
+                    self._in_frame = True
+                    self._buffer.clear()
+                    self._escaped = False
+                    continue
+                self._escaped = b == self.STX
+                continue
+
+            # Inside a frame
+            if self._escaped:
+                self._escaped = False
+                if b in (self.DLE, self.STX):
+                    self._buffer.append(b)
+                if b == self.ETX:
+                    self._in_frame = False
+                    result_frame = bytes(self._buffer)
+                    self._buffer.clear()
+                continue
+
+            if b in (self.DLE, self.ETX):
+                self._escaped = True
+                continue
+
+            self._buffer.append(b)
+            if len(self._buffer) > StreamParser.MAX_SIZE:
+                self._in_frame = False
+                self._buffer.clear()
+                continue
+
+        return result_frame
