@@ -4,7 +4,6 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -104,29 +103,19 @@ class BMS(BaseBMS):
         self._msg = bytes(self._frame)
         self._msg_event.set()
 
-    @staticmethod
-    @cache
-    def _cmd(addr: int, words: int) -> bytes:
-        """Assemble a Buknuwo BMS command."""
-        frame: bytearray = (
-            bytearray(BMS._HEAD)
-            + addr.to_bytes(2, byteorder="big")
-            + words.to_bytes(2, byteorder="big")
-        )
-        frame.extend(crc_modbus(frame).to_bytes(2, "little"))
-        return bytes(frame)
-
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(BMS._cmd(0x0, 0xD))
+        await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x0, count=0xD))
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
-        await self._await_msg(BMS._cmd(0x39, 1))
+        await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x39, count=0x1))
         result["temp_values"] = BMS._temp_values(
             self._msg, values=1, start=3, divider=10
         )
 
-        await self._await_msg(BMS._cmd(0x2E, BMS._MAX_TEMP + 1))
+        await self._await_msg(
+            BMS._cmd_modbus(dev_id=0x1, addr=0x2E, count=BMS._MAX_TEMP + 1)
+        )
         result["temp_sensors"] = int.from_bytes(self._msg[3:5], "big")
         result["temp_values"].extend(
             BMS._temp_values(

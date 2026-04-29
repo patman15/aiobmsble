@@ -30,7 +30,7 @@ class BMS(BaseBMS):
     _EIC_LEN: Final[int] = 0x5
     _TEMP_START: Final[int] = _HEAD_LEN + 32
     _QUERY: Final[dict[str, tuple[int, int, int]]] = {
-        # name: cmd, reg start, length
+        # name: fct, address, count
         "EIA": (0x4, 0x2000, _EIA_LEN),
         "EIB": (0x4, 0x2100, _EIB_LEN),
         "EIC": (0x1, 0x2200, _EIC_LEN),
