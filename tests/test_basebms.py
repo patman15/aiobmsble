@@ -25,6 +25,7 @@ from aiobmsble.basebms import (
     crc_sum,
     crc_xmodem,
     lrc_modbus,
+    lstr2int,
 )
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
 from tests.bluetooth import generate_ble_device
@@ -213,6 +214,7 @@ class BMSBasicTests:
                         # 0xC0,  # Static random device address
                     ), f"random private address OUI ({oui}) cannot be used for filtering!"
 
+
 async def verify_device_info(
     patch_bleak_client,
     bleak_client: type[BleakClient],
@@ -316,24 +318,50 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
     [
         (
             {"cell_voltages": [3.456, 3.567]},
-            {"cell_count": 2, "delta_voltage": 0.111, "voltage": 7.023},
+            {
+                "cell_count": 2,
+                "delta_voltage": 0.111,
+                "voltage": 7.023,
+                "problem": False,
+            },
         ),
-        ({"battery_level": 73, "design_capacity": 125}, {"cycle_charge": 91.25}),
-        ({"cycle_charge": 421, "design_capacity": 983}, {"battery_level": 42.8}),
-        ({"total_charge": 1234567, "design_capacity": 256}, {"cycles": 4822}),
         (
-            {"current": -1.3, "cycle_charge": 73},
-            {"battery_charging": False, "runtime": 202153},
+            {"battery_level": 73, "design_capacity": 125},
+            {"cycle_charge": 91.25, "problem": False},
         ),
-        ({"current": 1.3, "cycle_charge": 73}, {"battery_charging": True}),
+        (
+            {"cycle_charge": 421, "design_capacity": 983},
+            {"battery_level": 42.8, "problem": False},
+        ),
+        (
+            {"total_charge": 1234567, "design_capacity": 256},
+            {"cycles": 4822, "problem": False},
+        ),
+        (
+            {"current": -1.3, "cycle_charge": 73, "problem": False},
+            {"battery_charging": False, "runtime": 202153, "problem": False},
+        ),
+        (
+            {"current": 1.3, "cycle_charge": 73},
+            {"battery_charging": True, "problem": False},
+        ),
+        ({}, {}),
     ],
-    ids=["voltage", "cycle_charge", "battery_level", "cycles", "runtime", "no_runtime"],
+    ids=[
+        "voltage",
+        "cycle_charge",
+        "battery_level",
+        "cycles",
+        "runtime",
+        "no_runtime",
+        "no_data",
+    ],
 )
 def test_calc_values(sample: BMSSample, expected: BMSSample) -> None:
     """Check if missing data is correctly calculated."""
     ref: BMSSample = sample.copy()
     BaseBMS._add_missing_values(sample)
-    assert sample == ref | expected | {"problem": False}
+    assert sample == ref | expected
 
 
 @pytest.mark.parametrize(
@@ -568,6 +596,7 @@ async def test_context_mgr(
             "problem": True,
             "problem_code": 21,
         }
+        assert bms.is_connected
 
 
 async def test_context_mgr_fail(
@@ -580,6 +609,14 @@ async def test_context_mgr_fail(
     with pytest.raises(ValueError, match="usage of context manager*"):
         async with MinTestBMS(generate_ble_device(), keep_alive=False) as bms:
             await bms.async_update()
+
+
+def test_cmd_modbus() -> None:
+    """Test Modbus command building."""
+    assert (
+        BaseBMS._cmd_modbus(dev_id=0x01, fct=0x04, addr=0xAFFE, count=0x1234)
+        == b"\x01\x04\xaf\xfe\x12\x34\xbd\x99"
+    )
 
 
 def test_crc_calculations() -> None:
@@ -817,3 +854,35 @@ def test_decode_data(
 def test_b2str(data: bytes, expected: str) -> None:
     """Test bytearray to string conversion function."""
     assert b2str(data) == expected
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        ("01", 1),
+        ("01.1", 1),
+        ("123", 123),
+        ("0", 0),
+        ("000", 0),
+        ("123abc", 123),
+        ("123.45", 123),
+        ("1.2.3", 1),
+        ("5", 5),
+        ("999999", 999999),
+    ],
+    ids=[
+        "leading_zero",
+        "decimal_point",
+        "three_digits",
+        "zero",
+        "multiple_zeros",
+        "digits_then_letters",
+        "digits_then_decimal",
+        "digits_dot_digits_dot_digits",
+        "single_digit",
+        "large_number",
+    ],
+)
+def test_lstr2int(data: str, expected: int) -> None:
+    """Test string to integer conversion function."""
+    assert lstr2int(data) == expected

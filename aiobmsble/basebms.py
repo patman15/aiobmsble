@@ -523,7 +523,9 @@ class BaseBMS(ABC):
     @final
     @staticmethod
     @cache
-    def _cmd_modbus(dev_id: int = 0, fct: int = 0x3, addr: int = 0, count: int = 1) -> bytes:
+    def _cmd_modbus(
+        dev_id: int = 0, fct: int = 0x3, addr: int = 0, count: int = 1
+    ) -> bytes:
         """Assemble a MODBUS command.
 
         Args:
@@ -537,7 +539,7 @@ class BaseBMS(ABC):
 
         """
         assert dev_id >= 0x00
-        assert fct in range(1,5)  # allow only read commands
+        assert fct in (1, 2, 3, 4, 5, 6, 15, 16, 22, 23)
         assert addr >= 0 and count > 0 and addr + count <= 0xFFFF
         frame: bytes = (
             dev_id.to_bytes(1)
@@ -661,6 +663,7 @@ class BaseBMS(ABC):
             )
         ]
 
+    @final
     def _check_integrity(
         self,
         data: bytes | bytearray,
