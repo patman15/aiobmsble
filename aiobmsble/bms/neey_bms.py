@@ -163,6 +163,23 @@ class BMS(BaseBMS):
         frame.extend(bytes([crc_sum(frame), BMS._TAIL]))
         return bytes(frame)
 
+    async def _async_update(self) -> BMSSample:
+        """Update battery status information."""
+        if not self._msg_event.is_set() or self._msg[4] != 0x02:
+            # request cell info (only if data is not constantly published)
+            self._log.debug("requesting cell info")
+            await self._await_msg(data=BMS._cmd(b"\x02"))
+
+        data: BMSSample = self._conv_data(self._msg)
+        data["temp_values"] = BMS._temp_sensors(self._msg, 2)
+
+        data["cell_voltages"] = BMS._cell_voltages(
+            self._msg, cells=24, start=9, byteorder="little", size=4
+        )
+
+        self._msg_event.clear()  # clear event for next update
+        return data
+
     @staticmethod
     def _cell_voltages(
         data: bytes,
@@ -196,20 +213,3 @@ class BMS(BaseBMS):
             result[key] = func(unpack_from(fmt, data, idx)[0])
 
         return result
-
-    async def _async_update(self) -> BMSSample:
-        """Update battery status information."""
-        if not self._msg_event.is_set() or self._msg[4] != 0x02:
-            # request cell info (only if data is not constantly published)
-            self._log.debug("requesting cell info")
-            await self._await_msg(data=BMS._cmd(b"\x02"))
-
-        data: BMSSample = self._conv_data(self._msg)
-        data["temp_values"] = BMS._temp_sensors(self._msg, 2)
-
-        data["cell_voltages"] = BMS._cell_voltages(
-            self._msg, cells=24, start=9, byteorder="little", size=4
-        )
-
-        self._msg_event.clear()  # clear event for next update
-        return data
