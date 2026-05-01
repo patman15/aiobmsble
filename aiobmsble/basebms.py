@@ -15,6 +15,7 @@ from types import TracebackType
 from typing import Any, Final, Literal, Self, final
 
 from bleak import BleakClient
+from bleak.args.bluez import BlueZNotifyArgs
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.exc import (
@@ -38,6 +39,8 @@ class BaseBMS(ABC):
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
+    # default to use start_notify, as it requires no acknowledgement of notifications and thus faster
+    _BLUEZ_PARAMS: Final[BlueZNotifyArgs] = {"use_start_notify": True}
 
     accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
 
@@ -365,7 +368,7 @@ class BaseBMS(ABC):
         await self._client.start_notify(
             char_notify or self.uuid_rx(),
             getattr(self, "_notification_handler"),
-            bluez={"use_start_notify": True},
+            bluez=BaseBMS._BLUEZ_PARAMS,
         )
 
     @final

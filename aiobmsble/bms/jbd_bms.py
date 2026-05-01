@@ -142,7 +142,7 @@ class BMS(BaseBMS):
             await self._client.start_notify(
                 BMS.uuid_rx(),
                 self._notify_init_handler,
-                bluez={"use_start_notify": True},
+                bluez=BMS._BLUEZ_PARAMS,
             )
             data: Final[bytes] = self._secret.encode(encoding="ASCII")
             try:
