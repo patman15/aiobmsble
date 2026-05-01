@@ -44,15 +44,20 @@ class BMS(BaseBMS):
         "default_manufacturer": "Voltagen Power Solutions",
         "default_model": "MyVolta BLE HW",
     }
+    _PRB_MASK: Final[int] = (
+        0xFF00FFFF  # mask to extract problem code from problem_code field (bits 16-23)
+    )
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 0, 2, False, lambda x: x / 1000, MsgT.METRICS),
         BMSDp("current", 2, 2, True, lambda x: x / 100, MsgT.METRICS),
         BMSDp("battery_level", 6, 2, False, lambda x: x / 10, MsgT.METRICS),
-        # BMSDp("cycle_charge", 12, 2, False, lambda x: x / 1000, Cmd.LEGINFO1),
+        BMSDp("heater", 2, 2, False, lambda x: bool(x & 0x8000), MsgT.INFO),
+        BMSDp("problem_code", 1, 4, False, lambda x: x & BMS._PRB_MASK, MsgT.INFO),
     )
 
     _MSG_SET: Final[frozenset[int]] = frozenset(
-        {0x0, 0x1, 0x11, 0x12, 0x13, 0x14, 0x21, 0x22, 0x24, 0x25, 0x26, 0x27}
+        {MsgT.METRICS, MsgT.INFO, 0x11, 0x12, 0x13, 0x14}
+        | set(range(MsgT.TEMPS3, MsgT.TEMPS5 + 1))
     )  # set of message types that must be received for a complete update
 
     def __init__(
@@ -102,6 +107,11 @@ class BMS(BaseBMS):
         if not (frame := self.parser.feed(data)):
             return
 
+        # check command ID and pack ID, data length
+        if frame[0] != 0x1 or frame[2] != 0x2 or frame[6] != 0x8:
+            self._log.debug("incorrect frame header: %s", frame)
+            return
+
         if not self._check_integrity(
             frame, self._crc_sum, slice(1, -1), slice(-1, None)
         ):
@@ -118,12 +128,44 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        self._msg.clear()
-        self._msg_event.clear()
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
         result: BMSSample = self._decode_data(
             BMS._FIELDS, self._msg, byteorder="little", start=7
         )
+        for msg_type in (
+            MsgT.CELL_VOLTAGES1,
+            MsgT.CELL_VOLTAGES2,
+            MsgT.CELL_VOLTAGES3,
+            MsgT.CELL_VOLTAGES4,
+        ):
+            result.setdefault("cell_voltages", []).extend(
+                self._cell_voltages(
+                    self._msg[msg_type],
+                    cells=4,
+                    start=7,
+                    divider=1000,
+                    byteorder="little",
+                )
+            )
 
+        for msg_type in (
+            # MsgT.CELL_TEMPS1, MsgT.CELL_TEMPS2,
+            MsgT.TEMPS3,
+            MsgT.TEMPS4,
+            MsgT.TEMPS5,
+            # MsgT.TEMPS6, MsgT.TEMPS7, MsgT.TEMPS8,
+        ):
+            result.setdefault("temp_values", []).extend(
+                self._temp_values(
+                    self._msg[msg_type],
+                    values=4,
+                    start=7,
+                    divider=10,
+                    byteorder="little",
+                )
+            )
+
+        self._msg.clear()
+        self._msg_event.clear()
         return result
