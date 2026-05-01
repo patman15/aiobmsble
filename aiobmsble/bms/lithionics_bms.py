@@ -71,7 +71,7 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
-        self._frame += data
+        self._frame.extend(data)
         while (idx := self._frame.find(b"\r\n")) >= 0:
             line: str = self._frame[:idx].decode("ascii", errors="ignore").strip()
             del self._frame[: idx + 2]

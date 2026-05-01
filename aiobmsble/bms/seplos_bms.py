@@ -30,7 +30,7 @@ class BMS(BaseBMS):
     _EIC_LEN: Final[int] = 0x5
     _TEMP_START: Final[int] = _HEAD_LEN + 32
     _QUERY: Final[dict[str, tuple[int, int, int]]] = {
-        # name: cmd, reg start, length
+        # name: fct, address, count
         "EIA": (0x4, 0x2000, _EIA_LEN),
         "EIB": (0x4, 0x2100, _EIB_LEN),
         "EIC": (0x1, 0x2200, _EIC_LEN),
@@ -138,7 +138,7 @@ class BMS(BaseBMS):
             self._frame.clear()
             self._pkglen = BMS._HEAD_LEN + BMS._CRC_LEN
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -147,14 +147,13 @@ class BMS(BaseBMS):
         if len(self._frame) < self._pkglen:
             return
 
-        if (crc := crc_modbus(self._frame[: self._pkglen - 2])) != int.from_bytes(
-            self._frame[self._pkglen - 2 : self._pkglen], "little"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(None, self._pkglen - 2),
+            slice(self._pkglen - 2, self._pkglen),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[self._pkglen - 2 : self._pkglen], "little"),
-                crc,
-            )
             self._frame.clear()
             return
 
@@ -193,9 +192,9 @@ class BMS(BaseBMS):
         assert cmd in (0x01, 0x04)  # allow only read commands
         assert start >= 0 and count > 0 and start + count <= 0xFFFF
         frame: bytearray = bytearray([device, cmd])
-        frame += int.to_bytes(start, 2, byteorder="big")
-        frame += int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big")
-        frame += int.to_bytes(crc_modbus(frame), 2, byteorder="little")
+        frame.extend(int.to_bytes(start, 2, byteorder="big"))
+        frame.extend(int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big"))
+        frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
         return bytes(frame)
 
     async def _async_update(self) -> BMSSample:

@@ -5,14 +5,41 @@
       "manufacturer_data": {
         "8979": "88a0aabbcc900001"
       },
-      "service_uuids": [
-        "0000ffe0-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
       "rssi": -70
     },
     "type": "ant_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/366)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "ANT-BLE22AACB-0489",
+      "manufacturer_data": { "10139": "88a022dd65000489" },
+      "service_uuids": [
+        "0000ffe0-0000-1000-8000-00805f9b34fb",
+        "0000fee7-0000-1000-8000-00805f9b34fb"
+      ],
+      "platform_data": ["22:DD:65:01:04:89"],
+      "rssi": -66
+    },
+    "type": "ant_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/668)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "ANT@BLE24CBUB-1231\r",
+      "platform_data": ["64:9B:F8:2E:A6:6A"],
+      "rssi": -73,
+      "manufacturer_data": { "5000": "649bf82ea66a22113322" },
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "ant_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/675)"
     ]
   }
 ]

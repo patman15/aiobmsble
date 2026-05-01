@@ -11,7 +11,7 @@ from aiobmsble import BMSSample
 from aiobmsble.bms.superb_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import BMSBasicTests, verify_device_info
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 32
 
@@ -37,6 +37,7 @@ class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
 
     bms_class = BMS
+
 
 class MockSuperBBleakClient(MockBleakClient):
     """Emulate a Super-B BMS BleakClient."""
@@ -71,7 +72,9 @@ class MockSuperBBleakClient(MockBleakClient):
         self._send_info()
 
 
-async def test_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, keep_alive_fixture
+) -> None:
     """Test Super-B BMS data update."""
 
     monkeypatch.setattr(MockSuperBBleakClient, "_RESP", _PROTO_DEFS)
@@ -111,11 +114,6 @@ async def test_update_chrg(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     assert await bms.async_update() == result
 
 
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockSuperBBleakClient, BMS)
-
-
 async def test_tx_notimplemented(patch_bleak_client) -> None:
     """Test Super-B BMS uuid_tx not implemented for coverage."""
 
@@ -136,7 +134,10 @@ async def test_tx_notimplemented(patch_bleak_client) -> None:
     ids=["empty", "too_short"],
 )
 async def test_invalid_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytes
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 

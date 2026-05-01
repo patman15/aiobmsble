@@ -84,8 +84,7 @@ class BMS(BaseBMS):
         #     self._log.debug("incorrect SOF")
         #     return
 
-        # if (crc := crc_sum(self._frame[:-1])) != self._frame[-1]:
-        #     self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-1], crc)
+        # if not self._check_crc(self._frame, crc_sum, slice(None, -1), slice(-1, None)):
         #     return
 
         # Do an immutable copy of the assembled (data) frame and notify _await_msg()

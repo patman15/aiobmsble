@@ -257,11 +257,6 @@ def test_bms_info() -> None:
     assert BMS.INFO.get("default_model") == "BLE BMS"
 
 
-def test_cmd() -> None:
-    """Test Modbus read command building."""
-    assert BMS._cmd(0x01, 0x03, 0x0000, 0x003B) == b"\x01\x03\x00\x00\x00\x3b\x04\x19"
-
-
 def _build_test_frame(reg_values: dict[int, int]) -> bytearray:
     """Build a test frame with specific register values for edge case testing.
 

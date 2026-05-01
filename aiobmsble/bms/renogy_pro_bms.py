@@ -92,7 +92,7 @@ class BMS(RenogyBMS):
                     char_notify_handle = char.handle
 
         if char_notify_handle == -1 or self._char_write_handle == -1:
-            self._log.debug("failed to detect characteristics.")
+            self._log.debug("failed to detect characteristics")
             await self._client.disconnect()
             raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
         self._log.debug(
