@@ -19,9 +19,6 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"default_manufacturer": "Daly", "default_model": "smart BMS"}
     _HEAD_READ: Final[bytes] = b"\xd2\x03"
-    _CMD_INFO: Final[bytes] = b"\x00\x00\x00\x3e\xd7\xb9"
-    _MOS_INFO: Final[bytes] = b"\x00\x3e\x00\x09\xf7\xa3"
-    _VER_INFO: Final[bytes] = b"\x00\xa9\x00\x20\x87\x91"
     _HEAD_LEN: Final[int] = 3
     _CRC_LEN: Final[int] = 2
     _MAX_CELLS: Final[int] = 32
@@ -89,7 +86,7 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_msg(BMS._HEAD_READ + BMS._VER_INFO)
+        await self._await_msg(BMS._cmd_modbus(dev_id=0xD2, addr=0xA9, count=32))
         return {
             "sw_version": b2str(self._msg[3:19]),
             "hw_version": b2str(self._msg[19:35]),
@@ -109,14 +106,13 @@ class BMS(BaseBMS):
             self._log.debug("response data is invalid")
             return
 
-        if (crc := crc_modbus(data[:-2])) != int.from_bytes(
-            data[-2:], byteorder="little"
+        if not self._check_integrity(
+            data,
+            crc_modbus,
+            slice(None, -2),
+            slice(-2, None),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(data[-2:], byteorder="little"),
-                crc,
-            )
             return
 
         self._msg = bytes(data)
@@ -128,7 +124,7 @@ class BMS(BaseBMS):
         if self._mos_avail in (True, None):
             try:
                 # request MOS temperature (possible: response, stuck response, no response)
-                await self._await_msg(BMS._HEAD_READ + BMS._MOS_INFO)
+                await self._await_msg(BMS._cmd_modbus(dev_id=0xD2, addr=0x3E, count=9))
 
                 if self._mos_avail is None and self._msg[
                     BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2
@@ -136,7 +132,7 @@ class BMS(BaseBMS):
                     b"\x00\x00",
                     b"\xff\xff",
                 ):
-                    self._log.debug("MOS temperature invalid, deactivating.")
+                    self._log.debug("MOS temperature invalid, deactivating")
                     self._mos_avail = False
                 else:
                     result["temp_values"] = [
@@ -148,10 +144,10 @@ class BMS(BaseBMS):
                     ]
                     self._mos_avail = True
             except TimeoutError:
-                self._log.debug("MOS temperature read failed, deactivating.")
+                self._log.debug("MOS temperature read failed, deactivating")
                 self._mos_avail = False
 
-        await self._await_msg(BMS._HEAD_READ + BMS._CMD_INFO)
+        await self._await_msg(BMS._cmd_modbus(dev_id=0xD2, addr=0x0, count=62))
 
         if len(self._msg) != BMS._INFO_LEN:
             self._log.debug("incorrect frame length: %i", len(self._msg))

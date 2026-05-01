@@ -40,7 +40,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
         BMSDp("dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
     )
-    _CMDS: Final = frozenset({field.idx for field in _FIELDS}) | set({0x87})
+    _CMDS: Final = frozenset(field.idx for field in _FIELDS) | set({0x87})
 
     def __init__(
         self,
@@ -94,11 +94,11 @@ class BMS(BaseBMS):
             return
 
         if not data.startswith(BMS._HEAD):
-            self._log.debug("incorrect SOF.")
+            self._log.debug("incorrect SOF")
             return
 
         if not data.endswith(BMS._TAIL):
-            self._log.debug("incorrect EOF.")
+            self._log.debug("incorrect EOF")
             return
 
         self._msg[data[2]] = bytes(data)
@@ -117,7 +117,7 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd))
 
         if not BMS._CMDS.issubset(self._msg):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)

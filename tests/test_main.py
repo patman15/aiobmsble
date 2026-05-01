@@ -1,10 +1,11 @@
 """Test the package main script."""
+
 import argparse
 import asyncio
 from collections.abc import Callable
 from logging import DEBUG, INFO
 import sys
-from typing import Any, Final
+from typing import Any, Final, Literal
 from unittest import mock
 
 from bleak.backends.device import BLEDevice
@@ -177,6 +178,82 @@ def test_main_parses_logfile_and_verbose(
     assert isinstance(args, argparse.Namespace)
     assert args.logfile == "test.log"
     assert args.verbose
+
+
+def test_main_parses_json(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_setup_logging: mock.MagicMock | mock.AsyncMock,
+    mock_asyncio_run: mock.MagicMock | mock.AsyncMock,
+) -> None:
+    """Check that command line parses the JSON option and calls identify_bms_from_json."""
+
+    called: dict[str, bool] = {"identified": False}
+
+    async def patch_identify_bms_from_json(json_str: str) -> None:
+        assert json_str == '{"local_name":"dummy"}'
+        called["identified"] = True
+
+    monkeypatch.setattr(sys, "argv", ["prog", "--json", '{"local_name":"dummy"}'])
+    monkeypatch.setattr(
+        main_mod, "identify_bms_from_json", patch_identify_bms_from_json
+    )
+
+    main_mod.main()
+
+    assert mock_setup_logging.called
+    assert mock_asyncio_run.called
+    assert called["identified"]
+
+
+async def test_identify_bms_from_json_invalid(caplog: pytest.LogCaptureFixture) -> None:
+    """Check that invalid JSON input is handled gracefully."""
+    await main_mod.identify_bms_from_json("not-a-json")
+    assert "Failed to parse JSON" in caplog.text
+
+
+async def test_identify_bms_from_json_no_match(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Check that no match found is logged when no BMS can be identified."""
+
+    async def fake_bms_identify(adv, addr) -> None:
+        return None
+
+    monkeypatch.setattr(main_mod, "bms_identify", fake_bms_identify)
+
+    await main_mod.identify_bms_from_json('{"local_name": "dummy"}')
+    assert "No matching BMS type found" in caplog.text
+
+
+async def test_identify_bms_from_json_match(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Check that a matching BMS is identified and logged correctly."""
+
+    class FakeBMSClass:
+        @staticmethod
+        def bms_id() -> Literal["SimpleBMS"]:
+            return "SimpleBMS"
+
+    async def fake_bms_identify(adv, addr) -> type[FakeBMSClass]:
+        return FakeBMSClass
+
+    monkeypatch.setattr(main_mod, "bms_identify", fake_bms_identify)
+
+    await main_mod.identify_bms_from_json(
+        '{"name":"dummy","address":"AA:BB:CC:DD:EE:FF"}'
+    )
+    assert "BMS Type: SimpleBMS" in caplog.text
+
+
+async def test_identify_bms_from_json_invalid_advdata(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Check that invalid advertisement data in JSON input is handled gracefully."""
+    await main_mod.identify_bms_from_json(
+        '{"local_name":"dummy","platform_data":["bad"]}'
+    )
+    assert "Failed to convert advertisement data" in caplog.text
 
 
 @mock.patch("aiobmsble.__main__.logger")

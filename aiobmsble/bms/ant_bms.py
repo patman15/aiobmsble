@@ -24,6 +24,7 @@ class BMS(BaseBMS):
     _MIN_LEN: Final[int] = 10  # frame length without data
     _CMD_STAT: Final[int] = 0x01
     _CMD_DEV: Final[int] = 0x02
+    _CMD_AUTH: Final[int] = 0x23
     _TEMP_POS: Final[int] = 8
     _MAX_TEMPS: Final[int] = 6
     _CELL_COUNT: Final[int] = 9
@@ -51,6 +52,7 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 47, 1, False, lambda x: x == 0x1),
         BMSDp("balancer", 48, 1, False, lambda x: bool(x & 0x4)),
     )
+    accept_secret: bool = True
 
     def __init__(
         self,
@@ -70,9 +72,8 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "ANT-BLE*",
+                "local_name": "ANT?BLE[23]*",
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": 0x2313,
                 "connectable": True,
             }
         ]
@@ -80,7 +81,7 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return (normalize_uuid_str("ffe0"),)  # change service UUID here!
+        return (normalize_uuid_str("ffe0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -107,6 +108,16 @@ class BMS(BaseBMS):
         """Initialize RX/TX characteristics and protocol state."""
         await super()._init_connection(char_notify)
         self._exp_len = 0
+        if self._secret:
+            await self._await_msg(
+                self._cmd(
+                    BMS._CMD_AUTH,
+                    0x6A01,
+                    len(self._secret),
+                    self._secret.encode("ASCII"),
+                ),
+                wait_for_notify=False,
+            )
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -118,10 +129,10 @@ class BMS(BaseBMS):
             and len(self._frame) >= self._exp_len
             and len(data) >= BMS._MIN_LEN
         ):
-            self._frame = bytearray()
+            self._frame.clear()
             self._exp_len = data[5] + BMS._MIN_LEN
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -141,19 +152,16 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.endswith(BMS._TAIL):
-            self._log.debug("invalid frame end")
+            self._log.debug("invalid EOF")
             return
 
-        if (crc := crc_modbus(self._frame[1 : self._exp_len - 4])) != int.from_bytes(
-            self._frame[self._exp_len - 4 : self._exp_len - 2], "little"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(1, self._exp_len - 4),
+            slice(self._exp_len - 4, self._exp_len - 2),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(
-                    self._frame[self._exp_len - 4 : self._exp_len - 2], "little"
-                ),
-                crc,
-            )
             return
 
         self._msg = bytes(self._frame)
@@ -161,12 +169,13 @@ class BMS(BaseBMS):
 
     @staticmethod
     @cache
-    def _cmd(cmd: int, adr: int, value: int) -> bytes:
-        """Assemble a ANT BMS command."""
+    def _cmd(cmd: int, adr: int, length: int, data: bytes = b"") -> bytes:
+        """Assemble an ANT BMS command."""
         frame: bytearray = (
             bytearray([*BMS._HEAD, cmd & 0xFF])
             + adr.to_bytes(2, "little")
-            + int.to_bytes(value & 0xFF, 1)
+            + int.to_bytes(length & 0xFF, 1)
+            + data
         )
         frame.extend(int.to_bytes(crc_modbus(frame[1:]), 2, "little"))
         return bytes(frame) + BMS._TAIL

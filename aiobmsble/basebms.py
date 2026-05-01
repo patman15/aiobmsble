@@ -7,6 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from functools import cache
 from itertools import takewhile
 import logging
 from statistics import fmean
@@ -56,7 +57,7 @@ class BaseBMS(ABC):
             self, msg: str, kwargs: MutableMapping[str, Any]
         ) -> tuple[str, MutableMapping[str, Any]]:
             """Process the logging message."""
-            prefix: str = str(self.extra.get("prefix") if self.extra else "")
+            prefix: Final[str] = str(self.extra.get("prefix") if self.extra else "")
             return (f"{prefix} {msg}", kwargs)
 
     def __init__(
@@ -90,9 +91,10 @@ class BaseBMS(ABC):
         ), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
+        self._secret: Final[str] = secret
+        logger_name = logger_name or self.__class__.__module__
         self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
-        logger_name = logger_name or self.__class__.__module__
         self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
             {
@@ -475,7 +477,7 @@ class BaseBMS(ABC):
     async def disconnect(self, reset: bool = False) -> None:
         """Disconnect the BMS, includes stopping notifications."""
 
-        self._log.debug("disconnecting BMS (%s)", str(self._client.is_connected))
+        self._log.debug("disconnecting BMS (%s)", self._client.is_connected)
         try:
             self._msg_event.clear()
             if reset:
@@ -517,6 +519,35 @@ class BaseBMS(ABC):
             await self.disconnect()
 
         return data
+
+    @final
+    @staticmethod
+    @cache
+    def _cmd_modbus(
+        dev_id: int = 0, fct: int = 0x3, addr: int = 0, count: int = 1
+    ) -> bytes:
+        """Assemble a MODBUS command.
+
+        Args:
+            dev_id (int): 8-bit slave device id (default: 0)
+            fct (int): 8-bit function code (default: 3, read registers)
+            addr (int): 16-bit start address (default: 0x0)
+            count (int): 16-bit number of elements (default: 1)
+
+        Returns:
+            bytes: assembled MODBUS command bytes
+
+        """
+        assert dev_id >= 0x00
+        assert fct in (1, 2, 3, 4, 5, 6, 15, 16, 22, 23)
+        assert addr >= 0 and count > 0 and addr + count <= 0xFFFF
+        frame: bytes = (
+            dev_id.to_bytes(1)
+            + fct.to_bytes(1)
+            + addr.to_bytes(2, byteorder="big")
+            + count.to_bytes(2, byteorder="big")
+        )
+        return frame + crc_modbus(frame).to_bytes(2, "little")
 
     @staticmethod
     def _decode_data(
@@ -632,6 +663,38 @@ class BaseBMS(ABC):
             )
         ]
 
+    @final
+    def _check_integrity(
+        self,
+        data: bytes | bytearray,
+        integrity_func: Callable[[bytes | bytearray], int],
+        dic_data_slice: slice,
+        dic_expected: slice | int,
+        byteorder: Literal["little", "big"] = "big",
+    ) -> bool:
+        """Check data integrity of frame data.
+
+        Args:
+            data: The frame data to check
+            integrity_func: Function to calculate data integrity code (DIC, e.g. CRC/checksum)
+            dic_data_slice: Slice of data to calculate DIC on
+            dic_expected: Slice where expected DIC is stored or expected DIC as int
+            byteorder: Byte order for reading expected DIC
+
+        Returns:
+            bool: True if data integrity code (DIC) is valid, False otherwise
+        """
+        calc_dic: Final[int] = integrity_func(data[dic_data_slice])
+        exp_dic: Final[int] = (
+            int.from_bytes(data[dic_expected], byteorder)
+            if isinstance(dic_expected, slice)
+            else dic_expected
+        )
+        if calc_dic != exp_dic:
+            self._log.debug("invalid checksum 0x%X != 0x%X", exp_dic, calc_dic)
+            return False
+        return True
+
 
 def b2str(b: bytes) -> str:
     """Decode a bytearray to string, stopping at the first non-printable character."""
@@ -682,7 +745,7 @@ def crc_xmodem(data: bytes | bytearray) -> int:
 
 def crc8(data: bytes | bytearray) -> int:
     """Calculate CRC-8/MAXIM-DOW."""
-    crc: int = 0x00  # Initialwert für CRC
+    crc: int = 0x00
 
     for byte in data:
         crc ^= byte

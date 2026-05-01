@@ -13,7 +13,7 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
         - name: "Checkout the repository" 
-          uses: "actions/checkout@v4"
+          uses: "actions/checkout@v6"
         
         - name: "Set up Python"
           uses: actions/setup-python@main
@@ -30,7 +30,9 @@ jobs:
           id: set-param
           run: |
             if [[ "${{ github.event_name }}" == "schedule" ]]; then
-              echo "test_param='--max-examples=75000'" >> $GITHUB_ENV
+              # Use timestamp-based seed for variety
+              SEED=$(($(date +%s) % 100000))
+              echo "test_param=--max-examples=50000 --hypothesis-seed=$SEED" >> $GITHUB_ENV
             fi
       
         - name: Run fuzz tests

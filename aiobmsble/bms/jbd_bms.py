@@ -50,7 +50,6 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive, secret, logger_name)
-        self._secret: Final[str] = secret
         self._valid_reply: int = 0x00
         self._msg: bytes = b""
 
@@ -64,7 +63,9 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in (
+                "DWF*",  # Daren BMS, Docan battery
                 "JBD-*",
+                "N-?????BL*",  # Nordström battery
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
                 "SBL-*",  # SBL
@@ -123,8 +124,7 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length")
             return
 
-        if (crc := crc_sum(data[2:-1])) != data[-1]:
-            self._log.debug("invalid checksum 0x%X != 0x%X", data[-1], crc)
+        if not self._check_integrity(data, crc_sum, slice(2, -1), slice(-1, None)):
             return
 
         if data[2] != 0x15 or data[3] != 0x01:
@@ -149,10 +149,10 @@ class BMS(BaseBMS):
                     + ((0x15 + len(self._secret) + sum(data)) & 0xFF).to_bytes(1)
                 )
             except TimeoutError:
-                self._log.warning("Failed to initialize connection with secret.")
+                self._log.warning("Failed to initialize connection with secret")
                 raise
             if self._msg[4] != 0x00:
-                self._log.warning("Incorrect secret.")
+                self._log.warning("incorrect secret")
                 raise PermissionError("Incorrect secret.")
 
             await self._client.stop_notify(BMS.uuid_rx())
@@ -172,7 +172,7 @@ class BMS(BaseBMS):
         ):
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -190,14 +190,12 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame end (length: %i).", len(self._frame))
             return
 
-        if (crc := BMS._crc(self._frame[2 : frame_end - 2])) != int.from_bytes(
-            self._frame[frame_end - 2 : frame_end], "big"
+        if not self._check_integrity(
+            self._frame,
+            BMS._crc,
+            slice(2, frame_end - 2),
+            slice(frame_end - 2, frame_end),
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[frame_end - 2 : frame_end], "big"),
-                crc,
-            )
             return
 
         if len(self._frame) != BMS._INFO_LEN + self._frame[3]:
@@ -211,7 +209,7 @@ class BMS(BaseBMS):
         self._msg_event.set()
 
     @staticmethod
-    def _crc(frame: bytearray) -> int:
+    def _crc(frame: bytes | bytearray) -> int:
         """Calculate JBD frame CRC."""
         return 0x10000 - sum(frame)
 

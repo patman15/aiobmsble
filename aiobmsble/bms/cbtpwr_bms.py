@@ -37,7 +37,7 @@ class BMS(BaseBMS):
         BMSDp("runtime", 14, 2, False, lambda x: x * BMS._HRS_TO_SECS / 100, 0x0C),
         BMSDp("problem_code", 4, 4, False, idx=0x21),
     )
-    _CMDS: Final = frozenset({field.idx for field in _FIELDS})
+    _CMDS: Final = frozenset(field.idx for field in _FIELDS)
 
     def __init__(
         self,
@@ -99,17 +99,15 @@ class BMS(BaseBMS):
             return
 
         if not data.startswith(BMS._HEAD) or not data.endswith(BMS._TAIL_RX):
-            self._log.debug("incorrect frame start/end: %s", data)
+            self._log.debug("incorrect SOF/EOF: %s", data)
             return
 
-        if (crc := crc_sum(data[len(BMS._HEAD) : len(data) + BMS._CRC_POS])) != data[
-            BMS._CRC_POS
-        ]:
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                data[len(data) + BMS._CRC_POS],
-                crc,
-            )
+        if not self._check_integrity(
+            data,
+            crc_sum,
+            slice(len(BMS._HEAD), len(data) + BMS._CRC_POS),
+            slice(BMS._CRC_POS, BMS._CRC_POS + 1),
+        ):
             return
 
         self._msg[data[2]] = bytes(data)
@@ -131,7 +129,7 @@ class BMS(BaseBMS):
         for cmd in BMS._CMDS:
             await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
         if not BMS._CMDS.issubset(set(self._msg.keys())):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
         voltages: list[float] = []

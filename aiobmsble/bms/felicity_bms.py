@@ -95,7 +95,7 @@ class BMS(BaseBMS):
         if data.startswith(BMS._HEAD):
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -110,7 +110,7 @@ class BMS(BaseBMS):
             return
 
         if (ver := self._msg.get("CommVer", 0)) != 1:
-            self._log.debug("Unknown protocol version (%i)", ver)
+            self._log.debug("unknown protocol version (%i)", ver)
             return
 
         self._msg_event.set()

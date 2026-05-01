@@ -45,7 +45,6 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive, secret, logger_name)
-        self._secret: Final[str] = secret
         self._msg: dict[int, bytes] = {}
 
     @staticmethod
@@ -89,7 +88,7 @@ class BMS(BaseBMS):
         await super()._init_connection(char_notify)
         self._log.debug("send password")
         try:
-            #await self._await_msg(BMS._cmd(0x10) + BMS._PASS[:6] + b"\x00\xe7\x80\x69\x48")
+            # await self._await_msg(BMS._cmd(0x10) + BMS._PASS[:6] + b"\x00\xe7\x80\x69\x48")
             await self._await_msg(bytes.fromhex(self._secret))
         except ValueError:
             self._log.error("Secret needs to be a pure HEX string!")
@@ -122,7 +121,7 @@ class BMS(BaseBMS):
     @staticmethod
     @cache
     def _cmd(cmd: int) -> bytes:
-        """Assemble a Seplos BMS command."""
+        """Assemble a Saftkiste BMS command."""
         assert cmd in (0x2, 0x3, 0x4, 0x5, 0x10, 0x43)
         return BMS._HEAD + cmd.to_bytes(1)
 
