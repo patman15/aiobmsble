@@ -75,3 +75,41 @@ The RT series Modbus interface exposes only min/max aggregates for cell
 voltages (0x1018, 0x1019) and temperatures (0x101A, 0x101B) — individual
 cell or sensor values are not available. Both `cell_voltages` and
 `temp_values` are therefore two-element lists `[max, min]`.
+
+### Potential further advertisements
+```json
+  {
+    "advertisement": {
+      "local_name": "GModule",
+      "service_uuids": [
+        "00001812-0000-1000-8000-00805f9b34fb",
+        "0000180f-0000-1000-8000-00805f9b34fb"
+      ],
+      "rssi": -48
+    },
+    "type": "pylontech_bms",
+    "_comments": [
+      "Pylontech RT12100G31",
+      "Advertisement captured when Telink TLSR8266 uses its default full name.",
+      "Despite the generic name, the advertisement still carries 0x180F and 0x1812 UUIDs.",
+      "Vendor-specific UUIDs (0a0b0c0d1910/1912) appear only after GATT connection."
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "GMod",
+      "service_uuids": [
+        "00001812-0000-1000-8000-00805f9b34fb",
+        "0000180f-0000-1000-8000-00805f9b34fb"
+      ],
+      "rssi": -48
+    },
+    "type": "pylontech_bms",
+    "_comments": [
+      "Pylontech RT12100G31",
+      "Advertisement captured when Telink TLSR8266 name is truncated in BLE adv packet.",
+      "Same UUID profile as GModule - 0x180F and 0x1812 in advertisement."
+    ]
+  }
+  ```
+  
