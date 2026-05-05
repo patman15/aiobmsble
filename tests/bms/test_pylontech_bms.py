@@ -23,8 +23,8 @@ from tests.test_basebms import BMSBasicTests
 #
 #   Main block response (0x1016–0x1022, 13 registers):
 #   01 03 1a                            addr, FC, byte-count
-#   05 2c                               0x1016  voltage:    1324  -> 13.24 V
-#   ff d0                               0x1017  current:   -48   -> -4.8 A
+#   05 2c                               0x1016  voltage:   1324  -> 13.24 V
+#   ff d0                               0x1017  current:    -48  -> -4.8 A
 #   0c f0                               0x1018  cell max:  3312  ->  3.312 V
 #   0c ef                               0x1019  cell min:  3311  ->  3.311 V
 #   00 96                               0x101A  temp max:   150  -> 15.0 °C
@@ -33,13 +33,13 @@ from tests.test_basebms import BMSBasicTests
 #   00 63                               0x101D  SoH:         99  -> 99 %
 #   00 3f                               0x101E  power:       63  -> 63 W
 #   00 00                               0x101F  unknown:      0
-#   0b 90                               0x1020  lifetime: 2960  -> 296.0 kWh
-#   03 e8                               0x1021  allowed:  1000  -> 100.0 A
-#   03 e8                               0x1022  dcap:     1000  -> 100.0 Ah
+#   0b 90                               0x1020  lifetime:  2960  -> 296.0 kWh
+#   03 e8                               0x1021  allowed:   1000  -> 100.0 A
+#   03 e8                               0x1022  dcap:      1000  -> 100 Ah
 #   45 d8                               CRC
 #
 #   SN block response (0x2000–0x2007, 8 registers = "A231015000000001"):
-#   01 03 10 41 32 33 31 30 31 35 30 30 30 30 30 30 30 31 85 04
+#   01 03 10 41 32 33 31 30 31 35 30 30 30 30 30 30 30 30 31 85 04
 # ---------------------------------------------------------------------------
 
 # Modbus request bytes (used as keys in mock response dict)
@@ -57,27 +57,11 @@ _RESP_SN: Final[bytearray] = bytearray(
 
 # Pre-computed modified responses for specific test cases
 _RESP_MAIN_COLD: Final[bytearray] = bytearray(
-    # temp max/min replaced with 0xFFEC (int16 -20 -> -2.0 °C), CRC updated
     b"\x01\x03\x1a\x05\x2c\xff\xd0\x0c\xf0\x0c\xef\xff\xec\xff\xec"
     b"\x00\x5b\x00\x63\x00\x3f\x00\x00\x0b\x90\x03\xe8\x03\xe8\xbd\x16"
 )
-_RESP_MAIN_NO_DCAP: Final[bytearray] = bytearray(
-    # design_capacity register (0x1022) set to 0x0000, CRC updated
-    b"\x01\x03\x1a\x05\x2c\xff\xd0\x0c\xf0\x0c\xef\x00\x96\x00\x96"
-    b"\x00\x5b\x00\x63\x00\x3f\x00\x00\x0b\x90\x03\xe8\x00\x00\x45\x66"
-)
 _RESP_SN_ZERO: Final[bytearray] = bytearray(
     b"\x01\x03\x10" + b"\x00" * 16 + b"\xe4\x59"
-)
-
-_RESP_MAIN_24V: Final[bytearray] = bytearray(
-    b"\x01\x03\x1a\x0a\x58\xff\xd0\x0c\xf0\x0c\xef\x00\x96\x00\x96"
-    b"\x00\x5b\x00\x63\x00\x3f\x00\x00\x0b\x90\x03\xe8\x03\xe8\x9d\xd7"
-)
-
-_RESP_MAIN_ZERO_VOLT: Final[bytearray] = bytearray(
-    b"\x01\x03\x1a\x00\x00\xff\xd0\x0c\xf0\x0c\xef\x00\x96\x00\x96"
-    b"\x00\x5b\x00\x63\x00\x3f\x00\x00\x0b\x90\x03\xe8\x00\x00\x0c\xa3"
 )
 
 TX_UUID: Final[str] = BMS.uuid_tx()
@@ -102,8 +86,6 @@ def ref_value() -> BMSSample:
         "battery_charging": False,
         "problem":          False,
         "runtime":          int(91.0 / 4.8 * 3600),
-        "total_charge":     23125,   # int(296.0 kWh * 1000 / 12.8 V)
-        "cycles":           231,     # 23125 Ah // 100 Ah
     }
 
 
@@ -188,65 +170,6 @@ async def test_negative_temperature(monkeypatch, patch_bleak_client) -> None:
     bms = BMS(generate_ble_device())
     result = await bms.async_update()
     assert result["temp_values"] == [-2.0, -2.0]
-    await bms.disconnect()
-
-
-async def test_design_capacity_fallback(monkeypatch, patch_bleak_client) -> None:
-    """Test that design_capacity falls back to name-parsed value when register is 0."""
-    monkeypatch.setattr(
-        MockPylontechBleakClient, "RESP",
-        {**MockPylontechBleakClient.RESP, _REQ_MAIN: bytearray(_RESP_MAIN_NO_DCAP)},
-    )
-    patch_bleak_client(MockPylontechBleakClient)
-    bms = BMS(generate_ble_device(name="RT12200-000001"))  # 200 Ah from name
-    result = await bms.async_update()
-    assert result["design_capacity"] == 200
-    assert result["cycle_charge"] == 182.0  # 200 * 91%
-    await bms.disconnect()
-
-
-async def test_gmod_calibration_from_voltage(patch_bleak_client) -> None:
-    """Test that cell_count and capacity are calibrated from measured data for generic-name devices.
-
-    When the BLE advertisement uses the Telink default name ("GMod" / "GModule"),
-    _parse_model() falls back to (100 Ah, 4 cells). After the first successful
-    update the values are corrected from the measured voltage and design_capacity
-    register so that 24 V / 48 V packs are handled correctly.
-    """
-    patch_bleak_client(MockPylontechBleakClient)
-
-    for generic_name in ("GMod", "GModule"):
-        bms = BMS(generate_ble_device(name=generic_name))
-        # Before first update: fallback values
-        assert bms._cell_count == 4
-        assert bms._capacity_ah == 100
-
-        result = await bms.async_update()
-        # voltage=13.24 V → round(13.24 / 3.2) = round(4.14) = 4 cells
-        assert bms._cell_count == 4
-        assert bms._capacity_ah == 100  # design_capacity from register = 100 Ah
-        assert result["design_capacity"] == 100
-        await bms.disconnect()
-
-
-async def test_gmod_calibration_24v(monkeypatch, patch_bleak_client) -> None:
-    """Test that cell_count is calibrated correctly for a 24V pack with generic name."""
-    monkeypatch.setattr(
-        MockPylontechBleakClient, "RESP",
-        {**MockPylontechBleakClient.RESP, _REQ_MAIN: bytearray(_RESP_MAIN_24V)},
-    )
-    patch_bleak_client(MockPylontechBleakClient)
-    bms = BMS(generate_ble_device(name="GMod"))
-    assert bms._cell_count == 4        # fallback před update
-    assert bms._capacity_ah == 100
-
-    result = await bms.async_update()
-    # voltage=26.48V → round(26.48 / 3.2) = round(8.275) = 8 cells
-    assert bms._cell_count == 8
-    assert bms._nominal_voltage == pytest.approx(25.6)
-    assert bms._capacity_ah == 100
-    # total_charge přepočítán s nominal=25.6V místo 12.8V
-    assert result["total_charge"] == int(296.0 * 1000 / 25.6)
     await bms.disconnect()
 
 
@@ -341,48 +264,6 @@ async def test_notification_handler_bad_sof(patch_bleak_client) -> None:
 
 
 @pytest.mark.parametrize(
-    ("name", "expected_capacity", "expected_cells"),
-    [
-        ("RT12100-710003", 100, 4),
-        ("RT12200-000001", 200, 4),
-        ("RT24100-000001", 100, 8),
-        ("RT48100-000001", 100, 16),
-        ("RT36050-000001",  50, 12),
-        ("GModule",        100, 4),
-        ("GMod",           100, 4),
-        ("",               100, 4),
-    ],
-    ids=["RT12100", "RT12200", "RT24100", "RT48100", "RT36050", "GModule", "GMod", "empty"],
-)
-def test_parse_model(name: str, expected_capacity: int, expected_cells: int) -> None:
-    """Test that model name is correctly parsed to capacity and cell count."""
-    capacity, cells = BMS._parse_model(name)
-    assert capacity == expected_capacity
-    assert cells    == expected_cells
-
-
-async def test_capacity_from_device_name(patch_bleak_client) -> None:
-    """Test that capacity is correctly set from the BLE device name."""
-    patch_bleak_client(MockPylontechBleakClient)
-
-    bms_100 = BMS(generate_ble_device(name="RT12100-710003"))
-    assert bms_100._capacity_ah == 100
-    assert bms_100._cell_count  == 4
-
-    bms_200 = BMS(generate_ble_device(name="RT12200-000001"))
-    assert bms_200._capacity_ah == 200
-    assert bms_200._cell_count  == 4
-
-    bms_gmod = BMS(generate_ble_device(name="GModule"))
-    assert bms_gmod._capacity_ah == 100
-    assert bms_gmod._cell_count  == 4
-
-    bms_gmod = BMS(generate_ble_device(name="GMod"))
-    assert bms_gmod._capacity_ah == 100
-    assert bms_gmod._cell_count  == 4
-
-
-@pytest.mark.parametrize(
     ("local_name", "has_service_uuid", "should_match"),
     [
         ("RT12100-710003", True,  True),   # standard RT12100 with Battery Service UUID
@@ -413,22 +294,3 @@ def test_matcher_covers_rt_variants(
     adv = adv_dict_to_advdata(adv_dict)
     matched = any(_advertisement_matches(m, adv, "") for m in BMS.matcher_dict_list())
     assert matched is should_match
-
-async def test_gmod_calibration_zero_voltage(monkeypatch, patch_bleak_client) -> None:
-    """Test that calibration is skipped when voltage and dcap are zero."""
-    monkeypatch.setattr(
-        MockPylontechBleakClient, "RESP",
-        {**MockPylontechBleakClient.RESP, _REQ_MAIN: bytearray(_RESP_MAIN_ZERO_VOLT)},
-    )
-    patch_bleak_client(MockPylontechBleakClient)
-    bms = BMS(generate_ble_device(name="GMod"))
-    assert bms._cell_count == 4
-    assert bms._capacity_ah == 100
-
-    result = await bms.async_update()
-    # voltage=0 and dcap=0: calibration skipped, fallback values retained
-    assert bms._cell_count == 4
-    assert bms._capacity_ah == 100
-    # design_capacity falls back to _capacity_ah since register is 0
-    assert result["design_capacity"] == 100
-    await bms.disconnect()

@@ -5,7 +5,6 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 See docs/pylontech_bms.md for protocol details and register map.
 """
 
-import re
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -26,8 +25,8 @@ class BMS(BaseBMS):
 
     _DEV_ID: Final[int] = 1
 
-    _REG_SN:       Final[int] = 0x2000
-    _SN_COUNT:     Final[int] = 8
+    _REG_SN: Final[int] = 0x2000
+    _SN_COUNT: Final[int] = 8
 
     # Contiguous block 0x1016-0x1022 = 13 registers
     _BLOCK_START: Final[int] = 0x1016
@@ -42,31 +41,6 @@ class BMS(BaseBMS):
         BMSDp("power", 16, 2, False, float),
         BMSDp("design_capacity", 24, 2, False, lambda x: x // 10),
     )
-
-    # Nominal LFP cell voltage used to convert lifetime energy (kWh) -> total charge (Ah)
-    _LFP_CELL_VOLTAGE: Final[float] = 3.2
-
-    # Generic BLE module names used by Telink TLSR8266 when Pylontech firmware
-    # has not overwritten the default device name.
-    _GENERIC_NAMES: Final[frozenset[str]] = frozenset({"GMod", "GModule"})
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _parse_model(name: str) -> tuple[int, int]:
-        """Extract (capacity_ah, cell_count) from BLE device name.
-
-        Name format: "RT{vv}{ccc}[-suffix]", e.g. "RT12100-710003".
-        Falls back to (100, 4) for unknown names (RT12100 default).
-        """
-        m = re.search(r"RT(\d{2})(\d+)", name or "")
-        if m:
-            voltage_v   = int(m.group(1))
-            capacity_ah = int(m.group(2))
-            return capacity_ah, voltage_v // 3
-        return 100, 4
 
     # ------------------------------------------------------------------
     # Initialisation
@@ -83,12 +57,6 @@ class BMS(BaseBMS):
         super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
         self._exp_len: int = 0
-        self._capacity_ah, self._cell_count = BMS._parse_model(self.name)
-        self._nominal_voltage: float = self._cell_count * BMS._LFP_CELL_VOLTAGE
-        self._log.debug(
-            "model parsed from '%s': capacity=%d Ah, cells=%d, nominal=%.1f V",
-            self.name, self._capacity_ah, self._cell_count, self._nominal_voltage,
-        )
 
     # ------------------------------------------------------------------
     # BaseBMS static interface
@@ -109,8 +77,8 @@ class BMS(BaseBMS):
         """
         return [
             {"local_name": "RT[0-9]*", "service_uuid": normalize_uuid_str("180f"), "connectable": True},
-            {"local_name": "GModule",  "service_uuid": normalize_uuid_str("180f"), "connectable": True},
-            {"local_name": "GMod",     "service_uuid": normalize_uuid_str("180f"), "connectable": True},
+            {"local_name": "GModule", "service_uuid": normalize_uuid_str("180f"), "connectable": True},
+            {"local_name": "GMod", "service_uuid": normalize_uuid_str("180f"), "connectable": True},
         ]
 
     @staticmethod
@@ -152,7 +120,7 @@ class BMS(BaseBMS):
             return
 
         exp_len = self._exp_len
-        frame = bytes(self._frame[: exp_len])
+        frame = bytes(self._frame[:exp_len])
         self._frame.clear()
         self._exp_len = 0
 
@@ -207,30 +175,5 @@ class BMS(BaseBMS):
         # Modbus exposes only min/max cell aggregates (0x1018, 0x1019), not per-cell values.
         result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=2, start=7)
         result["temp_values"] = BMS._temp_values(self._msg, values=2, start=11, divider=10)
-
-        # When the BLE advertisement name is a generic Telink default ("GMod" /
-        # "GModule"), _parse_model() falls back to (100 Ah, 4 cells). Calibrate
-        # from the first real measurement so that 24 V / 48 V packs are handled
-        # correctly.
-        if self.name in BMS._GENERIC_NAMES:
-            voltage: float = result.get("voltage", 0.0)
-            if voltage > 0:
-                self._cell_count = max(1, round(voltage / BMS._LFP_CELL_VOLTAGE))
-                self._nominal_voltage = self._cell_count * BMS._LFP_CELL_VOLTAGE
-                self._log.debug(
-                    "calibrated from voltage %.2f V: cells=%d, nominal=%.1f V",
-                    voltage, self._cell_count, self._nominal_voltage,
-                )
-            dcap: int = result.get("design_capacity", 0)
-            if dcap:
-                self._capacity_ah = dcap
-                self._log.debug("calibrated capacity from register: %d Ah", dcap)
-
-        # design_capacity from _FIELDS (0x1022 x0.1 Ah); fall back to name-parsed value.
-        if not result.get("design_capacity"):
-            result["design_capacity"] = self._capacity_ah
-
-        # total_charge [Ah] from lifetime energy register (0x1020 x0.1 kWh)
-        result["total_charge"] = int(int.from_bytes(self._msg[23:25], "big") * 100 / self._nominal_voltage)
 
         return result
