@@ -18,33 +18,20 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 class BMS(BaseBMS):
     """Pylontech RT series BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Pylontech",
-        "default_model": "RT series",
-    }
-
+    INFO: BMSInfo = {"default_manufacturer": "Pylontech", "default_model": "RT series"}
     _DEV_ID: Final[int] = 1
-
-    _REG_SN: Final[int] = 0x2000
-    _SN_COUNT: Final[int] = 8
-
+    _REG_SN: Final[tuple[int, int]] = (0x2000, 8)
     # Contiguous block 0x1016-0x1022 = 13 registers
-    _BLOCK_START: Final[int] = 0x1016
-    _BLOCK_COUNT: Final[int] = 13
+    _INFO_BLOCK: Final[tuple[int, int]] = (0x1016, 13)
 
-    # Byte offsets within the Modbus response payload: (register - 0x1016) * 2
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 0, 2, False, lambda x: x / 100),
-        BMSDp("current", 2, 2, True,  lambda x: x / 10),
+        BMSDp("current", 2, 2, True, lambda x: x / 10),
         BMSDp("battery_level", 12, 2, False),
         BMSDp("battery_health", 14, 2, False),
         BMSDp("power", 16, 2, False, float),
         BMSDp("design_capacity", 24, 2, False, lambda x: x // 10),
     )
-
-    # ------------------------------------------------------------------
-    # Initialisation
-    # ------------------------------------------------------------------
 
     def __init__(
         self,
@@ -58,27 +45,15 @@ class BMS(BaseBMS):
         self._msg: bytes = b""
         self._exp_len: int = 0
 
-    # ------------------------------------------------------------------
-    # BaseBMS static interface
-    # ------------------------------------------------------------------
-
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Return Bluetooth advertisement matchers.
-
-        The BLE module (Telink TLSR8266) advertises under two possible local names:
-          - "RT12100-XXXXXX" (or RT24100 etc.) - set by Pylontech firmware
-          - "GModule" / "GMod"                 - Telink default fallback name
-            (may be truncated in BLE advertisement packets)
-
-        Both variants advertise Battery Service UUID (0x180F) and HID UUID (0x1812)
-        in the BLE advertisement packets. The vendor-specific service UUIDs are only
-        visible after GATT connection, not in advertisement packets.
-        """
+        """Return Bluetooth advertisement matchers."""
         return [
-            {"local_name": "RT[0-9]*", "service_uuid": normalize_uuid_str("180f"), "connectable": True},
-            {"local_name": "GModule", "service_uuid": normalize_uuid_str("180f"), "connectable": True},
-            {"local_name": "GMod", "service_uuid": normalize_uuid_str("180f"), "connectable": True},
+            {
+                "local_name": "RT[0-9]*",
+                "service_uuid": normalize_uuid_str("180f"),
+                "connectable": True,
+            }
         ]
 
     @staticmethod
@@ -96,18 +71,16 @@ class BMS(BaseBMS):
         """Return UUID of the write characteristic (Phone -> Module)."""
         return "00010203-0405-0607-0809-0a0b0c0d2b11"
 
-    # ------------------------------------------------------------------
-    # Notification handler
-    # ------------------------------------------------------------------
-
     def _notification_handler(
         self,
         _sender: BleakGATTCharacteristic,
         data: bytearray,
     ) -> None:
         """Accumulate BLE fragments; signal when a complete and valid Modbus frame arrives."""
-        self._log.debug("RX BLE (%dB): %s", len(data), data.hex(" "))
         self._frame.extend(data)
+        self._log.debug(
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
+        )
 
         if len(self._frame) >= 5 and self._frame.startswith(b"\x01\x03"):
             self._exp_len = 3 + self._frame[2] + 2
@@ -119,30 +92,17 @@ class BMS(BaseBMS):
         if not self._exp_len or len(self._frame) < self._exp_len:
             return
 
-        exp_len = self._exp_len
-        frame = bytes(self._frame[:exp_len])
+        frame = bytes(self._frame[:self._exp_len])
         self._frame.clear()
         self._exp_len = 0
 
         if not self._check_integrity(
-            frame,
-            crc_modbus,
-            slice(None, -2),
-            slice(-2, None),
-            "little",
+            frame, crc_modbus, slice(None, -2), slice(-2, None), "little"
         ):
-            return
-
-        if frame[2] != exp_len - 5:  # pragma: no cover
-            self._log.debug("invalid frame length")
             return
 
         self._msg = frame
         self._msg_event.set()
-
-    # ------------------------------------------------------------------
-    # Device info
-    # ------------------------------------------------------------------
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Read standard BT device info plus serial number from Modbus registers."""
@@ -151,29 +111,29 @@ class BMS(BaseBMS):
         try:
             await self._await_msg(
                 BMS._cmd_modbus(
-                    dev_id=BMS._DEV_ID, addr=BMS._REG_SN, count=BMS._SN_COUNT
+                    dev_id=BMS._DEV_ID, addr=BMS._REG_SN[0], count=BMS._REG_SN[1]
                 )
             )
-            if sn := b2str(self._msg[3 : 3 + BMS._SN_COUNT * 2]):
+            if sn := b2str(self._msg[3 : 3 + BMS._REG_SN[1] * 2]):
                 info["serial_number"] = sn
         except TimeoutError:
             pass
 
         return info
 
-    # ------------------------------------------------------------------
-    # Main data update
-    # ------------------------------------------------------------------
-
     async def _async_update(self) -> BMSSample:
         """Read current BMS state and return a BMSSample."""
         await self._await_msg(
-            BMS._cmd_modbus(dev_id=BMS._DEV_ID, addr=BMS._BLOCK_START, count=BMS._BLOCK_COUNT)
+            BMS._cmd_modbus(
+                dev_id=BMS._DEV_ID, addr=BMS._INFO_BLOCK[0], count=BMS._INFO_BLOCK[1]
+            )
         )
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=3)
         # Modbus exposes only min/max cell aggregates (0x1018, 0x1019), not per-cell values.
         result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=2, start=7)
-        result["temp_values"] = BMS._temp_values(self._msg, values=2, start=11, divider=10)
+        result["temp_values"] = BMS._temp_values(
+            self._msg, values=2, start=11, divider=10
+        )
 
         return result
