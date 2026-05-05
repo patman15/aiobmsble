@@ -50,7 +50,7 @@ class BMS(BaseBMS):
         """Return Bluetooth advertisement matchers."""
         return [
             {
-                "local_name": "RT[0-9]*",
+                "local_name": "RT[1-4][2,4,6,8]*",
                 "service_uuid": normalize_uuid_str("180f"),
                 "connectable": True,
             }
