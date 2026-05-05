@@ -3,6 +3,7 @@
 # Discover all subclasses of BaseBMS in the aiobmsble package
 import importlib
 import inspect
+from pathlib import Path
 import pkgutil
 from types import ModuleType
 from typing import Final
@@ -60,9 +61,8 @@ def get_defined_methods(cls) -> list[str]:
     return [name for _, name in sorted(methods)]
 
 
-def test_subclass_method_order() -> None:
-    """Verify subclass method override order matches the base class."""
-    parent_methods: Final[list[str]] = get_defined_methods(BaseBMS)
+def _get_bms_subclasses() -> list[tuple[type[BaseBMS], str]]:
+    """Find all subclasses of BaseBMS and their source files."""
     subclasses: list[tuple[type[BaseBMS], str]] = []
 
     # Find all subclasses of BaseBMS
@@ -74,6 +74,14 @@ def test_subclass_method_order() -> None:
             if issubclass(obj, BaseBMS) and obj is not BaseBMS:
                 file_path: str = inspect.getsourcefile(obj) or "<unknown>"
                 subclasses.append((obj, file_path))
+
+    return subclasses
+
+
+def test_subclass_method_order() -> None:
+    """Verify subclass method override order matches the base class."""
+    parent_methods: Final[list[str]] = get_defined_methods(BaseBMS)
+    subclasses: list[tuple[type[BaseBMS], str]] = _get_bms_subclasses()
 
     assert subclasses, "No subclasses of BaseBMS found to test."
 
@@ -93,3 +101,22 @@ def test_subclass_method_order() -> None:
             f"Actual overridden order: {overridden}\n"
             f"All subclass methods: {subclass_methods}"
         )
+
+
+def test_no_pragma_no_cover() -> None:
+    """Check that BMS plugin files do not use pragma no cover declarations."""
+    pragma_no_cover_files: list[tuple[str, int]] = []
+    subclasses: list[tuple[type[BaseBMS], str]] = _get_bms_subclasses()
+
+    # Check each subclass file for pragma no cover
+    for _subclass, file_path_str in subclasses:
+        file_path = Path(file_path_str)
+        if file_path.exists():
+            content: str = file_path.read_text()
+            for line_num, line in enumerate(content.splitlines(), start=1):
+                if "pragma" in line and "no cover" in line:
+                    pragma_no_cover_files.append((file_path.name, line_num))
+
+    assert (
+        not pragma_no_cover_files
+    ), f"Found pragma no cover in: {pragma_no_cover_files}"
