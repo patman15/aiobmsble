@@ -70,7 +70,7 @@ class MockMyVoltaBleakClient(MockBleakClient):
     async def _stream_data(self) -> None:
         assert self._notify_callback, "send confirm called but notification not enabled"
         while True:
-            await asyncio.sleep(1e-6)
+            await asyncio.sleep(0)
             chunk_size: int = self._chunk_sizes[self._iterator]
             self._notify_callback(
                 "MockMyVoltaBleakClient", self._RESP[self._pos : self._pos + chunk_size]
