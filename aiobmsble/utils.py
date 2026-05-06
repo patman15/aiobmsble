@@ -214,7 +214,7 @@ class StreamParser:
                     self._buffer.clear()
                     self._escaped = False
                     continue
-                self._escaped = b == self.STX
+                self._escaped = (b in (self.DLE, self.STX))
                 continue
 
             # Inside a frame
