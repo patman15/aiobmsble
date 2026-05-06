@@ -1,8 +1,7 @@
 """Module to support Pylontech RT-series BMS (RT12100, RT12200, RT24100, ...).
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
-
-See docs/pylontech_bms.md for protocol details and register map.
+License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from typing import Final
@@ -106,7 +105,7 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Read standard BT device info plus serial number from Modbus registers."""
-        info = await super()._fetch_device_info()
+        info: BMSInfo = await super()._fetch_device_info()
 
         try:
             await self._await_msg(
