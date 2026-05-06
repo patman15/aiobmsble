@@ -1,0 +1,18 @@
+[
+  {
+    "advertisement": {
+      "local_name": "RT12100-710003",
+      "service_uuids": [
+        "00001812-0000-1000-8000-00805f9b34fb",
+        "0000180f-0000-1000-8000-00805f9b34fb"
+      ],
+      "rssi": -46
+    },
+    "type": "pylontech_bms",
+    "_comments": [
+      "Pylontech RT12100G31",
+      "Advertisement captured when device name is set by Pylontech firmware",
+      "local_name pattern: RT[0-9]* matches RT12100, RT24100, RT48100 etc."
+    ]
+  }
+]
