@@ -74,9 +74,11 @@ class MockMyVoltaBleakClient(MockBleakClient):
             self._notify_callback(
                 "MockMyVoltaBleakClient", self._RESP[self._pos : self._pos + chunk_size]
             )
-            if self._RESP:
-                if self._pos + chunk_size >= len(self._RESP):
+            if len(self._RESP):
+                self._pos += chunk_size
+                if self._pos >= len(self._RESP):
                     self._pos = 0
+                    self.msg_event.set()
                 self._iterator = (self._iterator + 1) % len(self._chunk_sizes)
             await asyncio.sleep(0)
 
@@ -193,7 +195,7 @@ async def test_invalid_response(
     patch_bleak_client(MockMyVoltaBleakClient)
 
     bms = BMS(generate_ble_device())
-
+    await asyncio.sleep(1e-3)  # wait for notifications to be sent
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
