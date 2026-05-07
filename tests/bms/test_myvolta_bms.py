@@ -65,7 +65,6 @@ class MockMyVoltaBleakClient(MockBleakClient):
         )
         self._iterator: int = 0
         self._pos: int = 0
-        self.msg_event: asyncio.Event = asyncio.Event()
 
     async def _stream_data(self) -> None:
         assert self._notify_callback, "send confirm called but notification not enabled"
