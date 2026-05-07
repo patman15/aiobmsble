@@ -73,7 +73,7 @@ class MockLithionicsBleakClient(MockBleakClient):
                 self._notify_callback(
                     "MockLithionicsBleakClient", bytearray(notify_data)
                 )
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0)
 
     async def start_notify(
         self,
