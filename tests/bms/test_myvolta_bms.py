@@ -50,7 +50,6 @@ class MockMyVoltaBleakClient(MockBleakClient):
         b"\x01\x03\x05\x07\x13\x01\x03\x05\x07\x01\x03\x05\x01\x03\x01"
     )
     _RESP: bytes = _PROTO_DEFS
-
     _task: asyncio.Task[None] | None = None
 
     def __init__(
@@ -74,8 +73,9 @@ class MockMyVoltaBleakClient(MockBleakClient):
             self._notify_callback(
                 "MockMyVoltaBleakClient", self._RESP[self._pos : self._pos + chunk_size]
             )
-            self._pos = (self._pos + chunk_size) % len(self._RESP)
-            self._iterator = (self._iterator + 1) % len(self._chunk_sizes)
+            if self._RESP:
+                self._pos = (self._pos + chunk_size) % len(self._RESP)
+                self._iterator = (self._iterator + 1) % len(self._chunk_sizes)
             await asyncio.sleep(0)
 
     async def start_notify(
@@ -186,9 +186,8 @@ async def test_invalid_response(
     """Test data up date with BMS returning invalid data."""
 
     patch_bms_timeout("myvolta_bms")
-    monkeypatch.setattr(
-        MockMyVoltaBleakClient, "_RESP", wrong_response + _PROTO_DEFS[29:]
-    )
+    monkeypatch.setattr(BMS, "_MSG_SET", frozenset({0x0}))  # only require METRICS for update
+    monkeypatch.setattr(MockMyVoltaBleakClient, "_RESP", wrong_response)
     patch_bleak_client(MockMyVoltaBleakClient)
 
     bms = BMS(generate_ble_device())
