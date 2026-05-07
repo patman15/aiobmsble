@@ -78,7 +78,6 @@ class MockMyVoltaBleakClient(MockBleakClient):
                 self._pos += chunk_size
                 if self._pos >= len(self._RESP):
                     self._pos = 0
-                    self.msg_event.set()
                 self._iterator = (self._iterator + 1) % len(self._chunk_sizes)
             await asyncio.sleep(0)
 
@@ -93,6 +92,7 @@ class MockMyVoltaBleakClient(MockBleakClient):
         """Mock start_notify."""
         await super().start_notify(char_specifier, callback, **kwargs)
         self._task = asyncio.create_task(self._stream_data())
+        await asyncio.sleep(0)
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
