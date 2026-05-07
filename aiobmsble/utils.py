@@ -206,36 +206,49 @@ class StreamParser:
         """Feed arbitrary chunks of bytes."""
         result_frame: bytes | None = None
 
+        # Cache instance variables in locals for better performance
+        DLE: Final[int] = self.DLE
+        STX: Final[int] = self.STX
+        ETX: Final[int] = self.ETX
+        max_size: Final[int] = self.MAX_SIZE
+        in_frame: bool = self._in_frame
+        escaped: bool = self._escaped
+        buffer: bytearray = self._buffer
+
+
         for b in data:
-            if not self._in_frame:
+            if not in_frame:
                 # Look for escaped STX to start a frame
-                if self._escaped and b == self.STX:
-                    self._in_frame = True
-                    self._buffer.clear()
-                    self._escaped = False
+                if escaped and b == STX:
+                    in_frame = True
+                    buffer.clear()
+                    escaped = False
                     continue
-                self._escaped = (b in (self.DLE, self.STX))
+                escaped = (b in (DLE, STX))
                 continue
 
             # Inside a frame
-            if self._escaped:
-                self._escaped = False
-                if b in (self.DLE, self.STX):
-                    self._buffer.append(b)
-                if b == self.ETX:
-                    self._in_frame = False
-                    result_frame = bytes(self._buffer)
-                    self._buffer.clear()
+            if escaped:
+                escaped = False
+                if b in (DLE, STX):
+                    buffer.append(b)
+                if b == ETX:
+                    in_frame = False
+                    result_frame = bytes(buffer)
+                    buffer.clear()
                 continue
 
-            if b in (self.DLE, self.ETX):
-                self._escaped = True
+            if b in (DLE, ETX):
+                escaped = True
                 continue
 
-            self._buffer.append(b)
-            if len(self._buffer) > StreamParser.MAX_SIZE:
-                self._in_frame = False
-                self._buffer.clear()
+            buffer.append(b)
+            if len(buffer) > max_size:
+                in_frame = False
+                buffer.clear()
                 continue
+
+        self._in_frame = in_frame
+        self._escaped = escaped
 
         return result_frame

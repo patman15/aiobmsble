@@ -185,7 +185,7 @@ async def test_invalid_response(
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
-    patch_bms_timeout("myvolta_bms")
+    patch_bms_timeout("myvolta_bms", 1e-2)
     monkeypatch.setattr(BMS, "_MSG_SET", frozenset({0x0}))  # only require METRICS for update
     monkeypatch.setattr(MockMyVoltaBleakClient, "_RESP", wrong_response)
     patch_bleak_client(MockMyVoltaBleakClient)
