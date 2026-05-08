@@ -31,7 +31,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 13, 2, False),
         BMSDp("battery_health", 15, 2, False),
         BMSDp("cycle_charge", 17, 4, False, lambda x: x / 100),
-        BMSDp("design_capacity", 25, 4, False, lambda x: x / 100),
+        BMSDp("design_capacity", 25, 4, False, lambda x: x // 100),
         BMSDp("cycles", 29, 2, False),
         BMSDp("problem_code", 31, 2, False, lambda x: ~x & 0xFFFF),
         BMSDp("chrg_mosfet", 37, 2, False, lambda x: bool(x & 0x0200)),
