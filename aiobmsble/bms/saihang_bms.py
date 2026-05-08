@@ -31,7 +31,6 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 13, 2, False),
         BMSDp("battery_health", 15, 2, False),
         BMSDp("cycle_charge", 17, 4, False, lambda x: x / 100),
-        BMSDp("total_charge", 21, 4, False, lambda x: x / 100),
         BMSDp("design_capacity", 25, 4, False, lambda x: x / 100),
         BMSDp("cycles", 29, 2, False),
         BMSDp("problem_code", 31, 2, False, lambda x: ~x & 0xFFFF),
@@ -119,11 +118,7 @@ class BMS(BaseBMS):
             start=87,
             offset=2730,
             divider=10,
-        )
-
-        mos_temp = (int.from_bytes(self._msg[107:109], byteorder="big") - 2730) / 10.0
-        ambient_temp = (int.from_bytes(self._msg[109:111], byteorder="big") - 2730) / 10.0
-        result["temp_values"].extend([mos_temp, ambient_temp])
+        ) + BMS._temp_values(self._msg, values=2, start=107, offset=2730, divider=10)
         result["temp_sensors"] = len(result["temp_values"])
 
         return result
