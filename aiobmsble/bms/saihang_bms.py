@@ -34,6 +34,9 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 25, 4, False, lambda x: x // 100),
         BMSDp("cycles", 29, 2, False),
         BMSDp("problem_code", 31, 2, False, lambda x: ~x & 0xFFFF),
+        BMSDp("chrg_mosfet", 37, 2, False, lambda x: bool(x & 0x0200)),
+        BMSDp("dischrg_mosfet", 37, 2, False, lambda x: bool(x & 0x0400)),
+        BMSDp("balancer", 41, 2, False),
         BMSDp("cell_count", 43, 2, False, lambda x: min(x, BMS._MAX_CELLS)),
         BMSDp("temp_sensors", 85, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
     )
@@ -113,8 +116,9 @@ class BMS(BaseBMS):
             self._msg,
             values=result.get("temp_sensors", 0),
             start=87,
-            offset=2731,
+            offset=2730,
             divider=10,
-        )
+        ) + BMS._temp_values(self._msg, values=2, start=107, offset=2730, divider=10)
+        result["temp_sensors"] = len(result["temp_values"])
 
         return result
