@@ -61,8 +61,43 @@ The following table documents the currently supported part of the Saihang BMS re
 
 The current driver request (`0x48` registers) returns a 144-byte data block, which is sufficient for all supported runtime telemetry fields.
 
+| **Field** | **Byte Offset** | **Length (bytes)** | **Hexadecimal** | **Decoded Value** | **Description** |
+| --- | --- | --- | --- | --- | --- |
+| **Frame Header** | 0 | 2 | a5a5 | – | Frame Header (SOF) |
+| **Device ID** | 2 | 1 | 01 | 1 | Device ID |
+| **Function Code** | 3 | 1 | 03 | 3 | Modbus Function Code (03 = Read Holding Registers) |
+| **Payload Length** | 4 | 1 | 90 | 144 | Payload Data Length (144 bytes / 72 registers) |
+| **Current** | 5 | 4 | fffffe54 | -4.28 A | Current (screenshot shows -4.40 A) |
+| **Total Voltage** | 9 | 4 | 000014d6 | 53.34 V | Total Voltage (screenshot: 53.39 V) |
+| **SOC** | 13 | 2 | 0063 | 99 % | Battery Level (SOC) |
+| **SOH** | 15 | 2 | 0064 | 100 % | Battery Health (SOH) |
+| **Cycle Charge** | 17 | 4 | 00007b55 | 315.73 Ah | Cycle Charge (Remaining Capacity) |
+| **Total Charge** | 21 | 4 | 00007c11 | 317.61 Ah | Total Charge (Capacity when fully charged) |
+| **Design Capacity** | 25 | 4 | 00007530 | 300.00 Ah | Design Capacity |
+| **Cycle Count** | 29 | 2 | 003e | 62 | Cycle Count |
+| **Problem Code** | 31 | 2 | ffff | 0 | Problem Code (0 = No Error) |
+
 ## Known Unsupported Voltage Protection Settings
 
 The Saihang BMS memory map continues after the supported telemetry block with voltage protection settings. These values are currently documented for future extension, but are not exposed by the driver.
 
 With the current `0x48` request, only the beginning of this settings area may be present. A larger request, such as `0x53`, would be needed to retrieve the complete block.
+
+| Key | Start | Length (bytes) | Divisor |
+| --- | --- | --- | --- |
+| **pack_ov_alarm** | 125 | 4 | 1000 |
+| **pack_ov_protection** | 129 | 4 | 1000 |
+| **pack_ov_release** | 133 | 4 | 1000 |
+| **pack_ov_delay** | 137 | 2 | 10 |
+| **cell_ov_alarm** | 139 | 2 | 1000 |
+| **cell_ov_protection** | 141 | 2 | 1000 |
+| **cell_ov_release** | 143 | 2 | 1000 |
+| **cell_ov_delay** | 145 | 2 | 10 |
+| **pack_uv_alarm** | 147 | 4 | 1000 |
+| **pack_uv_protection** | 151 | 4 | 1000 |
+| **pack_uv_release** | 155 | 4 | 100 |
+| **pack_uv_delay** | 159 | 2 | 10 |
+| **cell_uv_alarm** | 161 | 2 | 1000 |
+| **cell_uv_protection** | 163 | 2 | 1000 |
+| **cell_uv_release** | 165 | 2 | 1000 |
+| **cell_uv_delay** | 167 | 2 | 10 |
