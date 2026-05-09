@@ -7,6 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from functools import cache
 from itertools import takewhile
 import logging
 from statistics import fmean
@@ -32,6 +33,7 @@ class BaseBMS(ABC):
     INFO: BMSInfo  # static BMS info, set "default_" keys in subclass
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value, used for chunking data
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
@@ -518,6 +520,35 @@ class BaseBMS(ABC):
             await self.disconnect()
 
         return data
+
+    @final
+    @staticmethod
+    @cache
+    def _cmd_modbus(
+        dev_id: int = 0, fct: int = 0x3, addr: int = 0, count: int = 1
+    ) -> bytes:
+        """Assemble a MODBUS command.
+
+        Args:
+            dev_id (int): 8-bit slave device id (default: 0)
+            fct (int): 8-bit function code (default: 3, read registers)
+            addr (int): 16-bit start address (default: 0x0)
+            count (int): 16-bit number of elements (default: 1)
+
+        Returns:
+            bytes: assembled MODBUS command bytes
+
+        """
+        assert dev_id >= 0x00
+        assert fct in (1, 2, 3, 4, 5, 6, 15, 16, 22, 23)
+        assert addr >= 0 and count > 0 and addr + count <= 0xFFFF
+        frame: bytes = (
+            dev_id.to_bytes(1)
+            + fct.to_bytes(1)
+            + addr.to_bytes(2, byteorder="big")
+            + count.to_bytes(2, byteorder="big")
+        )
+        return frame + crc_modbus(frame).to_bytes(2, "little")
 
     @staticmethod
     def _decode_data(

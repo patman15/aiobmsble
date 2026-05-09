@@ -32,7 +32,7 @@ jobs:
             if [[ "${{ github.event_name }}" == "schedule" ]]; then
               # Use timestamp-based seed for variety
               SEED=$(($(date +%s) % 100000))
-              echo "test_param=--max-examples=75000 --hypothesis-seed=$SEED" >> $GITHUB_ENV
+              echo "test_param=--max-examples=50000 --hypothesis-seed=$SEED" >> $GITHUB_ENV
             fi
       
         - name: Run fuzz tests

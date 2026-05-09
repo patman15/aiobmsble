@@ -86,6 +86,7 @@ class MockLithionicsBleakClient(MockBleakClient):
         """Mock start_notify."""
         await super().start_notify(char_specifier, callback)
         self._task = asyncio.create_task(self._notify())
+        await asyncio.sleep(0) # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
@@ -97,7 +98,7 @@ class MockLithionicsBleakClient(MockBleakClient):
 
 
 async def test_update(
-    monkeypatch, patch_bleak_client, keep_alive_fixture: bool
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, keep_alive_fixture: bool
 ) -> None:
     """Test Lithionics BMS data update."""
     monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", STREAM_DATA)
@@ -162,6 +163,35 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
+async def test_invalid_frame_length(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test handling of frames exceeding BLE_MAX_ATTR_SIZE in notification handler."""
+    patch_bms_timeout("lithionics_bms")
+    monkeypatch.setattr(
+        MockLithionicsBleakClient,
+        "_RESP",
+        bytearray(b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1)),
+    )
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device())
+    caplog.clear()
+    result: BMSSample = {}
+
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
+
+    assert not result
+    assert len(bms._frame) == 0
+    assert "invalid frame" in caplog.text
+
+    await bms.disconnect()
+
+
 def test_uuid_tx_not_implemented() -> None:
     """Test that TX UUID is intentionally not implemented for stream-only protocol."""
     with pytest.raises(NotImplementedError):
@@ -184,7 +214,7 @@ async def test_status_field_variants(
     expected: BMSSample,
 ) -> None:
     """Test status parsing variants with optional fields."""
-    stream = (
+    stream: bytes = (
         b"1399,350,350,350,349,55,48,-3,99,000000\r\n" + status_line.encode() + b"\r\n"
     )
     monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", stream)
@@ -192,7 +222,7 @@ async def test_status_field_variants(
 
     bms = BMS(generate_ble_device(name="Lithionics"))
     if expected:
-        result = await bms.async_update()
+        result: BMSSample = await bms.async_update()
     else:
         patch_bms_timeout("lithionics_bms")
         with pytest.raises(TimeoutError):

@@ -167,6 +167,7 @@ class MockStreamBleakClient(MockNeeyBleakClient):
             self.HEAD_CMD + self.DEV_INFO
         ):  # send all responses as a series
             self._task = asyncio.create_task(self._send_all())
+            await asyncio.sleep(0) # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
