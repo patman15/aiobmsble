@@ -95,6 +95,10 @@ class BMS(BaseBMS):
             if self._stream_data.keys() >= {"primary", "status"}:
                 self._msg_event.set()
 
+        if len(self._frame) > BMS.BLE_MAX_ATTR_SIZE:
+            self._log.debug("invalid frame")
+            self._frame.clear()
+
     @staticmethod
     def _parse_primary(fields: list[str]) -> BMSSample:
         # BMS reports temperatures in Fahrenheit.

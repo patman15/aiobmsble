@@ -28,6 +28,8 @@ In general I use guidelines very close to the ones that Home Assistant uses for 
   - `mypy .`
   - `codespell .`
 - Keep names and any comments in English language.
+- Do not use "# pragma: no cover"
+- Put documentation of the device / protocol into `docs/my_bms.md`
 
 ## Architecture Guidelines
 - Data shall be stored in the `BMSSample(TypedDict)` class. Dataclass is not used to enable automatic assignments, i.e. `bmssample[key_variable] == value`, with `key_variable: BMSValue`
