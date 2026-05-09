@@ -131,7 +131,7 @@ class MockECOWBleakClient(MockBleakClient):
         while True:
             for msg in self.RESP.values():
                 self._notify_callback("MockECOWBleakClient", msg)
-                await asyncio.sleep(1e-6)
+                await asyncio.sleep(0)
 
     async def start_notify(
         self,
