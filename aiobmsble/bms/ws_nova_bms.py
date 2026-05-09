@@ -102,7 +102,15 @@ class BMS(BaseBMS):
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        if not (self._frame.startswith(BMS._HEAD) and self._frame.endswith(BMS._TAIL)):
+        if (
+            not self._frame.startswith(BMS._HEAD)
+            or len(self._frame) > BMS.BLE_MAX_ATTR_SIZE
+        ):
+            self._log.debug("invalid frame")
+            self._frame.clear()
+            return
+
+        if not self._frame.endswith(BMS._TAIL):
             return
 
         if len(self._frame) % 2 or len(self._frame) < BMS._MIN_LEN:
