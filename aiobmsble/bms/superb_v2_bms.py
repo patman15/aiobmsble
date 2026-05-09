@@ -79,7 +79,9 @@ class BMS(BaseBMS):
         await super()._init_connection(char_notify)
         # subscribe to second notify characteristic
         await self._client.start_notify(
-            BMS._NOTIFY_CHAR, getattr(self, "_notification_handler")
+            BMS._NOTIFY_CHAR,
+            getattr(self, "_notification_handler"),
+            bluez=BMS._BLUEZ_PARAMS,
         )
 
     def _notification_handler(
