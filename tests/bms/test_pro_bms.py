@@ -73,8 +73,8 @@ class MockProBMSBleakClient(MockBleakClient):
         while not self._stop_streaming:
             if self._notify_callback and self._test_packet:
                 self._notify_callback(None, self._test_packet)
-            # Send data every 10ms (real 500ms) to speed up tests
-            await asyncio.sleep(0.01)
+            # Send data, real every 500ms, but use shorter sleep to speed up tests
+            await asyncio.sleep(0)
 
     async def write_gatt_char(self, char_specifier, data, response=None):
         """Mock write to handle initialization and data requests."""
@@ -90,6 +90,7 @@ class MockProBMSBleakClient(MockBleakClient):
             if not self._streaming_task:
                 self._stop_streaming = False
                 self._streaming_task = asyncio.create_task(self._stream_data())
+                await asyncio.sleep(0) # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Stop streaming on disconnect."""
@@ -258,6 +259,7 @@ async def test_async_update_no_data_after_init(
 
             # Store task reference to prevent garbage collection
             self._streaming_task = asyncio.create_task(send_wrong_packet())
+            await asyncio.sleep(0) # yield control to allow task to start
 
     monkeypatch.setattr(MockProBMSBleakClient, "write_gatt_char", mock_write)
 

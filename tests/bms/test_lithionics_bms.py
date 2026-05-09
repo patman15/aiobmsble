@@ -73,7 +73,7 @@ class MockLithionicsBleakClient(MockBleakClient):
                 self._notify_callback(
                     "MockLithionicsBleakClient", bytearray(notify_data)
                 )
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0)
 
     async def start_notify(
         self,
@@ -86,6 +86,7 @@ class MockLithionicsBleakClient(MockBleakClient):
         """Mock start_notify."""
         await super().start_notify(char_specifier, callback)
         self._task = asyncio.create_task(self._notify())
+        await asyncio.sleep(0) # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
