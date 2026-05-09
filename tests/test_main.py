@@ -243,7 +243,7 @@ async def test_identify_bms_from_json_match(
     await main_mod.identify_bms_from_json(
         '{"name":"dummy","address":"AA:BB:CC:DD:EE:FF"}'
     )
-    assert "BMS Type: SimpleBMS" in caplog.text
+    assert "Detected BMS type: SimpleBMS" in caplog.text
 
 
 async def test_identify_bms_from_json_invalid_advdata(
