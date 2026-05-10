@@ -241,9 +241,33 @@ async def test_identify_bms_from_json_match(
     monkeypatch.setattr(main_mod, "bms_identify", fake_bms_identify)
 
     await main_mod.identify_bms_from_json(
-        '{"name":"dummy","address":"AA:BB:CC:DD:EE:FF"}'
+        '{"name":"dummy","address":"AA:BB:CC:DD:EE:FF", "source":"B8:27:EB:00:00:00"}'
     )
     assert "Detected BMS type: SimpleBMS" in caplog.text
+    assert "not actively connectable" in caplog.text
+    assert "Advertisement RSSI -127 dBm" in caplog.text
+    assert "Raspberry Pi device" in caplog.text
+
+
+async def test_adv_no_issue_logging(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Check that a correct advertisement does not log any errors or warnings."""
+
+    class FakeBMSClass:
+        @staticmethod
+        def bms_id() -> Literal["SimpleBMS"]:
+            return "SimpleBMS"
+
+    async def fake_bms_identify(adv, addr) -> type[FakeBMSClass]:
+        return FakeBMSClass
+
+    monkeypatch.setattr(main_mod, "bms_identify", fake_bms_identify)
+
+    await main_mod.identify_bms_from_json(
+        '{"name":"dummy","address":"AA:BB:CC:DD:EE:FF", "rssi": -75, "connectable": true}'
+    )
+    assert "WARNING" not in caplog.text and "ERROR" not in caplog.text
 
 
 async def test_identify_bms_from_json_invalid_advdata(
