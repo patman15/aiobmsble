@@ -93,9 +93,7 @@ async def log_advertisement_issues(adv_dict: dict[str, Any]) -> None:
             _MIN_RSSI,
         )
 
-    if not aiooui.is_loaded():
-        await aiooui.async_load()
-
+    await aiooui.async_load()
     vendor: str | None = aiooui.get_vendor(adv_dict.get("source", ""))
     if vendor and vendor.startswith("Raspberry Pi"):
         logger.warning(

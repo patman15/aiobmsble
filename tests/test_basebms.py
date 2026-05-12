@@ -204,8 +204,7 @@ class BMSBasicTests:
                     len(part) == 2 and all(c in hexdigits for c in part)
                     for part in parts
                 ), f"incorrect {oui=}"
-                if not aiooui.is_loaded():
-                    await aiooui.async_load()
+                await aiooui.async_load()
                 if aiooui.get_vendor(oui) is None:
                     # OUI is not registered
                     assert (int(parts[0], 16) & 0xC0) not in (
