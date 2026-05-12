@@ -32,7 +32,11 @@ class BMS(BaseBMS):
         ("delta_voltage", 209, "<f", lambda x: round(x, 3)),
         ("problem_code", 216, "B", lambda x: x if x in {1, 3, 7, 8, 9, 10, 11} else 0),
         ("balancer", 216, "B", lambda x: (x == 0x5)),
-        ("balance_current", 217, "<f", lambda x: round(x, 3)),
+        ("balance_current", 218, "<f", lambda x: round(x, 3)),
+        ("current", 222, "<f", lambda x: round(x, 3)),
+        ("cycle_charge", 242, "<f", lambda x: round(x, 3)),
+        ("design_capacity", 246, "<f", lambda x: round(x, 3)),
+        ("battery_level", 250, "<f", lambda x: round(x, 3)),
     )
 
     def __init__(
@@ -171,7 +175,7 @@ class BMS(BaseBMS):
             await self._await_msg(data=BMS._cmd(b"\x02"))
 
         data: BMSSample = self._conv_data(self._msg)
-        data["temp_values"] = BMS._temp_sensors(self._msg, 2)
+        data["temp_values"] = BMS._temp_values(self._msg, values=4, start=226)
 
         data["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=24, start=9, byteorder="little", size=4
@@ -186,7 +190,7 @@ class BMS(BaseBMS):
         *,
         cells: int,
         start: int,
-        size: int = 2,
+        size: int = 4,
         gap: int = 0,
         byteorder: Literal["little", "big"] = "little",
         divider: int = 1,
@@ -199,10 +203,21 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _temp_sensors(data: bytes, sensors: int) -> list[int | float]:
+    def _temp_values(
+        data: bytes,
+        *,
+        values: int,
+        start: int,
+        size: int = 4,
+        gap: int = 0,
+        byteorder: Literal["little", "big"] = "little",
+        signed: bool = True,
+        offset: float = 0,
+        divider: int = 1,
+    ) -> list[int | float]:
         return [
-            round(unpack_from("<f", data, 221 + idx * 4)[0], 2)
-            for idx in range(sensors)
+            round(unpack_from("<f", data, start + idx * size)[0], 2)
+            for idx in range(values)
         ]
 
     @staticmethod
