@@ -20,6 +20,8 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 class BMS(BaseBMS):
     """Neey smart BMS class implementation."""
 
+    type FieldList = tuple[tuple[BMSValue, int, str, Callable[[int], Any]], ...]
+
     INFO: BMSInfo = {"default_manufacturer": "Neey", "default_model": "Balancer"}
     _BT_MODULE_MSG: Final = b"\x41\x54\x0d\x0a"  # AT\r\n from BLE module
     _HEAD_RSP: Final = b"\x55\xaa\x11\x01"  # start, dev addr, read cmd
@@ -27,7 +29,7 @@ class BMS(BaseBMS):
     _TAIL: Final[int] = 0xFF  # end of message
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _MIN_FRAME: Final[int] = 10  # header length
-    _FIELDS: Final[tuple[tuple[BMSValue, int, str, Callable[[int], Any]], ...]] = (
+    _FIELDS: Final[FieldList] = (
         ("voltage", 201, "<f", lambda x: round(x, 3)),
         ("delta_voltage", 209, "<f", lambda x: round(x, 3)),
         ("problem_code", 216, "B", lambda x: x if x in {1, 3, 7, 8, 9, 10, 11} else 0),
@@ -38,7 +40,7 @@ class BMS(BaseBMS):
         ("cycle_charge", 246, "<f", lambda x: round(x, 3)),
         ("battery_level", 250, "<f", lambda x: round(x, 3)),
     )
-    _FIELDS_v1: Final[tuple[tuple[BMSValue, int, str, Callable[[int], Any]], ...]] = (
+    _FIELDS_v1: Final[FieldList] = (
         *_FIELDS[:4],
         ("balance_current", 217, "<f", lambda x: round(x, 3)),
     )
@@ -235,9 +237,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _conv_data(
-        fields: tuple[tuple[BMSValue, int, str, Callable], ...], data: bytes
-    ) -> BMSSample:
+    def _conv_data(fields: FieldList, data: bytes) -> BMSSample:
         """Return BMS data from status message."""
         result: BMSSample = {}
         for key, idx, fmt, func in fields:
