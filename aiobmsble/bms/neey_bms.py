@@ -34,9 +34,13 @@ class BMS(BaseBMS):
         ("balancer", 216, "B", lambda x: (x == 0x5)),
         ("balance_current", 218, "<f", lambda x: round(x, 3)),
         ("current", 222, "<f", lambda x: round(x, 3)),
-        ("cycle_charge", 242, "<f", lambda x: round(x, 3)),
-        ("design_capacity", 246, "<f", lambda x: round(x, 3)),
+        ("design_capacity", 242, "<f", int),
+        ("cycle_charge", 246, "<f", lambda x: round(x, 3)),
         ("battery_level", 250, "<f", lambda x: round(x, 3)),
+    )
+    _FIELDS_v1: Final[tuple[tuple[BMSValue, int, str, Callable[[int], Any]], ...]] = (
+        *_FIELDS[:4],
+        ("balance_current", 217, "<f", lambda x: round(x, 3)),
     )
 
     def __init__(
@@ -48,9 +52,10 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive, secret, logger_name)
-        self._msg: bytes = b""
         self._bms_info: dict[str, str] = {}
         self._exp_len: int = BMS._MIN_FRAME
+        self._msg: bytes = b""
+        self._proto: str = "v1"
         self._valid_reply: int = 0x02
 
     @staticmethod
@@ -85,8 +90,11 @@ class BMS(BaseBMS):
         self._valid_reply = 0x01
         await self._await_msg(self._cmd(b"\x01"))
         self._valid_reply = 0x02
+        if (model := b2str(self._msg[8:24])).startswith("EK-B"):
+            self._proto = "v2"
+
         return {
-            "model": b2str(self._msg[8:24]),
+            "model": model,
             "hw_version": b2str(self._msg[24:32]),
             "sw_version": b2str(self._msg[32:40]),
         }
@@ -174,8 +182,14 @@ class BMS(BaseBMS):
             self._log.debug("requesting cell info")
             await self._await_msg(data=BMS._cmd(b"\x02"))
 
-        data: BMSSample = self._conv_data(self._msg)
-        data["temp_values"] = BMS._temp_values(self._msg, values=4, start=226)
+        data: BMSSample = self._conv_data(
+            (BMS._FIELDS if self._proto == "v2" else BMS._FIELDS_v1), self._msg
+        )
+        data["temp_values"] = (
+            BMS._temp_values(self._msg, values=4, start=226)
+            if self._proto == "v2"
+            else BMS._temp_values(self._msg, values=2, start=221)
+        )
 
         data["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=24, start=9, byteorder="little", size=4
@@ -221,10 +235,12 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _conv_data(data: bytes) -> BMSSample:
+    def _conv_data(
+        fields: tuple[tuple[BMSValue, int, str, Callable], ...], data: bytes
+    ) -> BMSSample:
         """Return BMS data from status message."""
         result: BMSSample = {}
-        for key, idx, fmt, func in BMS._FIELDS:
+        for key, idx, fmt, func in fields:
             result[key] = func(unpack_from(fmt, data, idx)[0])
 
         return result
