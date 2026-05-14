@@ -12,7 +12,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from contextlib import suppress
-from enum import IntEnum
+from enum import IntEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Literal, NamedTuple, TypedDict
 
@@ -68,6 +68,26 @@ class BMSMode(IntEnum):
     FLOAT = 0x02
 
 
+@unique
+class TempType(IntEnum):
+    """Enumeration of temperature sensor sources."""
+
+    GENERIC = 0x0
+    CELL = auto()
+    MOSFET = auto()
+    PCB = auto()
+    POWER = auto()
+    EQUALIZER = auto()
+    AMBIENT = auto()
+
+
+class TempSensor(NamedTuple):
+    """Represents a temperature sensor reading from the BMS."""
+
+    value: int | float
+    type: TempType
+
+
 class BMSSample(TypedDict, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
 
@@ -95,7 +115,7 @@ class BMSSample(TypedDict, total=False):
     design_capacity: int  # [Ah]
     pack_count: int  # [#]
     temp_sensors: int  # [#]
-    temp_values: list[int | float]  # [°C]
+    temp_values: list[TempSensor]  # [°C]
     problem_code: int  # BMS specific code, 0 no problem, max. 64 bit
 
     # BMS switches
