@@ -24,7 +24,16 @@ from bleak.exc import (
 )
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, __version__
+from aiobmsble import (
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    BMSValue,
+    MatcherPattern,
+    TempSensor,
+    TempType,
+    __version__,
+)
 
 
 class BaseBMS(ABC):
@@ -33,7 +42,7 @@ class BaseBMS(ABC):
     INFO: BMSInfo  # static BMS info, set "default_" keys in subclass
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
-    BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value, used for chunking data
+    BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
@@ -289,7 +298,7 @@ class BaseBMS(ABC):
             "temperature": (
                 {"temp_values"},
                 lambda: (
-                    round(fmean(data.get("temp_values", [])), 3)
+                    round(fmean([t.value for t in data.get("temp_values", [])]), 3)
                     if data.get("temp_values")
                     else None
                 ),
@@ -625,7 +634,8 @@ class BaseBMS(ABC):
         signed: bool = True,
         offset: float = 0,
         divider: int = 1,
-    ) -> list[int | float]:
+        types: tuple[TempType, ...] = (),
+    ) -> list[TempSensor]:
         """Return temperature values from BMS message.
 
         Args:
@@ -638,13 +648,17 @@ class BaseBMS(ABC):
             signed: Indicates whether two's complement is used to represent the integer.
             offset: The offset read values are shifted by (for Kelvin use 273.15)
             divider: Value to divide raw value by, defaults to 1000 (mv to V)
+            types: Tuple of sensor types in parsing sequence, defaults to "GENERIC"
 
         Returns:
-            list[int | float]: List of temperature values
+            list[TempSensor]: List of temperature values
 
         """
         return [
-            (value - offset) / divider
+            TempSensor(
+                (value - offset) / divider,
+                types[idx] if idx < len(types) else TempType.GENERIC,
+            )
             for idx in range(values)
             if (len(data) >= start + idx * (size + gap) + size)
             and (
