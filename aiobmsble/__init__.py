@@ -85,7 +85,7 @@ class TempSensor(float):
 
     type: TempT
 
-    def __new__(cls, value, type=TempT.GENERIC) -> Self:
+    def __new__(cls, value: float, type: TempT = TempT.GENERIC) -> Self:
         """Create a new TempSensor instance."""
 
         obj: Self = super().__new__(cls, value)
