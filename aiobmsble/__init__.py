@@ -14,7 +14,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from enum import IntEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Literal, NamedTuple, TypedDict
+from typing import Any, Literal, NamedTuple, Self, TypedDict
 
 __version__: str = "0.0.0.dev0"
 with suppress(PackageNotFoundError):
@@ -69,23 +69,28 @@ class BMSMode(IntEnum):
 
 
 @unique
-class TempType(IntEnum):
+class TempT(IntEnum):
     """Enumeration of temperature sensor sources."""
 
     GENERIC = 0x0
     CELL = auto()
     MOSFET = auto()
     PCB = auto()
-    POWER = auto()
-    EQUALIZER = auto()
+    BALANCER = auto()
     AMBIENT = auto()
 
 
-class TempSensor(NamedTuple):
+class TempSensor(float):
     """Represents a temperature sensor reading from the BMS."""
 
-    value: int | float
-    type: TempType
+    type: TempT
+
+    def __new__(cls, value, type=TempT.GENERIC) -> Self:
+        """Create a new TempSensor instance."""
+
+        obj: Self = super().__new__(cls, value)
+        obj.type = type
+        return obj
 
 
 class BMSSample(TypedDict, total=False):

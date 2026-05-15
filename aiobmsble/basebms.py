@@ -31,7 +31,7 @@ from aiobmsble import (
     BMSValue,
     MatcherPattern,
     TempSensor,
-    TempType,
+    TempT,
     __version__,
 )
 
@@ -298,7 +298,7 @@ class BaseBMS(ABC):
             "temperature": (
                 {"temp_values"},
                 lambda: (
-                    round(fmean([t.value for t in data.get("temp_values", [])]), 3)
+                    round(fmean(data.get("temp_values", [])), 3)
                     if data.get("temp_values")
                     else None
                 ),
@@ -626,28 +626,28 @@ class BaseBMS(ABC):
     def _temp_values(
         data: bytes,
         *,
-        values: int,
         start: int,
+        values: int = 1,
         size: int = 2,
         gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         signed: bool = True,
         offset: float = 0,
         divider: int = 1,
-        types: tuple[TempType, ...] = (),
+        types: tuple[TempT, ...] = (),
     ) -> list[TempSensor]:
         """Return temperature values from BMS message.
 
         Args:
             data: Raw data from BMS
-            values: Number of values to read
             start: Start position in data array
-            size: Number of bytes per temperature value (defaults 2)
-            gap: Number of bytes to skip after each temperature value (default: 2)
-            byteorder: Byte order ("big"/"little" endian)
+            values: Number of values to read (default: 1)
+            size: Number of bytes per temperature value (default: 2)
+            gap: Number of bytes to skip after each temperature value (default: 0)
+            byteorder: Byte order ("big"/"little" endian, default: "big")
             signed: Indicates whether two's complement is used to represent the integer.
             offset: The offset read values are shifted by (for Kelvin use 273.15)
-            divider: Value to divide raw value by, defaults to 1000 (mv to V)
+            divider: Value to divide raw value by, defaults to 1
             types: Tuple of sensor types in parsing sequence, defaults to "GENERIC"
 
         Returns:
@@ -657,7 +657,7 @@ class BaseBMS(ABC):
         return [
             TempSensor(
                 (value - offset) / divider,
-                types[idx] if idx < len(types) else TempType.GENERIC,
+                types[idx] if idx < len(types) else TempT.GENERIC,
             )
             for idx in range(values)
             if (len(data) >= start + idx * (size + gap) + size)

@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempT
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -180,13 +180,6 @@ class BMS(BaseBMS):
         frame.extend(int.to_bytes(crc_modbus(frame[1:]), 2, "little"))
         return bytes(frame) + BMS._TAIL
 
-    @staticmethod
-    def _temp_sensors(data: bytes, sensors: int, offs: int) -> list[float]:
-        return [
-            float(int.from_bytes(data[idx : idx + 2], byteorder="little", signed=True))
-            for idx in range(offs, offs + sensors * 2, 2)
-        ]
-
     async def _await_msg(
         self,
         data: bytes,
@@ -213,10 +206,12 @@ class BMS(BaseBMS):
             byteorder="little",
         )
         result["temp_sensors"] = min(self._msg[BMS._TEMP_POS], BMS._MAX_TEMPS)
-        result["temp_values"] = BMS._temp_sensors(
+        result["temp_values"] = BMS._temp_values(
             self._msg,
-            result["temp_sensors"] + 2,  # + MOSFET, balancer temperature
-            BMS._CELL_POS + result["cell_count"] * 2,
+            values=result["temp_sensors"] + 2,  # + MOSFET, balancer temperature
+            start=BMS._CELL_POS + result["cell_count"] * 2,
+            byteorder="little",
+            types=(TempT.GENERIC,) * result["temp_sensors"] + (TempT.MOSFET, TempT.BALANCER)
         )
         result.update(
             BMS._decode_data(

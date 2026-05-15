@@ -109,9 +109,7 @@ class BMS(BaseBMS):
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
         await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x39, count=0x1))
-        result["temp_values"] = BMS._temp_values(
-            self._msg, values=1, start=3, divider=10
-        )
+        result["temp_values"] = BMS._temp_values(self._msg, start=3, divider=10)
 
         await self._await_msg(
             BMS._cmd_modbus(dev_id=0x1, addr=0x2E, count=BMS._MAX_TEMP + 1)

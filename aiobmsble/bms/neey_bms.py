@@ -13,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
@@ -199,9 +199,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _temp_sensors(data: bytes, sensors: int) -> list[int | float]:
+    def _temp_sensors(data: bytes, sensors: int) -> list[TempSensor]:
         return [
-            round(unpack_from("<f", data, 221 + idx * 4)[0], 2)
+            TempSensor(round(unpack_from("<f", data, 221 + idx * 4)[0], 2))
             for idx in range(sensors)
         ]
 

@@ -16,7 +16,7 @@ from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.basebms import (
     BaseBMS,
     b2str,
@@ -727,17 +727,17 @@ def test_cell_voltages(
             [1.0, -0.56, 3.0],
         ),
         # Not enough data for all values
-        (b"\x00\x7d", 2, 0, 2, "big", True, 0, 1, [125]),
+        (b"\x00\x7d", 2, 0, 2, "big", True, 0, 1, (125,)),
         # Zero values requested
-        (b"\x00\x7d", 0, 0, 2, "big", True, 0, 1, []),
+        (b"\x00\x7d", 0, 0, 2, "big", True, 0, 1, ()),
         # Divider = 1, offset = 7
-        (b"\x00\x14", 1, 0, 2, "big", True, 7, 1, [13]),
+        (b"\x00\x14", 1, 0, 2, "big", True, 7, 1, (13,)),
         # no offset, div = 10
-        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 0, 10, [10.1, 10.0, 0.0, 6.4]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 0, 10, (10.1, 10.0, 0.0, 6.4)),
         # offset -40, div = 10
-        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 40, 10, [6.1, 6.0, 2.4]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 40, 10, (6.1, 6.0, 2.4)),
         # offset -25, div = 1
-        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 25, 1, [76, 75, 39]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 25, 1, (76, 75, 39)),
     ],
     ids=[
         "two_signed_big_endian",
@@ -761,10 +761,10 @@ def test_temp_values(
     signed: bool,
     offset: float,
     divider: int,
-    expected: list[int | float],
+    expected: tuple[float, ...],
 ) -> None:
     """Test the _temp_values method of BaseBMS with various input parameters."""
-    result: list[int | float] = BaseBMS._temp_values(
+    result: list[TempSensor] = BaseBMS._temp_values(
         data,
         values=values,
         start=start,
@@ -774,7 +774,7 @@ def test_temp_values(
         offset=offset,
         divider=divider,
     )
-    assert result == expected
+    assert result == [TempSensor(v) for v in expected]
 
 
 @pytest.mark.parametrize(

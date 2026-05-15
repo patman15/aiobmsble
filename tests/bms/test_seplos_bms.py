@@ -8,7 +8,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -65,7 +65,7 @@ REF_VALUE: BMSSample = {
         3.529,
     ],
     "delta_voltage": 0.003,
-    "temp_values": [25.0, 23.8, 23.9, 24.9, 25.0, 23.8, 23.9, 24.9],
+    "temp_values": [TS(v) for v in (25.0, 23.8, 23.9, 24.9, 25.0, 23.8, 23.9, 24.9)],
     "dischrg_mosfet": True,
     "chrg_mosfet": True,
     "balancer": False,

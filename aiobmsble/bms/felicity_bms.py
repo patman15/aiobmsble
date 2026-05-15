@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
@@ -127,8 +127,8 @@ class BMS(BaseBMS):
         return [value / 1000 for value in data.get("BatcelList", [])[0]]
 
     @staticmethod
-    def _conv_temp(data: dict[str, Any]) -> list[float]:
-        return [value / 10 for value in data.get("BtemList", [])[0] if value != 0x7FFF]
+    def _conv_temp(data: dict[str, Any]) -> list[TempSensor]:
+        return [TempSensor(value / 10) for value in data.get("BtemList", [])[0] if value != 0x7FFF]
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

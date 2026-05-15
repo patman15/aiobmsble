@@ -9,7 +9,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.dpwrcore_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -52,7 +52,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cell_count": 14,
     "delta_voltage": 0.01,
     "temperature": 21.05,
-    "temp_values": [21.05],
+    "temp_values": [TS(21.05)],
     "cycle_capacity": 945.499,
     "power": 0.0,
     "battery_charging": False,

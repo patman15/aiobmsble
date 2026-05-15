@@ -13,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
@@ -49,7 +49,7 @@ class BMS(BaseBMS):
             12,
             2,
             False,
-            lambda x: [round(x / 10 - 273.15, 3)],
+            lambda x: [TempSensor(round(x / 10 - 273.15, 3))],
             Cmd.LEGINFO2,
         ),
         BMSDp(

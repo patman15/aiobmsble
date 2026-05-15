@@ -9,7 +9,7 @@ from bleak.backends.scanner import AdvertisementData
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSInfo, BMSSample
+from aiobmsble import BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.bms.pylontech_bms import BMS
 from aiobmsble.test_data import adv_dict_to_advdata
 from aiobmsble.utils import _advertisement_matches
@@ -79,7 +79,7 @@ def ref_value() -> BMSSample:
         "design_capacity": 100,
         "cycle_charge": 91.0,
         "cycle_capacity": round(13.24 * 91.0, 3),
-        "temp_values": [15.0, 15.0],
+        "temp_values": [TS(15.0)] * 2,
         "temperature": 15.0,
         "cell_voltages": [3.312, 3.311],
         "delta_voltage": 0.001,
