@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
@@ -155,7 +155,12 @@ class BMS(BaseBMS):
             self._msg[0x22], cells=24, start=3, byteorder="little"
         )
         result["temp_values"] = BMS._temp_values(
-            self._msg[0x21], values=6, start=23, size=1, byteorder="little"
+            self._msg[0x21],
+            values=6,
+            start=23,
+            size=1,
+            byteorder="little",
+            types=(TempSensor.T.MOSFET,)
         )
 
         # Add problem for cell disconnect bitmap

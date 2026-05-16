@@ -83,6 +83,7 @@ class TempSensor:
         CELL_MIN = auto()
         MOSFET = auto()
         PCB = auto()
+        HEATER = auto()
         BALANCER = auto()
         AMBIENT = auto()
 

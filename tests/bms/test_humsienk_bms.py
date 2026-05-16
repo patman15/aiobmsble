@@ -28,7 +28,8 @@ _RESULT_DEFS: BMSSample = {
     "runtime": 198657,
     "delta_voltage": 0.011,
     "temperature": 30.5,
-    "temp_values": [TS(v) for v in (35.0, 26.0, 26.0, 26.0, 44.0, 26.0)],
+    "temp_values": [TS(35.0, TS.T.MOSFET)]
+    + [TS(v) for v in (26.0, 26.0, 26.0, 44.0, 26.0)],
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
     "balancer": False,

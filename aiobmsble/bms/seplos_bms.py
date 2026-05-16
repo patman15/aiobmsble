@@ -12,7 +12,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSpackvalue, BMSSample, MatcherPattern
+from aiobmsble import (
+    BMSDp,
+    BMSInfo,
+    BMSpackvalue,
+    BMSSample,
+    MatcherPattern,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, crc_modbus, swap32
 
 
@@ -193,7 +200,9 @@ class BMS(BaseBMS):
         assert start >= 0 and count > 0 and start + count <= 0xFFFF
         frame: bytearray = bytearray([device, cmd])
         frame.extend(int.to_bytes(start, 2, byteorder="big"))
-        frame.extend(int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big"))
+        frame.extend(
+            int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big")
+        )
         frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
         return bytes(frame)
 
@@ -242,6 +251,16 @@ class BMS(BaseBMS):
                     signed=False,
                     offset=2731,
                     divider=10,
+                    types=(TempSensor.T.CELL,)*4
+                )
+                + BMS._temp_values(
+                    self._msg[pack << 8 | BMS._PIB_LEN],
+                    values=2,
+                    start=BMS._TEMP_START+16,
+                    signed=False,
+                    offset=2731,
+                    divider=10,
+                    types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET)
                 )
             )
             # calculate cell_count instead of querying SPA
