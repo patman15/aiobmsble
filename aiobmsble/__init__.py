@@ -15,7 +15,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from enum import IntEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Literal, NamedTuple, TypedDict
+from typing import Any, Literal, NamedTuple, Self, TypedDict
 
 __version__: str = "0.0.0.dev0"
 with suppress(PackageNotFoundError):
@@ -89,7 +89,7 @@ class TempSensor:
     value: float
     type: T = T.GENERIC
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self: Self, other: object) -> bool:
         """Compare against other TempSensor including type or int | float."""
 
         if isinstance(other, TempSensor):
