@@ -87,7 +87,12 @@ def ref_value() -> dict[str, BMSSample]:
             "power": 0.0,
             "battery_charging": False,
             "cell_voltages": [3.297, 3.295, 3.297, 3.292],
-            "temp_values": [TS(23.2), TS(24.0), TS(22.6), TS(22.5)],
+            "temp_values": [
+                TS(23.2, TS.T.AMBIENT),
+                TS(24.0, TS.T.MOSFET),
+                TS(22.6, TS.T.CELL),
+                TS(22.5, TS.T.CELL),
+            ],
             "delta_voltage": 0.005,
             "chrg_mosfet": True,
             "dischrg_mosfet": True,
@@ -124,7 +129,8 @@ def ref_value() -> dict[str, BMSSample]:
                 3.295,
                 3.294,
             ],
-            "temp_values": [TS(v) for v in (17.9, 19.6, 17.9, 17.9, 17.9, 18.7)],
+            "temp_values": [TS(17.9, TS.T.AMBIENT), TS(19.6, TS.T.MOSFET)]
+            + [TS(v, TS.T.CELL) for v in (17.9, 17.9, 17.9, 18.7)],
             "delta_voltage": 0.012,
             "runtime": 62589,
             "chrg_mosfet": True,
@@ -153,7 +159,8 @@ def ref_value() -> dict[str, BMSSample]:
                 3.255,
                 3.256,
             ],
-            "temp_values": [TS(v) for v in (25.4, 25.1, 26.9, 25.9, 27.9, 27.2)],
+            "temp_values": [TS(25.4, TS.T.AMBIENT), TS(25.1, TS.T.MOSFET)]
+            + [TS(v, TS.T.CELL) for v in (26.9, 25.9, 27.9, 27.2)],
             "voltage": 52.16,
             "current": -16.2,
             "cycle_charge": 64.5,
@@ -187,6 +194,7 @@ class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
 
     bms_class = BMS
+
 
 class MockTDTBleakClient(MockBleakClient):
     """Emulate a TDT BMS BleakClient."""
@@ -502,7 +510,9 @@ def prb_response(
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: tuple[dict[int, bytearray], str]
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[dict[int, bytearray], str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
