@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_sum
 from aiobmsble.bms.neey_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -74,7 +74,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.272,
     ],
     "balancer": True,
-    "temp_values": [50.24, 50.24],
+    "temp_values": [TS(50.24), TS(50.24)],
     "problem": False,
     "problem_code": 0,
 }

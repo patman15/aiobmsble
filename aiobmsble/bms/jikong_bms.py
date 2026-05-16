@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum, lstr2int
 
 
@@ -217,20 +217,30 @@ class BMS(BaseBMS):
         frame.append(crc_sum(frame))
         return bytes(frame)
 
-    def _temp_pos(self) -> list[tuple[int, int]]:
+    def _temp_pos(self) -> list[tuple[int, int, TempSensor.T]]:
+        sensors_v11: Final = [
+            (0, 144, TempSensor.T.MOSFET),
+            (1, 162, TempSensor.T.GENERIC),
+            (2, 164, TempSensor.T.GENERIC),
+            (3, 254, TempSensor.T.MOSFET),
+        ]
         if self._sw_version >= 14:
-            return [(0, 144), (1, 162), (2, 164), (3, 254), (4, 256), (5, 258)]
+            return [*sensors_v11, (4, 256, TempSensor.T.GENERIC), (5, 258, TempSensor.T.GENERIC)]
         if self._sw_version >= 11:
-            return [(0, 144), (1, 162), (2, 164), (3, 254)]
-        return [(0, 130), (1, 132), (2, 134)]
+            return sensors_v11
+        return [
+            (0, 130, TempSensor.T.GENERIC),
+            (1, 132, TempSensor.T.GENERIC),
+            (2, 134, TempSensor.T.MOSFET),
+        ]
 
     @staticmethod
     def _temp_sensors(
-        data: bytes, temp_pos: list[tuple[int, int]], mask: int
-    ) -> list[int | float]:
+        data: bytes, temp_pos: list[tuple[int, int, TempSensor.T]], mask: int
+    ) -> list[TempSensor]:
         return [
-            (value / 10)
-            for idx, pos in temp_pos
+            TempSensor(value / 10, T)
+            for idx, pos, T in temp_pos
             if mask & (1 << idx)
             and (
                 value := int.from_bytes(

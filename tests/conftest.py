@@ -21,7 +21,7 @@ from bleak.uuids import normalize_uuid_str
 from hypothesis import HealthCheck, settings
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.utils import load_bms_plugins
 
 logging.basicConfig(level=logging.INFO)
@@ -194,7 +194,7 @@ def bms_data_fixture(request: pytest.FixtureRequest) -> BMSSample:
         "current": request.param,
         "cycle_charge": 34,
         "cell_voltages": [3.456, 3.567],
-        "temp_values": [-273.15, 0.01, 35.555, 100.0],
+        "temp_values": [TS(v) for v in (-273.15, 0.01, 35.555, 100.0)],
     }
 
 

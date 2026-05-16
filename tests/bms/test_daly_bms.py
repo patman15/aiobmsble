@@ -9,7 +9,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.daly_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -147,7 +147,13 @@ async def test_update(
     assert await bms.async_update() == ref_value() | (
         {
             "temperature": 24.8,
-            "temp_values": [38.0, 20.0, 21.0, 22.0, 23.0],
+            "temp_values": [
+                TS(38.0, TS.T.MOSFET),
+                TS(20.0, TS.T.GENERIC),
+                TS(21.0, TS.T.GENERIC),
+                TS(22.0, TS.T.GENERIC),
+                TS(23.0, TS.T.GENERIC),
+            ],
         }
         if mos_sensor_avail
         else {
@@ -177,17 +183,17 @@ async def test_device_info(patch_bleak_client) -> None:
     "test_seq",
     [
         # test ignore invalid MOS after valid read
-        ((b"\x00\x30", [8.0]), (b"\x00\x00", [-40.0])),
-        ((b"\x00\x30", [8.0]), (b"\xff\xff", [65495.0])),
+        ((b"\x00\x30", (8.0,)), (b"\x00\x00", (-40.0,))),
+        ((b"\x00\x30", (8.0,)), (b"\xff\xff", (65495.0,))),
         # test disabling of MOS read after initial invalid value
-        ((b"\xff\xff", []), (b"\x00\x30", [])),
-        ((b"\x00\x00", []), (b"\x00\x30", [])),
+        ((b"\xff\xff", ()), (b"\x00\x30", ())),
+        ((b"\x00\x00", ()), (b"\x00\x30", ())),
     ],
 )
 async def test_mos_excl(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    test_seq: tuple[tuple[bytearray, list[int | float]], ...],
+    test_seq: tuple[tuple[bytearray, tuple[int | float, ...]], ...],
 ) -> None:
     """Test Daly BMS data update."""
 
@@ -207,7 +213,7 @@ async def test_mos_excl(
         )
         assert await bms.async_update() == ref_value() | {
             "temperature": (sum(expected) + 86) / (len(expected) + 4),
-            "temp_values": [*expected, 20.0, 21.0, 22.0, 23.0],
+            "temp_values": [TS(v, TS.T.MOSFET) for v in expected]+ [TS(v) for v in (20.0, 21.0, 22.0, 23.0)],
         }
 
     await bms.disconnect()
