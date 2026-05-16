@@ -138,7 +138,8 @@ class BMS(BaseBMS):
                                 self._msg[BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2],
                                 byteorder="big",
                             )
-                            - 40
+                            - 40,
+                            TempSensor.T.MOSFET,
                         )
                     ]
                     self._mos_avail = True

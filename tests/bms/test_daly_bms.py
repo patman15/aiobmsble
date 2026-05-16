@@ -9,7 +9,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS, TempT
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.daly_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -148,11 +148,11 @@ async def test_update(
         {
             "temperature": 24.8,
             "temp_values": [
-                TS(38.0, TempT.MOSFET),
-                TS(20.0, TempT.GENERIC),
-                TS(21.0, TempT.GENERIC),
-                TS(22.0, TempT.GENERIC),
-                TS(23.0, TempT.GENERIC),
+                TS(38.0, TS.T.MOSFET),
+                TS(20.0, TS.T.GENERIC),
+                TS(21.0, TS.T.GENERIC),
+                TS(22.0, TS.T.GENERIC),
+                TS(23.0, TS.T.GENERIC),
             ],
         }
         if mos_sensor_avail
@@ -213,7 +213,7 @@ async def test_mos_excl(
         )
         assert await bms.async_update() == ref_value() | {
             "temperature": (sum(expected) + 86) / (len(expected) + 4),
-            "temp_values": [TS(v, TempT.MOSFET) for v in expected]+ [TS(v) for v in (20.0, 21.0, 22.0, 23.0)],
+            "temp_values": [TS(v, TS.T.MOSFET) for v in expected]+ [TS(v) for v in (20.0, 21.0, 22.0, 23.0)],
         }
 
     await bms.disconnect()

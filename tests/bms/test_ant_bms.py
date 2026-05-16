@@ -54,7 +54,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         2.337,
         2.335,
     ],
-    "temp_values": [TS(29.0)] *4 + [TS(30.0)] *2,
+    "temp_values": [TS(29.0)] * 4 + [TS(30.0, TS.T.MOSFET), TS(30.0, TS.T.BALANCER)],
     "delta_voltage": 0.148,
     "problem": False,
     "problem_code": 0,
@@ -79,7 +79,7 @@ class MockANTBleakClient(MockBleakClient):
     }
     REQUIRE_PASS: bool = False
     UNLOCKED = False
-    DEFAULT_PASS_MSG = ( # password is "12345678" in ASCII
+    DEFAULT_PASS_MSG = (  # password is "12345678" in ASCII
         b"\x7e\xa1\x23\x01\x6a\x08\x31\x32\x33\x34\x35\x36\x37\x38\xd9\xee\xaa\x55"
     )
     RESP: Final[dict[int, bytearray]] = {

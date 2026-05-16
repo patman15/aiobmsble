@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempT
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str
 
 
@@ -137,7 +137,7 @@ class BMS(BaseBMS):
             divider=10,
         )
 
-        for idx, T in ((7, TempT.AMBIENT), (11, TempT.MOSFET)):
+        for idx, T in ((7, TempSensor.T.AMBIENT), (11, TempSensor.T.MOSFET)):
             result["temp_values"] += BMS._temp_values(
                 self._msg[0x83], start=idx, divider=10, types=(T,)
             )

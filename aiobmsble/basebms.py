@@ -31,7 +31,6 @@ from aiobmsble import (
     BMSValue,
     MatcherPattern,
     TempSensor,
-    TempT,
     __version__,
 )
 
@@ -634,7 +633,7 @@ class BaseBMS(ABC):
         signed: bool = True,
         offset: float = 0,
         divider: int = 1,
-        types: tuple[TempT, ...] = (),
+        types: tuple[TempSensor.T, ...] = (),
     ) -> list[TempSensor]:
         """Return temperature values from BMS message.
 
@@ -657,7 +656,7 @@ class BaseBMS(ABC):
         return [
             TempSensor(
                 (value - offset) / divider,
-                types[idx] if idx < len(types) else TempT.GENERIC,
+                types[idx] if idx < len(types) else TempSensor.T.GENERIC,
             )
             for idx in range(values)
             if (len(data) >= start + idx * (size + gap) + size)

@@ -49,7 +49,7 @@ def ref_value() -> BMSSample:
             3.422,
             3.429,
         ],
-        "temp_values": [TS(v) for v in (23.0, 23.0, 23.0, 23.0, 28.0, 25.0)],
+        "temp_values": [TS(23.0)] * 4 + [TS(28.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
         "delta_voltage": 0.014,
         "balancer": False,
         "chrg_mosfet": True,

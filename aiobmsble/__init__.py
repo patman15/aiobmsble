@@ -12,9 +12,10 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from contextlib import suppress
+from dataclasses import dataclass
 from enum import IntEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Literal, NamedTuple, Self, TypedDict
+from typing import Any, Literal, NamedTuple, TypedDict
 
 __version__: str = "0.0.0.dev0"
 with suppress(PackageNotFoundError):
@@ -68,29 +69,42 @@ class BMSMode(IntEnum):
     FLOAT = 0x02
 
 
-@unique
-class TempT(IntEnum):
-    """Enumeration of temperature sensor sources."""
-
-    GENERIC = 0x0
-    CELL = auto()
-    MOSFET = auto()
-    PCB = auto()
-    BALANCER = auto()
-    AMBIENT = auto()
-
-
-class TempSensor(float):
+@dataclass(frozen=True, slots=True)
+class TempSensor:
     """Represents a temperature sensor reading from the BMS."""
 
-    type: TempT
+    @unique
+    class T(IntEnum):
+        """Enumeration of temperature sensor source types."""
 
-    def __new__(cls, value: float, type: TempT = TempT.GENERIC) -> Self:
-        """Create a new TempSensor instance."""
+        GENERIC = 0x0
+        CELL = auto()
+        CELL_MAX = auto()
+        CELL_MIN = auto()
+        MOSFET = auto()
+        PCB = auto()
+        BALANCER = auto()
+        AMBIENT = auto()
 
-        obj: Self = super().__new__(cls, value)
-        obj.type = type
-        return obj
+    value: float
+    type: T = T.GENERIC
+
+    def __eq__(self, other) -> bool:
+        """Compare against other TempSensor including type or int | float."""
+
+        if isinstance(other, TempSensor):
+            return (self.type, self.value) == (other.type, other.value)
+        if isinstance(other, (int, float)):
+            return self.value == other
+        return False
+
+    def __float__(self) -> float:
+        """Return the temperature value as a float."""
+        return float(self.value)
+
+    def __hash__(self) -> int:
+        """Hash the TempSensor based on its value and type."""
+        return hash((self.value, self.type))
 
 
 class BMSSample(TypedDict, total=False):
