@@ -33,6 +33,7 @@ class BMS(BaseBMS):
         BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 100),  # /10 for 0x62
         BMSDp("cycles", 13, 2, False),
+        BMSDp("design_capacity", 11, 2, False, lambda x: x // 100),
         BMSDp("battery_level", 9, 2, False, lambda x: x / 10),
         BMSDp("battery_health", 15, 2, False, lambda x: x / 10),
     )

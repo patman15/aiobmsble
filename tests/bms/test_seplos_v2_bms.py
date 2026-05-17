@@ -23,6 +23,7 @@ REF_VALUE: BMSSample = {
     "battery_health": 100.0,
     "cycle_charge": 143.94,
     "cycles": 128,
+    "design_capacity": 280,
     "temperature": 23.65,
     "cycle_capacity": 7628.82,
     "power": 363.05,
