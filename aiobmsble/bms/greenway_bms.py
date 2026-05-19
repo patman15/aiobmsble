@@ -67,7 +67,7 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "VPS-*",
+                "oui": "C4:A9:B8",
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
             }
@@ -76,12 +76,12 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return (normalize_uuid_str("00035b03-58e6-07dd-021a-08123a000300"),)
+        return (normalize_uuid_str("ff00"),)
 
     @staticmethod
     def uuid_rx() -> str:
         """Return 16-bit UUID of characteristic that provides notification/read property."""
-        return "00035b03-58e6-07dd-021a-08123a000301"
+        return "ff01"
 
     @staticmethod
     def uuid_tx() -> str:
