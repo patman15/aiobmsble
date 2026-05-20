@@ -517,6 +517,7 @@ class MockJikongBleakClient(MockBleakClient):
             self.HEAD_CMD + self.DEV_INFO
         ):  # JK BMS confirms commands with a command in reply
             self._task = asyncio.create_task(self._send_confirm())
+            await asyncio.sleep(0) # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
