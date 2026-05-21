@@ -2,7 +2,7 @@
   {
     "advertisement": {
       "local_name":"56C00253A00037",
-      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
+      "service_uuids": ["0000fff0-0000-1000-8000-00805f9b34fb"],
       "platform_data": ["C4:A9:B8:00:00:00"],
       "rssi": -58
     },
