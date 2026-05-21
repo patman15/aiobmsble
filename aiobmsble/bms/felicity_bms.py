@@ -40,17 +40,19 @@ class BMS(BaseBMS):
     ] = [
         ("voltage", "Batt", lambda x: x[0][0] / 1000),
         ("current", "Batt", lambda x: x[1][0] / 10),
-        (
-            "cycle_charge",
-            "BatsocList",
-            lambda x: (int(x[0][0]) * int(x[0][2])) / 1e7,
-        ),
+        ("cycle_charge", "BatsocList", lambda x: (int(x[0][0]) * int(x[0][2])) / 1e7),
         ("battery_level", "BatsocList", lambda x: x[0][0] / 100),
     ]
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[str, Any] = {}
 
     @staticmethod
@@ -93,7 +95,7 @@ class BMS(BaseBMS):
         if data.startswith(BMS._HEAD):
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -108,7 +110,7 @@ class BMS(BaseBMS):
             return
 
         if (ver := self._msg.get("CommVer", 0)) != 1:
-            self._log.debug("Unknown protocol version (%i)", ver)
+            self._log.debug("unknown protocol version (%i)", ver)
             return
 
         self._msg_event.set()

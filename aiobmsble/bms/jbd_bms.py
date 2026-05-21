@@ -12,16 +12,18 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, b2str, swap32
+from aiobmsble.basebms import BaseBMS, b2str, crc_sum, swap32
 
 
 class BMS(BaseBMS):
     """JBD smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Jiabaida", "default_model": "smart BMS"}
+    _HEAD_INIT: Final[bytes] = b"\xff\xaa"  # header for initialization
     _HEAD_RSP: Final[bytes] = b"\xdd"  # header for responses
     _HEAD_CMD: Final[bytes] = b"\xdd\xa5"  # read header for commands
     _TAIL: Final[int] = 0x77  # tail for command
+    _INIT_LEN: Final[int] = 5  # initialization frame size
     _INFO_LEN: Final[int] = 7  # minimum frame size
     _BASIC_INFO: Final[int] = 23  # basic info data length
     _FIELDS: Final[tuple[BMSDp, ...]] = (
@@ -38,9 +40,17 @@ class BMS(BaseBMS):
         BMSDp("temp_sensors", 26, 1, False),  # count is not limited
     )  # general protocol v4
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    accept_secret: bool = True
+
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._valid_reply: int = 0x00
         self._msg: bytes = b""
 
@@ -54,7 +64,10 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in (
+                "DWF*",  # Daren BMS, Docan battery
                 "JBD-*",
+                "LSG-*",  # Lossigy battery
+                "N-?????BL*",  # Nordström battery
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
                 "SBL-*",  # SBL
@@ -71,6 +84,7 @@ class BMS(BaseBMS):
                 "A4:C1:38",
                 "A5:C2:37",
                 "A5:C2:39",
+                "A5:C2:3A",
                 "AA:C2:37",
                 "70:3E:97",
             )
@@ -99,20 +113,69 @@ class BMS(BaseBMS):
             "hw_version": b2str(self._msg[4 : length + 4]),
         }
 
+    def _notify_init_handler(
+        self, _sender: BleakGATTCharacteristic, data: bytearray
+    ) -> None:
+        """Handle the RX characteristics notify event (new init data arrives)."""
+        self._log.debug("RX BLE data: %s", data)
+
+        if not data.startswith(BMS._HEAD_INIT):
+            self._log.debug("incorrect SOF")
+            return
+
+        if len(data) < BMS._INIT_LEN or len(data) < BMS._INIT_LEN + data[3]:
+            self._log.debug("incorrect frame length")
+            return
+
+        if not self._check_integrity(data, crc_sum, slice(2, -1), slice(-1, None)):
+            return
+
+        if data[2] != 0x15 or data[3] != 0x01:
+            self._log.debug("unexpected response")
+            return
+
+        self._msg = bytes(data)
+        self._msg_event.set()
+
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        if self._secret:
+            await self._client.start_notify(BMS.uuid_rx(), self._notify_init_handler)
+            data: Final[bytes] = self._secret.encode(encoding="ASCII")
+            try:
+                await self._await_msg(
+                    BMS._HEAD_INIT
+                    + b"\x15"
+                    + len(self._secret).to_bytes(1)
+                    + data
+                    + ((0x15 + len(self._secret) + sum(data)) & 0xFF).to_bytes(1)
+                )
+            except TimeoutError:
+                self._log.warning("Failed to initialize connection with secret")
+                raise
+            if self._msg[4] != 0x00:
+                self._log.warning("incorrect secret")
+                raise PermissionError("Incorrect secret.")
+
+            await self._client.stop_notify(BMS.uuid_rx())
+
+        await super()._init_connection(char_notify)
+
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         # check if answer is a heading of basic info (0x3) or cell block info (0x4)
         if (
-            data.startswith(self._HEAD_RSP)
-            and len(self._frame) > self._INFO_LEN
+            data.startswith(BMS._HEAD_RSP)
+            and len(self._frame) > BMS._INFO_LEN
             and data[1] in (0x03, 0x04, 0x05)
             and data[2] == 0x00
-            and len(self._frame) >= self._INFO_LEN + self._frame[3]
+            and len(self._frame) >= BMS._INFO_LEN + self._frame[3]
         ):
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -130,14 +193,12 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame end (length: %i).", len(self._frame))
             return
 
-        if (crc := BMS._crc(self._frame[2 : frame_end - 2])) != int.from_bytes(
-            self._frame[frame_end - 2 : frame_end], "big"
+        if not self._check_integrity(
+            self._frame,
+            BMS._crc,
+            slice(2, frame_end - 2),
+            slice(frame_end - 2, frame_end),
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[frame_end - 2 : frame_end], "big"),
-                crc,
-            )
             return
 
         if len(self._frame) != BMS._INFO_LEN + self._frame[3]:
@@ -151,20 +212,22 @@ class BMS(BaseBMS):
         self._msg_event.set()
 
     @staticmethod
-    def _crc(frame: bytearray) -> int:
+    def _crc(frame: bytes | bytearray) -> int:
         """Calculate JBD frame CRC."""
         return 0x10000 - sum(frame)
 
     @staticmethod
     @cache
-    def _cmd(cmd: bytes) -> bytes:
+    def _cmd(cmd: int, data: bytes = b"") -> bytes:
         """Assemble a JBD BMS command."""
-        frame = bytearray([*BMS._HEAD_CMD, cmd[0], 0x00])
-        frame.extend([*BMS._crc(frame[2:4]).to_bytes(2, "big"), BMS._TAIL])
+        frame = bytearray(
+            BMS._HEAD_CMD + cmd.to_bytes(1) + len(data).to_bytes(1) + data
+        )
+        frame.extend([*BMS._crc(frame[2:]).to_bytes(2, "big"), BMS._TAIL])
         return bytes(frame)
 
     async def _await_cmd_resp(self, cmd: int) -> None:
-        msg: Final[bytes] = BMS._cmd(bytes([cmd]))
+        msg: Final[bytes] = BMS._cmd(cmd)
         self._valid_reply = msg[2]
         await self._await_msg(msg)
         self._valid_reply = 0x00

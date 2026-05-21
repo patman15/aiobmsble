@@ -35,9 +35,15 @@ class BMS(BaseBMS):
         ("balance_current", 217, "<f", lambda x: round(x, 3)),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
         self._bms_info: dict[str, str] = {}
         self._exp_len: int = BMS._MIN_FRAME
@@ -96,7 +102,7 @@ class BMS(BaseBMS):
                 BMS._MIN_FRAME,
             )
 
-        self._frame += data
+        self._frame.extend(data)
 
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
@@ -107,7 +113,7 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.startswith(BMS._HEAD_RSP):
-            self._log.debug("incorrect frame start.")
+            self._log.debug("incorrect SOF")
             return
 
         # trim message in case oversized
@@ -116,7 +122,7 @@ class BMS(BaseBMS):
             del self._frame[self._exp_len :]
 
         if self._frame[-1] != BMS._TAIL:
-            self._log.debug("incorrect frame end.")
+            self._log.debug("incorrect EOF")
             return
 
         # check that message type is expected
@@ -129,8 +135,9 @@ class BMS(BaseBMS):
             )
             return
 
-        if (crc := crc_sum(self._frame[:-2])) != self._frame[-2]:
-            self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-2], crc)
+        if not self._check_integrity(
+            self._frame, crc_sum, slice(None, -2), slice(-2, -1)
+        ):
             return
 
         self._msg = bytes(self._frame)
@@ -153,8 +160,25 @@ class BMS(BaseBMS):
         frame: bytearray = bytearray(  # 0x14 frame length
             [*BMS._HEAD_CMD, cmd[0], reg & 0xFF, 0x14, *value]
         ) + bytes(11 - len(value))
-        frame += bytes([crc_sum(frame), BMS._TAIL])
+        frame.extend(bytes([crc_sum(frame), BMS._TAIL]))
         return bytes(frame)
+
+    async def _async_update(self) -> BMSSample:
+        """Update battery status information."""
+        if not self._msg_event.is_set() or self._msg[4] != 0x02:
+            # request cell info (only if data is not constantly published)
+            self._log.debug("requesting cell info")
+            await self._await_msg(data=BMS._cmd(b"\x02"))
+
+        data: BMSSample = self._conv_data(self._msg)
+        data["temp_values"] = BMS._temp_sensors(self._msg, 2)
+
+        data["cell_voltages"] = BMS._cell_voltages(
+            self._msg, cells=24, start=9, byteorder="little", size=4
+        )
+
+        self._msg_event.clear()  # clear event for next update
+        return data
 
     @staticmethod
     def _cell_voltages(
@@ -189,20 +213,3 @@ class BMS(BaseBMS):
             result[key] = func(unpack_from(fmt, data, idx)[0])
 
         return result
-
-    async def _async_update(self) -> BMSSample:
-        """Update battery status information."""
-        if not self._msg_event.is_set() or self._msg[4] != 0x02:
-            # request cell info (only if data is not constantly published)
-            self._log.debug("requesting cell info")
-            await self._await_msg(data=BMS._cmd(b"\x02"))
-
-        data: BMSSample = self._conv_data(self._msg)
-        data["temp_values"] = BMS._temp_sensors(self._msg, 2)
-
-        data["cell_voltages"] = BMS._cell_voltages(
-            self._msg, cells=24, start=9, byteorder="little", size=4
-        )
-
-        self._msg_event.clear()  # clear event for next update
-        return data

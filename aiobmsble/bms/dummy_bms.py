@@ -23,9 +23,17 @@ class BMS(BaseBMS):
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    # accept_secret: bool = True  # if the BMS accepts a secret for authentication
+
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -76,8 +84,7 @@ class BMS(BaseBMS):
         #     self._log.debug("incorrect SOF")
         #     return
 
-        # if (crc := crc_sum(self._frame[:-1])) != self._frame[-1]:
-        #     self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-1], crc)
+        # if not self._check_crc(self._frame, crc_sum, slice(None, -1), slice(-1, None)):
         #     return
 
         # Do an immutable copy of the assembled (data) frame and notify _await_msg()

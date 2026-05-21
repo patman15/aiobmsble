@@ -37,14 +37,20 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 31, 2, False, idx=0x1),
         BMSDp("balancer", 25, 2, False, idx=0x1),
     )
-    _CMDS: Final = frozenset({field.idx for field in _FIELDS})
+    _CMDS: Final = frozenset(field.idx for field in _FIELDS)
     _INIT_CMDS: Final = frozenset(
         {0x74, 0xF4, 0xF5}  # SW version  # BMS program version  # BMS boot version
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._exp_reply: tuple[int] = (0x01,)
 
@@ -96,9 +102,9 @@ class BMS(BaseBMS):
             and data[1] in {*BMS._CMDS, *BMS._INIT_CMDS}
             and len(self._frame) >= BMS._MIN_LEN + self._frame[2]
         ):
-            self._frame = bytearray()
+            self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )

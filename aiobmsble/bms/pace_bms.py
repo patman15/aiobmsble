@@ -40,9 +40,15 @@ class BMS(BaseBMS):
         # BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._valid_reply: bytes = b""  # expected reply type
         self._msg: bytes = b""
 
@@ -91,14 +97,7 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length")
             return
 
-        if (crc := crc_modbus(data[:-3])) != int.from_bytes(
-            data[-3:-1], byteorder="big"
-        ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(data[-3:-1], byteorder="big"),
-                crc,
-            )
+        if not self._check_integrity(data, crc_modbus, slice(None, -3), slice(-3, -1)):
             return
 
         if data[BMS._FRM_TYPE] != self._valid_reply:
@@ -113,7 +112,7 @@ class BMS(BaseBMS):
     def _cmd(cmd: bytes, data: bytes = b"") -> bytes:
         """Assemble a Pace BMS command."""
         frame: bytearray = bytearray(BMS._HEAD) + cmd + len(data).to_bytes(1) + data
-        frame += int.to_bytes(crc_modbus(frame), 2, byteorder="big") + BMS._TAIL
+        frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="big") + BMS._TAIL)
         return bytes(frame)
 
     async def _await_msg(

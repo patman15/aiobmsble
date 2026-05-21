@@ -49,11 +49,17 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x4), 0x3),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2), 0x3),
     )
-    _CMDS: Final = frozenset({field.idx for field in _FIELDS}) | {0x2}
+    _CMDS: Final = frozenset(field.idx for field in _FIELDS) | {0x2}
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._exp_len: int = 0
 
@@ -66,7 +72,7 @@ class BMS(BaseBMS):
                 "manufacturer_id": manufacturer_id,
                 "connectable": True,
             }
-            for manufacturer_id in (0x01A8, 0x0B31, 0x8AFB, 0x8849)
+            for manufacturer_id in (0x01A8, 0x0B31, 0x8AFB, 0x8849, 0xCB73)
         ]
 
     @staticmethod
@@ -102,7 +108,7 @@ class BMS(BaseBMS):
             self._exp_len = data[len(BMS._HEAD)]
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -117,16 +123,16 @@ class BMS(BaseBMS):
 
         end_idx: Final[int] = BMS._MIN_LEN + self._exp_len - 1
         if self._frame[end_idx] != BMS._TAIL:
-            self._log.debug("incorrect EOF: %s", self._frame)
+            self._log.debug("incorrect EOF")
             self._frame.clear()
             return
 
-        if (crc := BMS._crc(self._frame[len(BMS._HEAD) : end_idx - 1])) != self._frame[
-            end_idx - 1
-        ]:
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X", self._frame[end_idx - 1], crc
-            )
+        if not self._check_integrity(
+            self._frame,
+            BMS._crc,
+            slice(len(BMS._HEAD), end_idx - 1),
+            slice(end_idx - 1, end_idx),
+        ):
             self._frame.clear()
             return
 
@@ -158,7 +164,7 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(bytes([0xFF, cmd])))
 
         if not BMS._CMDS.issubset(self._msg.keys()):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)

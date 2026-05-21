@@ -23,7 +23,7 @@ class BMS(BaseBMS):
     _HEAD: Final[bytes] = b"\x7e"
     _TAIL: Final[bytes] = b"\x0d"
     _CMD_VER: Final[int] = 0x11  # TX protocol version
-    _RSP_VER: Final[int] = 0x22  # RX protocol version
+    _RSP_VER: Final[bytes] = b"\x22"  # RX protocol version
     _LEN_POS: Final[int] = 9
     _MIN_LEN: Final[int] = _LEN_POS + 3 + len(_HEAD) + len(_TAIL) + 4
     _MAX_LEN: Final[int] = 255
@@ -37,9 +37,15 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 15, 6, False, lambda x: x & 0xFFF000FF000F),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
         self._exp_len: int = 0
 
@@ -69,51 +75,48 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe9"
 
-    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if len(data) > BMS._LEN_POS + 4 and data.startswith(BMS._HEAD):
-            self._frame = bytearray()
+            self._frame.clear()
             try:
                 length: Final[int] = int(data[BMS._LEN_POS : BMS._LEN_POS + 4], 16)
                 self._exp_len = length & 0xFFF
                 if BMS.lencs(length) != length >> 12:
                     self._exp_len = 0
-                    self._log.debug("incorrect length checksum.")
+                    self._log.debug("incorrect length checksum")
             except ValueError:
                 self._exp_len = 0
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        if len(self._frame) < self._exp_len + BMS._MIN_LEN:
+        if len(self._frame) < min(self._exp_len + BMS._MIN_LEN, BMS.BLE_MAX_ATTR_SIZE):
             return
 
         if not self._frame.endswith(BMS._TAIL):
-            self._log.debug("incorrect EOF: %s", data)
+            self._log.debug("incorrect EOF")
             self._frame.clear()
             return
 
         if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
-            self._log.debug("incorrect frame encoding.")
+            self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
 
-        if (ver := bytes.fromhex(self._frame[1:3].decode())) != BMS._RSP_VER.to_bytes():
+        if (ver := bytes.fromhex(self._frame[1:3].decode())) != BMS._RSP_VER:
             self._log.debug("unknown response frame version: 0x%X", int.from_bytes(ver))
             self._frame.clear()
             return
 
-        if (crc := lrc_modbus(self._frame[1:-5])) != int(self._frame[-5:-1], 16):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X", crc, int(self._frame[-5:-1], 16)
-            )
+        if not self._check_integrity(
+            self._frame, lrc_modbus, slice(1, -5), int(self._frame[-5:-1], 16), "little"
+        ):
             self._frame.clear()
             return
 

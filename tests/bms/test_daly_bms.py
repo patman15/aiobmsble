@@ -10,6 +10,7 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSSample
+from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.daly_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -172,22 +173,44 @@ async def test_device_info(patch_bleak_client) -> None:
     }
 
 
-async def test_mos_excl(patch_bleak_client) -> None:
+@pytest.mark.parametrize(
+    "test_seq",
+    [
+        # test ignore invalid MOS after valid read
+        ((b"\x00\x30", [8.0]), (b"\x00\x00", [-40.0])),
+        ((b"\x00\x30", [8.0]), (b"\xff\xff", [65495.0])),
+        # test disabling of MOS read after initial invalid value
+        ((b"\xff\xff", []), (b"\x00\x30", [])),
+        ((b"\x00\x00", []), (b"\x00\x30", [])),
+    ],
+)
+async def test_mos_excl(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    test_seq: tuple[tuple[bytearray, list[int | float]], ...],
+) -> None:
     """Test Daly BMS data update."""
 
     patch_bleak_client(MockDalyBleakClient)
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice"))
 
-    for name_no_mos in BMS.MOS_NOT_AVAILABLE:
-        bms = BMS(
-            generate_ble_device("cc:cc:cc:cc:cc:cc", f"{name_no_mos}MockBLEdevice"),
+    for response, expected in test_seq:
+        mos_info: bytearray = MockDalyBleakClient.RESP[
+            MockDalyBleakClient.MOS_INFO
+        ].copy()
+        mos_info[BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2] = response
+        mos_info[-2:] = crc_modbus(mos_info[:-2]).to_bytes(2, byteorder="little")
+        monkeypatch.setattr(
+            MockDalyBleakClient,
+            "RESP",
+            MockDalyBleakClient.RESP | {MockDalyBleakClient.MOS_INFO: mos_info},
         )
-
         assert await bms.async_update() == ref_value() | {
-            "temperature": 21.5,
-            "temp_values": [20.0, 21.0, 22.0, 23.0],
+            "temperature": (sum(expected) + 86) / (len(expected) + 4),
+            "temp_values": [*expected, 20.0, 21.0, 22.0, 23.0],
         }
 
-        await bms.disconnect()
+    await bms.disconnect()
 
 
 async def test_too_short_frame(patch_bleak_client) -> None:

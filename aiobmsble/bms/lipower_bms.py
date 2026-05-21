@@ -4,7 +4,6 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -19,7 +18,7 @@ class BMS(BaseBMS):
     """LiPower BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Ective", "default_model": "LiPower BMS"}
-    _HEADS: Final[tuple[bytes, ...]] = (b"\x22\x03", b"\x0b\x03")  # alternative heads
+    _DEV_IDS: Final[tuple[bytes, ...]] = (b"\x22", b"\x0B", b"\x08")  # alternative device IDs
     _MIN_LEN: Final[int] = 5  # minimal frame length, including SOF and checksum
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 15, 2, False, lambda x: x / 10),
@@ -38,10 +37,16 @@ class BMS(BaseBMS):
         # BMSDp("power", 17, 2, False),  # disabled, due to precision
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
-        self._heads: tuple[bytes, ...] = BMS._HEADS
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
+        self._heads: tuple[bytes, ...] = BMS._DEV_IDS
         self._msg: bytes = b""
 
     @staticmethod
@@ -70,7 +75,7 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
-        if not data.startswith(self._heads) or len(data) < BMS._MIN_LEN:
+        if (not data.startswith(self._heads)) or len(data) < BMS._MIN_LEN:
             self._log.debug("incorrect SOF")
             return
 
@@ -78,41 +83,27 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length")
             return
 
-        if (crc := crc_modbus(data[:-2])) != int.from_bytes(
-            data[-2:], byteorder="little"
+        if not self._check_integrity(
+            data,
+            crc_modbus,
+            slice(None, -2),
+            slice(-2, None),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(data[-2:], byteorder="little"),
-                crc,
-            )
             return
 
         self._msg = bytes(data)
         self._msg_event.set()
-
-    @staticmethod
-    @cache
-    def _cmd(cmd: int, addr: int, words: int, head: bytes) -> bytes:
-        """Assemble a LiPower BMS command (MODBUS)."""
-        frame: bytearray = (
-            bytearray(head)
-            + cmd.to_bytes(1, "big")
-            + addr.to_bytes(2, "big")
-            + words.to_bytes(1, "big")
-        )
-        frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
-        return bytes(frame)
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         for head in self._heads:
             try:
                 await self._await_msg(
-                    BMS._cmd(cmd=0x4, addr=0x0, words=0x8, head=head)
+                    BMS._cmd_modbus(dev_id=int.from_bytes(head), addr=0x400, count=0x8)
                 )
                 if len(self._heads) > 1:
-                    self._log.debug("detected frame head: %s", head.hex(" "))
+                    self._log.debug("detected frame head: %s", head.hex())
                     self._heads = (head,)  # set to single head for further commands
                 break
             except TimeoutError:

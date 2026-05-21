@@ -43,9 +43,15 @@ class BMS(BaseBMS):
     )  # problem code, switches are not included in the list, but extra
     _CMDS: Final = frozenset({field.idx for field in _FIELDS} | {0x8D})
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._cmd_heads: set[int] = BMS._CMD_HEADS
         self._exp_len: int = 0
@@ -112,9 +118,9 @@ class BMS(BaseBMS):
             and len(self._frame) >= self._exp_len
         ):
             self._exp_len = BMS._INFO_LEN + int.from_bytes(data[6:8])
-            self._frame = bytearray()
+            self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -135,14 +141,13 @@ class BMS(BaseBMS):
             self._log.debug("BMS reported error code: 0x%X", self._frame[4])
             return
 
-        if (crc := crc_modbus(self._frame[:-3])) != int.from_bytes(
-            self._frame[-3:-1], "big"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(None, -3),
+            slice(-3, -1),
+            "big",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[-3:-1], "big"),
-                crc,
-            )
             return
         self._msg[self._frame[5]] = bytes(self._frame)
         self._msg_event.set()
@@ -154,8 +159,8 @@ class BMS(BaseBMS):
         assert cmd in (0x8C, 0x8D, 0x92)  # allow only read commands
 
         frame = bytearray([cmd_head, BMS._CMD_VER, 0x1, 0x3, 0x0, cmd])
-        frame += len(data).to_bytes(2, "big", signed=False) + data
-        frame += crc_modbus(frame).to_bytes(2, "big") + bytes([BMS._TAIL])
+        frame.extend(len(data).to_bytes(2, "big", signed=False) + data)
+        frame.extend(crc_modbus(frame).to_bytes(2, "big") + bytes([BMS._TAIL]))
 
         return bytes(frame)
 

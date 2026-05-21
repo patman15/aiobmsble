@@ -4,7 +4,6 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -42,9 +41,15 @@ class BMS(BaseBMS):
         "design_capacity",
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
         self._exp_len: int = 0
 
@@ -85,9 +90,9 @@ class BMS(BaseBMS):
             and len(self._frame) >= self._exp_len
         ):
             self._exp_len = BMS._MIN_LEN + data[2]
-            self._frame = bytearray()
+            self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -98,33 +103,22 @@ class BMS(BaseBMS):
 
         del self._frame[self._exp_len :]
 
-        if (crc := crc_modbus(self._frame[:-2])) != int.from_bytes(
-            self._frame[-2:], byteorder="little"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(None, -2),
+            slice(-2, None),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[-2:], byteorder="little"),
-                crc,
-            )
             return
 
         self._msg = bytes(self._frame)
         self._msg_event.set()
 
-    @staticmethod
-    @cache
-    def _cmd(address: int, count: int) -> bytes:
-        """Assemble a EG4 BMS command."""
-        frame: bytearray = bytearray(BMS._HEAD)
-        frame += int.to_bytes(address, 2, byteorder="big")
-        frame += int.to_bytes(count, 2, byteorder="big")
-        frame += int.to_bytes(crc_modbus(frame), 2, byteorder="little")
-        return bytes(frame)
-
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await self._await_msg(BMS._cmd(0x0, 0x27))
+        await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x0, count=0x27))
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
         for field in BMS._OPT_FIELDS:

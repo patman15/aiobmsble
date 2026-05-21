@@ -37,12 +37,18 @@ class BMS(BaseBMS):
         BMSDp("runtime", 14, 2, False, lambda x: x * BMS._HRS_TO_SECS / 100, 0x0C),
         BMSDp("problem_code", 4, 4, False, idx=0x21),
     )
-    _CMDS: Final = frozenset({field.idx for field in _FIELDS})
+    _CMDS: Final = frozenset(field.idx for field in _FIELDS)
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
-        self._msg: bytes = b""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
+        self._msg: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -93,20 +99,18 @@ class BMS(BaseBMS):
             return
 
         if not data.startswith(BMS._HEAD) or not data.endswith(BMS._TAIL_RX):
-            self._log.debug("incorrect frame start/end: %s", data)
+            self._log.debug("incorrect SOF/EOF: %s", data)
             return
 
-        if (crc := crc_sum(data[len(BMS._HEAD) : len(data) + BMS._CRC_POS])) != data[
-            BMS._CRC_POS
-        ]:
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                data[len(data) + BMS._CRC_POS],
-                crc,
-            )
+        if not self._check_integrity(
+            data,
+            crc_sum,
+            slice(len(BMS._HEAD), len(data) + BMS._CRC_POS),
+            slice(BMS._CRC_POS, BMS._CRC_POS + 1),
+        ):
             return
 
-        self._msg = bytes(data)
+        self._msg[data[2]] = bytes(data)
         self._msg_event.set()
 
     @staticmethod
@@ -122,41 +126,24 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        resp_cache: dict[int, bytes] = {}  # avoid multiple queries
         for cmd in BMS._CMDS:
-            self._log.debug("request command 0x%X.", cmd)
-            try:
-                await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
-            except TimeoutError:
-                continue
-            if cmd != self._msg[BMS._CMD_POS]:
-                self._log.debug(
-                    "incorrect response 0x%X to command 0x%X",
-                    self._msg[BMS._CMD_POS],
-                    cmd,
-                )
-            resp_cache[self._msg[BMS._CMD_POS]] = self._msg
+            await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
+        if not BMS._CMDS.issubset(set(self._msg.keys())):
+            self._log.debug("incomplete data set %s", self._msg.keys())
+            raise ValueError("BMS data incomplete.")
 
         voltages: list[float] = []
         for cmd in BMS._CELLV_CMDS:
-            try:
-                await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
-            except TimeoutError:
-                break
+            await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
             cells: list[float] = BMS._cell_voltages(
-                self._msg, cells=5, start=4, byteorder="little"
+                self._msg[cmd], cells=5, start=4, byteorder="little"
             )
             voltages.extend(cells)
             if len(voltages) % 5 or len(cells) == 0:
                 break
 
-        data: BMSSample = BMS._decode_data(BMS._FIELDS, resp_cache, byteorder="little")
+        data: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
 
-        # get cycle charge from design capacity and SoC
-        if data.get("design_capacity") and data.get("battery_level"):
-            data["cycle_charge"] = (
-                data.get("design_capacity", 0) * data.get("battery_level", 0) / 100
-            )
         # remove runtime if not discharging
         if data.get("current", 0) >= 0:
             data.pop("runtime", None)

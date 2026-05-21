@@ -40,11 +40,17 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
         BMSDp("dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
     )
-    _CMDS: Final = frozenset({field.idx for field in _FIELDS}) | set({0x87})
+    _CMDS: Final = frozenset(field.idx for field in _FIELDS) | set({0x87})
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
 
     @staticmethod
@@ -88,11 +94,11 @@ class BMS(BaseBMS):
             return
 
         if not data.startswith(BMS._HEAD):
-            self._log.debug("incorrect SOF.")
+            self._log.debug("incorrect SOF")
             return
 
         if not data.endswith(BMS._TAIL):
-            self._log.debug("incorrect EOF.")
+            self._log.debug("incorrect EOF")
             return
 
         self._msg[data[2]] = bytes(data)
@@ -111,7 +117,7 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd))
 
         if not BMS._CMDS.issubset(self._msg):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
@@ -122,14 +128,10 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd))
             result["cell_voltages"] = result.setdefault(
                 "cell_voltages", []
-            ) + BMS._cell_voltages(
-                self._msg.get(cmd, b""), cells=8, start=3
-            )
+            ) + BMS._cell_voltages(self._msg.get(cmd, b""), cells=8, start=3)
 
         result["temp_values"] = [
-            int.from_bytes(
-                self._msg[0x83][idx : idx + 2], byteorder="big", signed=True
-            )
+            int.from_bytes(self._msg[0x83][idx : idx + 2], byteorder="big", signed=True)
             / 10
             for idx in (7, 11)  # take ambient and mosfet temperature
         ] + BMS._temp_values(

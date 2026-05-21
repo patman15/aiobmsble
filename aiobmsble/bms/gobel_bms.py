@@ -7,7 +7,6 @@ This module implements support for Gobel Power BMS devices that use Modbus RTU
 protocol over Bluetooth Low Energy.
 """
 
-from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -31,16 +30,12 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 32
     _MAX_TEMP: Final[int] = 8
 
-    # Each command: (slave_addr, func_code, start_address, register_count)
-    _RD_CMD_STATUS: Final[tuple[int, int, int, int]] = (
-        _SLAVE_ADDR,
-        _FUNC_READ,
+    # Each command: (start_address, register_count)
+    _RD_CMD_STATUS: Final[tuple[int, int]] = (
         0x0000,
         0x003B,  # 59 registers
     )
-    _RD_CMD_DEV_INFO: Final[tuple[int, int, int, int]] = (
-        _SLAVE_ADDR,
-        _FUNC_READ,
+    _RD_CMD_DEV_INFO: Final[tuple[int, int]] = (
         0x00AA,
         0x0023,  # 35 registers
     )
@@ -64,9 +59,15 @@ class BMS(BaseBMS):
     _TEMP_START: Final[int] = 97
     _TEMP_MOS_OFFSET: Final[int] = 117
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
@@ -89,17 +90,27 @@ class BMS(BaseBMS):
         """Return UUID of characteristic that provides write property."""
         return "00002760-08c2-11e1-9073-0e8ac72e0001"
 
-    @staticmethod
-    @cache
-    def _cmd(addr: int, func: int, start: int, regs: int) -> bytes:
-        """Build Modbus read command with CRC (cached)."""
-        cmd: Final[bytes] = (
-            addr.to_bytes(1, "big")
-            + func.to_bytes(1, "big")
-            + start.to_bytes(2, "big")
-            + regs.to_bytes(2, "big")
-        )
-        return cmd + crc_modbus(cmd).to_bytes(2, "little")
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch device info from BMS via Modbus."""
+        # First get standard BLE device info (may contain generic values)
+        info: BMSInfo = await super()._fetch_device_info()
+
+        # Read device info registers via Modbus
+        try:
+            await self._await_msg(BMS._cmd_modbus(0x1, 0x3, *BMS._RD_CMD_DEV_INFO))
+        except TimeoutError:
+            return info
+
+        if len(self._msg) >= 65:
+            info.update(
+                {
+                    "sw_version": b2str(self._msg[3:21]),
+                    "serial_number": b2str(self._msg[23:43]),
+                    "model_id": b2str(self._msg[43:63]),
+                }
+            )
+
+        return info
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -144,14 +155,9 @@ class BMS(BaseBMS):
         # Truncate if we received extra data
         del self._frame[expected_len:]
 
-        # Verify CRC
-        received_crc: Final[int] = int.from_bytes(self._frame[-2:], byteorder="little")
-        calculated_crc: Final[int] = crc_modbus(self._frame[:-2])
-
-        if received_crc != calculated_crc:
-            self._log.debug(
-                "invalid CRC: 0x%04X != 0x%04X", received_crc, calculated_crc
-            )
+        if not self._check_integrity(
+            self._frame, crc_modbus, slice(None, -2), slice(-2, None), "little"
+        ):
             self._frame.clear()
             return
 
@@ -161,13 +167,13 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(BMS._cmd(*BMS._RD_CMD_STATUS))
+        await self._await_msg(BMS._cmd_modbus(0x1, 0x3, *BMS._RD_CMD_STATUS))
 
-        if self._msg[2] != BMS._RD_CMD_STATUS[3] * 2:
+        if self._msg[2] != BMS._RD_CMD_STATUS[1] * 2:
             self._log.debug(
                 "incorrect response: %d bytes, expected %d",
                 self._msg[2],
-                BMS._RD_CMD_STATUS[3] * 2,
+                BMS._RD_CMD_STATUS[1] * 2,
             )
             return {}
 
@@ -179,14 +185,12 @@ class BMS(BaseBMS):
             self._msg,
             cells=min(result.get("cell_count", 0), BMS._MAX_CELLS),
             start=BMS._CELLV_START,
-            byteorder="big",
         )
 
         result["temp_values"] = BMS._temp_values(
             self._msg,
             values=min(result.get("temp_sensors", 0), BMS._MAX_TEMP),
             start=BMS._TEMP_START,
-            byteorder="big",
             signed=True,
             divider=10,
         )
@@ -196,7 +200,6 @@ class BMS(BaseBMS):
             self._msg,
             values=1,
             start=BMS._TEMP_MOS_OFFSET,
-            byteorder="big",
             signed=True,
             divider=10,
         )
@@ -204,25 +207,3 @@ class BMS(BaseBMS):
             result["temp_values"].append(mos_temp[0])
 
         return result
-
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Fetch device info from BMS via Modbus."""
-        # First get standard BLE device info (may contain generic values)
-        info: BMSInfo = await super()._fetch_device_info()
-
-        # Read device info registers via Modbus
-        try:
-            await self._await_msg(BMS._cmd(*BMS._RD_CMD_DEV_INFO))
-        except TimeoutError:
-            return info
-
-        if len(self._msg) >= 65:
-            info.update(
-                {
-                    "sw_version": b2str(self._msg[3:21]),
-                    "serial_number": b2str(self._msg[23:43]),
-                    "model_id": b2str(self._msg[43:63]),
-                }
-            )
-
-        return info

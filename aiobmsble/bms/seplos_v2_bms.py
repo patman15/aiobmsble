@@ -41,9 +41,15 @@ class BMS(BaseBMS):
         {(0x51, b""), (0x61, b"\x00"), (0x62, b"")}
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._exp_len: int = BMS._MIN_LEN
         self._exp_reply: set[int] = set()
@@ -95,9 +101,9 @@ class BMS(BaseBMS):
             and len(self._frame) >= self._exp_len
         ):
             self._exp_len = BMS._MIN_LEN + int.from_bytes(data[5:7])
-            self._frame = bytearray()
+            self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -118,12 +124,9 @@ class BMS(BaseBMS):
             self._log.debug("BMS reported error code: 0x%X", self._frame[4])
             return
 
-        if (crc := crc_xmodem(self._frame[1:-3])) != int.from_bytes(self._frame[-3:-1]):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                crc,
-                int.from_bytes(self._frame[-3:-1]),
-            )
+        if not self._check_integrity(
+            self._frame, lambda x: crc_xmodem(x[1:-3]), slice(None, None), slice(-3, -1)
+        ):
             return
 
         self._log.debug(
@@ -153,8 +156,10 @@ class BMS(BaseBMS):
         """Assemble a Seplos V2 BMS command."""
         assert cmd in (0x47, 0x51, 0x61, 0x62, 0x04)  # allow only read commands
         frame = bytearray([*BMS._HEAD, BMS._CMD_VER, address, 0x46, cmd])
-        frame += len(data).to_bytes(2, "big", signed=False) + data
-        frame += int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL
+        frame.extend(len(data).to_bytes(2, "big", signed=False) + data)
+        frame.extend(
+            int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL
+        )
         return bytes(frame)
 
     async def _async_update(self) -> BMSSample:

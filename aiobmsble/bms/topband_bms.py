@@ -20,7 +20,11 @@ class BMS(BaseBMS):
     """Ective BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Topband", "default_model": "smart BMS"}
-    _HEAD_RSP: Final[tuple[bytes, ...]] = (b"\x5e", b"\x83", b"\xb0")  # header for responses
+    _HEAD_RSP: Final[tuple[bytes, ...]] = (
+        b"\x5e",
+        b"\x83",
+        b"\xb0",
+    )  # header for responses
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
@@ -34,9 +38,15 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 18, 1, False),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
@@ -79,7 +89,7 @@ class BMS(BaseBMS):
             data = data[start:]
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -101,10 +111,9 @@ class BMS(BaseBMS):
             self._frame.strip(b"".join(BMS._HEAD_RSP)).decode()
         )
 
-        if (crc := crc_sum(_dec[:-2], 2)) != int.from_bytes(_dec[-2:]):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X", int.from_bytes(_dec[-2:]), crc
-            )
+        if not self._check_integrity(
+            _dec, lambda x: crc_sum(x, 2), slice(None, -2), slice(-2, None)
+        ):
             self._frame.clear()
             return
 

@@ -25,7 +25,7 @@ class BMS(BaseBMS):
     }
     _HEAD: Final[bytes] = b"\x3a"  # beginning of frame
     _TAIL: Final[bytes] = b"\x7e"  # end of frame
-    _MIN_LEN: Final[int] = 238 # heater*2 + tail
+    _MIN_LEN: Final[int] = 238  # heater*2 + tail
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
             "current",
@@ -43,20 +43,25 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 0, 2, False, lambda x: x & 0x0FFC),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            {
-                "manufacturer_id": 28256,
-                "manufacturer_data_start": [0x41],
-                "connectable": True,
-            }
+            MatcherPattern(
+                oui=pattern, service_uuid=BMS.uuid_services()[0], connectable=True
+            )
+            for pattern in ("60:6E:41", "10:23:81")
         ]
 
     @staticmethod
@@ -90,13 +95,21 @@ class BMS(BaseBMS):
         if data.startswith(BMS._HEAD):
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
 
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        if not (self._frame.startswith(BMS._HEAD) and self._frame.endswith(BMS._TAIL)):
+        if (
+            not self._frame.startswith(BMS._HEAD)
+            or len(self._frame) > BMS.BLE_MAX_ATTR_SIZE
+        ):
+            self._log.debug("invalid frame")
+            self._frame.clear()
+            return
+
+        if not self._frame.endswith(BMS._TAIL):
             return
 
         if len(self._frame) % 2 or len(self._frame) < BMS._MIN_LEN:
@@ -104,7 +117,7 @@ class BMS(BaseBMS):
             return
 
         if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
-            self._log.debug("incorrect frame encoding.")
+            self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
 
@@ -113,7 +126,7 @@ class BMS(BaseBMS):
         # incoming frames seem to have invalid checksum, thus not checked here
 
         if not _dec.startswith(b"\x01\x54"):
-            self._log.debug("incorrect frame type.")
+            self._log.debug("incorrect frame type")
             self._frame.clear()
             return
 

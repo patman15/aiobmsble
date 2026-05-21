@@ -7,6 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from functools import cache
 from itertools import takewhile
 import logging
 from statistics import fmean
@@ -23,7 +24,7 @@ from bleak.exc import (
 )
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, __version__
 
 
 class BaseBMS(ABC):
@@ -32,11 +33,14 @@ class BaseBMS(ABC):
     INFO: BMSInfo  # static BMS info, set "default_" keys in subclass
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value, used for chunking data
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
+
+    accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
 
     type _InfoCharType = Literal[
         "model",
@@ -54,13 +58,14 @@ class BaseBMS(ABC):
             self, msg: str, kwargs: MutableMapping[str, Any]
         ) -> tuple[str, MutableMapping[str, Any]]:
             """Process the logging message."""
-            prefix: str = str(self.extra.get("prefix") if self.extra else "")
+            prefix: Final[str] = str(self.extra.get("prefix") if self.extra else "")
             return (f"{prefix} {msg}", kwargs)
 
     def __init__(
         self,
         ble_device: BLEDevice,
         keep_alive: bool = True,
+        secret: str = "",
         logger_name: str = "",
     ) -> None:
         """Initialize the BMS.
@@ -75,20 +80,22 @@ class BaseBMS(ABC):
             keep_alive (bool): if true, the connection will be kept active after each update.
                 Make sure to call `disconnect()` when done using the BMS class or better use
                 `async with` context manager (requires `keep_alive=True`).
+            secret (str): optional secret for authentication, if the BMS accepts it (see `accept_secret`).
             logger_name (str): name of the logger for the BMS instance, default: module name
 
         """
-        assert getattr(self, "_notification_handler", None) is not None, (
-            "BMS class must define `_notification_handler` method"
-        )
-        assert {"default_manufacturer", "default_model"}.issubset(self.INFO), (
-            "BMS class must define `INFO`"
-        )
+        assert (
+            getattr(self, "_notification_handler", None) is not None
+        ), "BMS class must define `_notification_handler` method"
+        assert {"default_manufacturer", "default_model"}.issubset(
+            self.INFO
+        ), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._keep_alive: Final[bool] = keep_alive
-        self.name: Final[str] = self._ble_device.name or "undefined"
-        self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
+        self._secret: Final[str] = secret
         logger_name = logger_name or self.__class__.__module__
+        self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
+        self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
             {
@@ -97,7 +104,10 @@ class BaseBMS(ABC):
         )
 
         self._log.debug(
-            "initializing %s, BT address: %s", self.bms_id(), ble_device.address
+            "%s: initializing %s, BT address: %s",
+            __version__,
+            self.bms_id(),
+            ble_device.address,
         )
         self._client: BleakClient = BleakClient(
             self._ble_device,
@@ -468,7 +478,7 @@ class BaseBMS(ABC):
     async def disconnect(self, reset: bool = False) -> None:
         """Disconnect the BMS, includes stopping notifications."""
 
-        self._log.debug("disconnecting BMS (%s)", str(self._client.is_connected))
+        self._log.debug("disconnecting BMS (%s)", self._client.is_connected)
         try:
             self._msg_event.clear()
             if reset:
@@ -510,6 +520,35 @@ class BaseBMS(ABC):
             await self.disconnect()
 
         return data
+
+    @final
+    @staticmethod
+    @cache
+    def _cmd_modbus(
+        dev_id: int = 0, fct: int = 0x3, addr: int = 0, count: int = 1
+    ) -> bytes:
+        """Assemble a MODBUS command.
+
+        Args:
+            dev_id (int): 8-bit slave device id (default: 0)
+            fct (int): 8-bit function code (default: 3, read registers)
+            addr (int): 16-bit start address (default: 0x0)
+            count (int): 16-bit number of elements (default: 1)
+
+        Returns:
+            bytes: assembled MODBUS command bytes
+
+        """
+        assert dev_id >= 0x00
+        assert fct in (1, 2, 3, 4, 5, 6, 15, 16, 22, 23)
+        assert addr >= 0 and count > 0 and addr + count <= 0xFFFF
+        frame: bytes = (
+            dev_id.to_bytes(1)
+            + fct.to_bytes(1)
+            + addr.to_bytes(2, byteorder="big")
+            + count.to_bytes(2, byteorder="big")
+        )
+        return frame + crc_modbus(frame).to_bytes(2, "little")
 
     @staticmethod
     def _decode_data(
@@ -612,7 +651,8 @@ class BaseBMS(ABC):
                 (
                     value := int.from_bytes(
                         data[
-                            start + idx * (size + gap) : start
+                            start
+                            + idx * (size + gap) : start
                             + idx * (size + gap)
                             + size
                         ],
@@ -623,6 +663,38 @@ class BaseBMS(ABC):
                 or (offset == 0)
             )
         ]
+
+    @final
+    def _check_integrity(
+        self,
+        data: bytes | bytearray,
+        integrity_func: Callable[[bytes | bytearray], int],
+        dic_data_slice: slice,
+        dic_expected: slice | int,
+        byteorder: Literal["little", "big"] = "big",
+    ) -> bool:
+        """Check data integrity of frame data.
+
+        Args:
+            data: The frame data to check
+            integrity_func: Function to calculate data integrity code (DIC, e.g. CRC/checksum)
+            dic_data_slice: Slice of data to calculate DIC on
+            dic_expected: Slice where expected DIC is stored or expected DIC as int
+            byteorder: Byte order for reading expected DIC
+
+        Returns:
+            bool: True if data integrity code (DIC) is valid, False otherwise
+        """
+        calc_dic: Final[int] = integrity_func(data[dic_data_slice])
+        exp_dic: Final[int] = (
+            int.from_bytes(data[dic_expected], byteorder)
+            if isinstance(dic_expected, slice)
+            else dic_expected
+        )
+        if calc_dic != exp_dic:
+            self._log.debug("invalid checksum 0x%X != 0x%X", exp_dic, calc_dic)
+            return False
+        return True
 
 
 def b2str(b: bytes) -> str:
@@ -674,7 +746,7 @@ def crc_xmodem(data: bytes | bytearray) -> int:
 
 def crc8(data: bytes | bytearray) -> int:
     """Calculate CRC-8/MAXIM-DOW."""
-    crc: int = 0x00  # Initialwert für CRC
+    crc: int = 0x00
 
     for byte in data:
         crc ^= byte

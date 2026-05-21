@@ -28,8 +28,11 @@ In general I use guidelines very close to the ones that Home Assistant uses for 
   - `mypy .`
   - `codespell .`
 - Keep names and any comments in English language.
+- Do not use "# pragma: no cover"
+- Put documentation of the device / protocol into `docs/my_bms.md`
 
 ## Architecture Guidelines
+- Data shall be stored in the `BMSSample(TypedDict)` class. Dataclass is not used to enable automatic assignments, i.e. `bmssample[key_variable] == value`, with `key_variable: BMSValue`
 - This library is about Bluetooth Low Energy (BLE) [battery management systems](#how-to-qualify-as-a-bms), no other devices are included to keep the interface clean.
 - The BT pattern matcher shall be unique to allow auto-detecting devices.
 - Frame parsing shall check the validity of a frame according to the protocol type, e.g. CRC, length, allowed type
