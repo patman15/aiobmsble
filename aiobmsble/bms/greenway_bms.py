@@ -4,8 +4,8 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-import asyncio
 from enum import IntEnum
+from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -99,7 +99,7 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-        raise NotImplementedError
+        return "fff1"
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -130,20 +130,59 @@ class BMS(BaseBMS):
 
         self._msg[self._frame[3]] = bytes(self._frame)
         self._log.debug("received message type 0x%X", self._frame[3])
-        if BMS._MSG_SET.issubset(self._msg.keys()):
-            self._msg_event.set()
+        self._msg_event.set()
+
+    @staticmethod
+    @cache
+    def _cmd(addr: int) -> bytes:
+        """Assemble a Greenway BMS command."""
+        assert addr > 0 and addr < 256
+        length: Final[dict[int, int]] = {
+            8: 32,
+            9: 4,
+            10: 4,
+            13: 4,
+            14: 4,
+            15: 4,
+            16: 4,
+            20: 4,
+            22: 16,
+            23: 4,
+            24: 4,
+            25: 4,
+            26: 8,
+            27: 4,
+            28: 4,
+            29: 6,
+            30: 6,
+            32: 16,
+            33: 32,
+            34: 16,
+            35: 32,
+            36: 32,
+            37: 32,
+            38: 14,
+        }
+
+        return bytes(
+            [
+                *BMS._HEAD,
+                addr,
+                length[addr],
+                0xFF & (sum(BMS._HEAD) + addr + length.get(addr, 0)),
+            ]
+        )
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+
+        for addr in BMS._MSG_SET:
+            await self._await_msg(BMS._cmd(addr))
 
         result: BMSSample = self._decode_data(
             BMS._FIELDS, self._msg, byteorder="little", start=BMS._LEN_POS + 1
         )
-        for msg_type in (
-            MsgT.CELL_VOLTAGES1,
-            MsgT.CELL_VOLTAGES2,
-        ):
+        for msg_type in (MsgT.CELL_VOLTAGES1, MsgT.CELL_VOLTAGES2):
             result.setdefault("cell_voltages", []).extend(
                 self._cell_voltages(
                     self._msg[msg_type],
