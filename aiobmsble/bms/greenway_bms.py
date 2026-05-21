@@ -23,8 +23,17 @@ class MsgT(IntEnum):
     CURRENT = 0xA
     SOC = 0xD
     SOH = 0xE
-    DCAP = 0xF
+    CYC_CHRG = 0xF
     CYCLES = 0x17
+    DCAP = 0x18
+    DVOL = 0x19
+    VERSION = 0x1A
+    MDATE = 0x1B
+    WDATE = 0x1C
+    MANUF = 0x20
+    BMS_TYPE = 0x21
+    CELL_TYPE = 0x22
+    SERIAL = 0x23
     CELL_VOLTAGES1 = 0x24
     CELL_VOLTAGES2 = 0x25
 
@@ -33,8 +42,8 @@ class BMS(BaseBMS):
     """Greenway BMS implementation."""
 
     INFO: BMSInfo = {
-        "default_manufacturer": "Unknown",
-        "default_model": "Greenway",
+        "default_manufacturer": "Greenway",
+        "default_model": "BMS",
     }
     _HEAD: Final[bytes] = b"\x47\x16\x01"
     _LEN_POS: Final[int] = 4
@@ -45,12 +54,17 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 0, 4, False, idx=MsgT.SOC),
         BMSDp("battery_health", 0, 4, False, idx=MsgT.SOH),
         BMSDp("cycles", 0, 4, False, idx=MsgT.CYCLES),
-        BMSDp("cycle_charge", 0, 4, False, lambda x: x / 1000, idx=MsgT.DCAP),
+        BMSDp("cycle_charge", 0, 4, False, lambda x: x / 1000, idx=MsgT.CYC_CHRG),
+        BMSDp("design_capacity", 0, 4, False, lambda x: x / 1000, idx=MsgT.DCAP),
         # BMSDp("heater", 2, 2, False, lambda x: bool(x & 0x8000), MsgT.INFO),
         # BMSDp("problem_code", 1, 4, False, lambda x: x & BMS._PRB_MASK, MsgT.INFO),
     )
-
-    _MSG_SET: Final[frozenset[int]] = frozenset(MsgT)
+    _INIT_SET: Final[frozenset[int]] = frozenset(
+        (MsgT.VERSION, MsgT.MANUF, MsgT.CELL_TYPE, MsgT.SERIAL)
+    )
+    _MSG_SET: Final[frozenset[int]] = frozenset(
+        [field.idx for field in _FIELDS] + [MsgT.CELL_VOLTAGES1, MsgT.CELL_VOLTAGES2]
+    )
 
     def __init__(
         self,
