@@ -100,5 +100,22 @@
       "renamed",
       "value: MAC address"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "NWJ20Battery1",
+      "manufacturer_data": {
+        "32516": "0e65621d"
+      },
+      "service_uuids": [
+        "0000ffe0-0000-1000-8000-00805f9b34fb"
+      ],
+      "rssi": -96
+    },
+    "type": "topband_bms",
+    "_comments": [
+      "Ionic LiFePO4 battery, manufacturer_id 0x7F04 (32516)",
+      "source BTctl"
+    ]
   }
 ]
