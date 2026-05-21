@@ -61,7 +61,11 @@ class BMS(BaseBMS):
                 "service_uuid": BMS.uuid_services()[0],
                 "manufacturer_id": 0x6F80,
                 "connectable": True,
-            }
+            },
+            {
+                "manufacturer_id": 0x45CC,
+                "connectable": True,
+            },
         ]
 
     @staticmethod
