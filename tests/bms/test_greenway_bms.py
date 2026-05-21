@@ -11,6 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 import pytest
 
+from aiobmsble import BMSSample
 from aiobmsble.bms.greenway_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -25,7 +26,7 @@ _PROTO_DEFS: Final[tuple[bytes, ...]] = (
     b"\x47\x16\x01\x0d\x04\x4a\x00\x00\x00\xb9",  # SOC 74%
     b"\x47\x16\x01\x0e\x04\x64\x00\x00\x00\xd4",  # SOH 100%
     b"\x47\x16\x01\x0f\x04\x0c\x6e\x00\x00\xeb",  # cycle charge 28.172Ah
-    b"\x47\x16\x01\x10\x04\x80\x93\x00\x00\x85",
+    b"\x47\x16\x01\x10\x04\x80\x93\x00\x00\x85",  # measured capacity?
     b"\x47\x16\x01\x14\x04\x00\x64\xca\x02\xa6",
     b"\x47\x16\x01\x16\x10\x88\x90\x00\x00\x00\x00\x00\x00\x00\x00\x8e\x00\x00\x00\x00\x00\x2a",
     b"\x47\x16\x01\x17\x04\x10\x00\x00\x00\x89",  # cycles 16
@@ -148,6 +149,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "cycle_charge": 28.172,
         "cycles": 16,
         "delta_voltage": 0.009,
+        "design_capacity": 37.76,
         "power": 1201.453,
         "problem": False,
     }
@@ -169,33 +171,34 @@ async def test_tx_notimplemented(patch_bleak_client) -> None:
         _ret: str = bms.uuid_tx()
 
 
-# @pytest.mark.parametrize(
-#     ("wrong_response"),
-#     [
-#         b"\x55\x55\x01\x00\x02\x00\x00\x00\x08\x01\xe0\xc8\xff\x14\xe0\xae\x03\xff\x04\x04",
-#         b"\x55\x55\x01\x00\x02\x00\x00\x00\x0a\x01\xe0\xc8\xff\x14\xe0\xae\x03\xa6\x04\x04",
-#         b"",
-#     ],
-#     ids=["wrong_CRC", "wrong_len", "empty"],
-# )
-# async def test_invalid_response(
-#     monkeypatch: pytest.MonkeyPatch,
-#     patch_bleak_client,
-#     patch_bms_timeout,
-#     wrong_response: bytes,
-# ) -> None:
-#     """Test data up date with BMS returning invalid data."""
+@pytest.mark.parametrize(
+    ("wrong_response"),
+    [
+        b"\x47\x16\x01\x09\x04\x7c\x39\x01\x00\xff",
+        b"\x47\x16\x01\x09\x05\x7c\x39\x01\x00\x21",
+        b"\xff\x16\x01\x09\x04\x7c\x39\x01\x00\x21",
+        b"",
+    ],
+    ids=["wrong_CRC", "wrong_len", "wrong_SOF", "empty"],
+)
+async def test_invalid_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
+) -> None:
+    """Test data up date with BMS returning invalid data."""
 
-#     patch_bms_timeout("myvolta_bms")
-#     monkeypatch.setattr(BMS, "_MSG_SET", frozenset({0x0}))  # only require METRICS
-#     monkeypatch.setattr(MockGreenwayBleakClient, "_RESP", wrong_response)
-#     patch_bleak_client(MockGreenwayBleakClient)
+    patch_bms_timeout("greenway_bms")
+    monkeypatch.setattr(BMS, "_MSG_SET", frozenset({0x9}))  # only require voltage
+    monkeypatch.setattr(MockGreenwayBleakClient, "_RESP", (wrong_response,))
+    patch_bleak_client(MockGreenwayBleakClient)
 
-#     bms = BMS(generate_ble_device())
-#     await asyncio.sleep(1e-3)  # wait for notifications to be sent
-#     result: BMSSample = {}
-#     with pytest.raises(TimeoutError):
-#         result = await bms.async_update()
+    bms = BMS(generate_ble_device())
+    await asyncio.sleep(1e-3)  # wait for notifications to be sent
+    result: BMSSample = {}
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
 
-#     assert not result
-#     await bms.disconnect()
+    assert not result
+    await bms.disconnect()
