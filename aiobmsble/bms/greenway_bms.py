@@ -37,6 +37,7 @@ class BMS(BaseBMS):
         "default_model": "Greenway",
     }
     _HEAD: Final[bytes] = b"\x47\x16\x01"
+    _LEN_POS: Final[int] = 4
     _MIN_LEN: Final[int] = 6
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 0, 4, False, lambda x: x / 1000, MsgT.VOLTAGE),
@@ -99,7 +100,10 @@ class BMS(BaseBMS):
 
         self._frame.extend(data)
 
-        if len(self._frame) < BMS._MIN_LEN or len(self._frame) < self._frame[4]:
+        if (
+            len(self._frame) < BMS._MIN_LEN
+            or len(self._frame) < self._frame[BMS._LEN_POS] + BMS._MIN_LEN
+        ):
             return
 
         if not self._frame.startswith(BMS._HEAD):
@@ -113,7 +117,7 @@ class BMS(BaseBMS):
             return
 
         self._msg[self._frame[3]] = bytes(self._frame)
-        self._log.debug("received message type 0x%X", self._frame[1])
+        self._log.debug("received message type 0x%X", self._frame[3])
         if BMS._MSG_SET.issubset(self._msg.keys()):
             self._msg_event.set()
 
@@ -122,7 +126,7 @@ class BMS(BaseBMS):
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
         result: BMSSample = self._decode_data(
-            BMS._FIELDS, self._msg, byteorder="little", start=5
+            BMS._FIELDS, self._msg, byteorder="little", start=BMS._LEN_POS + 1
         )
         for msg_type in (
             MsgT.CELL_VOLTAGES1,
@@ -132,7 +136,7 @@ class BMS(BaseBMS):
                 self._cell_voltages(
                     self._msg[msg_type],
                     cells=16,
-                    start=5,
+                    start=BMS._LEN_POS + 1,
                     divider=1000,
                     byteorder="little",
                 )
