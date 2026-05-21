@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class MsgT(IntEnum):
-    """Message types in MyVolta BMS data stream."""
+    """Message types in Greenway BMS data stream."""
 
     VOLTAGE = 0x9
     CURRENT = 0xA
@@ -55,9 +55,7 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 0, 4, False, idx=MsgT.SOH),
         BMSDp("cycles", 0, 4, False, idx=MsgT.CYCLES),
         BMSDp("cycle_charge", 0, 4, False, lambda x: x / 1000, idx=MsgT.CYC_CHRG),
-        BMSDp("design_capacity", 0, 4, False, lambda x: x / 1000, idx=MsgT.DCAP),
-        # BMSDp("heater", 2, 2, False, lambda x: bool(x & 0x8000), MsgT.INFO),
-        # BMSDp("problem_code", 1, 4, False, lambda x: x & BMS._PRB_MASK, MsgT.INFO),
+        BMSDp("design_capacity", 0, 4, False, lambda x: x // 1000, idx=MsgT.DCAP),
     )
     _INIT_SET: Final[frozenset[int]] = frozenset(
         (MsgT.VERSION, MsgT.MANUF, MsgT.CELL_TYPE, MsgT.SERIAL)
