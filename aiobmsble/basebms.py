@@ -525,6 +525,7 @@ class BaseBMS(ABC):
 
         if not self._keep_alive:
             # disconnect after data update to force reconnect next time (slow!)
+            self._log.debug("forced disconnect of BMS after update")
             await self.disconnect()
 
         return data
