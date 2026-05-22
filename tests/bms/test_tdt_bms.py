@@ -206,7 +206,7 @@ class MockTDTBleakClient(MockBleakClient):
         0x8D: bytearray(b"\x00\x01\x03\x00\x8d\x00\x00"),
         0x92: bytearray(b"\x00\x01\x03\x00\x92\x00\x00"),
     }
-    RESP: Final[dict[int, bytearray]] = {}
+    RESP: Final[dict[int, bytearray]] = _PROTO_DEFS["16S6Tv0.0"]
 
     _char_fffa: int = 0x0  # return value for UUID "fffa"
 

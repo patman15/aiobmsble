@@ -117,7 +117,7 @@ class MockECOWBleakClient(MockBleakClient):
         0xA1: bytearray(b"\x00\x01\x03\x00\x8c\x00\x00\x99\x42"),
         0xA2: bytearray(b"\x00\x01\x03\x00\x8d\x00\x00\x59\x13"),
     }
-    RESP: Final[dict[int, bytearray]] = {}
+    RESP: Final[dict[int, bytearray]] = _PROTO_DEFS[0x1]
 
     _task: asyncio.Task[None] | None = None
 

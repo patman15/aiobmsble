@@ -493,7 +493,7 @@ class MockJikongBleakClient(MockBleakClient):
     HEAD_CMD: Final = bytearray(b"\xaa\x55\x90\xeb")
     CMD_INFO: Final = bytearray(b"\x96")
     DEV_INFO: Final = bytearray(b"\x97")
-    _FRAME: dict[str, bytearray] = {}
+    _FRAME: dict[str, bytearray] = _PROTO_DEFS["JK02_32S"]
 
     _task: asyncio.Task[None] | None = None
 

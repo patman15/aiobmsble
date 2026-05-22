@@ -93,7 +93,7 @@ class MockNeeyBleakClient(MockBleakClient):
     DEV_INFO: Final = bytearray(b"\x01")
     CELL_INFO: Final = bytearray(b"\x02")
     TAIL: Final = 0xFF
-    _FRAME: dict[str, bytearray] = {}
+    _FRAME: dict[str, bytearray] = _PROTO_DEFS
 
     _task: asyncio.Task[None] | None = None
 
@@ -191,7 +191,6 @@ async def test_update(
 ) -> None:
     """Test Neey BMS data update."""
 
-    monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", _PROTO_DEFS)
     patch_bleak_client(MockNeeyBleakClient)
     bms = BMS(generate_ble_device(), keep_alive_fixture)
 
@@ -206,7 +205,6 @@ async def test_update(
 
 async def test_device_info(monkeypatch, patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", _PROTO_DEFS)
     patch_bleak_client(MockNeeyBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
