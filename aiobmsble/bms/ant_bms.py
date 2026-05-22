@@ -33,7 +33,7 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 38, 2, False, lambda x: x / 100),
         BMSDp("current", 40, 2, True, lambda x: x / 10),
-        BMSDp("design_capacity", 50, 4, False, lambda x: x // 1e6),
+        BMSDp("design_capacity", 50, 4, False, lambda x: x // 10**6),
         BMSDp("battery_level", 42, 2, False),
         BMSDp("battery_health", 44, 2, False),
         BMSDp(

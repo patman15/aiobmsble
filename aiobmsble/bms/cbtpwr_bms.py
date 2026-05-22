@@ -34,7 +34,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 4, 1, False, idx=0x0A),
         BMSDp("design_capacity", 4, 2, False, idx=0x15),
         BMSDp("cycles", 6, 2, False, idx=0x15),
-        BMSDp("runtime", 14, 2, False, lambda x: x * BMS._HRS_TO_SECS / 100, 0x0C),
+        BMSDp("runtime", 14, 2, False, lambda x: x * BMS._HRS_TO_SECS // 100, 0x0C),
         BMSDp("problem_code", 4, 4, False, idx=0x21),
     )
     _CMDS: Final = frozenset(field.idx for field in _FIELDS)

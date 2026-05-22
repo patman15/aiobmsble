@@ -41,7 +41,7 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 32
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 6, 2, False, lambda x: x / 10, Cmd.LEGINFO1),
-        BMSDp("current", 8, 2, True, idx=Cmd.LEGINFO1),
+        BMSDp("current", 8, 2, True, float, idx=Cmd.LEGINFO1),
         BMSDp("battery_level", 14, 1, False, idx=Cmd.LEGINFO1),
         BMSDp("cycle_charge", 12, 2, False, lambda x: x / 1000, Cmd.LEGINFO1),
         BMSDp(
