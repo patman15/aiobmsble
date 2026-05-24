@@ -177,9 +177,9 @@ class TestBasicBMS(BMSBasicTests):
 class MockNeeyBleakClient(MockBleakClient):
     """Emulate a Neey BMS BleakClient."""
 
-    HEAD_CMD: Final = bytearray(b"\xaa\x55\x11\x01")
-    DEV_INFO: Final = bytearray(b"\x01")
-    CELL_INFO: Final = bytearray(b"\x02")
+    HEAD_CMD: Final[bytes] = b"\xaa\x55\x11\x01"
+    DEV_INFO: Final[bytes] = b"\x01"
+    CELL_INFO: Final[bytes] = b"\x02"
     TAIL: Final = 0xFF
     _FRAME: dict[str, bytearray] = {}
 
@@ -188,7 +188,7 @@ class MockNeeyBleakClient(MockBleakClient):
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-        frame: Final[bytearray] = bytearray(data)
+        frame: Final[bytes] = bytes(data)
         if (
             char_specifier != "ffe1"
             or frame[19] != self.TAIL
