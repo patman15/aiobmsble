@@ -1,0 +1,22 @@
+[
+  {
+    "advertisement": {
+      "local_name": "ECOE934",
+      "manufacturer_data": {
+        "1301": "d5a1e934"
+      },
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb",
+        "00000001-0000-1000-8000-00805f9b34fb"
+      ],
+      "rssi": -56
+    },
+    "type": "eco_worthy_bms",
+    "_comments": [
+      "source btsnoop (Android HCI log, ECO-WORTHY 12V 150AH LiFePO4)",
+      "device name: BMC1_E934, MAC: 15:05:D5:A1:E9:34",
+      "manufacturer: RB Controls Co. Ltd (0x0515)",
+      "MAC address, correct, public"
+    ]
+  }
+]

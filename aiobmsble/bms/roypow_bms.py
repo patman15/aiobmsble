@@ -68,12 +68,12 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
+                "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": manufacturer_id,
                 "connectable": True,
             }
-            for manufacturer_id in (0x01A8, 0x0B31, 0x8AFB, 0x8849, 0xCB73)
-        ]
+            for pattern in (" [BS]12*", " [BS]24*", " UT*")
+        ]  # OUI "12:" is private
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
