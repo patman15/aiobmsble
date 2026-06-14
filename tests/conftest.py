@@ -7,7 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from collections.abc import Awaitable, Buffer, Callable, Iterable
 import logging
 from types import ModuleType
-from typing import Any, cast, Final
+from typing import Any, Final, cast
 from uuid import UUID
 
 from bleak import BleakClient
