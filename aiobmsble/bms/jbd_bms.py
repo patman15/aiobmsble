@@ -66,6 +66,7 @@ class BMS(BaseBMS):
             for pattern in (
                 "DWF*",  # Daren BMS, Docan battery
                 "JBD-*",
+                "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
@@ -83,6 +84,7 @@ class BMS(BaseBMS):
                 "A4:C1:38",
                 "A5:C2:37",
                 "A5:C2:39",
+                "A5:C2:3A",
                 "AA:C2:37",
                 "70:3E:97",
             )

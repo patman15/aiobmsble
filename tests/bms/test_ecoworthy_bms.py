@@ -131,7 +131,7 @@ class MockECOWBleakClient(MockBleakClient):
         while True:
             for msg in self.RESP.values():
                 self._notify_callback("MockECOWBleakClient", msg)
-                await asyncio.sleep(1e-6)
+                await asyncio.sleep(0)
 
     async def start_notify(
         self,
@@ -145,6 +145,7 @@ class MockECOWBleakClient(MockBleakClient):
         await super().start_notify(char_specifier, callback, **kwargs)
 
         self._task = asyncio.create_task(self._notify())
+        await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
@@ -186,6 +187,7 @@ class MockECOWStreamBleakClient(MockECOWBleakClient):
         self._unlock_cmd.update({bytes(data)[-2:]})  # store CRC of received command
         if {b"\x00\x2d", b"\x65\xef"}.issubset(self._unlock_cmd):
             self._task = asyncio.create_task(self._notify())
+            await asyncio.sleep(0)  # yield control to allow task to start
 
 
 async def test_update(
@@ -215,7 +217,9 @@ async def test_unlock_update(
 ) -> None:
     """Test ECO-WORTHY BMS data update."""
 
-    monkeypatch.setattr(MockECOWStreamBleakClient, "RESP", next(reversed(_PROTO_DEFS.values())))
+    monkeypatch.setattr(
+        MockECOWStreamBleakClient, "RESP", next(reversed(_PROTO_DEFS.values()))
+    )
     patch_bleak_client(MockECOWStreamBleakClient)
 
     bms = BMS(generate_ble_device("e2:e7:79:00:00:00"))

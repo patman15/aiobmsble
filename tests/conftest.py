@@ -7,10 +7,9 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from collections.abc import Awaitable, Buffer, Callable, Iterable
 import logging
 from types import ModuleType
-from typing import Any, Final
+from typing import Any, Final, cast
 from uuid import UUID
 
-from _pytest.config import Notset
 from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -43,7 +42,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def pytest_configure(config: pytest.Config) -> None:
     """Configure pytest with custom settings."""
-    max_examples: int | Notset = config.getoption("--max-examples")
+    max_examples: int = cast(int, config.getoption("--max-examples"))
     settings.register_profile(
         "default",
         max_examples=max_examples,
@@ -204,7 +203,7 @@ def patch_bms_timeout(
 ) -> Callable[[str | None, float], None]:
     """Fixture to patch BMS.TIMEOUT for different BMS classes."""
 
-    def _patch_timeout(bms_class: str | None = None, timeout: float = 1e-6) -> None:
+    def _patch_timeout(bms_class: str | None = None, timeout: float = 1e-3) -> None:
         patch_class: str = (
             f"bms.{bms_class}.BMS.TIMEOUT"
             if bms_class

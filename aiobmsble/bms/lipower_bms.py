@@ -18,7 +18,7 @@ class BMS(BaseBMS):
     """LiPower BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Ective", "default_model": "LiPower BMS"}
-    _DEV_IDS: Final[tuple[bytes, ...]] = (b"\x22", b"\x0B")  # alternative device IDs
+    _DEV_IDS: Final[tuple[bytes, ...]] = (b"\x22", b"\x0B", b"\x08")  # alternative device IDs
     _MIN_LEN: Final[int] = 5  # minimal frame length, including SOF and checksum
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 15, 2, False, lambda x: x / 10),

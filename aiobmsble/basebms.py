@@ -33,6 +33,7 @@ class BaseBMS(ABC):
     INFO: BMSInfo  # static BMS info, set "default_" keys in subclass
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value, used for chunking data
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
@@ -516,6 +517,7 @@ class BaseBMS(ABC):
 
         if not self._keep_alive:
             # disconnect after data update to force reconnect next time (slow!)
+            self._log.debug("forced disconnect of BMS after update")
             await self.disconnect()
 
         return data
