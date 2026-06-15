@@ -12,13 +12,25 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  # Define the job to run before your matrix job
+  get-python-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      python-matrix: ${{ steps.get-python-versions-action.outputs.latest-python-versions }}
+    steps:
+    - uses: snok/latest-python-versions@v1
+      id: get-python-versions-action
+      with:
+        min-version: 3.12
+        include-prereleases: true
 
+  build:
+    needs: [get-python-versions]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ${{ fromJson(needs.get-python-versions.outputs.python-matrix) }}
 
     steps:
     - uses: actions/checkout@v6
