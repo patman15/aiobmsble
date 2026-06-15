@@ -63,8 +63,6 @@ class BMS(BaseBMS):
             }
         ]
 
-    # async def _fetch_device_info(self) -> BMSInfo: use default
-
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""

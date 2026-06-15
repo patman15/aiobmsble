@@ -99,8 +99,6 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff3"
 
-    # async def _fetch_device_info(self) -> BMSInfo: use default
-
     async def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
