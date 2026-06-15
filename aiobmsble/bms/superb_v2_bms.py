@@ -81,7 +81,7 @@ class BMS(BaseBMS):
         await self._client.start_notify(
             BMS._NOTIFY_CHAR,
             getattr(self, "_notification_handler"),
-            bluez=BMS._BLUEZ_PARAMS,
+            bluez={"use_start_notify": True},
         )
 
     def _notification_handler(
