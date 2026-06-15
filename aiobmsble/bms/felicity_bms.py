@@ -81,10 +81,10 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         await self._await_msg(BMS._CMD_PRE + BMS._CMD_BI)
         return {
-            "fw_version": str(self._msg.get("M1SwVer") or ""),
-            "sw_version": str(self._msg.get("version") or ""),
-            "model_id": str(self._msg.get("Type") or ""),
-            "serial_number": str(self._msg.get("DevSN") or ""),
+            "fw_version": str(self._msg.get("M1SwVer", "")),
+            "sw_version": str(self._msg.get("version", "")),
+            "model_id": str(self._msg.get("Type", "")),
+            "serial_number": str(self._msg.get("DevSN", "")),
         }
 
     def _notification_handler(
