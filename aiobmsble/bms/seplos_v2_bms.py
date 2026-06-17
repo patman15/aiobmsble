@@ -33,6 +33,7 @@ class BMS(BaseBMS):
         BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 100),  # /10 for 0x62
         BMSDp("cycles", 13, 2, False),
+        BMSDp("design_capacity", 11, 2, False, lambda x: x // 100),
         BMSDp("battery_level", 9, 2, False, lambda x: x / 10),
         BMSDp("battery_health", 15, 2, False, lambda x: x / 10),
     )
@@ -183,7 +184,18 @@ class BMS(BaseBMS):
             BMS._PFIELDS, self._msg[0x61], start=BMS._CELL_POS + ct_blk_len
         )
 
-        # get extension pack count from parallel data (main pack)
+        cst_alarm_pos: Final[int] = (
+            (BMS._CELL_POS + ct_blk_len)
+            + (result["cell_count"] + result["temp_sensors"])
+            + (4 + 19)
+        )
+        balance_pos: Final[int] = cst_alarm_pos + 1 + self._msg[0x61][cst_alarm_pos]
+        balance_len: Final[int] = min((result["cell_count"] + 7) // 8, 8)  # round up
+        result["balancer"] = int.from_bytes(
+            self._msg[0x61][balance_pos : balance_pos + balance_len]
+        )
+
+        # get extension pack count from manufacturer information
         result["pack_count"] = self._msg[0x51][42]
 
         # get switches from parallel data (main pack)
@@ -191,7 +203,6 @@ class BMS(BaseBMS):
         result |= {
             "dischrg_mosfet": bool(states & 0x1),
             "chrg_mosfet": bool(states & 0x2),
-            "balancer": bool(states & 0x4),
             "heater": bool(states & 0x8),
         }
 
