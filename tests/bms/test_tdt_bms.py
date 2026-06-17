@@ -364,6 +364,7 @@ async def test_device_info(
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x18\x00", "invalid frame end"),
         (b"\x7e\x10\x01\x03\x00\x8c\x00\x01\x00\xad\x19\x0d", "invalid version"),
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x00\x0d", "invalid CRC"),
+        (b"\x7e\x00\x01\x03\x00\x92\x00\x01\x00\x89\x1e\x0d", "invalid type"),
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x18\x0d\x00", "oversized frame"),
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x0d", "undersized frame"),
         (b"\x7e\x00\x01\x03\x01\x8c\x00\x01\x00\x61\x25\x0d", "error response"),
@@ -379,7 +380,7 @@ async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 

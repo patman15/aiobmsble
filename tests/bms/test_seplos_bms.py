@@ -136,7 +136,7 @@ class MockSeplosBleakClient(MockBleakClient):
         + bytearray(54),
     }
 
-    def _crc16(self, data: bytearray) -> int:
+    def _crc16(self, data: bytes | bytearray) -> int:
         """Calculate CRC-16-CCITT XMODEM (ModBus)."""
 
         crc: int = 0xFFFF
@@ -148,17 +148,17 @@ class MockSeplosBleakClient(MockBleakClient):
 
     def _response(self, data: Buffer) -> bytearray:
 
-        req = bytearray(data)
+        req = bytes(data)
 
         assert int.from_bytes(req[-2:]) == self._crc16(req[:-2])  # check CRC of request
         assert req[1] in [0x01, 0x04]  # check if read command
 
-        device, start, length = [
-            int(req[0]),
+        device, start, length = (
+            req[0],
             int.from_bytes(req[2:4], byteorder="big"),
             int.from_bytes(req[4:6], byteorder="big") * (2 if req[1] == 0x4 else 0.125)
             + self.PKT_FRAME,
-        ]
+        )
 
         if device == 0x00:  # EMS device
             if start == 0x2000:
@@ -282,6 +282,28 @@ class MockOversizedBleakClient(MockSeplosBleakClient):
             self._notify_callback("MockOversizedBleakClient", notify_data)
 
 
+class MockRedundantMessageBleakClient(MockSeplosBleakClient):
+    """Emulate a Seplos BMS BleakClient returning incomplete set if message types."""
+
+    patch_main: bool = False
+    patch_pkg: bool = False
+
+    def _response(self, data: Buffer) -> bytearray:
+        req = bytes(data)
+
+        device: int = req[0]
+        start: int = int.from_bytes(req[2:4], byteorder="big")
+
+        if self.patch_main and device == 0x00:  # EMS device
+            if start & 0xF000 == 0x2000:
+                return self.RESP["EIA"].copy()
+        if self.patch_pkg and device and device <= 0x10:  # BMS battery packs
+            if start & 0xF000 == 0x1000:
+                return self.RESP[f"PIA{device}"].copy()
+
+        return super()._response(data)
+
+
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Seplos BMS data update."""
 
@@ -356,6 +378,36 @@ async def test_invalid_message(patch_bleak_client, patch_bms_timeout) -> None:
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
+        result = await bms.async_update()
+
+    assert not result
+
+    await bms.disconnect()
+
+
+async def test_redundant_response(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
+) -> None:
+    """Test data update with BMS returning not full set of response frames, answering wrong types."""
+
+    patch_bms_timeout()
+    patch_bleak_client(MockRedundantMessageBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    monkeypatch.setattr(MockRedundantMessageBleakClient, "patch_main", True)
+    monkeypatch.setattr(MockRedundantMessageBleakClient, "patch_pkg", False)
+
+    result: BMSSample = {}
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        result = await bms.async_update()
+
+    assert not result
+
+    monkeypatch.setattr(MockRedundantMessageBleakClient, "patch_main", False)
+    monkeypatch.setattr(MockRedundantMessageBleakClient, "patch_pkg", True)
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
         result = await bms.async_update()
 
     assert not result

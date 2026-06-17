@@ -72,10 +72,9 @@ class BMS(BaseBMS):
         ("pack_battery_health", 12, False, lambda x: x / 10),
         ("pack_cycles", 14, False, lambda x: x),
     )  # Protocol Seplos V3
-    _CMDS: Final = frozenset(
-        {field[2] for field in _QUERY.values()}
-        | {field[2] for field in _PQUERY.values()}
-    )
+    _CMDS: Final = frozenset({field[2] for field in _QUERY.values()})
+    _PCMDS: Final = frozenset({field[2] for field in _PQUERY.values()})
+    _VALID_CMDS: Final = frozenset(_CMDS | _PCMDS)
 
     def __init__(
         self,
@@ -164,7 +163,7 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if self._frame[2] >> 1 not in BMS._CMDS or self._frame[1] & 0x80:
+        if self._frame[2] >> 1 not in BMS._VALID_CMDS or self._frame[1] & 0x80:
             self._log.debug(
                 "unknown message: %s, length: %s", self._frame[0:2], self._frame[2]
             )
@@ -210,6 +209,8 @@ class BMS(BaseBMS):
         """Update battery status information."""
         for block in BMS._QUERY.values():
             await self._await_msg(BMS._cmd(0x0, *block))
+        if not BMS._CMDS.issubset(self._msg.keys()):
+            raise ValueError("BMS data incomplete.")
 
         data: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=BMS._HEAD_LEN)
 
@@ -218,6 +219,8 @@ class BMS(BaseBMS):
         for pack in range(1, 1 + self._pack_count):
             for block in BMS._PQUERY.values():
                 await self._await_msg(self._cmd(pack, *block))
+            if not {pack << 8 | cmd for cmd in BMS._PCMDS}.issubset(self._msg.keys()):
+                raise ValueError("BMS data incomplete.")
 
             for key, idx, sign, func in BMS._PFIELDS:
                 data.setdefault(key, []).append(
@@ -266,6 +269,6 @@ class BMS(BaseBMS):
             # calculate cell_count instead of querying SPA
             data["cell_count"] = len(data.get("cell_voltages", [])) // self._pack_count
 
-        self._msg.clear()
+            self._msg.clear()
 
         return data
