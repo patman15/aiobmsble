@@ -19,6 +19,7 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 class MsgT(IntEnum):
     """Message types in Greenway BMS data stream."""
 
+    TEMP = 0x8
     VOLTAGE = 0x9
     CURRENT = 0xA
     SOC = 0xD
@@ -45,7 +46,8 @@ class BMS(BaseBMS):
         "default_manufacturer": "Greenway",
         "default_model": "BMS",
     }
-    _HEAD: Final[bytes] = b"\x47\x16\x01"
+    _HEAD_CMD: Final[bytes] = b"\x46\x16\x01"
+    _HEAD_RSP: Final[bytes] = b"\x47\x16\x01"
     _LEN_POS: Final[int] = 4
     _MIN_LEN: Final[int] = 6
     _FIELDS: Final[tuple[BMSDp, ...]] = (
@@ -61,7 +63,7 @@ class BMS(BaseBMS):
         (MsgT.VERSION, MsgT.MANUF, MsgT.CELL_TYPE, MsgT.SERIAL)
     )
     _MSG_SET: Final[frozenset[int]] = frozenset(
-        [field.idx for field in _FIELDS] + [MsgT.CELL_VOLTAGES1, MsgT.CELL_VOLTAGES2]
+        [field.idx for field in _FIELDS] + [MsgT.TEMP, MsgT.CELL_VOLTAGES1, MsgT.CELL_VOLTAGES2]
     )
 
     def __init__(
@@ -107,7 +109,7 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
-        if data.startswith(BMS._HEAD):  # check for beginning of frame
+        if data.startswith(BMS._HEAD_RSP):  # check for beginning of frame
             self._frame.clear()
 
         self._frame.extend(data)
@@ -118,7 +120,7 @@ class BMS(BaseBMS):
         ):
             return
 
-        if not self._frame.startswith(BMS._HEAD):
+        if not self._frame.startswith(BMS._HEAD_RSP):
             self._log.debug("incorrect frame header")
             self._frame.clear()
             return
@@ -166,10 +168,10 @@ class BMS(BaseBMS):
 
         return bytes(
             [
-                *BMS._HEAD,
+                *BMS._HEAD_CMD,
                 addr,
                 length[addr],
-                0xFF & (sum(BMS._HEAD) + addr + length.get(addr, 0)),
+                0xFF & (sum(BMS._HEAD_CMD) + addr + length.get(addr, 0)),
             ]
         )
 
@@ -193,22 +195,14 @@ class BMS(BaseBMS):
                 )
             )
 
-        # for msg_type in (
-        #     # MsgT.CELL_TEMPS1, MsgT.CELL_TEMPS2,
-        #     MsgT.TEMPS3,
-        #     MsgT.TEMPS4,
-        #     MsgT.TEMPS5,
-        #     # MsgT.TEMPS6, MsgT.TEMPS7, MsgT.TEMPS8,
-        # ):
-        #     result.setdefault("temp_values", []).extend(
-        #         self._temp_values(
-        #             self._msg[msg_type],
-        #             values=4,
-        #             start=7,
-        #             divider=10,
-        #             byteorder="little",
-        #         )
-        #     )
+        result.setdefault("temp_values", []).extend(
+            self._temp_values(
+                self._msg[MsgT.TEMP],
+                values=7,
+                start=BMS._LEN_POS + 1,
+                size=1,
+            )
+        )
 
         self._msg.clear()
         self._msg_event.clear()

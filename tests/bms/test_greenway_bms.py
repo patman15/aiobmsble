@@ -112,6 +112,9 @@ class MockGreenwayBleakClient(MockBleakClient):
         await super().write_gatt_char(char_specifier, data, response)
 
         assert self._notify_callback is not None
+        if not bytes(data).startswith(b"\x46\x16\x01"):
+            return
+
         resp_data: bytes = self._RESP.get(bytes(data)[3], b"")
         for notify_data in [
             resp_data[i : i + BT_FRAME_SIZE]
@@ -171,6 +174,8 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "design_capacity": 37,
         "power": 1201.453,
         "problem": False,
+        "temp_values": [17.0, 17.0, 17.0, 18.0, 19.0, 19.0, 19.0],
+        "temperature": 18.0,
     }
     # query again to check already connected state
     await bms.async_update()
