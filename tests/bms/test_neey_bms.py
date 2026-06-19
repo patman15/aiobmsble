@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_sum
 from aiobmsble.bms.neey_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -115,7 +115,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
             3.272,
         ],
         "balancer": True,
-        "temp_values": [50.24, 50.24],
+        "temp_values": [TS(50.24), TS(50.24)],
         "problem": False,
         "problem_code": 0,
     },
@@ -151,7 +151,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "power": 106.171,
         "problem": False,
         "problem_code": 0,
-        "temp_values": [28.2, 28.09, 31.4, 61.9],
+        "temp_values": [TS(v) for v in (28.2, 28.09, 31.4, 61.9)],
         "temperature": 37.398,
         "voltage": 52.404,
     },
@@ -181,7 +181,7 @@ class MockNeeyBleakClient(MockBleakClient):
     DEV_INFO: Final = bytearray(b"\x01")
     CELL_INFO: Final = bytearray(b"\x02")
     TAIL: Final = 0xFF
-    _FRAME: dict[str, bytearray] = {}
+    _FRAME: dict[str, bytearray] = _PROTO_DEFS["v1"]
 
     _task: asyncio.Task[None] | None = None
 
