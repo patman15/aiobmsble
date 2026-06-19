@@ -8,11 +8,12 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSInfo, BMSSample
+from aiobmsble import BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.gobel_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 # Service and characteristic UUIDs for Gobel Power BMS
 SERVICE_UUID = "00002760-08c2-11e1-9073-0e8ac72e1001"
@@ -59,10 +60,16 @@ _RESULT_MAIN_DATA: Final[BMSSample] = {
     "problem": False,
     "problem_code": 0,
     "temp_sensors": 1,
-    "temp_values": [20.9, 21.1],
+    "temp_values": [TS(20.9), TS(21.1, TS.T.MOSFET)],
     "temperature": 21.0,
     "voltage": 13.31,
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockGobelBleakClient(MockBleakClient):
@@ -248,11 +255,6 @@ def test_bms_info() -> None:
     """Test BMS info definition."""
     assert BMS.INFO.get("default_manufacturer") == "Gobel Power"
     assert BMS.INFO.get("default_model") == "BLE BMS"
-
-
-def test_cmd() -> None:
-    """Test Modbus read command building."""
-    assert BMS._cmd(0x01, 0x03, 0x0000, 0x003B) == b"\x01\x03\x00\x00\x00\x3b\x04\x19"
 
 
 def _build_test_frame(reg_values: dict[int, int]) -> bytearray:

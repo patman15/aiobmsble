@@ -8,6 +8,7 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
+      "platform_data": ["24:19:72:00:00:00"],
       "rssi": -70
     },
     "type": "braunpwr_bms",
@@ -29,6 +30,24 @@
     "type": "braunpwr_bms",
     "_comments": [
       "source LOG (https://github.com/patman15/BMS_BLE-HA/issues/303)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "HSKS-random name",
+      "manufacturer_data": {
+        "123": "02ffff7d"
+      },
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb"
+      ],
+      "platform_data": ["F4:AB:5C:00:00:00"],
+      "rssi": -82
+    },
+    "type": "braunpwr_bms",
+    "_comments": [
+      "source LOG (https://github.com/patman15/BMS_BLE-HA/issues/613)",
+      "Docan Energy Panda 32kWh - requires prefix on name"
     ]
   }
 ]

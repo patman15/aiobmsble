@@ -13,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
@@ -41,7 +41,7 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 32
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 6, 2, False, lambda x: x / 10, Cmd.LEGINFO1),
-        BMSDp("current", 8, 2, True, idx=Cmd.LEGINFO1),
+        BMSDp("current", 8, 2, True, float, idx=Cmd.LEGINFO1),
         BMSDp("battery_level", 14, 1, False, idx=Cmd.LEGINFO1),
         BMSDp("cycle_charge", 12, 2, False, lambda x: x / 1000, Cmd.LEGINFO1),
         BMSDp(
@@ -49,7 +49,7 @@ class BMS(BaseBMS):
             12,
             2,
             False,
-            lambda x: [round(x / 10 - 273.15, 3)],
+            lambda x: [TempSensor(round(x / 10 - 273.15, 3))],
             Cmd.LEGINFO2,
         ),
         BMSDp(
@@ -58,11 +58,17 @@ class BMS(BaseBMS):
         BMSDp("cycles", 8, 2, False, idx=Cmd.LEGINFO2),
         BMSDp("problem_code", 15, 1, False, lambda x: x & 0xFF, Cmd.LEGINFO1),
     )
-    _CMDS: Final = frozenset({Cmd(field.idx) for field in _FIELDS})
+    _CMDS: Final = frozenset(Cmd(field.idx) for field in _FIELDS)
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         assert self._ble_device.name is not None  # required for unlock
         self._msg: dict[int, bytes] = {}
 
@@ -93,8 +99,6 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff3"
 
-    # async def _fetch_device_info(self) -> BMSInfo: use default
-
     async def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -106,7 +110,7 @@ class BMS(BaseBMS):
 
         # ignore ACK responses
         if data[0] & 0x80:
-            self._log.debug("ignore acknowledge message")
+            self._log.debug("ignoring ACK message")
             return
 
         # acknowledge received frame
@@ -116,19 +120,14 @@ class BMS(BaseBMS):
         if page == 1:
             self._frame.clear()
 
-        self._frame += data[2 : data[0] + 2]
+        self._frame.extend(data[2 : data[0] + 2])
 
         self._log.debug("(%s): %s", "start" if page == 1 else "cnt.", data)
 
         if page == data[1] & 0xF:  # check if last page
-            if (crc := BMS._crc(self._frame[3:-4])) != int.from_bytes(
-                self._frame[-4:-2], byteorder="big"
+            if not self._check_integrity(
+                self._frame, BMS._crc, slice(3, -4), slice(-4, -2)
             ):
-                self._log.debug(
-                    "incorrect checksum: 0x%X != 0x%X",
-                    int.from_bytes(self._frame[-4:-2], byteorder="big"),
-                    crc,
-                )
                 self._frame.clear()
                 self._msg = {}  # reset invalid data
                 return
@@ -137,7 +136,7 @@ class BMS(BaseBMS):
             self._msg_event.set()
 
     @staticmethod
-    def _crc(data: bytearray) -> int:
+    def _crc(data: bytes | bytearray) -> int:
         return sum(data) + 8
 
     @staticmethod
@@ -152,7 +151,7 @@ class BMS(BaseBMS):
             + b"\x0d\x0a"
         )
         frame = bytearray([len(frame) + 2, 0x11]) + frame
-        frame += bytes(BMS._PAGE_LEN - len(frame))
+        frame.extend(bytes(BMS._PAGE_LEN - len(frame)))
 
         return bytes(frame)
 
@@ -185,7 +184,7 @@ class BMS(BaseBMS):
             await self._await_msg(self._cmd(request, b""))
 
         if not BMS._CMDS.issubset(set(self._msg.keys())):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)

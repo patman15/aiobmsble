@@ -7,10 +7,11 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.ws_nova_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
 
@@ -40,7 +41,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycle_charge": 110.849,
     "cycles": 5,
     "design_capacity": 200,
-    "temp_values": [9.0, 9.0, 9.0, 9.0],
+    "temp_values": [TS(9.0)] * 4,
     "temperature": 9.0,
     "cell_voltages": [
         3.253,
@@ -54,6 +55,12 @@ _RESULT_DEFS: Final[BMSSample] = {
     "problem": False,
     "problem_code": 0,
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockWSNovaBleakClient(MockBleakClient):

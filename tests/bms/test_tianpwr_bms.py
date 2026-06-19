@@ -8,10 +8,11 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.tianpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 
 def ref_value() -> BMSSample:
@@ -24,7 +25,7 @@ def ref_value() -> BMSSample:
         "battery_health": 100,
         "cycle_charge": 138.96,
         "cycles": 0,
-        "temperature": 24.167,
+        "temperature": 23.333,
         "cycle_capacity": 7606.67,
         "power": 0.0,
         "design_capacity": 230,
@@ -48,7 +49,7 @@ def ref_value() -> BMSSample:
             3.422,
             3.429,
         ],
-        "temp_values": [28.0, 25.0, 23.0, 23.0, 23.0, 23.0],
+        "temp_values": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
         "delta_voltage": 0.014,
         "balancer": False,
         "chrg_mosfet": True,
@@ -56,6 +57,12 @@ def ref_value() -> BMSSample:
         "problem": False,
         "problem_code": 0,
     }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockTianPwrBleakClient(MockBleakClient):
@@ -123,9 +130,9 @@ class MockTianPwrBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert self._notify_callback, (
-            "write to characteristics but notification not enabled"
-        )
+        assert (
+            self._notify_callback
+        ), "write to characteristics but notification not enabled"
 
         self._notify_callback(
             "MockTianPwrBleakClient", self._response(char_specifier, data)
@@ -176,7 +183,10 @@ def fix_response(request: pytest.FixtureRequest) -> bytearray:
 
 
 async def test_invalid_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 

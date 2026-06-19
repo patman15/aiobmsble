@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum, lstr2int
 
 
@@ -31,7 +31,7 @@ class BMS(BaseBMS):
         BMSDp("current", 158, 4, True, lambda x: x / 1000),
         BMSDp("problem_code", 166, 4, False),
         BMSDp("balance_current", 170, 2, True, lambda x: x / 1000),
-        BMSDp("balancer", 201, 1, False, bool),
+        BMSDp("balancer", 172, 1, False, bool),
         BMSDp("battery_level", 173, 1, False),
         BMSDp("cycle_charge", 174, 4, False, lambda x: x / 1000),
         BMSDp("design_capacity", 178, 4, False, lambda x: x // 1000),
@@ -42,9 +42,15 @@ class BMS(BaseBMS):
         BMSDp("temp_sensors", 214, 2, True),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
         self._char_write_handle: int = -1
         self._sw_version: int = 0
@@ -56,11 +62,14 @@ class BMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            {
-                "service_uuid": BMS.uuid_services()[0],
-                "connectable": True,
-                "manufacturer_id": 0x0B65,
-            },
+            MatcherPattern(
+                {
+                    "service_uuid": BMS.uuid_services()[0],
+                    "connectable": True,
+                    "manufacturer_id": m_id,
+                }
+            )
+            for m_id in (0x0B65, 0x4B4A)
         ]
 
     @staticmethod
@@ -107,7 +116,7 @@ class BMS(BaseBMS):
         ) or not self._frame.startswith(BMS._HEAD_RSP):
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
 
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
@@ -136,17 +145,17 @@ class BMS(BaseBMS):
 
         # set BMS ready if msg is attached to last responses (v19.05)
         if self._frame[BMS._INFO_LEN :].startswith(BMS._READY_MSG):
-            self._log.debug("BMS ready.")
+            self._log.debug("BMS ready")
             self._bms_ready = True
-            del self._frame[BMS._INFO_LEN :]
 
         # trim message in case oversized
         if len(self._frame) > BMS._INFO_LEN:
             self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
             del self._frame[BMS._INFO_LEN :]
 
-        if (crc := crc_sum(self._frame[:-1])) != self._frame[-1]:
-            self._log.debug("invalid checksum 0x%X != 0x%X", self._frame[-1], crc)
+        if not self._check_integrity(
+            self._frame, crc_sum, slice(None, -1), slice(-1, None)
+        ):
             return
 
         self._msg = bytes(self._frame)
@@ -175,7 +184,7 @@ class BMS(BaseBMS):
                     ):
                         self._char_write_handle = char.handle
         if char_notify_handle == -1 or self._char_write_handle == -1:
-            self._log.debug("failed to detect characteristics.")
+            self._log.debug("failed to detect characteristics")
             await self._client.disconnect()
             raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
         self._log.debug(
@@ -208,20 +217,30 @@ class BMS(BaseBMS):
         frame.append(crc_sum(frame))
         return bytes(frame)
 
-    def _temp_pos(self) -> list[tuple[int, int]]:
+    def _temp_pos(self) -> list[tuple[int, int, TempSensor.T]]:
+        sensors_v11: Final = [
+            (0, 144, TempSensor.T.MOSFET),
+            (1, 162, TempSensor.T.GENERIC),
+            (2, 164, TempSensor.T.GENERIC),
+            (3, 254, TempSensor.T.MOSFET),
+        ]
         if self._sw_version >= 14:
-            return [(0, 144), (1, 162), (2, 164), (3, 254), (4, 256), (5, 258)]
+            return [*sensors_v11, (4, 256, TempSensor.T.GENERIC), (5, 258, TempSensor.T.GENERIC)]
         if self._sw_version >= 11:
-            return [(0, 144), (1, 162), (2, 164), (3, 254)]
-        return [(0, 130), (1, 132), (2, 134)]
+            return sensors_v11
+        return [
+            (0, 130, TempSensor.T.GENERIC),
+            (1, 132, TempSensor.T.GENERIC),
+            (2, 134, TempSensor.T.MOSFET),
+        ]
 
     @staticmethod
     def _temp_sensors(
-        data: bytes, temp_pos: list[tuple[int, int]], mask: int
-    ) -> list[int | float]:
+        data: bytes, temp_pos: list[tuple[int, int, TempSensor.T]], mask: int
+    ) -> list[TempSensor]:
         return [
-            (value / 10)
-            for idx, pos in temp_pos
+            TempSensor(value / 10, T)
+            for idx, pos, T in temp_pos
             if mask & (1 << idx)
             and (
                 value := int.from_bytes(

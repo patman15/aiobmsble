@@ -56,9 +56,15 @@ class BMS(BaseBMS):
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS} | {0xF4}  # cell voltages
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._exp_reply: set[int] = set()
 
@@ -92,7 +98,7 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         info: BMSInfo = await super()._fetch_device_info()
-        self._exp_reply = BMS._EXP_REPLY[0xC0]
+        self._exp_reply = BMS._EXP_REPLY[0xC0].copy()
         await self._await_msg(BMS._cmd(b"\xc0"))
         info.update({"model": b2str(self._msg[0xF1][2:-1])})
         return info
@@ -104,15 +110,14 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         if not data.startswith(BMS._HEAD_RESP):
-            self._log.debug("Incorrect frame start")
+            self._log.debug("incorrect SOF")
             return
 
         if len(data) != BMS._INFO_LEN:
-            self._log.debug("Incorrect frame length")
+            self._log.debug("incorrect frame length")
             return
 
-        if (crc := crc8(data[:-1])) != data[-1]:
-            self._log.debug("invalid checksum 0x%X != 0x%X", data[-1], crc)
+        if not self._check_integrity(data, crc8, slice(None, -1), slice(-1, None)):
             return
 
         if data[1] == 0xF4 and 0xF4 in self._msg:
@@ -137,14 +142,15 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         self._msg.clear()
+        self._exp_reply.clear()
         for cmd in (0xC1, 0xC2, 0xC4):
             self._exp_reply.update(BMS._EXP_REPLY[cmd])
             with contextlib.suppress(TimeoutError):
                 await self._await_msg(BMS._cmd(bytes([cmd])))
 
         # check all responses are here, 0xF9 is not mandatory (not all BMS report it)
-        if not BMS._RESPS.issubset(set(self._msg.keys()) | {0xF9}):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+        if not BMS._RESPS.issubset(self._msg.keys() | {0xF9}):
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")

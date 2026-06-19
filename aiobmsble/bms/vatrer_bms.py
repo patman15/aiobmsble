@@ -4,13 +4,12 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -37,14 +36,20 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 32, 1, False, lambda x: bool(x & 0x20), 0x24),
         BMSDp("balancer", 35, 4, False, idx=0x24),
     )
-    _RESPS: Final = frozenset({field.idx for field in _FIELDS})
+    _RESPS: Final = frozenset(field.idx for field in _FIELDS)
     _CMDS: Final[frozenset[tuple[int, int]]] = frozenset(
         {(0x0, 0x14), (0x34, 0x12), (0x15, 0x1F)}
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
 
     @staticmethod
@@ -57,8 +62,6 @@ class BMS(BaseBMS):
                 "connectable": True,
             }
         ]
-
-    # async def _fetch_device_info(self) -> BMSInfo: use default
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
@@ -89,37 +92,24 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length")
             return
 
-        if (crc := crc_modbus(data[:-2])) != int.from_bytes(
-            data[-2:], byteorder="little"
+        if not self._check_integrity(
+            data,
+            crc_modbus,
+            slice(None, -2),
+            slice(-2, None),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(data[-2:], "little"),
-                crc,
-            )
             return
 
         self._msg[data[2]] = bytes(data)
         self._msg_event.set()
 
-    @staticmethod
-    @cache
-    def _cmd(addr: int, words: int) -> bytes:
-        """Assemble a Vatrer BMS command."""
-        frame: bytearray = (
-            bytearray(BMS._HEAD)
-            + addr.to_bytes(2, byteorder="big")
-            + words.to_bytes(2, byteorder="big")
-        )
-        frame.extend(crc_modbus(frame).to_bytes(2, "little"))
-        return bytes(frame)
-
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         for addr, length in BMS._CMDS:
-            await self._await_msg(BMS._cmd(addr, length))
+            await self._await_msg(BMS._cmd_modbus(dev_id=0x2, addr=addr, count=length))
         if not BMS._RESPS.issubset(set(self._msg.keys())):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise TimeoutError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
@@ -127,7 +117,11 @@ class BMS(BaseBMS):
             self._msg[0x3E], cells=result.get("cell_count", 0), start=5
         )
         result["temp_values"] = BMS._temp_values(
-            self._msg[0x24], values=result.get("temp_sensors", 0) + 2, start=5
-        )  # MOS sensor is last (pos 6 of 4)
+            self._msg[0x24],
+            values=result.get("temp_sensors", 0) + 2,
+            start=5,
+            types=(TempSensor.T.GENERIC,) * (result.get("temp_sensors", 0) + 1)
+            + (TempSensor.T.MOSFET,),
+        )
 
         return result

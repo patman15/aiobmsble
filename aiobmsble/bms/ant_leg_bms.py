@@ -38,7 +38,7 @@ class BMS(BaseBMS):
         BMSDp("voltage", 4, 2, False, lambda x: x / 10),
         BMSDp("current", 70, 4, True, lambda x: x / -10),
         BMSDp("battery_level", 74, 1, False),
-        BMSDp("design_capacity", 75, 4, False, lambda x: x // 1e6),
+        BMSDp("design_capacity", 75, 4, False, lambda x: x // 10**6),
         BMSDp("cycle_charge", 79, 4, False, lambda x: x / 1e6),
         BMSDp("total_charge", 83, 4, False, lambda x: x // 1000),
         BMSDp("runtime", 87, 4, False),
@@ -56,9 +56,15 @@ class BMS(BaseBMS):
         BMSDp("balancer", 105, 1, False, lambda x: bool(x & 0x4)),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
@@ -66,9 +72,8 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "ANT-BLE*",
+                "local_name": "ANT-BLE[01]*",
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": 1623,
                 "connectable": True,
             }
         ]
@@ -88,8 +93,6 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
-    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -98,12 +101,12 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         if data.startswith(BMS._RX_HEADER_RSP_STAT):
-            self._frame = bytearray()
+            self._frame.clear()
         elif not self._frame:
-            self._log.debug("invalid start of frame")
+            self._log.debug("invalid SOF")
             return
 
-        self._frame += data
+        self._frame.extend(data)
 
         _data_len: Final[int] = len(self._frame)
         if _data_len < BMS._RSP_STAT_LEN:
@@ -114,10 +117,13 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if (local_crc := crc_sum(self._frame[4:-2], 2)) != (
-            remote_crc := int.from_bytes(self._frame[-2:], byteorder="big", signed=False)
+        if not self._check_integrity(
+            self._frame,
+            lambda x: crc_sum(x[4:-2], 2),
+            slice(None, None),
+            slice(-2, None),
+            "big",
         ):
-            self._log.debug("invalid checksum 0x%X != 0x%X", local_crc, remote_crc)
             self._frame.clear()
             return
 
@@ -130,17 +136,15 @@ class BMS(BaseBMS):
     def _cmd(cmd: CMD, adr: ADR, value: int = 0x0000) -> bytes:
         """Assemble a ANT BMS command."""
         _frame = bytearray((cmd, cmd, adr))
-        _frame += value.to_bytes(2, "big")
-        _frame += crc_sum(_frame[2:], 1).to_bytes(1, "big")
+        _frame.extend(value.to_bytes(2, "big"))
+        _frame.extend(crc_sum(_frame[2:], 1).to_bytes(1, "big"))
         return bytes(_frame)
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(BMS._cmd(BMS.CMD.GET, BMS.ADR.STATUS))
 
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._msg, byteorder="big"
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="big")
 
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg,

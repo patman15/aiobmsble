@@ -7,11 +7,11 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.topband_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 32
 
@@ -54,7 +54,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cell_voltages": [3.422, 3.441, 3.429, 3.422],
         "delta_voltage": 0.019,
         "temperature": 30.95,
-        "temp_values": [30.95],
+        "temp_values": [TS(30.95)],
         "cycle_capacity": 2669.582,
         "power": -175.47,
         "runtime": 54770,
@@ -72,7 +72,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cell_voltages": [3.35, 3.351, 3.353, 3.356],
         "delta_voltage": 0.006,
         "temperature": 16.75,
-        "temp_values": [16.75],
+        "temp_values": [TS(16.75)],
         "cycle_capacity": 1354.41,
         "power": -5.284,
         "runtime": 922842,
@@ -92,7 +92,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cycles": 125,
         "battery_level": 94,
         "temperature": 22.95,
-        "temp_values": [22.95],
+        "temp_values": [TS(22.95)],
         "problem_code": 0,
         "runtime": 1604000,
         "cell_count": 4,
@@ -110,6 +110,11 @@ def proto(request: pytest.FixtureRequest) -> int:
     assert isinstance(request.param, int)
     return request.param
 
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 class MockTopbandBleakClient(MockBleakClient):
     """Emulate a Topband BMS BleakClient."""
@@ -164,11 +169,6 @@ async def test_update(
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
-
-
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockTopbandBleakClient, BMS)
 
 
 async def test_tx_notimplemented(patch_bleak_client) -> None:

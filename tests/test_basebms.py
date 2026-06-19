@@ -3,9 +3,12 @@
 import asyncio
 from collections.abc import Buffer, Callable
 from logging import DEBUG
-from typing import Any, Final, Literal, NoReturn
+from string import hexdigits
+from types import UnionType
+from typing import Any, Final, Literal, NoReturn, get_args, get_origin, get_type_hints
 from uuid import UUID
 
+import aiooui
 from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -15,7 +18,7 @@ from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.basebms import (
     BaseBMS,
     b2str,
@@ -24,6 +27,7 @@ from aiobmsble.basebms import (
     crc_sum,
     crc_xmodem,
     lrc_modbus,
+    lstr2int,
 )
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
 from tests.bluetooth import generate_ble_device
@@ -165,6 +169,118 @@ class WMTestBMS(MinTestBMS):
         return {"problem_code": int.from_bytes(self._data, "big", signed=False)}
 
 
+class BMSBasicTests:
+    """Base class for BMS tests."""
+
+    bms_class: type[BaseBMS]
+
+    def test_bms_id(self) -> None:
+        """Test that the BMS returns default information."""
+
+        for key in ("default_manufacturer", "default_model"):
+            assert str(self.bms_class.INFO.get(key, "")).strip()
+        assert len(self.bms_class.bms_id().strip())
+
+    async def test_matcher_dict(self) -> None:
+        """Test that the BMS returns BT matcher."""
+
+        assert len(self.bms_class.matcher_dict_list())
+        for matcher in self.bms_class.matcher_dict_list():
+
+            if manufacturer_id := matcher.get("manufacturer_id"):
+                assert (
+                    manufacturer_id == manufacturer_id & 0xFFFF
+                ), f"incorrect {manufacturer_id=}"
+
+            if service_uuid := matcher.get("service_uuid"):
+                assert UUID(service_uuid), f"incorrect {service_uuid=}"
+
+            if manufacturer_data_start := matcher.get("manufacturer_data_start"):
+                assert all(
+                    byte == byte & 0xFF for byte in manufacturer_data_start
+                ), "manufacturer_data_start needs to contain Byte values!"
+
+            if oui := matcher.get("oui"):
+                parts: list[str] = oui.split(":")
+                assert len(parts) == 3 and all(
+                    len(part) == 2 and all(c in hexdigits for c in part)
+                    for part in parts
+                ), f"incorrect {oui=}"
+                await aiooui.async_load()
+                if aiooui.get_vendor(oui) is None:
+                    # OUI is not registered
+                    assert (int(parts[0], 16) & 0xC0) not in (
+                        0x00,  # Non-resolvable random private address
+                        0x40,  # Resolvable random private address
+                        # 0x80,  # 	Reserved for future use
+                        # 0xC0,  # Static random device address
+                    ), f"random private address OUI ({oui}) cannot be used for filtering!"
+
+    async def test_result_value_types(
+        self,
+        patch_bleak_client: Callable[..., None],
+        request: pytest.FixtureRequest,
+    ) -> None:
+        """Verify that async_update returns BMSSample fields with the correct types."""
+        if "_async_update" not in self.bms_class.__dict__:
+            pytest.skip(
+                f"{self.bms_class.__name__} does not define _async_update(), skipping result type check."
+            )
+
+        def _is_instance_of_type(value: Any, expected_type: Any) -> bool:
+            if expected_type is Any:
+                return True
+
+            origin: Any = get_origin(expected_type)
+            args: tuple[Any, ...] = get_args(expected_type)
+            if origin is None:
+                return type(value) is expected_type
+
+            if origin is UnionType:
+                return any(_is_instance_of_type(value, arg) for arg in args)
+
+            if type(value) is not origin:
+                return False
+
+            if origin is list:
+                return (not args) or all(
+                    _is_instance_of_type(item, args[0]) for item in value
+                )
+
+            return False
+
+        module = request.module
+        mock_client: type[BleakClient] = MockBleakClient
+
+        for obj in module.__dict__.values():
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, MockBleakClient)
+                and obj is not MockBleakClient
+            ):
+                mock_client = obj
+                break
+
+        patch_bleak_client(mock_client)
+
+        bms: BaseBMS = self.bms_class(generate_ble_device())
+        result: BMSSample = await bms.async_update()
+
+        hints: dict[str, Any] = get_type_hints(BMSSample)
+        assert isinstance(
+            result, dict
+        ), "async_update must return a dict-like BMSSample"
+
+        for key, value in result.items():
+            assert (
+                key in hints
+            ), f"Unexpected result key '{key}' not defined in BMSSample"
+            expected_type = hints[key]
+            assert _is_instance_of_type(
+                value, expected_type
+            ), f"{key} has wrong type {type(value).__name__}; expected {expected_type}"
+
+
 async def verify_device_info(
     patch_bleak_client,
     bleak_client: type[BleakClient],
@@ -250,9 +366,7 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
         "power": (
             -91
             if bms_data.get("current", 0) < 0
-            else 0
-            if bms_data.get("current") == 0
-            else 147
+            else 0 if bms_data.get("current") == 0 else 147
         ),
         # battery is charging if current is positive
         "battery_charging": bms_data.get("current", 0) > 0,
@@ -270,24 +384,50 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
     [
         (
             {"cell_voltages": [3.456, 3.567]},
-            {"cell_count": 2, "delta_voltage": 0.111, "voltage": 7.023},
+            {
+                "cell_count": 2,
+                "delta_voltage": 0.111,
+                "voltage": 7.023,
+                "problem": False,
+            },
         ),
-        ({"battery_level": 73, "design_capacity": 125}, {"cycle_charge": 91.25}),
-        ({"cycle_charge": 421, "design_capacity": 983}, {"battery_level": 42.8}),
-        ({"total_charge": 1234567, "design_capacity": 256}, {"cycles": 4822}),
         (
-            {"current": -1.3, "cycle_charge": 73},
-            {"battery_charging": False, "runtime": 202153},
+            {"battery_level": 73, "design_capacity": 125},
+            {"cycle_charge": 91.25, "problem": False},
         ),
-        ({"current": 1.3, "cycle_charge": 73}, {"battery_charging": True}),
+        (
+            {"cycle_charge": 421, "design_capacity": 983},
+            {"battery_level": 42.8, "problem": False},
+        ),
+        (
+            {"total_charge": 1234567, "design_capacity": 256},
+            {"cycles": 4822, "problem": False},
+        ),
+        (
+            {"current": -1.3, "cycle_charge": 73, "problem": False},
+            {"battery_charging": False, "runtime": 202153, "problem": False},
+        ),
+        (
+            {"current": 1.3, "cycle_charge": 73},
+            {"battery_charging": True, "problem": False},
+        ),
+        ({}, {}),
     ],
-    ids=["voltage", "cycle_charge", "battery_level", "cycles", "runtime", "no_runtime"],
+    ids=[
+        "voltage",
+        "cycle_charge",
+        "battery_level",
+        "cycles",
+        "runtime",
+        "no_runtime",
+        "no_data",
+    ],
 )
 def test_calc_values(sample: BMSSample, expected: BMSSample) -> None:
     """Check if missing data is correctly calculated."""
     ref: BMSSample = sample.copy()
     BaseBMS._add_missing_values(sample)
-    assert sample == ref | expected | {"problem": False}
+    assert sample == ref | expected
 
 
 @pytest.mark.parametrize(
@@ -403,9 +543,9 @@ async def test_write_mode(
 ) -> None:
     """Check if write mode selection works correctly."""
 
-    assert len(replies) == len(exp_wr_response), (
-        "Replies and expected responses must match in length!"
-    )
+    assert len(replies) == len(
+        exp_wr_response
+    ), "Replies and expected responses must match in length!"
     patch_bms_timeout()
     monkeypatch.setattr(MockWriteModeBleakClient, "PATTERN", replies)
     monkeypatch.setattr(MockWriteModeBleakClient, "EXP_WRITE_RESPONSE", exp_wr_response)
@@ -522,6 +662,7 @@ async def test_context_mgr(
             "problem": True,
             "problem_code": 21,
         }
+        assert bms.is_connected
 
 
 async def test_context_mgr_fail(
@@ -534,6 +675,14 @@ async def test_context_mgr_fail(
     with pytest.raises(ValueError, match="usage of context manager*"):
         async with MinTestBMS(generate_ble_device(), keep_alive=False) as bms:
             await bms.async_update()
+
+
+def test_cmd_modbus() -> None:
+    """Test Modbus command building."""
+    assert (
+        BaseBMS._cmd_modbus(dev_id=0x01, fct=0x04, addr=0xAFFE, count=0x1234)
+        == b"\x01\x04\xaf\xfe\x12\x34\xbd\x99"
+    )
 
 
 def test_crc_calculations() -> None:
@@ -550,9 +699,9 @@ def test_crc_calculations() -> None:
 
     for crc_fn, expected_crc in test_fn:
         calculated_crc: int = crc_fn(data)
-        assert calculated_crc == expected_crc, (
-            f"Expected {expected_crc}, got {calculated_crc}"
-        )
+        assert (
+            calculated_crc == expected_crc
+        ), f"Expected {expected_crc}, got {calculated_crc}"
 
 
 @pytest.mark.parametrize(
@@ -644,17 +793,17 @@ def test_cell_voltages(
             [1.0, -0.56, 3.0],
         ),
         # Not enough data for all values
-        (b"\x00\x7d", 2, 0, 2, "big", True, 0, 1, [125]),
+        (b"\x00\x7d", 2, 0, 2, "big", True, 0, 1, (125,)),
         # Zero values requested
-        (b"\x00\x7d", 0, 0, 2, "big", True, 0, 1, []),
+        (b"\x00\x7d", 0, 0, 2, "big", True, 0, 1, ()),
         # Divider = 1, offset = 7
-        (b"\x00\x14", 1, 0, 2, "big", True, 7, 1, [13]),
+        (b"\x00\x14", 1, 0, 2, "big", True, 7, 1, (13,)),
         # no offset, div = 10
-        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 0, 10, [10.1, 10.0, 0.0, 6.4]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 0, 10, (10.1, 10.0, 0.0, 6.4)),
         # offset -40, div = 10
-        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 40, 10, [6.1, 6.0, 2.4]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 40, 10, (6.1, 6.0, 2.4)),
         # offset -25, div = 1
-        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 25, 1, [76, 75, 39]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 25, 1, (76, 75, 39)),
     ],
     ids=[
         "two_signed_big_endian",
@@ -678,10 +827,10 @@ def test_temp_values(
     signed: bool,
     offset: float,
     divider: int,
-    expected: list[int | float],
+    expected: tuple[float, ...],
 ) -> None:
     """Test the _temp_values method of BaseBMS with various input parameters."""
-    result: list[int | float] = BaseBMS._temp_values(
+    result: list[TempSensor] = BaseBMS._temp_values(
         data,
         values=values,
         start=start,
@@ -691,7 +840,7 @@ def test_temp_values(
         offset=offset,
         divider=divider,
     )
-    assert result == expected
+    assert result == [TempSensor(v) for v in expected]
 
 
 @pytest.mark.parametrize(
@@ -772,11 +921,41 @@ def test_b2str(data: bytes, expected: str) -> None:
     """Test bytearray to string conversion function."""
     assert b2str(data) == expected
 
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        ("01", 1),
+        ("01.1", 1),
+        ("123", 123),
+        ("0", 0),
+        ("000", 0),
+        ("123abc", 123),
+        ("123.45", 123),
+        ("1.2.3", 1),
+        ("5", 5),
+        ("999999", 999999),
+    ],
+    ids=[
+        "leading_zero",
+        "decimal_point",
+        "three_digits",
+        "zero",
+        "multiple_zeros",
+        "digits_then_letters",
+        "digits_then_decimal",
+        "digits_dot_digits_dot_digits",
+        "single_digit",
+        "large_number",
+    ],
+)
+def test_lstr2int(data: str, expected: int) -> None:
+    """Test string to integer conversion function."""
+    assert lstr2int(data) == expected
+
 
 # ---------------------------------------------------------------------------
 # Connection timeout wrapper tests
 # ---------------------------------------------------------------------------
-
 
 class ShortTimeoutBMS(MinTestBMS):
     """BMS subclass with a shorter connection timeout."""

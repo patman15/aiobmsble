@@ -7,13 +7,19 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.ej_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockEJBleakClient(MockBleakClient):
@@ -85,7 +91,7 @@ class MockEJsfBleakClient(MockEJBleakClient):
             "cell_voltages": [3.263, 3.264, 3.306, 3.285],
             "delta_voltage": 0.043,
             "temperature": 25,
-            "temp_values": [25],
+            "temp_values": [TS(25)],
             "cycle_capacity": 1442.98,
             "power": 18.365,
             "battery_charging": True,
@@ -94,6 +100,8 @@ class MockEJsfBleakClient(MockEJBleakClient):
             "balancer": 0,
             "chrg_mosfet": True,
             "dischrg_mosfet": True,
+            "heater": False,
+            "design_capacity": 150,
         }
 
 
@@ -163,6 +171,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "balancer": False,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
+        "heater": False,
     }
 
     # query again to check already connected state
@@ -170,11 +179,6 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
-
-
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockEJBleakClient, BMS)
 
 
 async def test_update_single_frame(

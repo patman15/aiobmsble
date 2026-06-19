@@ -8,10 +8,11 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.felicity_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 35
 
@@ -70,17 +71,18 @@ def ref_value() -> BMSSample:
             3.297,
             3.297,
         ],
-        "temp_values": [
-            13.0,
-            13.0,
-            13.0,
-            13.0,
-        ],
+        "temp_values": [TS(13.0)]*4,
         "delta_voltage": 0.001,
         "runtime": 3564000,
         "problem": False,
         "problem_code": 0,
     }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockFelicityBleakClient(MockBleakClient):
@@ -149,9 +151,9 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockFelicityBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {
-        "fw_version": 519,
+        "fw_version": "519",
         "sw_version": "2.06",
-        "model_id": 112,
+        "model_id": "112",
         "serial_number": "100011002424470238",
     }
 

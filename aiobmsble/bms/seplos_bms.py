@@ -12,7 +12,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSpackvalue, BMSSample, MatcherPattern
+from aiobmsble import (
+    BMSDp,
+    BMSInfo,
+    BMSpackvalue,
+    BMSSample,
+    MatcherPattern,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, crc_modbus, swap32
 
 
@@ -30,7 +37,7 @@ class BMS(BaseBMS):
     _EIC_LEN: Final[int] = 0x5
     _TEMP_START: Final[int] = _HEAD_LEN + 32
     _QUERY: Final[dict[str, tuple[int, int, int]]] = {
-        # name: cmd, reg start, length
+        # name: fct, address, count
         "EIA": (0x4, 0x2000, _EIA_LEN),
         "EIB": (0x4, 0x2100, _EIB_LEN),
         "EIC": (0x1, 0x2200, _EIC_LEN),
@@ -48,7 +55,9 @@ class BMS(BaseBMS):
         BMSDp("cycles", 46, 2, False, idx=_EIA_LEN),
         BMSDp("battery_level", 48, 2, False, lambda x: x / 10, _EIA_LEN),
         BMSDp("battery_health", 50, 2, False, lambda x: x / 10, _EIA_LEN),
-        BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, _EIC_LEN),
+        BMSDp(
+            "problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, _EIC_LEN
+        ),
         BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), _EIC_LEN),
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), _EIC_LEN),
         BMSDp("heater", 7, 1, False, lambda x: bool(x & 8), _EIC_LEN),
@@ -63,14 +72,19 @@ class BMS(BaseBMS):
         ("pack_battery_health", 12, False, lambda x: x / 10),
         ("pack_cycles", 14, False, lambda x: x),
     )  # Protocol Seplos V3
-    _CMDS: Final = frozenset(
-        {field[2] for field in _QUERY.values()}
-        | {field[2] for field in _PQUERY.values()}
-    )
+    _CMDS: Final = frozenset({field[2] for field in _QUERY.values()})
+    _PCMDS: Final = frozenset({field[2] for field in _PQUERY.values()})
+    _VALID_CMDS: Final = frozenset(_CMDS | _PCMDS)
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._pack_count: int = 0  # number of battery packs
         self._pkglen: int = 0  # expected packet length
@@ -130,7 +144,7 @@ class BMS(BaseBMS):
             self._frame.clear()
             self._pkglen = BMS._HEAD_LEN + BMS._CRC_LEN
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -139,18 +153,17 @@ class BMS(BaseBMS):
         if len(self._frame) < self._pkglen:
             return
 
-        if (crc := crc_modbus(self._frame[: self._pkglen - 2])) != int.from_bytes(
-            self._frame[self._pkglen - 2 : self._pkglen], "little"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(None, self._pkglen - 2),
+            slice(self._pkglen - 2, self._pkglen),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[self._pkglen - 2 : self._pkglen], "little"),
-                crc,
-            )
             self._frame.clear()
             return
 
-        if self._frame[2] >> 1 not in BMS._CMDS or self._frame[1] & 0x80:
+        if self._frame[2] >> 1 not in BMS._VALID_CMDS or self._frame[1] & 0x80:
             self._log.debug(
                 "unknown message: %s, length: %s", self._frame[0:2], self._frame[2]
             )
@@ -185,15 +198,19 @@ class BMS(BaseBMS):
         assert cmd in (0x01, 0x04)  # allow only read commands
         assert start >= 0 and count > 0 and start + count <= 0xFFFF
         frame: bytearray = bytearray([device, cmd])
-        frame += int.to_bytes(start, 2, byteorder="big")
-        frame += int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big")
-        frame += int.to_bytes(crc_modbus(frame), 2, byteorder="little")
+        frame.extend(int.to_bytes(start, 2, byteorder="big"))
+        frame.extend(
+            int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big")
+        )
+        frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
         return bytes(frame)
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         for block in BMS._QUERY.values():
             await self._await_msg(BMS._cmd(0x0, *block))
+        if not BMS._CMDS.issubset(self._msg.keys()):
+            raise ValueError("BMS data incomplete.")
 
         data: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=BMS._HEAD_LEN)
 
@@ -202,6 +219,8 @@ class BMS(BaseBMS):
         for pack in range(1, 1 + self._pack_count):
             for block in BMS._PQUERY.values():
                 await self._await_msg(self._cmd(pack, *block))
+            if not {pack << 8 | cmd for cmd in BMS._PCMDS}.issubset(self._msg.keys()):
+                raise ValueError("BMS data incomplete.")
 
             for key, idx, sign, func in BMS._PFIELDS:
                 data.setdefault(key, []).append(
@@ -235,11 +254,21 @@ class BMS(BaseBMS):
                     signed=False,
                     offset=2731,
                     divider=10,
+                    types=(TempSensor.T.CELL,)*4
+                )
+                + BMS._temp_values(
+                    self._msg[pack << 8 | BMS._PIB_LEN],
+                    values=2,
+                    start=BMS._TEMP_START+16,
+                    signed=False,
+                    offset=2731,
+                    divider=10,
+                    types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET)
                 )
             )
             # calculate cell_count instead of querying SPA
             data["cell_count"] = len(data.get("cell_voltages", [])) // self._pack_count
 
-        self._msg.clear()
+            self._msg.clear()
 
         return data

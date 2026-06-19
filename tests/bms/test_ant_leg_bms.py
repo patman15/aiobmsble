@@ -7,10 +7,11 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.ant_leg_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_ADDRESS = "aa:bb:cc:a2:34:56"
 BT_FRAME_SIZE: Final[int] = 19  # ANT BMS frame size
@@ -46,7 +47,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.339,
     ],
     "delta_voltage": 0.168,
-    "temp_values": [26, 29, -5, 21],
+    "temp_values": [TS(26), TS(29), TS(-5), TS(21)],
     "temperature": 17.75,
     "problem": True,
     "problem_code": 512,
@@ -81,7 +82,7 @@ _RESULT_DEFS_CAP: Final[BMSSample] = {
         3.486,
         3.468,
     ],
-    "temp_values": [22.0, 21.0, 21.0, 21.0],
+    "temp_values": [TS(22.0), TS(21.0), TS(21.0), TS(21.0)],
     "delta_voltage": 0.041,
     "cycle_capacity": 3355.973,
     "cycles": 65,
@@ -94,6 +95,12 @@ _RESULT_DEFS_CAP: Final[BMSSample] = {
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockANTLEGACYBleakClient(MockBleakClient):

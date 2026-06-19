@@ -11,7 +11,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -23,7 +23,11 @@ class Cmd(IntEnum):
 
 
 class BMS(BaseBMS):
-    """E&J Technology BMS implementation."""
+    """E&J Technology BMS implementation.
+
+    - Standard E&J (two-command protocol: RT + CAP)
+    - Metrisun / Chins (single-frame protocol, 140 bytes)
+    """
 
     INFO: BMSInfo = {
         "default_manufacturer": "E&J Technology",
@@ -33,6 +37,7 @@ class BMS(BaseBMS):
     _IGNORE_CRC: Final[str] = "libattU"
     _HEAD: Final[bytes] = b"\x3a"
     _TAIL: Final[bytes] = b"\x7e"
+    _CELL_POS: Final[int] = 12
     _MAX_CELLS: Final[int] = 16
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
@@ -41,7 +46,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 61, 1, False, idx=Cmd.RT),
         BMSDp("cycle_charge", 7, 2, False, lambda x: x / 10, Cmd.CAP),
         BMSDp(
-            "temp_values", 48, 1, False, lambda x: [x - 40], Cmd.RT
+            "temp_values", 48, 1, False, lambda x: [TempSensor(x - 40)], Cmd.RT
         ),  # only 1st sensor relevant
         BMSDp("cycles", 57, 2, False, idx=Cmd.RT),
         BMSDp(
@@ -50,11 +55,19 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 52, 1, False, lambda x: bool(x & 0x10), Cmd.RT),
         BMSDp("chrg_mosfet", 52, 1, False, lambda x: bool(x & 0x20), Cmd.RT),
         BMSDp("balancer", 55, 2, False, int, idx=Cmd.RT),
+        BMSDp("heater", 54, 1, False, bool, Cmd.RT),
+        BMSDp("design_capacity", 66, 2, False, lambda x: x // 10, Cmd.RT),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
@@ -88,6 +101,9 @@ class BMS(BaseBMS):
                     "connectable": True,
                 }
             ]
+            + [  # Chins Battery "G-{voltage}V{capacity}Ah-{serial}"
+                MatcherPattern(local_name="G-[0-9]*V[0-9]*Ah-[0-9]*", connectable=True),
+            ]
         )
 
     @staticmethod
@@ -118,7 +134,7 @@ class BMS(BaseBMS):
         if data.startswith(BMS._HEAD):  # check for beginning of frame
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
 
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
@@ -137,12 +153,12 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.endswith(BMS._TAIL):
-            self._log.debug("incorrect EOF: %s", data)
+            self._log.debug("incorrect EOF")
             self._frame.clear()
             return
 
         if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
-            self._log.debug("incorrect frame encoding.")
+            self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
 
@@ -155,13 +171,12 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if not self.name.startswith(BMS._IGNORE_CRC) and (
-            crc := crc_sum(self._frame[1:-3]) ^ 0xFF
-        ) != int(self._frame[-3:-1], 16):
-            # libattU firmware uses no CRC, so we ignore it
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X", int(self._frame[-3:-1], 16), crc
-            )
+        if not self.name.startswith(BMS._IGNORE_CRC) and not self._check_integrity(
+            self._frame,
+            lambda x: crc_sum(x) ^ 0xFF,
+            slice(1, -3),
+            int(self._frame[-3:-1], 16),
+        ):
             self._frame.clear()
             return
 
@@ -175,26 +190,34 @@ class BMS(BaseBMS):
         self._msg = bytes.fromhex(self._frame[1:-1].decode())
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
-        """Update battery status information."""
+    async def _query_bms(self) -> dict[int, bytes]:
+        """Return query result for RT (and optionally CAP) data."""
         raw_data: dict[int, bytes] = {}
-
-        # query real-time information and capacity
         for cmd in (b":000250000E03~", b":001031000E05~"):
             await self._await_msg(cmd)
             rsp: int = self._msg[1] & 0x7F
             raw_data[rsp] = self._msg
             if rsp == Cmd.RT and len(self._msg) == 0x45:
-                # handle metrisun version
+                # handle single-frame variants (metrisun, Chins)
                 self._log.debug("single frame protocol detected")
                 raw_data[Cmd.CAP] = bytes(7) + self._msg[62:]
                 break
+        return raw_data
 
-        if len(raw_data) != len(list(Cmd)) or not all(raw_data.values()):
+    async def _async_update(self) -> BMSSample:
+        """Update battery status information."""
+        raw_data: Final[dict[int, bytes]] = await self._query_bms()
+
+        if len(raw_data) != len(Cmd) or not all(raw_data.values()):
             return {}
 
-        return self._decode_data(BMS._FIELDS, raw_data) | BMSSample(
+        result: BMSSample = self._decode_data(BMS._FIELDS, raw_data) | BMSSample(
             cell_voltages=BMS._cell_voltages(
-                raw_data[Cmd.RT], cells=BMS._MAX_CELLS, start=12
+                raw_data[Cmd.RT], cells=BMS._MAX_CELLS, start=BMS._CELL_POS
             )
         )
+        # design_capacity only available in single-frame (140-byte) variants
+        if not result.get("design_capacity"):
+            result.pop("design_capacity")
+
+        return result

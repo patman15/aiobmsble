@@ -7,10 +7,9 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from collections.abc import Awaitable, Buffer, Callable, Iterable
 import logging
 from types import ModuleType
-from typing import Any, Final
+from typing import Any, Final, cast
 from uuid import UUID
 
-from _pytest.config import Notset
 from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -21,7 +20,7 @@ from bleak.uuids import normalize_uuid_str
 from hypothesis import HealthCheck, settings
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.utils import load_bms_plugins
 
 logging.basicConfig(level=logging.INFO)
@@ -43,7 +42,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def pytest_configure(config: pytest.Config) -> None:
     """Configure pytest with custom settings."""
-    max_examples: int | Notset = config.getoption("--max-examples")
+    max_examples: int = cast(int, config.getoption("--max-examples"))
     settings.register_profile(
         "default",
         max_examples=max_examples,
@@ -90,6 +89,7 @@ class MockBleakClient(BleakClient):
         )  # call with address to avoid backend resolving
         self._connected: bool = False
         self._notify_callback: Callable | None = None
+        self._enabled_notify: set[BleakGATTCharacteristic | int | str | UUID] = set()
         self._disconnect_callback: Callable[[BleakClient], None] | None = (
             disconnected_callback
         )
@@ -130,7 +130,20 @@ class MockBleakClient(BleakClient):
         """Mock start_notify."""
         LOGGER.debug("MockBleakClient start_notify for %s", char_specifier)
         assert self._connected, "start_notify called, but client not connected."
+        assert (
+            char_specifier not in self._enabled_notify
+        ), "start_notify called, but already notifying."
         self._notify_callback = callback
+        self._enabled_notify.add(char_specifier)
+
+    async def stop_notify(
+        self, char_specifier: BleakGATTCharacteristic | int | str | UUID
+    ) -> None:
+        """Mock stop_notify."""
+        LOGGER.debug("MockBleakClient stop_notify for %s", char_specifier)
+        assert self._connected, "stop_notify called, but client not connected."
+        self._notify_callback = None
+        self._enabled_notify.remove(char_specifier)
 
     async def write_gatt_char(
         self,
@@ -180,7 +193,7 @@ def bms_data_fixture(request: pytest.FixtureRequest) -> BMSSample:
         "current": request.param,
         "cycle_charge": 34,
         "cell_voltages": [3.456, 3.567],
-        "temp_values": [-273.15, 0.01, 35.555, 100.0],
+        "temp_values": [TS(v) for v in (-273.15, 0.01, 35.555, 100.0)],
     }
 
 
@@ -190,7 +203,7 @@ def patch_bms_timeout(
 ) -> Callable[[str | None, float], None]:
     """Fixture to patch BMS.TIMEOUT for different BMS classes."""
 
-    def _patch_timeout(bms_class: str | None = None, timeout: float = 0.001) -> None:
+    def _patch_timeout(bms_class: str | None = None, timeout: float = 1e-3) -> None:
         patch_class: str = (
             f"bms.{bms_class}.BMS.TIMEOUT"
             if bms_class

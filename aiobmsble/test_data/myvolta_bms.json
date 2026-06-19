@@ -1,0 +1,16 @@
+[
+  {
+    "advertisement": {
+      "local_name": "VPS-197B",
+      "platform_data": ["E8:EB:1B:00:00:00"],
+      "rssi": -84,
+      "manufacturer_data": {},
+      "service_data": {},
+      "service_uuids": ["00035b03-58e6-07dd-021a-08123a000300"]
+    },
+    "type": "myvolta_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/673)"
+    ]
+  }
+]
