@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -54,6 +54,7 @@ class BMS(BaseBMS):
         super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._cmd_heads: set[int] = BMS._CMD_HEADS
+        self._valid_reply: int = 0 # expected reply type
         self._exp_len: int = 0
 
     @staticmethod
@@ -80,6 +81,7 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         for head in self._cmd_heads:
             try:
+                self._valid_reply = 0x92
                 await self._await_msg(BMS._cmd(0x92, cmd_head=head))
                 break
             except TimeoutError:
@@ -141,6 +143,10 @@ class BMS(BaseBMS):
             self._log.debug("BMS reported error code: 0x%X", self._frame[4])
             return
 
+        if self._frame[5] != self._valid_reply:
+            self._log.debug("BMS sent unexpected reply.")
+            return
+
         if not self._check_integrity(
             self._frame,
             crc_modbus,
@@ -170,6 +176,7 @@ class BMS(BaseBMS):
         for head in self._cmd_heads:
             try:
                 for cmd in BMS._CMDS:
+                    self._valid_reply = cmd
                     await self._await_msg(BMS._cmd(cmd, cmd_head=head))
                 if len(self._cmd_heads) > 1:
                     self._log.debug("detected command head: 0x%X", head)
@@ -197,6 +204,8 @@ class BMS(BaseBMS):
             signed=False,
             offset=2731,
             divider=10,
+            types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET)
+            + (TempSensor.T.CELL,) * 4,
         )
         idx: Final[int] = result.get("cell_count", 0) + result.get("temp_sensors", 0)
 

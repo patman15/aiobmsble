@@ -24,7 +24,15 @@ from bleak.exc import (
 )
 from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, __version__
+from aiobmsble import (
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    BMSValue,
+    MatcherPattern,
+    TempSensor,
+    __version__,
+)
 
 
 class BaseBMS(ABC):
@@ -33,7 +41,7 @@ class BaseBMS(ABC):
     INFO: BMSInfo  # static BMS info, set "default_" keys in subclass
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
-    BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value, used for chunking data
+    BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
@@ -618,34 +626,39 @@ class BaseBMS(ABC):
     def _temp_values(
         data: bytes,
         *,
-        values: int,
         start: int,
+        values: int = 1,
         size: int = 2,
         gap: int = 0,
         byteorder: Literal["little", "big"] = "big",
         signed: bool = True,
         offset: float = 0,
         divider: int = 1,
-    ) -> list[int | float]:
+        types: tuple[TempSensor.T, ...] = (),
+    ) -> list[TempSensor]:
         """Return temperature values from BMS message.
 
         Args:
             data: Raw data from BMS
-            values: Number of values to read
             start: Start position in data array
-            size: Number of bytes per temperature value (defaults 2)
-            gap: Number of bytes to skip after each temperature value (default: 2)
-            byteorder: Byte order ("big"/"little" endian)
+            values: Number of values to read (default: 1)
+            size: Number of bytes per temperature value (default: 2)
+            gap: Number of bytes to skip after each temperature value (default: 0)
+            byteorder: Byte order ("big"/"little" endian, default: "big")
             signed: Indicates whether two's complement is used to represent the integer.
             offset: The offset read values are shifted by (for Kelvin use 273.15)
-            divider: Value to divide raw value by, defaults to 1000 (mv to V)
+            divider: Value to divide raw value by, defaults to 1
+            types: Tuple of sensor types in parsing sequence, defaults to "GENERIC"
 
         Returns:
-            list[int | float]: List of temperature values
+            list[TempSensor]: List of temperature values
 
         """
         return [
-            (value - offset) / divider
+            TempSensor(
+                (value - offset) / divider,
+                types[idx] if idx < len(types) else TempSensor.T.GENERIC,
+            )
             for idx in range(values)
             if (len(data) >= start + idx * (size + gap) + size)
             and (

@@ -7,7 +7,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.ej_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -91,7 +91,7 @@ class MockEJsfBleakClient(MockEJBleakClient):
             "cell_voltages": [3.263, 3.264, 3.306, 3.285],
             "delta_voltage": 0.043,
             "temperature": 25,
-            "temp_values": [25],
+            "temp_values": [TS(25)],
             "cycle_capacity": 1442.98,
             "power": 18.365,
             "battery_charging": True,
