@@ -3,7 +3,8 @@
 from collections.abc import Buffer, Callable
 from logging import DEBUG
 from string import hexdigits
-from typing import Any, Final, Literal, NoReturn
+from types import UnionType
+from typing import Any, Final, Literal, NoReturn, get_args, get_origin, get_type_hints
 from uuid import UUID
 
 import aiooui
@@ -16,7 +17,7 @@ from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.basebms import (
     BaseBMS,
     b2str,
@@ -213,6 +214,70 @@ class BMSBasicTests:
                         # 0x80,  # 	Reserved for future use
                         # 0xC0,  # Static random device address
                     ), f"random private address OUI ({oui}) cannot be used for filtering!"
+
+    async def test_result_value_types(
+        self,
+        patch_bleak_client: Callable[..., None],
+        request: pytest.FixtureRequest,
+    ) -> None:
+        """Verify that async_update returns BMSSample fields with the correct types."""
+        if "_async_update" not in self.bms_class.__dict__:
+            pytest.skip(
+                f"{self.bms_class.__name__} does not define _async_update(), skipping result type check."
+            )
+
+        def _is_instance_of_type(value: Any, expected_type: Any) -> bool:
+            if expected_type is Any:
+                return True
+
+            origin: Any = get_origin(expected_type)
+            args: tuple[Any, ...] = get_args(expected_type)
+            if origin is None:
+                return type(value) is expected_type
+
+            if origin is UnionType:
+                return any(_is_instance_of_type(value, arg) for arg in args)
+
+            if type(value) is not origin:
+                return False
+
+            if origin is list:
+                return (not args) or all(
+                    _is_instance_of_type(item, args[0]) for item in value
+                )
+
+            return False
+
+        module = request.module
+        mock_client: type[BleakClient] = MockBleakClient
+
+        for obj in module.__dict__.values():
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, MockBleakClient)
+                and obj is not MockBleakClient
+            ):
+                mock_client = obj
+                break
+
+        patch_bleak_client(mock_client)
+
+        bms: BaseBMS = self.bms_class(generate_ble_device())
+        result: BMSSample = await bms.async_update()
+
+        hints: dict[str, Any] = get_type_hints(BMSSample)
+        assert isinstance(
+            result, dict
+        ), "async_update must return a dict-like BMSSample"
+
+        for key, value in result.items():
+            assert (
+                key in hints
+            ), f"Unexpected result key '{key}' not defined in BMSSample"
+            expected_type = hints[key]
+            assert _is_instance_of_type(
+                value, expected_type
+            ), f"{key} has wrong type {type(value).__name__}; expected {expected_type}"
 
 
 async def verify_device_info(
@@ -727,17 +792,17 @@ def test_cell_voltages(
             [1.0, -0.56, 3.0],
         ),
         # Not enough data for all values
-        (b"\x00\x7d", 2, 0, 2, "big", True, 0, 1, [125]),
+        (b"\x00\x7d", 2, 0, 2, "big", True, 0, 1, (125,)),
         # Zero values requested
-        (b"\x00\x7d", 0, 0, 2, "big", True, 0, 1, []),
+        (b"\x00\x7d", 0, 0, 2, "big", True, 0, 1, ()),
         # Divider = 1, offset = 7
-        (b"\x00\x14", 1, 0, 2, "big", True, 7, 1, [13]),
+        (b"\x00\x14", 1, 0, 2, "big", True, 7, 1, (13,)),
         # no offset, div = 10
-        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 0, 10, [10.1, 10.0, 0.0, 6.4]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 0, 10, (10.1, 10.0, 0.0, 6.4)),
         # offset -40, div = 10
-        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 40, 10, [6.1, 6.0, 2.4]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 40, 10, (6.1, 6.0, 2.4)),
         # offset -25, div = 1
-        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 25, 1, [76, 75, 39]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 25, 1, (76, 75, 39)),
     ],
     ids=[
         "two_signed_big_endian",
@@ -761,10 +826,10 @@ def test_temp_values(
     signed: bool,
     offset: float,
     divider: int,
-    expected: list[int | float],
+    expected: tuple[float, ...],
 ) -> None:
     """Test the _temp_values method of BaseBMS with various input parameters."""
-    result: list[int | float] = BaseBMS._temp_values(
+    result: list[TempSensor] = BaseBMS._temp_values(
         data,
         values=values,
         start=start,
@@ -774,7 +839,7 @@ def test_temp_values(
         offset=offset,
         divider=divider,
     )
-    assert result == expected
+    assert result == [TempSensor(v) for v in expected]
 
 
 @pytest.mark.parametrize(

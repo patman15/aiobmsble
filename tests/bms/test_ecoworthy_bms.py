@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.ecoworthy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -65,7 +65,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "power": -15.151,
         "battery_charging": False,
         "cell_voltages": [3.323, 3.325, 3.323, 3.322],
-        "temp_values": [20.5, 19.2, 19.0],
+        "temp_values": [TS(20.5), TS(19.2), TS(19.0)],
         "delta_voltage": 0.003,
         "runtime": 227368,
         "problem": False,
@@ -85,7 +85,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "power": -79.68,
         "battery_charging": False,
         "cell_voltages": [3.323, 3.324, 3.323, 3.317],
-        "temp_values": [22.0, 21.4],
+        "temp_values": [TS(22.0), TS(21.4)],
         "delta_voltage": 0.007,
         "problem": False,
         "problem_code": 0,
@@ -117,7 +117,7 @@ class MockECOWBleakClient(MockBleakClient):
         0xA1: bytearray(b"\x00\x01\x03\x00\x8c\x00\x00\x99\x42"),
         0xA2: bytearray(b"\x00\x01\x03\x00\x8d\x00\x00\x59\x13"),
     }
-    RESP: Final[dict[int, bytearray]] = {}
+    RESP: Final[dict[int, bytearray]] = _PROTO_DEFS[0x1]
 
     _task: asyncio.Task[None] | None = None
 

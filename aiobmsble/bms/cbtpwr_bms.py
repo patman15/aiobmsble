@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -30,11 +30,11 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 4, False, lambda x: x / 1000, 0x0B),
         BMSDp("current", 8, 4, True, lambda x: x / 1000, 0x0B),
-        BMSDp("temp_values", 4, 2, True, lambda x: [x], idx=0x09),
+        BMSDp("temp_values", 4, 2, True, lambda x: [TempSensor(x)], idx=0x09),
         BMSDp("battery_level", 4, 1, False, idx=0x0A),
         BMSDp("design_capacity", 4, 2, False, idx=0x15),
         BMSDp("cycles", 6, 2, False, idx=0x15),
-        BMSDp("runtime", 14, 2, False, lambda x: x * BMS._HRS_TO_SECS / 100, 0x0C),
+        BMSDp("runtime", 14, 2, False, lambda x: x * BMS._HRS_TO_SECS // 100, 0x0C),
         BMSDp("problem_code", 4, 4, False, idx=0x21),
     )
     _CMDS: Final = frozenset(field.idx for field in _FIELDS)

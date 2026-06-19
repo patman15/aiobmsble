@@ -38,7 +38,7 @@ class BMS(BaseBMS):
         BMSDp("voltage", 4, 2, False, lambda x: x / 10),
         BMSDp("current", 70, 4, True, lambda x: x / -10),
         BMSDp("battery_level", 74, 1, False),
-        BMSDp("design_capacity", 75, 4, False, lambda x: x // 1e6),
+        BMSDp("design_capacity", 75, 4, False, lambda x: x // 10**6),
         BMSDp("cycle_charge", 79, 4, False, lambda x: x / 1e6),
         BMSDp("total_charge", 83, 4, False, lambda x: x // 1000),
         BMSDp("runtime", 87, 4, False),
