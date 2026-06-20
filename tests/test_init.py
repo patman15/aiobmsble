@@ -43,3 +43,8 @@ def test_TempSensor() -> None:
     # Hash usable in sets
     s: set[TS] = {TS(1.0), TS(1.0)}
     assert len(s) == 1
+
+    # Test __repr__
+    assert repr(TS(3.14)) == "TempSensor(3.14, <T.GENERIC: 0>)"
+    assert repr(TS(5.0, TS.T.CELL)) == "TempSensor(5.0, <T.CELL: 1>)"
+    assert repr(TS(25, TS.T.PCB)) == "TempSensor(25, <T.PCB: 5>)"
