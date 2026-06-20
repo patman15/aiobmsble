@@ -727,11 +727,11 @@ class BaseBMS(ABC):
 
             for char in service.characteristics:
                 details: str = ""
-                if "read" in char.properties:
-                    try:
-                        details = f", Value: {await self._client.read_gatt_char(char)}"
-                    except (BleakError, asyncio.CancelledError, EOFError) as e:
-                        details = f", Error: {e}"
+                # if "read" in char.properties:
+                #     try:
+                #         details = f", Value: {await self._client.read_gatt_char(char)}"
+                #     except (BleakError, asyncio.CancelledError, EOFError) as e:
+                #         details = f", Error: {e}"
 
                 lines.append(f"  CHR {char} ({','.join(char.properties)}){details}")
 
