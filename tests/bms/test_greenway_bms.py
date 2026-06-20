@@ -8,7 +8,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSInfo, BMSSample
 from aiobmsble.bms.greenway_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -34,7 +34,7 @@ _PROTO_DEFS: Final[dict[int, bytes]] = {
     0x1B: b"\x47\x16\x01\x1b\x04\x19\x03\x0b\x00\xa4",  # manufacturing date 19-03-25
     0x1C: b"\x47\x16\x01\x1c\x04\x00\x00\x00\x00\x7e",  # warranty date?
     0x1D: b"\x47\x16\x01\x1d\x06\x1a\x05\x12\x11\x00\x16\xd9",
-    0x1E: b"\x47\x16\x01\x1e\x06\x00\x00\x58\x02\x2f\x00\x0b",
+    0x1E: b"\x47\x16\x01\x1e\x06\x00\x00\x58\x02\x2f\x00\x0b",  # fw: UD01, hw: '0.3', sw: '3.63'
     0x20: b"\x47\x16\x01\x20\x10\x47\x52\x45\x45\x4e\x57\x41\x59\x00\x00\x00\x00\x00\x00\x00\x00\xf0",  # GREENWAY
     0x21: b"\x47\x16\x01\x21\x20\x44\x4d\x33\x33\x37\x32\x30\x30\x38\x00\x00\x00\x00\x00\x00\x00"
     b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x97",  # DM3372008
@@ -184,15 +184,23 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-# async def test_tx_notimplemented(patch_bleak_client) -> None:
-#     """Test MyVolta BMS uuid_tx not implemented for coverage."""
+async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test fetching device info from BMS via Modbus."""
 
-#     patch_bleak_client(MockGreenwayBleakClient)
+    patch_bleak_client(MockGreenwayBleakClient)
 
-#     bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device())
 
-#     with pytest.raises(NotImplementedError):
-#         _ret: str = bms.uuid_tx()
+    assert await bms.device_info() == BMSInfo(
+        manufacturer="GREENWAY",
+        model="DM3372008",
+        serial_number="56C00253A00037",
+        fw_version="UD01",
+        hw_version="0.3",
+        sw_version="3.63",
+    )
+
+    await bms.disconnect()
 
 
 @pytest.mark.parametrize(
@@ -213,7 +221,7 @@ async def test_invalid_response(
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
-    patch_bms_timeout("greenway_bms")
+    patch_bms_timeout()
     monkeypatch.setattr(BMS, "_MSG_SET", frozenset({0x9}))  # only require voltage
     monkeypatch.setattr(MockGreenwayBleakClient, "_RESP", {0x9: wrong_response})
     patch_bleak_client(MockGreenwayBleakClient)

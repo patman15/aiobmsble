@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_sum
+from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
 class MsgT(IntEnum):
@@ -103,6 +103,26 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff1"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        INFO_SET: frozenset[MsgT] = frozenset({MsgT.VERSION, MsgT.MANUF, MsgT.BMS_TYPE})
+
+        for addr in (MsgT.VERSION, MsgT.MANUF, MsgT.BMS_TYPE, MsgT.SERIAL):
+            await self._await_msg(BMS._cmd(addr))
+
+        if not INFO_SET.issubset(self._msg.keys()):
+            raise ValueError("BMS data incomplete.")
+
+        ver: bytes = self._msg[MsgT.VERSION][BMS._LEN_POS+1:-1]
+        return BMSInfo(
+            manufacturer=b2str(self._msg[MsgT.MANUF][BMS._LEN_POS+1:-1]),
+            model=b2str(self._msg[MsgT.BMS_TYPE][BMS._LEN_POS+1:-1]),
+            serial_number=b2str(self._msg[MsgT.SERIAL][BMS._LEN_POS+1:-1]),
+            fw_version=b2str(ver[4:]),
+            hw_version=f"{ver[3]}.{ver[2]}",
+            sw_version=f"{ver[1]}.{ver[0]}",
+        )
+
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -180,6 +200,8 @@ class BMS(BaseBMS):
 
         for addr in BMS._MSG_SET:
             await self._await_msg(BMS._cmd(addr))
+
+        # FIXME! check message complete
 
         result: BMSSample = self._decode_data(
             BMS._FIELDS, self._msg, byteorder="little", start=BMS._LEN_POS + 1
