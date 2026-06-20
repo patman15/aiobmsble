@@ -25,6 +25,7 @@ class MsgT(IntEnum):
     SOC = 0xD
     SOH = 0xE
     CYC_CHRG = 0xF
+    STATUS = 0x16
     CYCLES = 0x17
     DCAP = 0x18
     DVOL = 0x19
@@ -56,8 +57,9 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 0, 4, False, idx=MsgT.SOC),
         BMSDp("battery_health", 0, 4, False, idx=MsgT.SOH),
         BMSDp("cycles", 0, 4, False, idx=MsgT.CYCLES),
-        BMSDp("cycle_charge", 0, 4, False, lambda x: x / 1000, idx=MsgT.CYC_CHRG),
-        BMSDp("design_capacity", 0, 4, False, lambda x: x // 1000, idx=MsgT.DCAP),
+        BMSDp("cycle_charge", 0, 4, False, lambda x: x / 1000, MsgT.CYC_CHRG),
+        BMSDp("design_capacity", 0, 4, False, lambda x: x // 1000, MsgT.DCAP),
+        BMSDp("problem_code", 2, 8, False, idx=MsgT.STATUS),
     )
     _INIT_SET: Final[frozenset[int]] = frozenset(
         (MsgT.VERSION, MsgT.MANUF, MsgT.CELL_TYPE, MsgT.SERIAL)

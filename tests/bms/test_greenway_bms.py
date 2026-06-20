@@ -58,49 +58,7 @@ class TestBasicBMS(BMSBasicTests):
 class MockGreenwayBleakClient(MockBleakClient):
     """Emulate a Greenway BMS BleakClient."""
 
-    # _chunk_sizes: Final[bytes] = (
-    #     b"\x01\x03\x05\x07\x13\x01\x03\x05\x07\x01\x03\x05\x01\x03\x01"
-    # )
     _RESP: Final[dict[int, bytes]] = _PROTO_DEFS
-    # _task: asyncio.Task[None] | None = None
-
-    # def __init__(
-    #     self,
-    #     address_or_ble_device: BLEDevice,
-    #     disconnected_callback: Callable[[BleakClient], None] | None,
-    #     services: Iterable[str] | None = None,
-    #     **kwargs: Any,
-    # ) -> None:
-    #     """Initialize the MockGreenwayBleakClient."""
-    #     super().__init__(
-    #         address_or_ble_device, disconnected_callback, services, **kwargs
-    #     )
-    #     self._iterator: int = 0
-
-    # async def _stream_data(self) -> None:
-    #     assert self._notify_callback, "send confirm called but notification not enabled"
-    #     while True:
-
-    #         for notify_data in [
-    #             self._RESP[self._iterator][i : i + BT_FRAME_SIZE]
-    #             for i in range(0, len(self._RESP[self._iterator]), BT_FRAME_SIZE)
-    #         ]:
-    #             self._notify_callback("MockGreenwayBleakClient", notify_data)
-    #         self._iterator = (self._iterator + 1) % len(self._RESP)
-    #         await asyncio.sleep(0)
-
-    # async def start_notify(
-    #     self,
-    #     char_specifier: BleakGATTCharacteristic | int | str | UUID,
-    #     callback: Callable[
-    #         [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-    #     ],
-    #     **kwargs: Any,
-    # ) -> None:
-    #     """Mock start_notify."""
-    #     await super().start_notify(char_specifier, callback, **kwargs)
-    #     self._task = asyncio.create_task(self._stream_data())
-    #     await asyncio.sleep(0)
 
     async def write_gatt_char(
         self,
@@ -121,14 +79,6 @@ class MockGreenwayBleakClient(MockBleakClient):
             for i in range(0, len(resp_data), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockGreenwayBleakClient", notify_data)
-
-    # async def disconnect(self) -> None:
-    #     """Mock disconnect and wait for send task."""
-    #     if self._task is not None:
-    #         self._task.cancel()
-    #         with contextlib.suppress(asyncio.CancelledError):
-    #             await self._task
-    #     await super().disconnect()
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
@@ -174,6 +124,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "design_capacity": 37,
         "power": 1201.453,
         "problem": False,
+        "problem_code": 0,
         "temp_values": [17.0, 17.0, 17.0, 18.0, 19.0, 19.0, 19.0],
         "temperature": 18.0,
     }
@@ -234,4 +185,34 @@ async def test_invalid_response(
         result = await bms.async_update()
 
     assert not result
+    await bms.disconnect()
+
+@pytest.mark.parametrize(
+    ("problem_response"),
+    [
+        b"\x47\x16\x01\x16\x10\x88\x90\x01\x00\x00\x00\x00\x00\x00\x00\x8e\x00\x00\x00\x00\x00\x2b",
+        b"\x47\x16\x01\x16\x10\x88\x90\x00\x00\x00\x00\x00\x00\x00\x80\x8e\x00\x00\x00\x00\x00\xaa",
+    ],
+    ids=["first_bit", "last_bit"],
+)
+async def test_problem_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytearray, str],
+    request: pytest.FixtureRequest,
+) -> None:
+    """Test data update with BMS returning error flags."""
+
+    test_id = request.node.callspec.id
+    monkeypatch.setattr(MockGreenwayBleakClient, "_RESP", _PROTO_DEFS | {0x16: problem_response})
+    patch_bleak_client(MockGreenwayBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = await bms.async_update()
+    assert result.get("problem", False)  # we expect a problem
+    assert result.get("problem_code", 0) == (
+        0x1 if test_id == "first_bit" else 0x80 << 56
+    )
+
     await bms.disconnect()
