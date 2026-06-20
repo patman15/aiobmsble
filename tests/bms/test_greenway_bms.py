@@ -209,9 +209,10 @@ async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
         b"\x47\x16\x01\x09\x04\x7c\x39\x01\x00\xff",
         b"\x47\x16\x01\x09\x05\x7c\x39\x01\x00\x21",
         b"\xff\x16\x01\x09\x04\x7c\x39\x01\x00\x21",
+        b"\x47\x16\x01\x0a\x04\x7b\x3a\x00\x00\x21",
         b"",
     ],
-    ids=["wrong_CRC", "wrong_len", "wrong_SOF", "empty"],
+    ids=["wrong_CRC", "wrong_len", "wrong_SOF", "wrong_type", "empty"],
 )
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,

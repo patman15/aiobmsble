@@ -63,7 +63,8 @@ class BMS(BaseBMS):
         (MsgT.VERSION, MsgT.MANUF, MsgT.CELL_TYPE, MsgT.SERIAL)
     )
     _MSG_SET: Final[frozenset[int]] = frozenset(
-        [field.idx for field in _FIELDS] + [MsgT.TEMP, MsgT.CELL_VOLTAGES1, MsgT.CELL_VOLTAGES2]
+        [field.idx for field in _FIELDS]
+        + [MsgT.TEMP, MsgT.CELL_VOLTAGES1, MsgT.CELL_VOLTAGES2]
     )
 
     def __init__(
@@ -76,6 +77,7 @@ class BMS(BaseBMS):
         """Initialize private BMS members."""
         super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
+        self._exp_reply: int = 0
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -105,19 +107,16 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        INFO_SET: frozenset[MsgT] = frozenset({MsgT.VERSION, MsgT.MANUF, MsgT.BMS_TYPE})
 
         for addr in (MsgT.VERSION, MsgT.MANUF, MsgT.BMS_TYPE, MsgT.SERIAL):
+            self._exp_reply = addr
             await self._await_msg(BMS._cmd(addr))
 
-        if not INFO_SET.issubset(self._msg.keys()):
-            raise ValueError("BMS data incomplete.")
-
-        ver: bytes = self._msg[MsgT.VERSION][BMS._LEN_POS+1:-1]
+        ver: bytes = self._msg[MsgT.VERSION][BMS._LEN_POS + 1 : -1]
         return BMSInfo(
-            manufacturer=b2str(self._msg[MsgT.MANUF][BMS._LEN_POS+1:-1]),
-            model=b2str(self._msg[MsgT.BMS_TYPE][BMS._LEN_POS+1:-1]),
-            serial_number=b2str(self._msg[MsgT.SERIAL][BMS._LEN_POS+1:-1]),
+            manufacturer=b2str(self._msg[MsgT.MANUF][BMS._LEN_POS + 1 : -1]),
+            model=b2str(self._msg[MsgT.BMS_TYPE][BMS._LEN_POS + 1 : -1]),
+            serial_number=b2str(self._msg[MsgT.SERIAL][BMS._LEN_POS + 1 : -1]),
             fw_version=b2str(ver[4:]),
             hw_version=f"{ver[3]}.{ver[2]}",
             sw_version=f"{ver[1]}.{ver[0]}",
@@ -145,13 +144,20 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
+        if self._frame[3] != self._exp_reply:
+            self._log.debug(
+                "received message type 0x%X, expected 0x%X",
+                self._frame[3],
+                self._exp_reply,
+            )
+            return
+
         if not self._check_integrity(
             self._frame, crc_sum, slice(None, -1), slice(-1, None)
         ):
             return
 
         self._msg[self._frame[3]] = bytes(self._frame)
-        self._log.debug("received message type 0x%X", self._frame[3])
         self._msg_event.set()
 
     @staticmethod
@@ -199,9 +205,8 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         for addr in BMS._MSG_SET:
+            self._exp_reply = addr
             await self._await_msg(BMS._cmd(addr))
-
-        # FIXME! check message complete
 
         result: BMSSample = self._decode_data(
             BMS._FIELDS, self._msg, byteorder="little", start=BMS._LEN_POS + 1
