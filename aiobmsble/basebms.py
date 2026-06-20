@@ -400,6 +400,13 @@ class BaseBMS(ABC):
                 services=[*self.uuid_services(), "180a"],
             )
 
+            if self._log.isEnabledFor(logging.DEBUG):
+                self._log.debug(
+                    "GATT profile for request %s:\n %s",
+                    self.uuid_services(),
+                    await self.get_GATT_profile(),
+                )
+
             try:
                 await self._init_connection()
             except Exception as exc:
@@ -709,6 +716,35 @@ class BaseBMS(ABC):
             self._log.debug("invalid checksum 0x%X != 0x%X", exp_dic, calc_dic)
             return False
         return True
+
+    @final
+    async def get_GATT_profile(self) -> str:
+        """Return a string containing all services, characteristics and descriptors of the connected device."""
+        lines: list[str] = []
+
+        for service in self._client.services:
+            lines.append(f"SRV {service}")
+
+            for char in service.characteristics:
+                details: str = ""
+                if "read" in char.properties:
+                    try:
+                        details = f", Value: {await self._client.read_gatt_char(char)}"
+                    except (BleakError, EOFError) as e:
+                        details = f", Error: {e}"
+
+                lines.append(f"  CHR {char} ({','.join(char.properties)}){details}")
+
+                for descriptor in char.descriptors:
+                    try:
+                        value: bytearray = await self._client.read_gatt_descriptor(
+                            descriptor
+                        )
+                        lines.append(f"    DCR {descriptor}, Value: {value!r}")
+                    except (BleakError, EOFError) as e:
+                        lines.append(f"    DCR {descriptor}, Error: {e}")
+
+        return "\n".join(lines)
 
 
 def b2str(b: bytes) -> str:

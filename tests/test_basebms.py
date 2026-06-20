@@ -951,3 +951,164 @@ def test_b2str(data: bytes, expected: str) -> None:
 def test_lstr2int(data: str, expected: int) -> None:
     """Test string to integer conversion function."""
     assert lstr2int(data) == expected
+
+
+class MockGATTService:
+    """Mock BLE GATT service for get_GATT_profile()."""
+
+    def __init__(
+        self, name: str, characteristics: list["MockGATTCharacteristic"]
+    ) -> None:
+        """Initialize mock GATT service."""
+        self._name: str = name
+        self.characteristics: list[MockGATTCharacteristic] = characteristics
+
+    def __str__(self) -> str:
+        """Return mock service string."""
+        return self._name
+
+
+class MockGATTCharacteristic:
+    """Mock BLE GATT characteristic for get_GATT_profile()."""
+
+    def __init__(
+        self,
+        name: str,
+        properties: list[str],
+        descriptors: list["MockGATTDescriptor"],
+    ) -> None:
+        """Initialize mock GATT characteristic."""
+        self._name: str = name
+        self.properties: list[str] = properties
+        self.descriptors: list[MockGATTDescriptor] = descriptors
+
+    def __str__(self) -> str:
+        """Return mock characteristic string."""
+        return self._name
+
+
+class MockGATTDescriptor:
+    """Mock BLE GATT descriptor for get_GATT_profile()."""
+
+    def __init__(self, name: str) -> None:
+        """Initialize mock GATT descriptor."""
+        self._name: str = name
+
+    def __str__(self) -> str:
+        """Return mock descriptor string."""
+        return self._name
+
+
+class MockGATTProfileBleakClient(MockBleakClient):
+    """Mock BleakClient with a GATT profile."""
+
+    CHAR_READ_VALUES: dict[str, bytearray | Exception] = {}
+    DESCRIPTOR_READ_VALUES: dict[str, bytearray | Exception] = {}
+
+    @property
+    def services(self) -> list[MockGATTService]:  # type: ignore[override]
+        """Mock GATT services."""
+        return [
+            MockGATTService(
+                "service_1",
+                [
+                    MockGATTCharacteristic(
+                        "char_1_read",
+                        ["read", "notify"],
+                        [MockGATTDescriptor("descriptor_1")],
+                    ),
+                    MockGATTCharacteristic(
+                        "char_2_write",
+                        ["write"],
+                        [MockGATTDescriptor("descriptor_2")],
+                    ),
+                ],
+            ),
+            MockGATTService(
+                "service_2",
+                [
+                    MockGATTCharacteristic(
+                        "char_3_read_error",
+                        ["read"],
+                        [MockGATTDescriptor("descriptor_3_error")],
+                    ),
+                ],
+            ),
+        ]
+
+    async def read_gatt_char(  # type: ignore[override]
+        self,
+        char_specifier: (
+            BleakGATTCharacteristic | MockGATTCharacteristic | int | str | UUID
+        ),
+        **kwargs: Any,
+    ) -> bytearray:
+        """Mock read GATT characteristic."""
+        if isinstance(char_specifier, MockGATTCharacteristic):
+            value: bytearray | Exception = self.CHAR_READ_VALUES[str(char_specifier)]
+            if isinstance(value, Exception):
+                raise value
+            return value
+        return await super().read_gatt_char(char_specifier, **kwargs)
+
+    async def read_gatt_descriptor(  # type: ignore[override]
+        self,
+        handle: MockGATTDescriptor,
+        **kwargs: Any,
+    ) -> bytearray:
+        """Mock read GATT descriptor."""
+        value: bytearray | Exception = self.DESCRIPTOR_READ_VALUES[str(handle)]
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+
+@pytest.mark.parametrize(
+    ("char_error", "descriptor_error"),
+    [
+        (BleakError("mock char read error"), BleakError("mock descriptor read error")),
+        (EOFError("mock char eof error"), EOFError("mock descriptor eof error")),
+    ],
+    ids=["bleak_error", "eof_error"],
+)
+async def test_get_gatt_profile(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    char_error: Exception,
+    descriptor_error: Exception,
+) -> None:
+    """Verify get_GATT_profile returns one line for each service, characteristic and descriptor."""
+    monkeypatch.setattr(
+        MockGATTProfileBleakClient,
+        "CHAR_READ_VALUES",
+        {
+            "char_1_read": bytearray(b"mock_char_value"),
+            "char_3_read_error": char_error,
+        },
+    )
+    monkeypatch.setattr(
+        MockGATTProfileBleakClient,
+        "DESCRIPTOR_READ_VALUES",
+        {
+            "descriptor_1": bytearray(b"mock_descriptor_value_1"),
+            "descriptor_2": bytearray(b"mock_descriptor_value_2"),
+            "descriptor_3_error": descriptor_error,
+        },
+    )
+    patch_bleak_client(MockGATTProfileBleakClient)
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._client.connect()
+
+    result: str = await bms.get_GATT_profile()
+
+    assert result.splitlines() == [
+        "SRV service_1",
+        "  CHR char_1_read (read,notify), Value: bytearray(b'mock_char_value')",
+        "    DCR descriptor_1, Value: bytearray(b'mock_descriptor_value_1')",
+        "  CHR char_2_write (write)",
+        "    DCR descriptor_2, Value: bytearray(b'mock_descriptor_value_2')",
+        "SRV service_2",
+        f"  CHR char_3_read_error (read), Error: {char_error}",
+        f"    DCR descriptor_3_error, Error: {descriptor_error}",
+    ]
