@@ -1,4 +1,4 @@
-"""Test the MyVolta BMS implementation."""
+"""Test the Greenway BMS implementation."""
 
 import asyncio
 from collections.abc import Buffer
@@ -33,8 +33,8 @@ _PROTO_DEFS: Final[dict[int, bytes]] = {
     0x1A: b"\x47\x16\x01\x1a\x08\x3f\x03\x03\x00\x55\x44\x30\x31\xbf",  # SW 3.63, HW 0.63, FW: UD01
     0x1B: b"\x47\x16\x01\x1b\x04\x19\x03\x0b\x00\xa4",  # manufacturing date 19-03-25
     0x1C: b"\x47\x16\x01\x1c\x04\x00\x00\x00\x00\x7e",  # warranty date?
-    0x1D: b"\x47\x16\x01\x1d\x06\x1a\x05\x12\x11\x00\x16\xd9",
-    0x1E: b"\x47\x16\x01\x1e\x06\x00\x00\x58\x02\x2f\x00\x0b",  # fw: UD01, hw: '0.3', sw: '3.63'
+    0x1D: b"\x47\x16\x01\x1d\x06\x1a\x05\x12\x11\x00\x16\xd9",  # RTC: YYMMDDHHMISS
+    0x1E: b"\x47\x16\x01\x1e\x06\x00\x00\x58\x02\x2f\x00\x0b",
     0x20: b"\x47\x16\x01\x20\x10\x47\x52\x45\x45\x4e\x57\x41\x59\x00\x00\x00\x00\x00\x00\x00\x00\xf0",  # GREENWAY
     0x21: b"\x47\x16\x01\x21\x20\x44\x4d\x33\x33\x37\x32\x30\x30\x38\x00\x00\x00\x00\x00\x00\x00"
     b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x97",  # DM3372008
@@ -187,6 +187,7 @@ async def test_invalid_response(
     assert not result
     await bms.disconnect()
 
+
 @pytest.mark.parametrize(
     ("problem_response"),
     [
@@ -204,7 +205,9 @@ async def test_problem_response(
     """Test data update with BMS returning error flags."""
 
     test_id = request.node.callspec.id
-    monkeypatch.setattr(MockGreenwayBleakClient, "_RESP", _PROTO_DEFS | {0x16: problem_response})
+    monkeypatch.setattr(
+        MockGreenwayBleakClient, "_RESP", _PROTO_DEFS | {0x16: problem_response}
+    )
     patch_bleak_client(MockGreenwayBleakClient)
 
     bms = BMS(generate_ble_device())

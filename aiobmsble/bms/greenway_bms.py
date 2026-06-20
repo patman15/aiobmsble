@@ -32,6 +32,7 @@ class MsgT(IntEnum):
     VERSION = 0x1A
     MDATE = 0x1B
     WDATE = 0x1C
+    RTC = 0x1D
     MANUF = 0x20
     BMS_TYPE = 0x21
     CELL_TYPE = 0x22
