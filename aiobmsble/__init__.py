@@ -107,6 +107,10 @@ class TempSensor:
         """Hash the TempSensor based on its value and type."""
         return hash((self.value, self.type))
 
+    def __repr__(self) -> str:
+        """Return the string representation of the sensor value/type."""
+        return f"{self.__class__.__name__}({self.value!r}, {self.type!r})"
+
 
 class BMSSample(TypedDict, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
