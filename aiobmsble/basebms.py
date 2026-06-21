@@ -721,13 +721,18 @@ class BaseBMS(ABC):
     async def get_GATT_profile(self) -> str:
         """Return a string containing all services, characteristics and descriptors of the connected device."""
         # Do not query values from device to avoid all kinds of exceptions that would need to be handled/ignored.
-        lines: list[str] = []
+        if not self.is_connected:
+            return "device not connected"
 
-        for service in self._client.services:
-            lines.append(f"SRV {service}")
-            for char in service.characteristics:
-                lines.append(f"  CHR {char} ({",".join(char.properties)})")
-                lines.extend(f"    DCR {descriptor}" for descriptor in char.descriptors)
+        lines: list[str] = []
+        try:
+            for service in self._client.services:
+                lines.append(f"SRV {service}")
+                for char in service.characteristics:
+                    lines.append(f"  CHR {char} ({",".join(char.properties)})")
+                    lines.extend(f"    DCR {descriptor}" for descriptor in char.descriptors)
+        except BleakError as exc:
+            return str(exc)
 
         return "\n".join(lines)
 
