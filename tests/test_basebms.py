@@ -951,3 +951,138 @@ def test_b2str(data: bytes, expected: str) -> None:
 def test_lstr2int(data: str, expected: int) -> None:
     """Test string to integer conversion function."""
     assert lstr2int(data) == expected
+
+
+class MockGATTService:
+    """Mock BLE GATT service for get_GATT_profile()."""
+
+    def __init__(
+        self, name: str, characteristics: list["MockGATTCharacteristic"]
+    ) -> None:
+        """Initialize mock GATT service."""
+        self._name: str = name
+        self.characteristics: list[MockGATTCharacteristic] = characteristics
+
+    def __str__(self) -> str:
+        """Return mock service string."""
+        return self._name
+
+
+class MockGATTCharacteristic:
+    """Mock BLE GATT characteristic for get_GATT_profile()."""
+
+    def __init__(
+        self,
+        name: str,
+        properties: list[str],
+        descriptors: list["MockGATTDescriptor"],
+    ) -> None:
+        """Initialize mock GATT characteristic."""
+        self._name: str = name
+        self.properties: list[str] = properties
+        self.descriptors: list[MockGATTDescriptor] = descriptors
+
+    def __str__(self) -> str:
+        """Return mock characteristic string."""
+        return self._name
+
+
+class MockGATTDescriptor:
+    """Mock BLE GATT descriptor for get_GATT_profile()."""
+
+    def __init__(self, name: str) -> None:
+        """Initialize mock GATT descriptor."""
+        self._name: str = name
+
+    def __str__(self) -> str:
+        """Return mock descriptor string."""
+        return self._name
+
+
+class MockGATTProfileBleakClient(MockBleakClient):
+    """Mock BleakClient with a GATT profile."""
+
+    @property
+    def services(self) -> list[MockGATTService]:  # type: ignore[override]
+        """Mock GATT services."""
+        return [
+            MockGATTService(
+                "service_1",
+                [
+                    MockGATTCharacteristic(
+                        "char_1_read",
+                        ["read", "notify"],
+                        [MockGATTDescriptor("descriptor_1")],
+                    ),
+                    MockGATTCharacteristic(
+                        "char_2_write",
+                        ["write"],
+                        [MockGATTDescriptor("descriptor_2")],
+                    ),
+                ],
+            ),
+            MockGATTService(
+                "service_2",
+                [
+                    MockGATTCharacteristic(
+                        "char_3_notify",
+                        ["notify"],
+                        [MockGATTDescriptor("descriptor_3")],
+                    ),
+                ],
+            ),
+        ]
+
+
+async def test_get_gatt_profile(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns one line for each service, characteristic and descriptor."""
+
+    patch_bleak_client(MockGATTProfileBleakClient)
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._client.connect()
+
+    result: str = await bms.get_GATT_profile()
+
+    assert result.splitlines() == [
+        "SRV service_1",
+        "  CHR char_1_read (read,notify)",
+        "    DCR descriptor_1",
+        "  CHR char_2_write (write)",
+        "    DCR descriptor_2",
+        "SRV service_2",
+        "  CHR char_3_notify (notify)",
+        "    DCR descriptor_3",
+    ]
+
+
+async def test_get_gatt_profile_not_connected(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns error message when device not connected."""
+    patch_bleak_client(MockBleakClient)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+
+    assert await bms.get_GATT_profile() == "device not connected"
+
+
+async def test_get_gatt_profile_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns error string when BleakError occurs."""
+    patch_bleak_client(MockGATTProfileBleakClient)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._client.connect()
+
+    def raise_bleak_error(_self) -> NoReturn:
+        raise BleakError("mock error")
+
+    # Monkeypatch services property to raise BleakError
+    monkeypatch.setattr(
+        MockGATTProfileBleakClient, "services", property(raise_bleak_error)
+    )
+
+    assert "mock error" in await bms.get_GATT_profile()

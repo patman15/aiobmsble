@@ -36,8 +36,8 @@ async def main(dev_name: str) -> None:
             logger.info("Updating BMS data...")
             data: BMSSample = await bms.async_update()
             logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
-    except BleakError as ex:
-        logger.error("Failed to update BMS: %s", type(ex).__name__)
+    except BleakError as exc:
+        logger.error("Failed to update BMS: %s", type(exc).__name__)
 
 
 if __name__ == "__main__":

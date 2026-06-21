@@ -131,8 +131,8 @@ class MockTopbandBleakClient(MockBleakClient):
 
     @property
     def is_connected(self) -> bool:
-        """Mock connected."""
-        if self._connected:
+        """Mock connected to retrigger frame transmission in MockClient."""
+        if self._connected and self._notify_callback is not None:
             self._send_info()  # patch to provide data when not reconnecting
         return self._connected
 
