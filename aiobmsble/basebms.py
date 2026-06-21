@@ -22,7 +22,11 @@ from bleak.exc import (
     BleakDeviceNotFoundError,
     BleakError,
 )
-from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
+from bleak_retry_connector import (
+    BLEAK_TIMEOUT,
+    close_stale_connections,
+    establish_connection,
+)
 
 from aiobmsble import (
     BMSDp,
@@ -384,12 +388,9 @@ class BaseBMS(ABC):
                 self._log.debug("BMS already connected")
                 return
 
-            try:
-                await self._client.disconnect()  # ensure no stale connection exists
-            except (BleakError, TimeoutError, EOFError) as exc:
-                self._log.debug(
-                    "failed to disconnect stale connection (%s)", type(exc).__name__
-                )
+            await close_stale_connections(
+                self._ble_device, only_other_adapters=True
+            )  # ensure no stale connection exists
 
             self._log.debug("connecting BMS")
             self._client = await establish_connection(
@@ -491,16 +492,26 @@ class BaseBMS(ABC):
 
     @final
     async def disconnect(self, reset: bool = False) -> None:
-        """Disconnect the BMS, includes stopping notifications."""
+        """Disconnect the BMS, includes stopping notifications.
+
+        Args:
+            reset (bool): if true, the write mode is reset to default and all connections are
+            closed to ensure a clean state for the next connection. This should be used in case
+            of stale connections. (Default: False)
+        """
 
         self._log.debug("disconnecting BMS (%s)", self._client.is_connected)
+        self._msg_event.clear()
         try:
-            self._msg_event.clear()
-            if reset:
-                self._inv_wr_mode = None  # reset write mode
             await self._client.disconnect()
         except (BleakError, TimeoutError, EOFError) as exc:
             self._log.warning("disconnect failed! (%s)", type(exc).__name__)
+        if reset:
+            self._log.debug("closing stale BMS connections and resetting write mode")
+            self._inv_wr_mode = None  # reset write mode
+            await close_stale_connections(
+                self._ble_device, only_other_adapters=False
+            )  # ensure all connections are closed
 
     @final
     async def _wait_event(self) -> None:
@@ -730,7 +741,7 @@ class BaseBMS(ABC):
                 lines.append(f"SRV {service}")
                 for char in service.characteristics:
                     lines.append(f"  CHR {char} ({",".join(char.properties)})")
-                    lines.extend(f"    DCR {descriptor}" for descriptor in char.descriptors)
+                    lines.extend(f"    DCR {desc}" for desc in char.descriptors)
         except BleakError as exc:
             return str(exc)
 

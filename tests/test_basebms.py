@@ -604,27 +604,6 @@ async def test_no_notify(
     assert not bms._client.is_connected
 
 
-async def test_disconnect_fail(
-    monkeypatch: pytest.MonkeyPatch,
-    patch_bleak_client: Callable[..., None],
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Check that exceptions in connect function for guarding disconnect are ignored."""
-
-    async def _raise_bleak_error(*args: Any) -> NoReturn:
-        raise BleakError
-
-    monkeypatch.setattr(MockBleakClient, "disconnect", _raise_bleak_error)
-    patch_bleak_client(MockBleakClient)
-
-    bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
-    with caplog.at_level(DEBUG):
-        result: BMSSample = await bms.async_update()
-    assert result == {"problem": True, "problem_code": 21}
-    assert "failed to disconnect stale connection (BleakError)" in caplog.text
-    assert "disconnect failed!" in caplog.text
-
-
 async def test_init_connect_fail(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client: Callable[..., None],
