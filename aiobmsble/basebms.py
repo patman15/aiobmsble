@@ -720,29 +720,14 @@ class BaseBMS(ABC):
     @final
     async def get_GATT_profile(self) -> str:
         """Return a string containing all services, characteristics and descriptors of the connected device."""
+        # Do not query values from device to avoid all kinds of exceptions that would need to be handled/ignored.
         lines: list[str] = []
 
         for service in self._client.services:
             lines.append(f"SRV {service}")
-
             for char in service.characteristics:
-                details: str = ""
-                # if "read" in char.properties:
-                #     try:
-                #         details = f", Value: {await self._client.read_gatt_char(char)}"
-                #     except (BleakError, asyncio.CancelledError, EOFError) as e:
-                #         details = f", Error: {e}"
-
-                lines.append(f"  CHR {char} ({','.join(char.properties)}){details}")
-
-                for descriptor in char.descriptors:
-                    try:
-                        value: bytearray = await self._client.read_gatt_descriptor(
-                            descriptor
-                        )
-                        lines.append(f"    DCR {descriptor}, Value: {value!r}")
-                    except (BleakError, asyncio.CancelledError, EOFError) as e:
-                        lines.append(f"    DCR {descriptor}, Error: {e}")
+                lines.append(f"  CHR {char} ({",".join(char.properties)})")
+                lines.extend(f"    DCR {descriptor}" for descriptor in char.descriptors)
 
         return "\n".join(lines)
 
