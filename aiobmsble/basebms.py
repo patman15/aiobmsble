@@ -7,7 +7,6 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
-from contextlib import suppress
 from functools import cache
 from itertools import takewhile
 import logging
@@ -394,45 +393,38 @@ class BaseBMS(ABC):
                 self._log.debug("BMS already connected")
                 return
 
-            await close_stale_connections(
-                self._ble_device, only_other_adapters=True
-            )  # ensure no stale connection exists
+        self._log.debug("connecting BMS")
 
-            self._log.debug("connecting BMS")
+        try:
+            async with asyncio.timeout(self._CONNECT_TIMEOUT):
+                await close_stale_connections(
+                    self._ble_device, only_other_adapters=True
+                )  # ensure no stale connection exists
 
-            try:
-                async with asyncio.timeout(self._CONNECT_TIMEOUT):
-                    self._client = await establish_connection(
-                        client_class=BleakClient,
-                        device=self._ble_device,
-                        name=self._ble_device.address,
-                        disconnected_callback=self._on_disconnect,
-                        services=[*self.uuid_services(), "180a"],
+                self._client = await establish_connection(
+                    client_class=BleakClient,
+                    device=self._ble_device,
+                    name=self._ble_device.address,
+                    disconnected_callback=self._on_disconnect,
+                    services=[*self.uuid_services(), "180a"],
+                )
+
+                if self._log.isEnabledFor(logging.DEBUG):
+                    gatt = await self.get_GATT_profile()
+                    self._log.debug(
+                        "GATT profile for request %s:\n %s",
+                        self.uuid_services(),
+                        gatt,
                     )
 
-                    if self._log.isEnabledFor(logging.DEBUG):
-                        self._log.debug(
-                            "GATT profile for request %s:\n %s",
-                            self.uuid_services(),
-                            await self.get_GATT_profile(),
-                        )
+                await self._init_connection()
 
-                    try:
-                        await self._init_connection()
-                    except Exception as exc:
-                        self._log.info(
-                            "failed to initialize BMS connection (%s)",
-                            type(exc).__name__,
-                        )
-                        await self.disconnect()
-                        raise
-            except TimeoutError:
-                self._log.warning(
-                    "connection timed out after %.0fs", self._CONNECT_TIMEOUT
-                )
-                with suppress(BleakError, TimeoutError, EOFError):
-                    await self._client.disconnect()
-                raise
+        except (TimeoutError, BleakError, EOFError, ConnectionError) as exc:
+            self._log.info(
+                "failed to initialize BMS connection (%s)", type(exc).__name__
+            )
+            await self.disconnect()
+            raise
 
     def _wr_response(self, char: int | str) -> bool:
         char_tx: Final[BleakGATTCharacteristic | None] = (
