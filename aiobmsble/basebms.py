@@ -23,7 +23,11 @@ from bleak.exc import (
     BleakDeviceNotFoundError,
     BleakError,
 )
-from bleak_retry_connector import BLEAK_TIMEOUT, establish_connection
+from bleak_retry_connector import (
+    BLEAK_TIMEOUT,
+    close_stale_connections,
+    establish_connection,
+)
 
 from aiobmsble import (
     BMSDp,
@@ -389,14 +393,12 @@ class BaseBMS(ABC):
                 self._log.debug("BMS already connected")
                 return
 
-            try:
-                await self._client.disconnect()  # ensure no stale connection exists
-            except (BleakError, TimeoutError, EOFError) as exc:
-                self._log.debug(
-                    "failed to disconnect stale connection (%s)", type(exc).__name__
-                )
+            await close_stale_connections(
+                self._ble_device, only_other_adapters=True
+            )  # ensure no stale connection exists
 
             self._log.debug("connecting BMS")
+
             try:
                 async with asyncio.timeout(self._CONNECT_TIMEOUT):
                     self._client = await establish_connection(
@@ -406,6 +408,13 @@ class BaseBMS(ABC):
                         disconnected_callback=self._on_disconnect,
                         services=[*self.uuid_services(), "180a"],
                     )
+
+                    if self._log.isEnabledFor(logging.DEBUG):
+                        self._log.debug(
+                            "GATT profile for request %s:\n %s",
+                            self.uuid_services(),
+                            await self.get_GATT_profile(),
+                        )
 
                     try:
                         await self._init_connection()
@@ -499,16 +508,26 @@ class BaseBMS(ABC):
 
     @final
     async def disconnect(self, reset: bool = False) -> None:
-        """Disconnect the BMS, includes stopping notifications."""
+        """Disconnect the BMS, includes stopping notifications.
+
+        Args:
+            reset (bool): if true, the write mode is reset to default and all connections are
+            closed to ensure a clean state for the next connection. This should be used in case
+            of stale connections. (Default: False)
+        """
 
         self._log.debug("disconnecting BMS (%s)", self._client.is_connected)
+        self._msg_event.clear()
         try:
-            self._msg_event.clear()
-            if reset:
-                self._inv_wr_mode = None  # reset write mode
             await self._client.disconnect()
         except (BleakError, TimeoutError, EOFError) as exc:
             self._log.warning("disconnect failed! (%s)", type(exc).__name__)
+        if reset:
+            self._log.debug("closing stale BMS connections and resetting write mode")
+            self._inv_wr_mode = None  # reset write mode
+            await close_stale_connections(
+                self._ble_device, only_other_adapters=False
+            )  # ensure all connections are closed
 
     @final
     async def _wait_event(self) -> None:
@@ -724,6 +743,25 @@ class BaseBMS(ABC):
             self._log.debug("invalid checksum 0x%X != 0x%X", exp_dic, calc_dic)
             return False
         return True
+
+    @final
+    async def get_GATT_profile(self) -> str:
+        """Return a string containing all services, characteristics and descriptors of the connected device."""
+        # Do not query values from device to avoid all kinds of exceptions that would need to be handled/ignored.
+        if not self.is_connected:
+            return "device not connected"
+
+        lines: list[str] = []
+        try:
+            for service in self._client.services:
+                lines.append(f"SRV {service}")
+                for char in service.characteristics:
+                    lines.append(f"  CHR {char} ({",".join(char.properties)})")
+                    lines.extend(f"    DCR {desc}" for desc in char.descriptors)
+        except BleakError as exc:
+            return str(exc)
+
+        return "\n".join(lines)
 
 
 def b2str(b: bytes) -> str:
