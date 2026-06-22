@@ -900,6 +900,7 @@ def test_b2str(data: bytes, expected: str) -> None:
     """Test bytearray to string conversion function."""
     assert b2str(data) == expected
 
+
 @pytest.mark.parametrize(
     ("data", "expected"),
     [
@@ -936,11 +937,6 @@ def test_lstr2int(data: str, expected: int) -> None:
 # Connection timeout wrapper tests
 # ---------------------------------------------------------------------------
 
-class ShortTimeoutBMS(MinTestBMS):
-    """BMS subclass with a shorter connection timeout."""
-
-    _CONNECT_TIMEOUT: float = 5.0
-
 
 async def test_connect_timeout_fires(
     monkeypatch: pytest.MonkeyPatch,
@@ -949,19 +945,20 @@ async def test_connect_timeout_fires(
 ) -> None:
     """Verify hard timeout fires when establish_connection hangs."""
 
+    TEST_TIMEOUT = 0.01  # very short timeout
+
     async def _hang(**kwargs: Any) -> None:
-        await asyncio.sleep(999)
+        await asyncio.sleep(TEST_TIMEOUT * 10)
 
     patch_bleak_client()
-    monkeypatch.setattr("aiobmsble.basebms.establish_connection", _hang)
-
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
-    bms._CONNECT_TIMEOUT = 0.1  # very short timeout
+    monkeypatch.setattr(bms, "_init_connection", _hang)
+    monkeypatch.setattr(bms, "_CONNECT_TIMEOUT", TEST_TIMEOUT)
 
     with caplog.at_level(DEBUG), pytest.raises(TimeoutError):
         await bms.async_update()
 
-    assert "connection timed out after" in caplog.text
+    assert "failed to initialize BMS connection" in caplog.text
 
 
 async def test_connect_within_timeout(
@@ -986,8 +983,10 @@ async def test_connect_timeout_cleanup(
     """Verify cleanup disconnect is attempted when timeout fires."""
     disconnect_called: list[bool] = []
 
+    TEST_TIMEOUT = 0.01  # very short timeout
+
     async def _hang(**kwargs: Any) -> None:
-        await asyncio.sleep(999)
+        await asyncio.sleep(TEST_TIMEOUT * 10)
 
     original_disconnect = MockBleakClient.disconnect
 
@@ -996,11 +995,10 @@ async def test_connect_timeout_cleanup(
         await original_disconnect(self)
 
     patch_bleak_client()
-    monkeypatch.setattr("aiobmsble.basebms.establish_connection", _hang)
-    monkeypatch.setattr(MockBleakClient, "disconnect", _tracking_disconnect)
-
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
-    bms._CONNECT_TIMEOUT = 0.1
+    monkeypatch.setattr(bms, "_init_connection", _hang)
+    monkeypatch.setattr(MockBleakClient, "disconnect", _tracking_disconnect)
+    monkeypatch.setattr(bms, "_CONNECT_TIMEOUT", TEST_TIMEOUT)
 
     with pytest.raises(TimeoutError):
         await bms.async_update()
@@ -1009,26 +1007,6 @@ async def test_connect_timeout_cleanup(
     assert len(disconnect_called) >= 1
 
 
-async def test_connect_timeout_subclass_override(
-    monkeypatch: pytest.MonkeyPatch,
-    patch_bleak_client: Callable[..., None],
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Verify subclass can override _CONNECT_TIMEOUT."""
-
-    async def _hang(**kwargs: Any) -> None:
-        await asyncio.sleep(999)
-
-    patch_bleak_client()
-    monkeypatch.setattr("aiobmsble.basebms.establish_connection", _hang)
-
-    bms: ShortTimeoutBMS = ShortTimeoutBMS(generate_ble_device())
-    bms._CONNECT_TIMEOUT = 0.1  # override even shorter for test speed
-
-    with caplog.at_level(DEBUG), pytest.raises(TimeoutError):
-        await bms.async_update()
-
-    assert "connection timed out after" in caplog.text
 class MockGATTService:
     """Mock BLE GATT service for get_GATT_profile()."""
 
