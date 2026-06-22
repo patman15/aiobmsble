@@ -25,6 +25,7 @@ from bleak.exc import (
 )
 from bleak_retry_connector import (
     BLEAK_TIMEOUT,
+    MAX_CONNECT_ATTEMPTS,
     close_stale_connections,
     establish_connection,
 )
@@ -55,7 +56,7 @@ class BaseBMS(ABC):
     # Hard timeout for the entire connection setup (connect + GATT + notify).
     # Acts as a safety net when BlueZ hangs and bleak_retry_connector's
     # internal timeouts fail to fire.  Not ``Final`` so subclasses can tune.
-    _CONNECT_TIMEOUT: float = 30.0
+    _CONNECT_TIMEOUT: Final[float] = MAX_CONNECT_ATTEMPTS * BLEAK_TIMEOUT + 1
 
     accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
 
