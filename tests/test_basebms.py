@@ -1,5 +1,6 @@
 """Test the BLE Battery Management System base class functions."""
 
+import asyncio
 from collections.abc import Buffer, Callable
 from logging import DEBUG
 from string import hexdigits
@@ -930,6 +931,80 @@ def test_b2str(data: bytes, expected: str) -> None:
 def test_lstr2int(data: str, expected: int) -> None:
     """Test string to integer conversion function."""
     assert lstr2int(data) == expected
+
+
+# ---------------------------------------------------------------------------
+# Connection timeout wrapper tests
+# ---------------------------------------------------------------------------
+
+
+async def test_connect_timeout_fires(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify hard timeout fires when establish_connection hangs."""
+
+    TEST_TIMEOUT = 0.01  # very short timeout
+
+    async def _hang(**kwargs: Any) -> None:
+        await asyncio.sleep(TEST_TIMEOUT * 10)
+
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    monkeypatch.setattr(bms, "_init_connection", _hang)
+    monkeypatch.setattr(bms, "_CONNECT_TIMEOUT", TEST_TIMEOUT)
+
+    with caplog.at_level(DEBUG), pytest.raises(TimeoutError):
+        await bms.async_update()
+
+    assert "failed to initialize BMS connection" in caplog.text
+
+
+async def test_connect_within_timeout(
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify normal connection completes without timeout warning."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+
+    with caplog.at_level(DEBUG):
+        await bms.async_update()
+
+    assert "connection timed out" not in caplog.text
+    assert bms._client.is_connected
+
+
+async def test_connect_timeout_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify cleanup disconnect is attempted when timeout fires."""
+    disconnect_called: list[bool] = []
+
+    TEST_TIMEOUT = 0.01  # very short timeout
+
+    async def _hang(**kwargs: Any) -> None:
+        await asyncio.sleep(TEST_TIMEOUT * 10)
+
+    original_disconnect = MockBleakClient.disconnect
+
+    async def _tracking_disconnect(self: MockBleakClient) -> None:
+        disconnect_called.append(True)
+        await original_disconnect(self)
+
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    monkeypatch.setattr(bms, "_init_connection", _hang)
+    monkeypatch.setattr(MockBleakClient, "disconnect", _tracking_disconnect)
+    monkeypatch.setattr(bms, "_CONNECT_TIMEOUT", TEST_TIMEOUT)
+
+    with pytest.raises(TimeoutError):
+        await bms.async_update()
+
+    # disconnect called at least once (stale cleanup + timeout cleanup)
+    assert len(disconnect_called) >= 1
 
 
 class MockGATTService:
