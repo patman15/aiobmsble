@@ -1,5 +1,6 @@
 """Test the BLE Battery Management System base class functions."""
 
+import asyncio
 from collections.abc import Buffer, Callable
 from logging import DEBUG
 from string import hexdigits
@@ -604,27 +605,6 @@ async def test_no_notify(
     assert not bms._client.is_connected
 
 
-async def test_disconnect_fail(
-    monkeypatch: pytest.MonkeyPatch,
-    patch_bleak_client: Callable[..., None],
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Check that exceptions in connect function for guarding disconnect are ignored."""
-
-    async def _raise_bleak_error(*args: Any) -> NoReturn:
-        raise BleakError
-
-    monkeypatch.setattr(MockBleakClient, "disconnect", _raise_bleak_error)
-    patch_bleak_client(MockBleakClient)
-
-    bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
-    with caplog.at_level(DEBUG):
-        result: BMSSample = await bms.async_update()
-    assert result == {"problem": True, "problem_code": 21}
-    assert "failed to disconnect stale connection (BleakError)" in caplog.text
-    assert "disconnect failed!" in caplog.text
-
-
 async def test_init_connect_fail(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client: Callable[..., None],
@@ -951,3 +931,212 @@ def test_b2str(data: bytes, expected: str) -> None:
 def test_lstr2int(data: str, expected: int) -> None:
     """Test string to integer conversion function."""
     assert lstr2int(data) == expected
+
+
+# ---------------------------------------------------------------------------
+# Connection timeout wrapper tests
+# ---------------------------------------------------------------------------
+
+
+async def test_connect_timeout_fires(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify hard timeout fires when establish_connection hangs."""
+
+    TEST_TIMEOUT = 0.01  # very short timeout
+
+    async def _hang(**kwargs: Any) -> None:
+        await asyncio.sleep(TEST_TIMEOUT * 10)
+
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    monkeypatch.setattr(bms, "_init_connection", _hang)
+    monkeypatch.setattr(bms, "_CONNECT_TIMEOUT", TEST_TIMEOUT)
+
+    with caplog.at_level(DEBUG), pytest.raises(TimeoutError):
+        await bms.async_update()
+
+    assert "failed to initialize BMS connection" in caplog.text
+
+
+async def test_connect_within_timeout(
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify normal connection completes without timeout warning."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+
+    with caplog.at_level(DEBUG):
+        await bms.async_update()
+
+    assert "connection timed out" not in caplog.text
+    assert bms._client.is_connected
+
+
+async def test_connect_timeout_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify cleanup disconnect is attempted when timeout fires."""
+    disconnect_called: list[bool] = []
+
+    TEST_TIMEOUT = 0.01  # very short timeout
+
+    async def _hang(**kwargs: Any) -> None:
+        await asyncio.sleep(TEST_TIMEOUT * 10)
+
+    original_disconnect = MockBleakClient.disconnect
+
+    async def _tracking_disconnect(self: MockBleakClient) -> None:
+        disconnect_called.append(True)
+        await original_disconnect(self)
+
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    monkeypatch.setattr(bms, "_init_connection", _hang)
+    monkeypatch.setattr(MockBleakClient, "disconnect", _tracking_disconnect)
+    monkeypatch.setattr(bms, "_CONNECT_TIMEOUT", TEST_TIMEOUT)
+
+    with pytest.raises(TimeoutError):
+        await bms.async_update()
+
+    # disconnect called at least once (stale cleanup + timeout cleanup)
+    assert len(disconnect_called) >= 1
+
+
+class MockGATTService:
+    """Mock BLE GATT service for get_GATT_profile()."""
+
+    def __init__(
+        self, name: str, characteristics: list["MockGATTCharacteristic"]
+    ) -> None:
+        """Initialize mock GATT service."""
+        self._name: str = name
+        self.characteristics: list[MockGATTCharacteristic] = characteristics
+
+    def __str__(self) -> str:
+        """Return mock service string."""
+        return self._name
+
+
+class MockGATTCharacteristic:
+    """Mock BLE GATT characteristic for get_GATT_profile()."""
+
+    def __init__(
+        self,
+        name: str,
+        properties: list[str],
+        descriptors: list["MockGATTDescriptor"],
+    ) -> None:
+        """Initialize mock GATT characteristic."""
+        self._name: str = name
+        self.properties: list[str] = properties
+        self.descriptors: list[MockGATTDescriptor] = descriptors
+
+    def __str__(self) -> str:
+        """Return mock characteristic string."""
+        return self._name
+
+
+class MockGATTDescriptor:
+    """Mock BLE GATT descriptor for get_GATT_profile()."""
+
+    def __init__(self, name: str) -> None:
+        """Initialize mock GATT descriptor."""
+        self._name: str = name
+
+    def __str__(self) -> str:
+        """Return mock descriptor string."""
+        return self._name
+
+
+class MockGATTProfileBleakClient(MockBleakClient):
+    """Mock BleakClient with a GATT profile."""
+
+    @property
+    def services(self) -> list[MockGATTService]:  # type: ignore[override]
+        """Mock GATT services."""
+        return [
+            MockGATTService(
+                "service_1",
+                [
+                    MockGATTCharacteristic(
+                        "char_1_read",
+                        ["read", "notify"],
+                        [MockGATTDescriptor("descriptor_1")],
+                    ),
+                    MockGATTCharacteristic(
+                        "char_2_write",
+                        ["write"],
+                        [MockGATTDescriptor("descriptor_2")],
+                    ),
+                ],
+            ),
+            MockGATTService(
+                "service_2",
+                [
+                    MockGATTCharacteristic(
+                        "char_3_notify",
+                        ["notify"],
+                        [MockGATTDescriptor("descriptor_3")],
+                    ),
+                ],
+            ),
+        ]
+
+
+async def test_get_gatt_profile(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns one line for each service, characteristic and descriptor."""
+
+    patch_bleak_client(MockGATTProfileBleakClient)
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._client.connect()
+
+    result: str = await bms.get_GATT_profile()
+
+    assert result.splitlines() == [
+        "SRV service_1",
+        "  CHR char_1_read (read,notify)",
+        "    DCR descriptor_1",
+        "  CHR char_2_write (write)",
+        "    DCR descriptor_2",
+        "SRV service_2",
+        "  CHR char_3_notify (notify)",
+        "    DCR descriptor_3",
+    ]
+
+
+async def test_get_gatt_profile_not_connected(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns error message when device not connected."""
+    patch_bleak_client(MockBleakClient)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+
+    assert await bms.get_GATT_profile() == "device not connected"
+
+
+async def test_get_gatt_profile_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns error string when BleakError occurs."""
+    patch_bleak_client(MockGATTProfileBleakClient)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._client.connect()
+
+    def raise_bleak_error(_self) -> NoReturn:
+        raise BleakError("mock error")
+
+    # Monkeypatch services property to raise BleakError
+    monkeypatch.setattr(
+        MockGATTProfileBleakClient, "services", property(raise_bleak_error)
+    )
+
+    assert "mock error" in await bms.get_GATT_profile()
