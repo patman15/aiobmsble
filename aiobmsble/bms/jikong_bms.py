@@ -90,7 +90,7 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         self._valid_reply = 0x03
-        await self._await_msg(self._cmd(b"\x97"), char=self._char_write_handle)
+        await self._await_msg(self._cmd(0x97), char=self._char_write_handle)
         self._valid_reply = 0x02
         return {
             "model": b2str(self._msg[6:22]),
@@ -207,15 +207,15 @@ class BMS(BaseBMS):
 
     @staticmethod
     @cache
-    def _cmd(cmd: bytes, value: list[int] | None = None) -> bytes:
+    def _cmd(cmd: int, value: bytes = b"") -> bytes:
         """Assemble a Jikong BMS command."""
-        value = [] if value is None else value
         assert len(value) <= 13
-        frame: bytearray = bytearray(
-            [*BMS._HEAD_CMD, cmd[0], len(value), *value]
-        ) + bytes(13 - len(value))
-        frame.append(crc_sum(frame))
-        return bytes(frame)
+        assert 0 <= cmd <= 0xFF
+        frame: bytes = (
+            BMS._HEAD_CMD + bytes([cmd, len(value)]) + value + bytes(13 - len(value))
+        )
+
+        return bytes(frame) + crc_sum(frame).to_bytes(1)
 
     def _temp_pos(self) -> list[tuple[int, int, TempSensor.T]]:
         sensors_v11: Final = [
@@ -225,7 +225,11 @@ class BMS(BaseBMS):
             (3, 254, TempSensor.T.MOSFET),
         ]
         if self._sw_version >= 14:
-            return [*sensors_v11, (4, 256, TempSensor.T.GENERIC), (5, 258, TempSensor.T.GENERIC)]
+            return [
+                *sensors_v11,
+                (4, 256, TempSensor.T.GENERIC),
+                (5, 258, TempSensor.T.GENERIC),
+            ]
         if self._sw_version >= 11:
             return sensors_v11
         return [
@@ -282,7 +286,7 @@ class BMS(BaseBMS):
         if not self._msg_event.is_set() or self._msg[4] != 0x02:
             # request cell info (only if data is not constantly published)
             self._log.debug("requesting cell info")
-            await self._await_msg(data=BMS._cmd(b"\x96"), char=self._char_write_handle)
+            await self._await_msg(data=BMS._cmd(0x96), char=self._char_write_handle)
 
         data: BMSSample = self._conv_data(
             self._msg, self._prot_offset, self._sw_version
