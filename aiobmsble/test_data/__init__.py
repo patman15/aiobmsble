@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from collections.abc import Generator
-from functools import cache
+from functools import lru_cache
 from importlib import resources
 import json
 from string import hexdigits
@@ -74,7 +74,7 @@ def parse_adv_from_json(entry: dict[str, Any], text_key: Literal['type', 'reason
 
     return (adv, mac_addr, bms_type, comments)
 
-@cache
+@lru_cache(maxsize=32)
 def bms_advertisements(bms_filter: str | None = None) -> tuple[BmsAdvSample, ...]:
     """Provide all available BMS advertisements from test data directory.
 

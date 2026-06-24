@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from collections.abc import Callable
-from functools import cache
+from functools import lru_cache
 from typing import Any, Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -191,7 +191,7 @@ class BMS(BaseBMS):
         self._pkglen = 0
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(device: int, cmd: int, start: int, count: int) -> bytes:
         """Assemble a Seplos BMS command."""
         assert device >= 0x00 and (device <= 0x10 or device in (0xC0, 0xE0))

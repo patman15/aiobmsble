@@ -4,7 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -147,7 +147,7 @@ class BMS(BaseBMS):
         return crc
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a RoyPow BMS command."""
         data: Final[bytes] = bytes([len(cmd) + 2, *cmd])

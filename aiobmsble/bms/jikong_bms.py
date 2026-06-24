@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -206,7 +206,7 @@ class BMS(BaseBMS):
         self._valid_reply = 0x02  # cell information
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: int, value: bytes = b"") -> bytes:
         """Assemble a Jikong BMS command."""
         assert len(value) <= 13

@@ -7,7 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
-from functools import cache
+from functools import lru_cache
 from itertools import takewhile
 import logging
 from statistics import fmean
@@ -559,7 +559,7 @@ class BaseBMS(ABC):
 
     @final
     @staticmethod
-    @cache
+    @lru_cache(maxsize=512)
     def _cmd_modbus(
         dev_id: int = 0, fct: int = 0x3, addr: int = 0, count: int = 1
     ) -> bytes:
