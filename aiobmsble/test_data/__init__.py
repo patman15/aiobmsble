@@ -8,7 +8,7 @@ from functools import cache
 from importlib import resources
 import json
 from string import hexdigits
-from typing import Any
+from typing import Any, Literal
 
 from bleak.backends.scanner import AdvertisementData
 
@@ -51,6 +51,27 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
     return AdvertisementData(**(ADVERTISEMENT_DATA_DEFAULTS | adv_dict))
 
 
+def parse_adv_from_json(json_str: dict, text_key: Literal['type', 'reason']) -> tuple[AdvertisementData, str, str, list[str]]:
+    """Parse a JSON string into an AdvertisementData instance."""
+    assert isinstance(json_str, dict)
+    assert {"advertisement", text_key}.issubset(set(json_str.keys()))
+    adv: AdvertisementData = adv_dict_to_advdata(json_str["advertisement"])
+    mac_addr: str = (
+        adv.platform_data[0]
+        if isinstance(adv.platform_data, tuple)
+        and isinstance(adv.platform_data[0], str)
+        else ""
+    )
+    bms_type: str = json_str[text_key]
+    comments: list[str] = json_str["_comments"]
+
+    assert isinstance(adv, AdvertisementData)
+    assert isinstance(bms_type, str)
+    assert isinstance(comments, list)
+    assert all(isinstance(c, str) for c in comments)
+
+    return (adv, mac_addr, bms_type, comments)
+
 @cache
 def bms_advertisements(bms_filter: str | None = None) -> BmsAdvList:
     """Provide all available BMS advertisements from test data directory.
@@ -78,22 +99,7 @@ def bms_advertisements(bms_filter: str | None = None) -> BmsAdvList:
             assert isinstance(raw_data, list)
 
             for entry in raw_data:
-                assert isinstance(entry, dict)
-                assert {"advertisement", "type"}.issubset(set(entry.keys()))
-                adv: AdvertisementData = adv_dict_to_advdata(entry["advertisement"])
-                mac_addr: str = (
-                    adv.platform_data[0]
-                    if isinstance(adv.platform_data, tuple)
-                    and isinstance(adv.platform_data[0], str)
-                    else ""
-                )
-                bms_type: str = entry["type"]
-                comments: list[str] = entry["_comments"]
-
-                assert isinstance(adv, AdvertisementData)
-                assert isinstance(bms_type, str)
-                assert isinstance(comments, list)
-                assert all(isinstance(c, str) for c in comments)
+                adv, mac_addr, bms_type, comments= parse_adv_from_json(entry, "type")
                 assert resource.name == f"{bms_type}.json"
 
                 all_data.append((adv, mac_addr, bms_type, comments))
@@ -121,18 +127,7 @@ def ignore_advertisements() -> BmsAdvList:
         assert isinstance(raw_data, list)
 
         for entry in raw_data:
-            assert isinstance(entry, dict)
-            assert {"advertisement", "reason"}.issubset(set(entry.keys()))
-            adv: AdvertisementData = adv_dict_to_advdata(entry["advertisement"])
-            mac_addr: str = adv.platform_data[0] if "platform" in adv else ""
-            reason: str = entry["reason"]
-            comments: list[str] = entry["_comments"]
-
-            assert isinstance(adv, AdvertisementData)
-            assert isinstance(reason, str)
-            assert isinstance(comments, list)
-            assert all(isinstance(c, str) for c in comments)
-
+            adv, mac_addr, reason, comments= parse_adv_from_json(entry, "reason")
             data.append((adv, mac_addr, reason, comments))
 
     return data
