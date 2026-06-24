@@ -1,0 +1,14 @@
+[
+  {
+    "advertisement": {
+      "local_name": "3000SARKYA",
+      "manufacturer_data": { "89": "191a1b1c1d", "4660": "0102030405060708" },
+      "rssi": -74,
+      "platform_data": ["D5:DA:24:00:00:00"]
+    },
+    "type": "saftkiste_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/557)"
+    ]
+  }
+]
