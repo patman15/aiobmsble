@@ -54,7 +54,7 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
 def parse_adv_from_json(json_str: dict, text_key: Literal['type', 'reason']) -> tuple[AdvertisementData, str, str, list[str]]:
     """Parse a JSON string into an AdvertisementData instance."""
     assert isinstance(json_str, dict)
-    assert {"advertisement", text_key}.issubset(set(json_str.keys()))
+    assert {"advertisement", text_key, "_comments"}.issubset(set(json_str.keys()))
     adv: AdvertisementData = adv_dict_to_advdata(json_str["advertisement"])
     mac_addr: str = (
         adv.platform_data[0]
