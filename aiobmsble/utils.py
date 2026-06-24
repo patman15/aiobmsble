@@ -237,7 +237,7 @@ class StreamParser:
                     buffer.clear()
                     escaped = False
                     continue
-                escaped = b in (DLE, STX)
+                escaped = b in (DLE, STX, ETX)
                 continue
 
             # Inside a frame
