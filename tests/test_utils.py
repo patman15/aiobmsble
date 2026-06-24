@@ -90,11 +90,11 @@ async def test_bms_cls_invalid_bms_class(
 @pytest.mark.parametrize(
     ("modules"),
     [
-        [  # Case 1: module name does not end with "_bms" → skipped
+        [  # Case 1: module name does not end with "_bms" -> skipped
             ("not_a_plugin", None),  # should be skipped by name
             ("valid_bms", "valid"),
         ],
-        [  # Case 2: BMS is not subclass of BaseBMS → skipped
+        [  # Case 2: BMS is not subclass of BaseBMS -> skipped
             ("invalid_bms", "invalid"),  # wrong class
             ("valid_bms", "valid"),
         ],
@@ -124,7 +124,7 @@ def test_load_bms_plugins_continue_paths(
             BMS = type("BMS", (bms_cls_type,), {})
             setattr(module, "BMS", BMS)
 
-        # if kind is None → no BMS attribute needed (won't be imported)
+        # if kind is None -> no BMS attribute needed (won't be imported)
         fake_modules[name] = module
 
     def fake_import(name: str) -> ModuleType:
@@ -134,10 +134,8 @@ def test_load_bms_plugins_continue_paths(
     monkeypatch.setattr("pkgutil.iter_modules", fake_iter_modules)
     monkeypatch.setattr("importlib.import_module", fake_import)
 
-    load_bms_plugins.cache_clear()
-
-    result: set[ModuleType] = load_bms_plugins()
-    assert len(load_bms_plugins()) == 1
+    result: set[ModuleType] = load_bms_plugins.__wrapped__()
+    assert len(result) == 1
 
     # Ensure only valid modules are present
     for module in result:
