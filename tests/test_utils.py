@@ -38,7 +38,7 @@ async def test_bms_identify(plugin: ModuleType) -> None:
     """
     bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1]
     adv, mac_addr, _type, _comments = (
-        bms_advertisements(bms_type).pop()
+        bms_advertisements(bms_type)[-1]
         if bms_type != "dummy_bms"
         else (
             adv_dict_to_advdata({"local_name": "dummy"}),
@@ -99,6 +99,7 @@ async def test_bms_cls_invalid_bms_class(
             ("valid_bms", "valid"),
         ],
     ],
+    ids=["name-not-matching", "not-subclass"],
 )
 def test_load_bms_plugins_continue_paths(
     monkeypatch: pytest.MonkeyPatch,
