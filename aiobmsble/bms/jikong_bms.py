@@ -150,7 +150,7 @@ class BMS(BaseBMS):
 
         # trim message in case oversized
         if len(self._frame) > BMS._INFO_LEN:
-            self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
+            self._log.debug("wrong data length (%i)", len(self._frame))
             del self._frame[BMS._INFO_LEN :]
 
         if not self._check_integrity(
