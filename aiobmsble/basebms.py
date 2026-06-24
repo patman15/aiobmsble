@@ -398,7 +398,7 @@ class BaseBMS(ABC):
         try:
             async with asyncio.timeout(self._CONNECT_TIMEOUT):
                 await close_stale_connections(
-                    self._ble_device, only_other_adapters=True
+                    self._ble_device, only_other_adapters=False
                 )  # ensure no stale connection exists
 
                 self._client = await establish_connection(
