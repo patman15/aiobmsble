@@ -1087,6 +1087,13 @@ class MockGATTProfileBleakClient(MockBleakClient):
             ),
         ]
 
+class MockEmptyGATTProfileBleakClient(MockBleakClient):
+    """Mock BleakClient with a GATT profile."""
+
+    @property
+    def services(self) -> list[BleakGATTServiceCollection]:  # type: ignore[override]
+        """Mock GATT services empty."""
+        return []
 
 async def test_get_gatt_profile(
     patch_bleak_client: Callable[..., None],
@@ -1121,6 +1128,15 @@ async def test_get_gatt_profile_not_connected(
 
     assert await bms.get_GATT_profile() == "device not connected"
 
+async def test_get_gatt_profile_empty(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns error message when device not connected."""
+    patch_bleak_client(MockEmptyGATTProfileBleakClient)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._client.connect()
+
+    assert await bms.get_GATT_profile() == "no services found"
 
 async def test_get_gatt_profile_error(
     monkeypatch: pytest.MonkeyPatch,
