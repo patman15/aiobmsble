@@ -133,10 +133,9 @@ class BMS(BaseBMS):
         # check that message type is expected
         if self._frame[BMS._TYPE_POS] != self._valid_reply:
             self._log.debug(
-                "unexpected message type 0x%X (length %i): %s",
+                "unexpected message type 0x%X (length %i)",
                 self._frame[BMS._TYPE_POS],
                 len(self._frame),
-                self._frame,
             )
             return
 
