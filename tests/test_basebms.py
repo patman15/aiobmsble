@@ -219,6 +219,7 @@ class BMSBasicTests:
     async def test_result_value_types(
         self,
         patch_bleak_client: Callable[..., None],
+        patch_bms_timeout: Callable[..., None],
         request: pytest.FixtureRequest,
     ) -> None:
         """Verify that async_update returns BMSSample fields with the correct types."""
@@ -261,6 +262,7 @@ class BMSBasicTests:
                 mock_client = obj
                 break
 
+        patch_bms_timeout()
         patch_bleak_client(mock_client)
 
         bms: BaseBMS = self.bms_class(generate_ble_device())
