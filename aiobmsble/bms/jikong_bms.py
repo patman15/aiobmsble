@@ -170,9 +170,7 @@ class BMS(BaseBMS):
         self._bms_ready = False
 
         for service in self._client.services:
-            self._log.debug("SRV %s", service)
             for char in service.characteristics:
-                self._log.debug("  CHR %s: %s", char, ",".join(char.properties))
                 if char.uuid == normalize_uuid_str(
                     BMS.uuid_rx()
                 ) or char.uuid == normalize_uuid_str(BMS.uuid_tx()):
@@ -183,15 +181,15 @@ class BMS(BaseBMS):
                         or "write-without-response" in char.properties
                     ):
                         self._char_write_handle = char.handle
+        self._log.debug(
+            "received characteristic handles #%i (notify), #%i (write).",
+            char_notify_handle,
+            self._char_write_handle,
+        )
         if char_notify_handle == -1 or self._char_write_handle == -1:
             self._log.debug("failed to detect characteristics")
             await self._client.disconnect()
             raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
-        self._log.debug(
-            "using characteristics handle #%i (notify), #%i (write).",
-            char_notify_handle,
-            self._char_write_handle,
-        )
 
         await super()._init_connection()
 

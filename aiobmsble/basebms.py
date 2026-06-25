@@ -410,7 +410,7 @@ class BaseBMS(ABC):
                 )
 
                 if self._log.isEnabledFor(logging.DEBUG):
-                    gatt = await self.get_GATT_profile()
+                    gatt: str = await self.get_GATT_profile()
                     self._log.debug(
                         "GATT profile for request %s:\n %s",
                         self.uuid_services(),
