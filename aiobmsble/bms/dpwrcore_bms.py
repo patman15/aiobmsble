@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from enum import IntEnum
-from functools import cache
+from functools import lru_cache
 from string import hexdigits
 from typing import Final
 
@@ -140,7 +140,7 @@ class BMS(BaseBMS):
         return sum(data) + 8
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: Cmd, data: bytes) -> bytes:
         frame: bytearray = bytearray([cmd.value, 0x00, 0x00]) + data
         checksum: Final[int] = BMS._crc(frame)

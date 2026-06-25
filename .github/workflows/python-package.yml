@@ -22,7 +22,7 @@ jobs:
       id: get-python-versions-action
       with:
         min-version: 3.12
-        include-prereleases: true
+        include-prereleases: false
 
   build:
     needs: [get-python-versions]

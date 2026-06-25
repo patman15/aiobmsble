@@ -2,7 +2,7 @@
 
 import contextlib
 from enum import IntEnum
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -132,13 +132,14 @@ class BMS(BaseBMS):
         self._msg_event.set()
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: CMD, adr: ADR, value: int = 0x0000) -> bytes:
         """Assemble a ANT BMS command."""
-        _frame = bytearray((cmd, cmd, adr))
-        _frame.extend(value.to_bytes(2, "big"))
-        _frame.extend(crc_sum(_frame[2:], 1).to_bytes(1, "big"))
-        return bytes(_frame)
+        assert cmd in BMS.CMD
+        assert adr in BMS.ADR
+        assert 0 <= value <= 0xFFFF
+        _frame: bytes = bytes((cmd, cmd, adr)) + value.to_bytes(2, "big")
+        return bytes(_frame) + crc_sum(_frame[2:]).to_bytes(1, "big")
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
