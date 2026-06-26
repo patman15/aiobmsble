@@ -754,6 +754,9 @@ class BaseBMS(ABC):
         except BleakError as exc:
             return str(exc)
 
+        if not lines:
+            return "no services found"
+
         return "\n".join(lines)
 
 

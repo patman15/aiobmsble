@@ -219,6 +219,7 @@ class BMSBasicTests:
     async def test_result_value_types(
         self,
         patch_bleak_client: Callable[..., None],
+        patch_bms_timeout: Callable[..., None],
         request: pytest.FixtureRequest,
     ) -> None:
         """Verify that async_update returns BMSSample fields with the correct types."""
@@ -261,6 +262,7 @@ class BMSBasicTests:
                 mock_client = obj
                 break
 
+        patch_bms_timeout()
         patch_bleak_client(mock_client)
 
         bms: BaseBMS = self.bms_class(generate_ble_device())
@@ -1087,6 +1089,13 @@ class MockGATTProfileBleakClient(MockBleakClient):
             ),
         ]
 
+class MockEmptyGATTProfileBleakClient(MockBleakClient):
+    """Mock BleakClient with a GATT profile."""
+
+    @property
+    def services(self) -> list[BleakGATTServiceCollection]:  # type: ignore[override]
+        """Mock GATT services empty."""
+        return []
 
 async def test_get_gatt_profile(
     patch_bleak_client: Callable[..., None],
@@ -1121,6 +1130,15 @@ async def test_get_gatt_profile_not_connected(
 
     assert await bms.get_GATT_profile() == "device not connected"
 
+async def test_get_gatt_profile_empty(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns error message when device not connected."""
+    patch_bleak_client(MockEmptyGATTProfileBleakClient)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._client.connect()
+
+    assert await bms.get_GATT_profile() == "no services found"
 
 async def test_get_gatt_profile_error(
     monkeypatch: pytest.MonkeyPatch,
