@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from collections.abc import Callable
-from functools import cache
+from functools import lru_cache
 from struct import unpack_from
 from typing import Any, Final, Literal
 
@@ -13,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
@@ -166,7 +166,7 @@ class BMS(BaseBMS):
         self._valid_reply = 0x02  # cell information
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: bytes, reg: int = 0, value: list[int] | None = None) -> bytes:
         """Assemble a Neey BMS command."""
         value = [] if value is None else value
@@ -222,17 +222,18 @@ class BMS(BaseBMS):
     def _temp_values(
         data: bytes,
         *,
-        values: int,
         start: int,
+        values: int = 1,
         size: int = 4,
         gap: int = 0,
         byteorder: Literal["little", "big"] = "little",
         signed: bool = True,
         offset: float = 0,
         divider: int = 1,
-    ) -> list[int | float]:
+        types: tuple[TempSensor.T, ...] = (),
+    ) -> list[TempSensor]:
         return [
-            round(unpack_from("<f", data, start + idx * size)[0], 2)
+            TempSensor(round(unpack_from("<f", data, start + idx * size)[0], 2))
             for idx in range(values)
         ]
 

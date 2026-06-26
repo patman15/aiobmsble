@@ -7,10 +7,9 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from collections.abc import Awaitable, Buffer, Callable, Iterable
 import logging
 from types import ModuleType
-from typing import Any, Final
+from typing import Any, Final, cast
 from uuid import UUID
 
-from _pytest.config import Notset
 from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -21,7 +20,7 @@ from bleak.uuids import normalize_uuid_str
 from hypothesis import HealthCheck, settings
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.utils import load_bms_plugins
 
 logging.basicConfig(level=logging.INFO)
@@ -43,7 +42,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def pytest_configure(config: pytest.Config) -> None:
     """Configure pytest with custom settings."""
-    max_examples: int | Notset = config.getoption("--max-examples")
+    max_examples: int = cast(int, config.getoption("--max-examples"))
     settings.register_profile(
         "default",
         max_examples=max_examples,
@@ -194,7 +193,7 @@ def bms_data_fixture(request: pytest.FixtureRequest) -> BMSSample:
         "current": request.param,
         "cycle_charge": 34,
         "cell_voltages": [3.456, 3.567],
-        "temp_values": [-273.15, 0.01, 35.555, 100.0],
+        "temp_values": [TS(v) for v in (-273.15, 0.01, 35.555, 100.0)],
     }
 
 

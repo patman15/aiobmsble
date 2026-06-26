@@ -1,5 +1,6 @@
 """Test the aiobmsble library utility functions."""
 
+from collections.abc import Generator
 from types import ModuleType
 from typing import Any, Final
 
@@ -22,7 +23,7 @@ from aiobmsble.utils import (
     params=sorted(
         load_bms_plugins(), key=lambda plugin: getattr(plugin, "__name__", "")
     ),
-    ids=lambda param: param.__name__.split(".")[-1],
+    ids=lambda param: param.__name__.rpartition(".")[2],
 )
 def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
     """Return module of a BMS."""
@@ -37,7 +38,7 @@ async def test_bms_identify(plugin: ModuleType) -> None:
     """
     bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1]
     adv, mac_addr, _type, _comments = (
-        bms_advertisements(bms_type).pop()
+        bms_advertisements(bms_type)[-1]
         if bms_type != "dummy_bms"
         else (
             adv_dict_to_advdata({"local_name": "dummy"}),
@@ -64,6 +65,81 @@ async def test_bms_cls_none(bms_type: str) -> None:
     """Test that a BMS class is None when name is not correct."""
     bms_class: type[BaseBMS] | None = await bms_cls(bms_type)
     assert bms_class is None
+
+
+@pytest.mark.parametrize(
+    "invalid_bms_class", [object(), object], ids=["not-a-type", "not-subclass"]
+)
+async def test_bms_cls_invalid_bms_class(
+    monkeypatch: pytest.MonkeyPatch,
+    invalid_bms_class: object,
+) -> None:
+    """Test that bms_cls returns None if module.BMS is not a BaseBMS subclass."""
+    test_module = ModuleType("aiobmsble.bms.invalid_bms")
+    setattr(test_module, "BMS", invalid_bms_class)
+
+    def import_module(name: str) -> ModuleType:
+        assert name == "aiobmsble.bms.invalid_bms"
+        return test_module
+
+    monkeypatch.setattr("aiobmsble.utils.importlib.import_module", import_module)
+
+    assert await bms_cls("invalid_bms") is None
+
+
+@pytest.mark.parametrize(
+    ("modules"),
+    [
+        [  # Case 1: module name does not end with "_bms" -> skipped
+            ("not_a_plugin", None),  # should be skipped by name
+            ("valid_bms", "valid"),
+        ],
+        [  # Case 2: BMS is not subclass of BaseBMS -> skipped
+            ("invalid_bms", "invalid"),  # wrong class
+            ("valid_bms", "valid"),
+        ],
+    ],
+    ids=["name-not-matching", "not-subclass"],
+)
+def test_load_bms_plugins_continue_paths(
+    monkeypatch: pytest.MonkeyPatch,
+    modules: list[tuple[str, str | None]],
+) -> None:
+    """Exercise continue paths in load_bms_plugins."""
+
+    def fake_iter_modules(_) -> Generator[tuple[None, str, None], Any, None]:
+        for name, _ in modules:
+            yield None, name, None
+
+    fake_modules: dict[str, ModuleType] = {}
+
+    for name, kind in modules:
+        module = ModuleType(f"aiobmsble.bms.{name}")
+        if kind is not None:
+            bms_cls_type: type[BaseBMS | object] = {
+                "valid": BaseBMS,
+                "invalid": object,
+            }.get(kind, object)
+
+            BMS = type("BMS", (bms_cls_type,), {})
+            setattr(module, "BMS", BMS)
+
+        # if kind is None -> no BMS attribute needed (won't be imported)
+        fake_modules[name] = module
+
+    def fake_import(name: str) -> ModuleType:
+        short_name: str = name.rpartition(".")[2]
+        return fake_modules[short_name]
+
+    monkeypatch.setattr("pkgutil.iter_modules", fake_iter_modules)
+    monkeypatch.setattr("importlib.import_module", fake_import)
+
+    result: set[ModuleType] = load_bms_plugins.__wrapped__()
+    assert len(result) == 1
+
+    # Ensure only valid modules are present
+    for module in result:
+        assert issubclass(module.BMS, BaseBMS)
 
 
 async def test_bms_identify_fail() -> None:

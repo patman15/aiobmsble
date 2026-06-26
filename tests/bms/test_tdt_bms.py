@@ -9,7 +9,7 @@ from bleak.exc import BleakDeviceNotFoundError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.tdt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -87,7 +87,12 @@ def ref_value() -> dict[str, BMSSample]:
             "power": 0.0,
             "battery_charging": False,
             "cell_voltages": [3.297, 3.295, 3.297, 3.292],
-            "temp_values": [23.2, 24.0, 22.6, 22.5],
+            "temp_values": [
+                TS(23.2, TS.T.AMBIENT),
+                TS(24.0, TS.T.MOSFET),
+                TS(22.6, TS.T.CELL),
+                TS(22.5, TS.T.CELL),
+            ],
             "delta_voltage": 0.005,
             "chrg_mosfet": True,
             "dischrg_mosfet": True,
@@ -124,7 +129,8 @@ def ref_value() -> dict[str, BMSSample]:
                 3.295,
                 3.294,
             ],
-            "temp_values": [17.9, 19.6, 17.9, 17.9, 17.9, 18.7],
+            "temp_values": [TS(17.9, TS.T.AMBIENT), TS(19.6, TS.T.MOSFET)]
+            + [TS(v, TS.T.CELL) for v in (17.9, 17.9, 17.9, 18.7)],
             "delta_voltage": 0.012,
             "runtime": 62589,
             "chrg_mosfet": True,
@@ -153,7 +159,8 @@ def ref_value() -> dict[str, BMSSample]:
                 3.255,
                 3.256,
             ],
-            "temp_values": [25.4, 25.1, 26.9, 25.9, 27.9, 27.2],
+            "temp_values": [TS(25.4, TS.T.AMBIENT), TS(25.1, TS.T.MOSFET)]
+            + [TS(v, TS.T.CELL) for v in (26.9, 25.9, 27.9, 27.2)],
             "voltage": 52.16,
             "current": -16.2,
             "cycle_charge": 64.5,
@@ -188,6 +195,7 @@ class TestBasicBMS(BMSBasicTests):
 
     bms_class = BMS
 
+
 class MockTDTBleakClient(MockBleakClient):
     """Emulate a TDT BMS BleakClient."""
 
@@ -198,7 +206,7 @@ class MockTDTBleakClient(MockBleakClient):
         0x8D: bytearray(b"\x00\x01\x03\x00\x8d\x00\x00"),
         0x92: bytearray(b"\x00\x01\x03\x00\x92\x00\x00"),
     }
-    RESP: Final[dict[int, bytearray]] = {}
+    RESP: Final[dict[int, bytearray]] = _PROTO_DEFS["16S6Tv0.0"]
 
     _char_fffa: int = 0x0  # return value for UUID "fffa"
 
@@ -356,6 +364,7 @@ async def test_device_info(
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x18\x00", "invalid frame end"),
         (b"\x7e\x10\x01\x03\x00\x8c\x00\x01\x00\xad\x19\x0d", "invalid version"),
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x00\x0d", "invalid CRC"),
+        (b"\x7e\x00\x01\x03\x00\x92\x00\x01\x00\x89\x1e\x0d", "invalid type"),
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x18\x0d\x00", "oversized frame"),
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x0d", "undersized frame"),
         (b"\x7e\x00\x01\x03\x01\x8c\x00\x01\x00\x61\x25\x0d", "error response"),
@@ -371,7 +380,7 @@ async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -502,7 +511,9 @@ def prb_response(
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: tuple[dict[int, bytearray], str]
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[dict[int, bytearray], str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
