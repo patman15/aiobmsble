@@ -2,7 +2,7 @@
 
 import contextlib
 from enum import IntEnum
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -38,7 +38,7 @@ class BMS(BaseBMS):
         BMSDp("voltage", 4, 2, False, lambda x: x / 10),
         BMSDp("current", 70, 4, True, lambda x: x / -10),
         BMSDp("battery_level", 74, 1, False),
-        BMSDp("design_capacity", 75, 4, False, lambda x: x // 1e6),
+        BMSDp("design_capacity", 75, 4, False, lambda x: x // 10**6),
         BMSDp("cycle_charge", 79, 4, False, lambda x: x / 1e6),
         BMSDp("total_charge", 83, 4, False, lambda x: x // 1000),
         BMSDp("runtime", 87, 4, False),
@@ -56,27 +56,32 @@ class BMS(BaseBMS):
         BMSDp("balancer", 105, 1, False, lambda x: bool(x & 0x4)),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
-        self._data_final: bytearray
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "ANT-BLE*",
+                "local_name": "ANT-BLE[01]*",
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": 1623,
                 "connectable": True,
             }
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ffe0")]  # change service UUID here!
+        return (normalize_uuid_str("ffe0"),)  # change service UUID here!
 
     @staticmethod
     def uuid_rx() -> str:
@@ -88,8 +93,6 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
-    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -98,53 +101,54 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         if data.startswith(BMS._RX_HEADER_RSP_STAT):
-            self._data = bytearray()
-        elif not self._data:
-            self._log.debug("invalid start of frame")
+            self._frame.clear()
+        elif not self._frame:
+            self._log.debug("invalid SOF")
             return
 
-        self._data += data
+        self._frame.extend(data)
 
-        _data_len: Final[int] = len(self._data)
+        _data_len: Final[int] = len(self._frame)
         if _data_len < BMS._RSP_STAT_LEN:
             return
 
         if _data_len > BMS._RSP_STAT_LEN:
             self._log.debug("invalid length %d > %d", _data_len, BMS._RSP_STAT_LEN)
-            self._data.clear()
+            self._frame.clear()
             return
 
-        if (local_crc := crc_sum(self._data[4:-2], 2)) != (
-            remote_crc := int.from_bytes(self._data[-2:], byteorder="big", signed=False)
+        if not self._check_integrity(
+            self._frame,
+            lambda x: crc_sum(x[4:-2], 2),
+            slice(None, None),
+            slice(-2, None),
+            "big",
         ):
-            self._log.debug("invalid checksum 0x%X != 0x%X", local_crc, remote_crc)
-            self._data.clear()
+            self._frame.clear()
             return
 
-        self._data_final = self._data.copy()
-        self._data.clear()
-        self._data_event.set()
+        self._msg = bytes(self._frame)
+        self._frame.clear()
+        self._msg_event.set()
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: CMD, adr: ADR, value: int = 0x0000) -> bytes:
         """Assemble a ANT BMS command."""
-        _frame = bytearray((cmd, cmd, adr))
-        _frame += value.to_bytes(2, "big")
-        _frame += crc_sum(_frame[2:], 1).to_bytes(1, "big")
-        return bytes(_frame)
+        assert cmd in BMS.CMD
+        assert adr in BMS.ADR
+        assert 0 <= value <= 0xFFFF
+        _frame: bytes = bytes((cmd, cmd, adr)) + value.to_bytes(2, "big")
+        return bytes(_frame) + crc_sum(_frame[2:]).to_bytes(1, "big")
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(BMS._cmd(BMS.CMD.GET, BMS.ADR.STATUS))
+        await self._await_msg(BMS._cmd(BMS.CMD.GET, BMS.ADR.STATUS))
 
-        _data: bytearray = self._data_final
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, _data, byteorder="big", offset=0
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="big")
 
         result["cell_voltages"] = BMS._cell_voltages(
-            _data,
+            self._msg,
             cells=result.get("cell_count", 0),
             start=6,
             size=2,
@@ -167,7 +171,7 @@ class BMS(BaseBMS):
 
         # ANT-BMS carries 6 slots for temp sensors but only 4 looks like being connected by default
         result["temp_values"] = BMS._temp_values(
-            _data, values=4, start=91, size=2, byteorder="big", signed=True
+            self._msg, values=4, start=91, size=2, byteorder="big", signed=True
         )
 
         return result

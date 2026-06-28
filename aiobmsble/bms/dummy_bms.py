@@ -23,9 +23,17 @@ class BMS(BaseBMS):
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+    # accept_secret: bool = True  # if the BMS accepts a secret for authentication
+
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -33,9 +41,9 @@ class BMS(BaseBMS):
         return [{"local_name": "dummy", "connectable": True}]  # TODO: define matcher
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("0000")]  # TODO: change service UUID here!
+        return (normalize_uuid_str("0000"),)  # TODO: change service UUID here!
 
     @staticmethod
     def uuid_rx() -> str:
@@ -64,33 +72,34 @@ class BMS(BaseBMS):
         # self._log.debug("RX BLE data: %s", data)
 
         # *******************************************************
-        # # TODO: Do things like checking correctness of frame here
-        # # and store it into a instance variable, e.g. self._data
-        # # Below are some examples of how to do it
-        # # Have a look at the BMS base class for function to use,
-        # # take a look at other implementations for more  details
+        # TODO: Do things like checking correctness of frame here
+        # and store it into a instance variable, e.g. self._frame
+        # in case the frame is fragmented.
+        # Below are some examples of how to do it
+        # Have a look at the BMS base class for function to use,
+        # take a look at other implementations for more  details
         # *******************************************************
 
         # if not data.startswith(BMS._HEAD):
         #     self._log.debug("incorrect SOF")
         #     return
 
-        # if (crc := crc_sum(self._data[:-1])) != self._data[-1]:
-        #     self._log.debug("invalid checksum 0x%X != 0x%X", self._data[-1], crc)
+        # if not self._check_crc(self._frame, crc_sum, slice(None, -1), slice(-1, None)):
         #     return
 
-        # self._data = data.copy()
-        # self._data_event.set()
+        # Do an immutable copy of the assembled (data) frame and notify _await_msg()
+        # self._msg = bytes(self._frame)
+        # self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         self._log.debug("replace with command to UUID %s", BMS.uuid_tx())
-        # await self._await_reply(b"<some_command>")
+        # await self._await_msg(b"<some_command>")
 
-        # TODO: parse data from self._data here
+        # TODO: parse data from self._frame here
 
         return {
-            "voltage": 12,
+            "voltage": 12.0,
             "current": 1.5,
             "temperature": 27.182,
         }  # TODO: fixed values, replace parsed data

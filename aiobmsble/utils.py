@@ -11,7 +11,7 @@ import importlib
 import pkgutil
 import re
 from types import ModuleType
-from typing import Final, cast
+from typing import Final
 
 from bleak.backends.scanner import AdvertisementData
 
@@ -79,7 +79,7 @@ def load_bms_plugins() -> set[ModuleType]:
 
     This function scans the 'aiobmsble/bms' directory for all Python modules,
     dynamically imports each discovered module, and returns a set containing
-    the imported module objects required to end with "_bms".
+    the imported module objects required to end with "_bms" and be subclass of BaseBMS.
 
     Returns:
         set[ModuleType]: A set of imported BMS plugin modules.
@@ -87,13 +87,23 @@ def load_bms_plugins() -> set[ModuleType]:
     Raises:
         ImportError: If a module cannot be imported.
         OSError: If the plugin directory cannot be accessed.
+        AttributeError: If a discovered module does not define a 'BMS' class.
+        TypeError: If a discovered module does not define a valid BMS class.
 
     """
-    return {
-        importlib.import_module(f"aiobmsble.bms.{module_name}")
-        for _, module_name, _ in pkgutil.iter_modules(aiobmsble.bms.__path__)
-        if module_name.endswith(_MODULE_POSTFIX)
-    }
+
+    modules: set[ModuleType] = set()
+    for _, module_name, _ in pkgutil.iter_modules(aiobmsble.bms.__path__):
+        if not module_name.endswith(_MODULE_POSTFIX):
+            continue
+
+        module: ModuleType = importlib.import_module(f"aiobmsble.bms.{module_name}")
+        if not issubclass(getattr(module, "BMS"), BaseBMS):
+            continue
+
+        modules.add(module)
+
+    return modules
 
 
 async def bms_cls(name: str) -> type[BaseBMS] | None:
@@ -116,7 +126,11 @@ async def bms_cls(name: str) -> type[BaseBMS] | None:
     except ModuleNotFoundError:
         return None
 
-    return cast(type[BaseBMS], bms_module.BMS)
+    bms_class: type[BaseBMS] | None = getattr(bms_module, "BMS")
+    if not (isinstance(bms_class, type) and issubclass(bms_class, BaseBMS)):
+        return None
+
+    return bms_class
 
 
 async def bms_matching(
@@ -179,3 +193,75 @@ def bms_supported(bms: BaseBMS, adv_data: AdvertisementData, mac_addr: str) -> b
         if _advertisement_matches(matcher, adv_data, mac_addr):
             return True
     return False
+
+
+class StreamParser:
+    """Stream parsers with start/end and escape handling."""
+
+    MAX_SIZE: Final[int] = 1024  # buffer size limit
+
+    def __init__(self, DLE: int = 0x10, STX: int = 0x02, ETX: int = 0x03) -> None:
+        """Initialize parser with specified control characters.
+
+        Args:
+            DLE (bytes): Data Link Escape character used for escaping control characters in the stream.
+            STX (bytes): Start of Text character indicating the beginning of a frame in the stream.
+            ETX (bytes): ETX character indicating the end of a frame in the stream.
+
+        """
+        self.DLE: Final[int] = DLE
+        self.STX: Final[int] = STX
+        self.ETX: Final[int] = ETX
+        self._in_frame: bool = False
+        self._escaped: bool = False
+        self._buffer: bytearray = bytearray()
+
+    def feed(self, data: bytes | bytearray) -> bytes | None:
+        """Feed arbitrary chunks of bytes."""
+        result_frame: bytes | None = None
+
+        # Cache instance variables in locals for better performance
+        DLE: Final[int] = self.DLE
+        STX: Final[int] = self.STX
+        ETX: Final[int] = self.ETX
+        max_size: Final[int] = self.MAX_SIZE
+        in_frame: bool = self._in_frame
+        escaped: bool = self._escaped
+        buffer: bytearray = self._buffer
+
+        for b in data:
+            if not in_frame:
+                # Look for escaped STX to start a frame
+                if escaped and b == STX:
+                    in_frame = True
+                    buffer.clear()
+                    escaped = False
+                    continue
+                escaped = b in (DLE, STX, ETX)
+                continue
+
+            # Inside a frame
+            if escaped:
+                escaped = False
+                if b in (DLE, STX):
+                    buffer.append(b)
+                if b == ETX:
+                    in_frame = False
+                    result_frame = bytes(buffer)
+                    buffer.clear()
+                continue
+
+            if b in (DLE, ETX):
+                escaped = True
+                continue
+
+            buffer.append(b)
+            if len(buffer) > max_size:
+                in_frame = False
+                buffer.clear()
+                continue
+
+        self._in_frame = in_frame
+        self._escaped = escaped
+
+        return result_frame

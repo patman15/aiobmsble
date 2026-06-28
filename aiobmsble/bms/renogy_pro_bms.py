@@ -26,11 +26,19 @@ class BMS(RenogyBMS):
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000),
         BMSDp("cycles", 15, 2, False),
+        # RNGC type seems to have cycles in wrong byte order
+        # https://github.com/patman15/BMS_BLE-HA/issues/596
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._char_write_handle: int = -1
 
     @staticmethod
@@ -38,10 +46,11 @@ class BMS(RenogyBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "RNGRBP*",
+                "local_name": pattern,
                 "manufacturer_id": 0xE14C,
                 "connectable": True,
-            },
+            }
+            for pattern in ("RNGRBP*", "RNGC*")
         ]
 
     async def _init_connection(
@@ -83,11 +92,9 @@ class BMS(RenogyBMS):
                     char_notify_handle = char.handle
 
         if char_notify_handle == -1 or self._char_write_handle == -1:
-            self._log.debug("failed to detect characteristics.")
+            self._log.debug("failed to detect characteristics")
             await self._client.disconnect()
-            raise ConnectionError(
-                f"Failed to detect characteristics from {self.name}."
-            )
+            raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
         self._log.debug(
             "using characteristics handle #%i (notify), #%i (write).",
             char_notify_handle,
@@ -96,7 +103,7 @@ class BMS(RenogyBMS):
 
         await super()._init_connection(char_notify_handle)
 
-    async def _await_reply(
+    async def _await_msg(
         self,
         data: bytes,
         char: int | str | None = None,
@@ -105,6 +112,6 @@ class BMS(RenogyBMS):
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
-        await super()._await_reply(
+        await super()._await_msg(
             data, self._char_write_handle, wait_for_notify, max_size
         )

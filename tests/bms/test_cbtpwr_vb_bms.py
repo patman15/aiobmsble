@@ -8,10 +8,11 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.cbtpwr_vb_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 32
 
@@ -28,16 +29,21 @@ def ref_value() -> BMSSample:
         "cell_voltages": [3.328, 3.326, 3.326, 3.326],
         "delta_voltage": 0.002,
         "design_capacity": 200,
-        "temp_values": [6.2, 7.3],
+        "temp_values": [TS(6.2), TS(7.3)],
         "temp_sensors": 2,
         "temperature": 6.75,
         "cycle_capacity": 2553.6,
         "power": 0.0,
-        #        "runtime": 22608,
         "battery_charging": False,
         "problem": False,
         "problem_code": 0,
     }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockCBTpwrVBBleakClient(MockBleakClient):
@@ -101,12 +107,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), keep_alive_fixture)
 
-    result = await bms.async_update()
-
-    assert result == ref_value()
+    assert await bms.async_update() == ref_value()
 
     # query again to check already connected state
-    result = await bms.async_update()
+    await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -235,7 +239,9 @@ def prb_response(request: pytest.FixtureRequest) -> tuple[dict[int, bytearray], 
 
 
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: tuple[dict[int, bytearray], str]
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[dict[int, bytearray], str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
@@ -249,8 +255,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
-    assert result == ref_value() | {
+    assert await bms.async_update() == ref_value() | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 47),
     }

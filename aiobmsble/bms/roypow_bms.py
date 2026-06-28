@@ -4,7 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -49,12 +49,18 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x4), 0x3),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2), 0x3),
     )
-    _CMDS: Final[set[int]] = set({field.idx for field in _FIELDS}) | {0x2}
+    _CMDS: Final = frozenset(field.idx for field in _FIELDS) | {0x2}
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, bytearray] = {}
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, keep_alive, secret, logger_name)
+        self._msg: dict[int, bytes] = {}
         self._exp_len: int = 0
 
     @staticmethod
@@ -62,17 +68,17 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
+                "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": manufacturer_id,
                 "connectable": True,
             }
-            for manufacturer_id in (0x01A8, 0x0B31, 0x8AFB)
-        ]
+            for pattern in (" [BS]12*", " [BS]24*", " UT*")
+        ]  # OUI "12:" is private
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ffe0")]
+        return (normalize_uuid_str("ffe0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -84,8 +90,6 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
-    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -96,46 +100,46 @@ class BMS(BaseBMS):
 
         if (
             data.startswith(BMS._HEAD)
-            and not self._data.startswith(BMS._HEAD)
+            and not self._frame.startswith(BMS._HEAD)
             and len(data) > len(BMS._HEAD)
         ):
             self._exp_len = data[len(BMS._HEAD)]
-            self._data.clear()
+            self._frame.clear()
 
-        self._data += data
+        self._frame.extend(data)
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        if not self._data.startswith(BMS._HEAD):
-            self._data.clear()
+        if not self._frame.startswith(BMS._HEAD):
+            self._frame.clear()
             return
 
         # verify that data is long enough
-        if len(self._data) < BMS._MIN_LEN + self._exp_len:
+        if len(self._frame) < BMS._MIN_LEN + self._exp_len:
             return
 
         end_idx: Final[int] = BMS._MIN_LEN + self._exp_len - 1
-        if self._data[end_idx] != BMS._TAIL:
-            self._log.debug("incorrect EOF: %s", self._data)
-            self._data.clear()
+        if self._frame[end_idx] != BMS._TAIL:
+            self._log.debug("incorrect EOF")
+            self._frame.clear()
             return
 
-        if (crc := BMS._crc(self._data[len(BMS._HEAD) : end_idx - 1])) != self._data[
-            end_idx - 1
-        ]:
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X", self._data[end_idx - 1], crc
-            )
-            self._data.clear()
+        if not self._check_integrity(
+            self._frame,
+            BMS._crc,
+            slice(len(BMS._HEAD), end_idx - 1),
+            slice(end_idx - 1, end_idx),
+        ):
+            self._frame.clear()
             return
 
-        self._data_final[self._data[5]] = self._data.copy()
-        self._data.clear()
-        self._data_event.set()
+        self._msg[self._frame[5]] = bytes(self._frame)
+        self._frame.clear()
+        self._msg_event.set()
 
     @staticmethod
-    def _crc(frame: bytearray) -> int:
+    def _crc(frame: bytes | bytearray) -> int:
         """Calculate XOR of all frame bytes."""
         crc: int = 0
         for b in frame:
@@ -143,37 +147,37 @@ class BMS(BaseBMS):
         return crc
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a RoyPow BMS command."""
-        data: Final[bytearray] = bytearray([len(cmd) + 2, *cmd])
-        return bytes([*BMS._HEAD, *data, BMS._crc(data), BMS._TAIL])
+        data: Final[bytes] = bytes([len(cmd) + 2, *cmd])
+        return BMS._HEAD + data + bytes([BMS._crc(data), BMS._TAIL])
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        self._data.clear()
-        self._data_final.clear()
+        self._frame.clear()
+        self._msg.clear()
         for cmd in BMS._CMDS:
-            await self._await_reply(BMS._cmd(bytes([0xFF, cmd])))
+            await self._await_msg(BMS._cmd(bytes([0xFF, cmd])))
 
-        if not BMS._CMDS.issubset(self._data_final.keys()):
-            self._log.debug("Incomplete data set %s", self._data_final.keys())
+        if not BMS._CMDS.issubset(self._msg.keys()):
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
-        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._data_final)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
         # remove remaining runtime if battery is charging
         if result.get("runtime") == 0xFFFF * 60:
             result.pop("runtime", None)
 
         result["cell_voltages"] = BMS._cell_voltages(
-            self._data_final.get(0x2, bytearray()),
-            cells=max(0, (len(self._data_final.get(0x2, bytearray())) - 11) // 2),
+            self._msg.get(0x2, b""),
+            cells=max(0, (len(self._msg.get(0x2, b"")) - 11) // 2),
             start=9,
         )
         result["temp_values"] = BMS._temp_values(
-            self._data_final.get(0x3, bytearray()),
+            self._msg.get(0x3, b""),
             values=result.get("temp_sensors", 0),
             start=14,
             size=1,

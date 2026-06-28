@@ -5,9 +5,7 @@
       "manufacturer_data": {
         "25670": "010209ac"
       },
-      "service_uuids": [
-        "0000fff0-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000fff0-0000-1000-8000-00805f9b34fb"],
       "rssi": -58
     },
     "type": "daly_bms",
@@ -108,6 +106,18 @@
     "type": "daly_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/510)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "MyName\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+      "platform_data": ["40:18:07:00:00:00"],
+      "rssi": -53,
+      "manufacturer_data": { "770": "16401807012ec2444c" }
+    },
+    "type": "daly_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/640)"
     ]
   }
 ]

@@ -1,6 +1,5 @@
 """Test the ANT implementation."""
 
-import asyncio
 from collections.abc import Buffer
 from typing import Final
 from uuid import UUID
@@ -8,10 +7,11 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.ant_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE: Final[int] = 20  # ANT BMS frame size
 
@@ -54,7 +54,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         2.337,
         2.335,
     ],
-    "temp_values": [29.0, 29.0, 29.0, 29.0, 30.0, 30.0],
+    "temp_values": [TS(29.0)] * 4 + [TS(30.0, TS.T.MOSFET), TS(30.0, TS.T.BALANCER)],
     "delta_voltage": 0.148,
     "problem": False,
     "problem_code": 0,
@@ -64,6 +64,12 @@ _RESULT_DEFS: Final[BMSSample] = {
 }
 
 
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
+
+
 class MockANTBleakClient(MockBleakClient):
     """Emulate a ANT BMS BleakClient."""
 
@@ -71,6 +77,11 @@ class MockANTBleakClient(MockBleakClient):
         0x01: bytearray(b"\x7e\xa1\x01\x00\x00\xbe\x18\x55\xaa\x55"),
         0x02: bytearray(b"\x7e\xa1\x02\x6c\x02\x20\x58\xc4\xaa\x55"),
     }
+    REQUIRE_PASS: bool = False
+    UNLOCKED = False
+    DEFAULT_PASS_MSG = (  # password is "12345678" in ASCII
+        b"\x7e\xa1\x23\x01\x6a\x08\x31\x32\x33\x34\x35\x36\x37\x38\xd9\xee\xaa\x55"
+    )
     RESP: Final[dict[int, bytearray]] = {
         0x1: bytearray(
             b"\x7e\xa1\x11\x00\x00\x9e\x05\x04\x04\x16\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -90,18 +101,6 @@ class MockANTBleakClient(MockBleakClient):
         ),
     }
 
-    async def _notify(self) -> None:
-        """Notify function."""
-
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
-
-        while True:
-            for msg in self.RESP.values():
-                self._notify_callback("MockANTBleakClient", msg)
-                await asyncio.sleep(0.1)
-
     async def write_gatt_char(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
@@ -114,11 +113,15 @@ class MockANTBleakClient(MockBleakClient):
             self._notify_callback
         ), "write to characteristics but notification not enabled"
 
-        resp: Final[bytearray] = self.RESP.get(int(bytes(data)[2]), bytearray())
-        for notify_data in [
-            resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
-        ]:
-            self._notify_callback("MockANTBleakClient", notify_data)
+        if bytes(data) == self.DEFAULT_PASS_MSG:
+            self.UNLOCKED = True
+
+        if not self.REQUIRE_PASS or self.UNLOCKED:
+            resp: Final[bytearray] = self.RESP.get(int(bytes(data)[2]), bytearray())
+            for notify_data in [
+                resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
+            ]:
+                self._notify_callback("MockANTBleakClient", notify_data)
 
 
 async def test_update(
@@ -136,6 +139,28 @@ async def test_update(
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    "secret", ["12345678", "wrong"], ids=["correct_secret", "wrong_secret"]
+)
+async def test_update_secret(
+    monkeypatch: pytest.MonkeyPatch, patch_bms_timeout, patch_bleak_client, secret: str
+) -> None:
+    """Test ANT BMS data update with password."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(MockANTBleakClient, "REQUIRE_PASS", True)
+    patch_bleak_client(MockANTBleakClient)
+
+    bms = BMS(generate_ble_device(), secret=secret)
+    if secret == "wrong":
+        with pytest.raises(TimeoutError):
+            await bms.async_update()
+    else:
+        assert await bms.async_update() == _RESULT_DEFS
 
     await bms.disconnect()
 

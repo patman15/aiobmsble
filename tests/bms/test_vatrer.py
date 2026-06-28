@@ -6,10 +6,11 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.vatrer_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 
 def ref_value() -> BMSSample:
@@ -26,7 +27,8 @@ def ref_value() -> BMSSample:
         "cell_count": 16,
         "runtime": 28814,
         "temp_sensors": 4,
-        "temp_values": [18.0, 20.0, 19.0, 20.0, 20.0, 20.0],
+        "temp_values": [TS(v) for v in (18.0, 20.0, 19.0, 20.0, 20.0)]
+        + [TS(20.0, TS.T.MOSFET)],
         "temperature": 19.5,
         "battery_charging": False,
         "power": -261.243,
@@ -53,6 +55,12 @@ def ref_value() -> BMSSample:
             3.293,
         ],
     }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockVatrerBleakClient(MockBleakClient):
@@ -90,7 +98,7 @@ class MockVatrerBleakClient(MockBleakClient):
         )
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Vatrer BMS data update."""
 
     patch_bleak_client(MockVatrerBleakClient)
@@ -104,20 +112,6 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
-
-
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client(MockVatrerBleakClient)
-    bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "mock_FW_version",
-        "hw_version": "mock_HW_version",
-        "sw_version": "mock_SW_version",
-        "manufacturer": "mock_manufacturer",
-        "model": "mock_model",
-        "serial_number": "mock_serial_number",
-    }
 
 
 @pytest.fixture(
@@ -186,7 +180,7 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request: pytest.FixtureRequest):
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
     return request.param
 

@@ -12,5 +12,19 @@
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/390)",
       "MAC address, correct"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "RNGC122BAT28000194",
+      "manufacturer_data": {
+        "57676": "74683692"
+      },
+      "rssi": -85
+    },
+    "type": "renogy_pro_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/596)",
+      "MAC address, correct"
+    ]
   }
 ]

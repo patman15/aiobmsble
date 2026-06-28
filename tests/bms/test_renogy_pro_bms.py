@@ -9,10 +9,11 @@ from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.renogy_pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 512  # ATT max is 512 bytes
 
@@ -34,7 +35,7 @@ def ref_value() -> BMSSample:
         "problem": False,
         "problem_code": 0,
         "runtime": 626886,
-        "temp_values": [27.3, 26.8, 27.5],
+        "temp_values": [TS(27.3), TS(26.8), TS(27.5)],
         "temp_sensors": 3,
         "temperature": 27.2,
         "voltage": 13.3,
@@ -46,6 +47,11 @@ def ref_value() -> BMSSample:
 
 BASE_VALUE_CMD: Final[bytes] = b"\x30\x03\x13\xb2\x00\x07\xa4\x8a"
 
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 class MockRenogyProBleakClient(MockBleakClient):
     """Emulate a Renogy Pro BMS BleakClient."""

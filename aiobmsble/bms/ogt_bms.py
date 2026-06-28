@@ -27,27 +27,29 @@ class BMS(BaseBMS):
     _IDX_LEN: Final = 1
     _IDX_FCT: Final = 2
     # magic crypt sequence of length 16
-    _CRYPT_SEQ: Final[list[int]] = [2, 5, 4, 3, 1, 4, 1, 6, 8, 3, 7, 2, 5, 8, 9, 3]
+    _CRY_SEQ: Final[tuple[int, ...]] = (2, 5, 4, 3, 1, 4, 1, 6, 8, 3, 7, 2, 5, 8, 9, 3)
 
     class _Response(NamedTuple):
         valid: bool
         reg: int
         value: int
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._type: str = (
             self.name[9]
-            if len(self.name) >= 10
-            and set(self.name[10:]).issubset(digits)
+            if len(self.name) >= 10 and set(self.name[10:]).issubset(digits)
             else "?"
         )
         self._key: int = (
-            sum(
-                BMS._CRYPT_SEQ[int(c, 16)]
-                for c in (f"{int(self.name[10:]):0>4X}")
-            )
+            sum(BMS._CRY_SEQ[int(c, 16)] for c in (f"{int(self.name[10:]):0>4X}"))
             if self._type in "AB"
             else 0
         ) + (5 if (self._type == "A") else 8)
@@ -68,7 +70,7 @@ class BMS(BaseBMS):
                 4: ("cycle_charge", 3, lambda x: x / 1000),
                 8: ("voltage", 2, lambda x: x / 1000),
                 # MOS temperature
-                12: ("temperature", 2, lambda x: round(x * 0.1 - 273.15, 1)),
+                12: ("temp_values", 2, lambda x: [round(x / 10 - 273.15, 3)]),
                 # 3rd byte of current is 0 (should be 1 as for B version)
                 16: ("current", 3, lambda x: x / 100),
                 24: ("runtime", 2, lambda x: x * 60),
@@ -79,7 +81,7 @@ class BMS(BaseBMS):
         elif self._type == "B":
             self._REGISTERS = {
                 # MOS temperature
-                8: ("temperature", 2, lambda x: round(x * 0.1 - 273.15, 1)),
+                8: ("temp_values", 2, lambda x: [round(x / 10 - 273.15, 3)]),
                 9: ("voltage", 2, lambda x: x / 1000),
                 10: ("current", 3, lambda x: x / 1000),
                 # SOC (State of Charge)
@@ -106,9 +108,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("fff0")]
+        return (normalize_uuid_str("fff0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -141,13 +143,13 @@ class BMS(BaseBMS):
             return
 
         self._exp_reply = -1
-        self._data_event.set()
+        self._msg_event.set()
 
     def _ogt_response(self, resp: bytearray) -> _Response:
         """Descramble a response from the BMS."""
 
         try:
-            msg: Final[str] = bytearray(
+            msg: Final[str] = bytes(
                 (resp[x] ^ self._key) for x in range(len(resp))
             ).decode(encoding="ascii")
         except UnicodeDecodeError:
@@ -184,7 +186,7 @@ class BMS(BaseBMS):
 
         for reg in list(self._REGISTERS):
             self._exp_reply = reg
-            await self._await_reply(
+            await self._await_msg(
                 data=self._ogt_command(reg, self._REGISTERS[reg][BMS._IDX_LEN])
             )
             if self._response.reg < 0:
@@ -193,7 +195,7 @@ class BMS(BaseBMS):
             name, _length, func = self._REGISTERS[self._response.reg]
             result[name] = func(self._response.value)
             self._log.debug(
-                "decoded data: reg: %s (#%i), raw: %i, value: %f",
+                "decoded data: reg: %s (#%i), raw: %i, value: %s",
                 name,
                 reg,
                 self._response.value,
@@ -204,7 +206,7 @@ class BMS(BaseBMS):
         if self._type == "B":
             for cell_reg in range(16):
                 self._exp_reply = 63 - cell_reg
-                await self._await_reply(data=self._ogt_command(63 - cell_reg, 2))
+                await self._await_msg(data=self._ogt_command(63 - cell_reg, 2))
                 if self._response.reg < 0:
                     self._log.debug("cell count: %i", cell_reg)
                     break
