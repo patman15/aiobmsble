@@ -551,10 +551,12 @@ _RESULT_DEFS: Final[BMSSample] = {
     "problem": False,
 }
 
+
 class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
 
     bms_class = BMS
+
 
 class MockDometicBBleakClient(MockBleakClient):
     """Emulate a Dometic Büttner BMS BleakClient."""
@@ -616,20 +618,6 @@ async def test_update(
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
-
-
-# async def test_device_info(patch_bleak_client) -> None:
-#     """Test that the BMS returns initialized dynamic device information."""
-#     patch_bleak_client(MockDometicBBleakClient)
-#     bms = BMS(generate_ble_device())
-#     assert await bms.device_info() == {
-#         "fw_version": "mock_FW_version",
-#         "hw_version": "mock_HW_version",
-#         "sw_version": "mock_SW_version",
-#         "manufacturer": "mock_manufacturer",
-#         "model": "mock_model",
-#         "serial_number": "mock_serial_number",
-#     }
 
 
 async def test_tx_notimplemented(patch_bleak_client) -> None:
