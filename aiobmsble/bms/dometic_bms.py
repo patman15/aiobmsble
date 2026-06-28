@@ -24,8 +24,8 @@ class BMS(BaseBMS):
         "default_model": "Büttner BMS",
     }
     _NOTIFY_CHARS: Final[set[str]] = {
-        "0000000a-0000-1000-8000-008025000000",
         "00000004-0000-1000-8000-008025000000",
+        "0000000a-0000-1000-8000-008025000000",
         "00002346-0000-1000-8000-00805f9b34fb",
     }
     _HEAD: Final[bytes] = b"\x23\x85"
@@ -44,7 +44,7 @@ class BMS(BaseBMS):
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
-        self._data_final: dict[int, dict[int, bytearray]] = {}
+        self._data_final: dict[int, dict[int, bytes]] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -58,9 +58,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("fefb"), normalize_uuid_str("2345")]
+        return (normalize_uuid_str("fefb"), normalize_uuid_str("2345"))
 
     @staticmethod
     def uuid_rx() -> str:
@@ -114,16 +114,17 @@ class BMS(BaseBMS):
             )
             return
 
-        self._data_final.setdefault(data[2], {})[data[3]] = data.copy()
+        self._data_final.setdefault(data[2], {})[data[3]] = bytes(data)
         for device in self._data_final:
             if not BMS._CMDS.issubset(self._data_final[device].keys()):
                 break
         else:
-            self._data_event.set()
+            self._msg_event.set()
+
 
     @staticmethod
     def _cellV(
-        data: dict[int, bytearray],
+        data: dict[int, bytes],
         *,
         cells: int,
     ) -> list[float]:
