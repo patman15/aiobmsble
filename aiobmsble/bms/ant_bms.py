@@ -4,7 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -168,9 +168,13 @@ class BMS(BaseBMS):
         self._msg_event.set()
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: int, adr: int, length: int, data: bytes = b"") -> bytes:
         """Assemble an ANT BMS command."""
+        assert 0 <= cmd <= 0xFF
+        assert 0 <= adr <= 0xFFFF
+        assert 0 <= length <= 0xFF
+
         frame: bytearray = (
             bytearray([*BMS._HEAD, cmd & 0xFF])
             + adr.to_bytes(2, "little")

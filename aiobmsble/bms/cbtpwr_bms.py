@@ -4,7 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -112,7 +112,7 @@ class BMS(BaseBMS):
         self._msg_event.set()
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: bytes, value: list[int] | None = None) -> bytes:
         """Assemble a CBT Power BMS command."""
         value = [] if value is None else value

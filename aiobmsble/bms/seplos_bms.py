@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from collections.abc import Callable
-from functools import cache
+from functools import lru_cache
 from typing import Any, Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -191,7 +191,7 @@ class BMS(BaseBMS):
         self._pkglen = 0
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(device: int, cmd: int, start: int, count: int) -> bytes:
         """Assemble a Seplos BMS command."""
         assert device >= 0x00 and (device <= 0x10 or device in (0xC0, 0xE0))
@@ -207,6 +207,7 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
+        self._msg.clear()
         for block in BMS._QUERY.values():
             await self._await_msg(BMS._cmd(0x0, *block))
         if not BMS._CMDS.issubset(self._msg.keys()):
@@ -254,21 +255,19 @@ class BMS(BaseBMS):
                     signed=False,
                     offset=2731,
                     divider=10,
-                    types=(TempSensor.T.CELL,)*4
+                    types=(TempSensor.T.CELL,) * 4,
                 )
                 + BMS._temp_values(
                     self._msg[pack << 8 | BMS._PIB_LEN],
                     values=2,
-                    start=BMS._TEMP_START+16,
+                    start=BMS._TEMP_START + 16,
                     signed=False,
                     offset=2731,
                     divider=10,
-                    types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET)
+                    types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET),
                 )
             )
             # calculate cell_count instead of querying SPA
             data["cell_count"] = len(data.get("cell_voltages", [])) // self._pack_count
-
-            self._msg.clear()
 
         return data

@@ -4,7 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -61,10 +61,11 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "HS*",
+                "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
             }
+            for pattern in ("HS*", "ECO????")
         ]
 
     @staticmethod
@@ -125,7 +126,7 @@ class BMS(BaseBMS):
         self._msg_event.set()
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a Humsienk BMS command."""
         frame: Final[bytes] = cmd[:1] + b"\x00"
@@ -160,7 +161,7 @@ class BMS(BaseBMS):
             start=23,
             size=1,
             byteorder="little",
-            types=(TempSensor.T.MOSFET,)
+            types=(TempSensor.T.MOSFET,),
         )
 
         # Add problem for cell disconnect bitmap
