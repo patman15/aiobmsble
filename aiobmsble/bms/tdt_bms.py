@@ -112,7 +112,6 @@ class BMS(BaseBMS):
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
-        self._log.debug("RX BLE data: %s", data)
 
         if (
             len(data) > BMS._INFO_LEN
