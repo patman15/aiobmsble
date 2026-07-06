@@ -24,6 +24,7 @@ class BMS(BaseBMS):
         b"\x5e",
         b"\x83",
         b"\xb0",
+        b"\xe8",
     )  # header for responses
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
