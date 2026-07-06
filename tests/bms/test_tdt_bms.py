@@ -371,9 +371,9 @@ async def test_device_info(
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request):
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    return request.param[0]
+    return bytes(request.param[0])
 
 
 async def test_invalid_response(
