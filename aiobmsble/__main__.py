@@ -97,7 +97,7 @@ async def log_advertisement_issues(adv_dict: dict[str, Any]) -> None:
     vendor: str | None = aiooui.get_vendor(adv_dict.get("source", ""))
     if vendor and vendor.startswith("Raspberry Pi"):
         logger.warning(
-            "Advertisement is received by a Raspberry Pi device. This is likely to cause reception issues. "
+            "Advertisement is received via a Raspberry Pi device. This is likely to cause reception issues. "
             "See https://www.home-assistant.io/integrations/bluetooth/#cypress-based-adapters"
         )
 
