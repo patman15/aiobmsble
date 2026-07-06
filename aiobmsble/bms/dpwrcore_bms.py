@@ -78,7 +78,6 @@ class BMS(BaseBMS):
         return [
             {
                 "local_name": pattern,
-                "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
             }
             for pattern in ("DXB-*", "TBA-*")
