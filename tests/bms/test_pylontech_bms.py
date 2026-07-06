@@ -1,7 +1,7 @@
 """Test the Pylontech RT series BMS implementation."""
 
 from collections.abc import Buffer
-from typing import Final
+from typing import Any, Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -48,22 +48,20 @@ _REQ_MAIN: Final[bytes] = b"\x01\x03\x10\x16\x00\x0d\x61\x0b"
 _REQ_SN: Final[bytes] = b"\x01\x03\x20\x00\x00\x08\x4f\xcc"
 
 # Recorded Modbus responses
-_RESP_MAIN: Final[bytearray] = bytearray(
+_RESP_MAIN: Final[bytes] = (
     b"\x01\x03\x1a\x05\x2c\xff\xd0\x0c\xf0\x0c\xef\x00\x96\x00\x96"
     b"\x00\x5b\x00\x63\x00\x3f\x00\x00\x0b\x90\x03\xe8\x03\xe8\x45\xd8"
 )
-_RESP_SN: Final[bytearray] = bytearray(
+_RESP_SN: Final[bytes] = (
     b"\x01\x03\x10\x41\x32\x33\x31\x30\x31\x35\x30\x30\x30\x30\x30\x30\x30\x30\x31\x85\x04"
 )
 
 # Pre-computed modified responses for specific test cases
-_RESP_MAIN_COLD: Final[bytearray] = bytearray(
+_RESP_MAIN_COLD: Final[bytes] = (
     b"\x01\x03\x1a\x05\x2c\xff\xd0\x0c\xf0\x0c\xef\xff\xec\xff\xec"
     b"\x00\x5b\x00\x63\x00\x3f\x00\x00\x0b\x90\x03\xe8\x03\xe8\xbd\x16"
 )
-_RESP_SN_ZERO: Final[bytearray] = bytearray(
-    b"\x01\x03\x10" + b"\x00" * 16 + b"\xe4\x59"
-)
+_RESP_SN_ZERO: Final[bytes] = b"\x01\x03\x10" + b"\x00" * 16 + b"\xe4\x59"
 
 TX_UUID: Final[str] = BMS.uuid_tx()
 
@@ -99,15 +97,15 @@ class TestBasicBMS(BMSBasicTests):
 class MockPylontechBleakClient(MockBleakClient):
     """Emulate a Pylontech RT series BleakClient."""
 
-    RESP: dict[bytes, bytearray] = {
-        _REQ_MAIN: bytearray(_RESP_MAIN),
-        _REQ_SN: bytearray(_RESP_SN),
+    RESP: dict[bytes, bytes] = {
+        _REQ_MAIN: _RESP_MAIN,
+        _REQ_SN: _RESP_SN,
     }
 
-    def _response(self, char_specifier: str | int, cmd: bytes) -> bytearray:
+    def _response(self, char_specifier: str | int, cmd: bytes) -> bytes:
         if isinstance(char_specifier, str) and char_specifier != TX_UUID:
-            return bytearray()
-        return self.RESP.get(cmd, bytearray())
+            return b""
+        return self.RESP.get(cmd, b"")
 
     async def write_gatt_char(
         self,
@@ -118,9 +116,15 @@ class MockPylontechBleakClient(MockBleakClient):
         """Issue write command to GATT and trigger notification with response."""
         await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
-        resp = self._response(
-            char_specifier if isinstance(char_specifier, str) else str(char_specifier),
-            bytes(data),
+        resp = bytearray(
+            self._response(
+                (
+                    char_specifier
+                    if isinstance(char_specifier, str)
+                    else str(char_specifier)
+                ),
+                bytes(data),
+            )
         )
         if resp:
             self._notify_callback("MockPylontechBleakClient", resp)
@@ -148,7 +152,7 @@ async def test_device_info_sn_from_registers(patch_bleak_client) -> None:
 
 
 async def test_device_info_empty_sn_no_exception(
-    monkeypatch, patch_bleak_client
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
 ) -> None:
     """Test that all-zero SN registers do not raise an exception."""
     monkeypatch.setattr(
@@ -163,7 +167,9 @@ async def test_device_info_empty_sn_no_exception(
     await bms.disconnect()
 
 
-async def test_negative_temperature(monkeypatch, patch_bleak_client) -> None:
+async def test_negative_temperature(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
     """Test that negative temperatures (int16) decode correctly."""
     monkeypatch.setattr(
         MockPylontechBleakClient,
@@ -173,34 +179,34 @@ async def test_negative_temperature(monkeypatch, patch_bleak_client) -> None:
     patch_bleak_client(MockPylontechBleakClient)
     bms = BMS(generate_ble_device())
     result: BMSSample = await bms.async_update()
-    assert result.get("temp_values") == [-2.0, -2.0]
+    assert result.get("temp_values") == [TS(-2.0), TS(-2.0)]
     await bms.disconnect()
 
 
 @pytest.fixture(
     name="wrong_response",
     params=[
-        (bytearray(_RESP_MAIN[:-2]) + bytes(2), "wrong_CRC"),
-        (bytearray(b"\x02\x03\x02\x00\x5b\x00\x00"), "bad_ID"),
-        (bytearray(b"\x01\x83\x02\xc0\xf1"), "modbus_exception"),
-        (bytearray(b"\x01\x03\x02"), "too_short"),
-        (bytearray(b"\x01\x03\x1a\x05\x2c"), "incomplete_msg"),
-        (bytearray(b"\x01\x03\x19") + _RESP_MAIN[3:], "wrong_byte_count"),
-        (bytearray(b"\x01\x04\x1a") + bytes(28), "wrong_fct_code"),
-        (bytearray(), "empty"),
+        (_RESP_MAIN[:-2] + bytes(2), "wrong_CRC"),
+        (b"\x02\x03\x02\x00\x5b\x00\x00", "bad_ID"),
+        (b"\x01\x83\x02\xc0\xf1", "modbus_exception"),
+        (b"\x01\x03\x02", "too_short"),
+        (b"\x01\x03\x1a\x05\x2c", "incomplete_msg"),
+        (b"\x01\x03\x19" + _RESP_MAIN[3:], "wrong_byte_count"),
+        (b"\x01\x04\x1a" + bytes(28), "wrong_fct_code"),
+        (b"", "empty"),
     ],
     ids=lambda p: p[1],
 )
-def fix_wrong_response(request: pytest.FixtureRequest) -> bytearray:
+def fix_wrong_response(request: pytest.FixtureRequest) -> bytes:
     """Return a faulty response frame."""
-    return request.param[0]
+    return bytes(request.param[0])
 
 
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test that invalid BMS responses raise TimeoutError."""
     patch_bms_timeout()
@@ -268,7 +274,7 @@ def test_matcher_covers_rt_variants(
 ) -> None:
     """Test that matcher_dict_list covers all RT voltage/capacity variants."""
     # All variants advertise 0x180F in BLE advertisement packets.
-    adv_dict: dict = {}
+    adv_dict: dict[str, Any] = {}
     if local_name:
         adv_dict["local_name"] = local_name
     if has_service_uuid:
