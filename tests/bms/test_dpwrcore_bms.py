@@ -28,34 +28,34 @@ def patch_dev_name(request: pytest.FixtureRequest) -> str:
 
 
 _RESULT_DEFS: Final[BMSSample] = {
-    "voltage": 53.1,
-    "current": 0,
-    "battery_level": 61.0,
+    "voltage": 52.5,
+    "current": 23.5,
+    "battery_level": 45,
     "cycles": 18,
-    "cycle_charge": 17.806,
+    "cycle_charge": 18.67,
     "cell_voltages": [
-        3.799,
-        3.798,
-        3.798,
-        3.797,
-        3.797,
-        3.798,
-        3.793,
-        3.794,
-        3.797,
-        3.798,
-        3.796,
-        3.800,
-        3.799,
-        3.803,
+        3.749,
+        3.761,
+        3.748,
+        3.759,
+        3.75,
+        3.757,
+        3.75,
+        3.759,
+        3.75,
+        3.757,
+        3.748,
+        3.763,
+        3.75,
+        3.752,
     ],
     "cell_count": 14,
-    "delta_voltage": 0.01,
+    "delta_voltage": 0.015,
     "temperature": 21.05,
     "temp_values": [TS(21.05)],
-    "cycle_capacity": 945.499,
-    "power": 0.0,
-    "battery_charging": False,
+    "cycle_capacity": 980.175,
+    "power": 1233.75,
+    "battery_charging": True,
     "problem": False,
     "problem_code": 0,
 }
@@ -79,11 +79,11 @@ class MockDPwrcoreBleakClient(MockBleakClient):
             char_specifier
         ) != normalize_uuid_str("fff3"):
             return bytearray()
-        cmd: int = int(bytearray(data)[5])
+        cmd: int = bytes(data)[5]
         if cmd == 0x60:
             return bytearray(
-                b"\x12\x12\x3a\x05\x03\x60\x00\x0a\x02\x13\x00\x00\x71\xc5\x45\x8e\x3d\x00\x02\xcd"
-                b"\x02\x22\x0d\x0a\x03\x60\x00\x0a\x02\x13\x00\x00\x71\xc5\x45\x8e\x3d\x00\x02\xcd"
+                b"\x12\x12\x3a\x05\x03\x60\x00\x0a\x02\x0d\x00\xeb\xa0\x7e\x48\xee\x2d\x00\x03\xed"
+                b"\x02\x22\x0d\x0a\x03\x60\x00\x0a\x02\x0d\x00\xeb\xa0\x7e\x48\xee\x2d\x00\x03\xed"
             )  # 2nd line only 4 bytes valid! TODO: put numbers
         if cmd == 0x61:
             return bytearray(
@@ -92,9 +92,9 @@ class MockDPwrcoreBleakClient(MockBleakClient):
             )  # 2nd line only 6 bytes valid! TODO: put numbers
         if cmd == 0x62:
             return bytearray(
-                b"\x12\x13\x3a\x05\x03\x62\x00\x1d\x0e\x0e\xd7\x0e\xd6\x0e\xd6\x0e\xd5\x0e\xd5\x0e"
-                b"\x12\x23\xd6\x0e\xd1\x0e\xd2\x0e\xd5\x0e\xd6\x0e\xd4\x0e\xd8\x0e\xd7\x0e\xdb\x0d"
-                b"\x03\x33\x08\x0d\x0a\x0e\xd2\x0e\xd5\x0e\xd6\x0e\xd4\x0e\xd8\x0e\xd7\x0e\xdb\x0d"
+                b'\x12\x13\x3a\x05\x03\x62\x00\x1d\x0e\x0e\xa5\x0e\xb1\x0e\xa4\x0e\xaf\x0e\xa6\x0e'
+                b'\x12\x23\xad\x0e\xa6\x0e\xaf\x0e\xa6\x0e\xad\x0e\xa4\x0e\xb3\x0e\xa6\x0e\xa8\x0a'
+                b'\x03\x33\xa2\x0d\x0a\x0e\xaf\x0e\xa6\x0e\xad\x0e\xa4\x0e\xb3\x0e\xa6\x0e\xa8\x0a'
             )  # 2nd line only 5 bytes valid TODO: put numbers
         if cmd == 0x64:
             assert bytearray(data)[8:10] == bytes.fromhex("C0FE"), "incorrect password"
@@ -135,7 +135,7 @@ class MockWrongCRCBleakClient(MockDPwrcoreBleakClient):
             char_specifier
         ) != normalize_uuid_str("fff3"):
             return bytearray()
-        cmd: int = int(bytearray(data)[5])
+        cmd: int = bytes(data)[5]
         if cmd == 0x60:
             return bytearray(
                 b"\x12\x12\x3a\x05\x03\x60\x00\x0a\x02\x13\x00\x00\x71\xc5\x45\x8e\x3d\x00\x01\xce"
@@ -185,8 +185,8 @@ class MockProblemBleakClient(MockDPwrcoreBleakClient):
             return bytearray()
         if bytearray(data)[5] == 0x60:
             return bytearray(
-                b"\x12\x12\x3a\x05\x03\x60\x00\x0a\x02\x13\x00\x00\x71\xc5\x45\x8e\x3d\xff\x03\xcc"
-                b"\x02\x22\x0d\x0a\x03\x60\x00\x0a\x02\x13\x00\x00\x71\xc5\x45\x8e\x3d\x00\x03\xcc"
+                b"\x12\x12\x3a\x05\x03\x60\x00\x0a\x02\x0d\x00\xeb\xa0\x7e\x48\xee\x2d\xff\x04\xec"
+                b"\x02\x22\x0d\x0a\x03\x60\x00\x0a\x02\x0d\x00\xeb\xa0\x7e\x48\xee\x2d\x00\x04\xec"
             )  # 2nd line only 4 bytes valid!
 
         return super()._response(char_specifier, data)
