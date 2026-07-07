@@ -465,16 +465,7 @@ _DEV_DEFS: Final[dict[str, BMSInfo]] = {
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=[
-        "JK02_24S",
-        "JK02_32S",
-        "JK02_32S_v15",
-        "JK02_32S_v19.05",
-        "JK02_32S_v19.27",
-    ],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
     assert isinstance(request.param, str)
@@ -490,9 +481,9 @@ class TestBasicBMS(BMSBasicTests):
 class MockJikongBleakClient(MockBleakClient):
     """Emulate a Jikong BMS BleakClient."""
 
-    HEAD_CMD: Final = bytearray(b"\xaa\x55\x90\xeb")
-    CMD_INFO: Final = bytearray(b"\x96")
-    DEV_INFO: Final = bytearray(b"\x97")
+    HEAD_CMD: Final = b"\xaa\x55\x90\xeb"
+    CMD_INFO: Final = b"\x96"
+    DEV_INFO: Final = b"\x97"
     _FRAME: dict[str, bytearray] = _PROTO_DEFS["JK02_32S"]
 
     _task: asyncio.Task[None] | None = None
@@ -629,12 +620,12 @@ class MockOversizedBleakClient(MockJikongBleakClient):
     ) -> bytearray:
         if char_specifier != 3:
             return bytearray()
-        if bytearray(data)[0:5] == self.HEAD_CMD + self.CMD_INFO:
+        if bytes(data)[0:5] == self.HEAD_CMD + self.CMD_INFO:
             return (  # added AT\r\n command and oversized
-                bytearray(b"\x41\x54\x0d\x0a") + self._FRAME["cell"] + bytearray(6)
+                bytearray(b"\x41\x54\x0d\x0a") + self._FRAME["cell"] + bytes(6)
             )
-        if bytearray(data)[0:5] == self.HEAD_CMD + self.DEV_INFO:
-            return self._FRAME["dev"] + bytearray(6)  # oversized
+        if bytes(data)[0:5] == self.HEAD_CMD + self.DEV_INFO:
+            return self._FRAME["dev"] + bytes(6)  # oversized
 
         return bytearray()
 

@@ -1,7 +1,7 @@
 """Test the TianPwr BMS implementation."""
 
 from collections.abc import Buffer
-from typing import Final, cast
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -68,44 +68,44 @@ class TestBasicBMS(BMSBasicTests):
 class MockTianPwrBleakClient(MockBleakClient):
     """Emulate a TianPwr BMS BleakClient."""
 
-    RESP: Final[dict[int, bytearray]] = {
-        0x81: bytearray(  # Software version frame
+    RESP: Final[dict[int, bytes]] = {
+        0x81: (  # Software version frame
             b"\x55\x14\x81\x30\x2e\x31\x2e\x31\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x82: bytearray(  # Hardware version frame
+        0x82: (  # Hardware version frame
             b"\x55\x14\x82\x54\x50\x2d\x4c\x54\x35\x35\x00\x54\x42\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x83: bytearray(  # Status frame
+        0x83: (  # Status frame
             b"\x55\x14\x83\x00\x3c\x15\x62\x01\x18\x00\xe6\x00\xfa\x00\x00\x30\x30\x00\x64\xaa"
         ),  # 60%, 54.74V, 0A, 28° ambient temp, 23°, 25° MOS temp
-        0x84: bytearray(  # General info frame
+        0x84: (  # General info frame
             b"\x55\x14\x84\x10\x04\x59\xd8\x36\x48\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x85: bytearray(  # Mosfet status frame
+        0x85: (  # Mosfet status frame
             b"\x55\x14\x85\x08\x23\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x87: bytearray(  # Temperatures frame
+        0x87: (  # Temperatures frame
             b"\x55\x14\x87\x00\xe6\x00\xe6\x00\xe6\x00\xe6\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x88: bytearray(  # Cell voltages frame
+        0x88: (  # Cell voltages frame
             b"\x55\x14\x88\x0d\x57\x0d\x5b\x0d\x5b\x0d\x5e\x0d\x5d\x0d\x5e\x0d\x61\x0d\x60\xaa"
         ),
-        0x89: bytearray(  # Cell voltages frame
+        0x89: (  # Cell voltages frame
             b"\x55\x14\x89\x0d\x5d\x0d\x61\x0d\x5d\x0d\x5d\x0d\x5e\x0d\x5c\x0d\x5e\x0d\x65\xaa"
         ),
-        0x8A: bytearray(  # Cell voltages frame
+        0x8A: (  # Cell voltages frame
             b"\x55\x14\x8a\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x90: bytearray(
+        0x90: (
             b"\x55\x14\x90\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x91: bytearray(
+        0x91: (
             b"\x55\x14\x91\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x94: bytearray(
+        0x94: (
             b"\x55\x14\x91\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x95: bytearray(
+        0x95: (
             b"\x55\x14\x91\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
     }
@@ -118,7 +118,7 @@ class MockTianPwrBleakClient(MockBleakClient):
         ) == normalize_uuid_str("ff02"):
             frame: Final[bytes] = bytes(data)
             if frame[0] == 0x55 and frame[-1] == 0xAA and frame[1] == 0x04:
-                return self.RESP[frame[2]]
+                return bytearray(self.RESP[frame[2]])
 
         return bytearray()
 
@@ -168,17 +168,17 @@ async def test_device_info(patch_bleak_client) -> None:
 @pytest.fixture(
     name="wrong_response",
     params=[
-        (bytearray(b"\x51\x14\x83" + bytes(16) + b"\xaa"), "wrong_SOF"),
-        (bytearray(b"\x55\x14\x83" + bytes(16) + b"\xa1"), "wrong_EOF"),
-        (bytearray(b"\x55\x14\x83" + bytes(17) + b"\xaa"), "wrong_length_max"),
-        (bytearray(b"\x55\x14\x83" + bytes(15) + b"\xaa"), "wrong_length_min"),
-        (bytearray(), "empty_frame"),
+        (b"\x51\x14\x83" + bytes(16) + b"\xaa", "wrong_SOF"),
+        (b"\x55\x14\x83" + bytes(16) + b"\xa1", "wrong_EOF"),
+        (b"\x55\x14\x83" + bytes(17) + b"\xaa", "wrong_length_max"),
+        (b"\x55\x14\x83" + bytes(15) + b"\xaa", "wrong_length_min"),
+        (b"", "empty_frame"),
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    assert isinstance(request.param[0], bytearray)
+    assert isinstance(request.param, tuple) and isinstance(request.param[0], bytes)
     return request.param[0]
 
 
@@ -186,7 +186,7 @@ async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -255,7 +255,12 @@ async def test_missing_message(
 )
 def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
-    return cast(tuple[bytearray, str], request.param)
+    assert (
+        isinstance(request.param, tuple)
+        and isinstance(request.param[0], bytearray)
+        and isinstance(request.param[1], str)
+    )
+    return request.param
 
 
 async def test_problem_response(

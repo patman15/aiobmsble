@@ -180,10 +180,7 @@ def ref_value() -> dict[str, BMSSample]:
     }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=["4S4Tv0.0", "16S6Tv0.0", "16S6Tv0.4"],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
     assert isinstance(request.param, str)
@@ -201,10 +198,10 @@ class MockTDTBleakClient(MockBleakClient):
 
     HEAD_CMD: Final[int] = 0x7E
     TAIL_CMD: Final[int] = 0x0D
-    CMDS: Final[dict[int, bytearray]] = {
-        0x8C: bytearray(b"\x00\x01\x03\x00\x8c\x00\x00"),
-        0x8D: bytearray(b"\x00\x01\x03\x00\x8d\x00\x00"),
-        0x92: bytearray(b"\x00\x01\x03\x00\x92\x00\x00"),
+    CMDS: Final[dict[int, bytes]] = {
+        0x8C: b"\x00\x01\x03\x00\x8c\x00\x00",
+        0x8D: b"\x00\x01\x03\x00\x8d\x00\x00",
+        0x92: b"\x00\x01\x03\x00\x92\x00\x00",
     }
     RESP: Final[dict[int, bytearray]] = _PROTO_DEFS["16S6Tv0.0"]
 
@@ -216,11 +213,11 @@ class MockTDTBleakClient(MockBleakClient):
         if (
             isinstance(char_specifier, str)
             and normalize_uuid_str(char_specifier) == normalize_uuid_str("fff2")
-            and bytearray(data)[0] == self.HEAD_CMD
-            and bytearray(data)[-1] == self.TAIL_CMD
+            and bytes(data)[0] == self.HEAD_CMD
+            and bytes(data)[-1] == self.TAIL_CMD
         ):
             for k, v in self.CMDS.items():
-                if bytearray(data)[1:].startswith(v) and k in self.RESP:
+                if bytes(data)[1:].startswith(v) and k in self.RESP:
                     return self.RESP[k]
 
         return bytearray()
@@ -409,7 +406,7 @@ async def test_init_fail(
     """Test that failing to initialize simply continues and tries to read data."""
 
     async def error_repsonse(*_args, **_kwargs) -> bytearray:
-        return bytearray(b"\x00")
+        return bytearray(1)
 
     async def throw_response(*_args, **_kwargs) -> bytearray:
         raise BleakDeviceNotFoundError("MockTDTBleakClient")

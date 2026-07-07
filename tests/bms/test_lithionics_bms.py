@@ -86,7 +86,7 @@ class MockLithionicsBleakClient(MockBleakClient):
         """Mock start_notify."""
         await super().start_notify(char_specifier, callback)
         self._task = asyncio.create_task(self._notify())
-        await asyncio.sleep(0) # yield control to allow task to start
+        await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
@@ -172,9 +172,7 @@ async def test_invalid_frame_length(
     """Test handling of frames exceeding BLE_MAX_ATTR_SIZE in notification handler."""
     patch_bms_timeout("lithionics_bms")
     monkeypatch.setattr(
-        MockLithionicsBleakClient,
-        "_RESP",
-        bytearray(b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1)),
+        MockLithionicsBleakClient, "_RESP", b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1)
     )
     patch_bleak_client(MockLithionicsBleakClient)
 

@@ -158,10 +158,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=["v1", "v2"],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
     assert isinstance(request.param, str)
@@ -177,9 +174,9 @@ class TestBasicBMS(BMSBasicTests):
 class MockNeeyBleakClient(MockBleakClient):
     """Emulate a Neey BMS BleakClient."""
 
-    HEAD_CMD: Final = bytearray(b"\xaa\x55\x11\x01")
-    DEV_INFO: Final = bytearray(b"\x01")
-    CELL_INFO: Final = bytearray(b"\x02")
+    HEAD_CMD: Final = b"\xaa\x55\x11\x01"
+    DEV_INFO: Final = b"\x01"
+    CELL_INFO: Final = b"\x02"
     TAIL: Final = 0xFF
     _FRAME: dict[str, bytearray] = _PROTO_DEFS["v1"]
 
@@ -188,7 +185,7 @@ class MockNeeyBleakClient(MockBleakClient):
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-        frame: Final[bytearray] = bytearray(data)
+        frame: Final[bytes] = bytes(data)
         if (
             char_specifier != "ffe1"
             or frame[19] != self.TAIL
@@ -196,9 +193,9 @@ class MockNeeyBleakClient(MockBleakClient):
         ):
             return bytearray()
         if frame[4:5] == self.CELL_INFO:
-            return self._FRAME["cell"]
+            return bytearray(self._FRAME["cell"])
         if frame[4:5] == self.DEV_INFO:
-            return self._FRAME["dev"]
+            return bytearray(self._FRAME["dev"])
 
         return bytearray()
 

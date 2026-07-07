@@ -1,7 +1,7 @@
 """Test the ANT implementation."""
 
 from collections.abc import Buffer
-from typing import Final, cast
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -73,17 +73,17 @@ class TestBasicBMS(BMSBasicTests):
 class MockANTBleakClient(MockBleakClient):
     """Emulate a ANT BMS BleakClient."""
 
-    CMDS: Final[dict[int, bytearray]] = {
-        0x01: bytearray(b"\x7e\xa1\x01\x00\x00\xbe\x18\x55\xaa\x55"),
-        0x02: bytearray(b"\x7e\xa1\x02\x6c\x02\x20\x58\xc4\xaa\x55"),
+    CMDS: Final[dict[int, bytes]] = {
+        0x01: b"\x7e\xa1\x01\x00\x00\xbe\x18\x55\xaa\x55",
+        0x02: b"\x7e\xa1\x02\x6c\x02\x20\x58\xc4\xaa\x55",
     }
     REQUIRE_PASS: bool = False
     UNLOCKED = False
     DEFAULT_PASS_MSG = (  # password is "12345678" in ASCII
         b"\x7e\xa1\x23\x01\x6a\x08\x31\x32\x33\x34\x35\x36\x37\x38\xd9\xee\xaa\x55"
     )
-    RESP: Final[dict[int, bytearray]] = {
-        0x1: bytearray(
+    RESP: Final[dict[int, bytes]] = {
+        0x1: (
             b"\x7e\xa1\x11\x00\x00\x9e\x05\x04\x04\x16\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x88\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1e\x09\x1b\x09\x1e\x09"
             b"\x1d\x09\x1d\x09\x1e\x09\x20\x09\x1e\x09\x8f\x08\x8e\x08\x90\x08\x22\x09\xeb\x08"
@@ -94,7 +94,7 @@ class MockANTBleakClient(MockBleakClient):
             b"\x6d\x00\x6a\x00\xaf\x02\xf3\xfa\x4c\x74\xe5\x00\x28\x66\xec\x00\xc3\x5d\x62\x00"
             b"\xcc\xb3\x92\x00\xed\xc8\xaa\x55"
         ),
-        0x2: bytearray(
+        0x2: (
             b"\x7e\xa1\x12\x6c\x02\x20\x32\x34\x42\x48\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x32\x34\x42\x48\x55\x42\x30\x30\x2d\x32\x31\x31\x30\x32\x36\x41\x57\x96"
             b"\xff\x0b\x00\x00\x41\xf2\xaa\x55"
@@ -117,7 +117,7 @@ class MockANTBleakClient(MockBleakClient):
             self.UNLOCKED = True
 
         if not self.REQUIRE_PASS or self.UNLOCKED:
-            resp: Final[bytearray] = self.RESP.get(int(bytes(data)[2]), bytearray())
+            resp: Final[bytearray] = bytearray(self.RESP.get(int(bytes(data)[2]), b""))
             for notify_data in [
                 resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
             ]:
@@ -188,20 +188,21 @@ async def test_device_info(patch_bleak_client) -> None:
         (MockANTBleakClient.RESP[0x1][:-2] + b"\xa1\x55", "wrong_EOF"),
         (b"\x7e\xa1\x11", "too_short"),
         (MockANTBleakClient.RESP[0x1][:-4] + b"\xff\xff\xaa\x55", "wrong_CRC"),
-        (bytearray(1), "empty_response"),
+        (bytes(1), "empty_response"),
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    return cast(bytearray, request.param[0])
+    assert isinstance(request.param, tuple) and isinstance(request.param[0], bytes)
+    return request.param[0]
 
 
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -210,7 +211,7 @@ async def test_invalid_response(
     monkeypatch.setattr(
         MockANTBleakClient,
         "RESP",
-        MockANTBleakClient.RESP | {0x1: wrong_response},
+        MockANTBleakClient.RESP | {0x1: bytearray(wrong_response)},
     )
 
     patch_bleak_client(MockANTBleakClient)
