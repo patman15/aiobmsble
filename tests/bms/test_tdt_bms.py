@@ -75,7 +75,7 @@ _PROTO_DEFS: Final[dict[str, dict[int, bytearray]]] = {
             b"\xef\x06\x0b\xb8\x0b\xcc\x0b\xae\x0b\xae\x0b\xae\x0b\xae\x00\x05\x14\xb7\x00\x31"
             b"\x00\x63\x00\x0c\x00\x64\x00\x32\x13\x62\x0d"
         ),
-        0x8D: bytearray(
+        0x8D: bytearray(  # device seems to send wrong CRC with this message
             b"\x7e\x00\x01\x03\x00\x8d\x00\x31\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x06\x00\x00\xf1\xf1\xf1\xf1\x00\x00\x00\x01\x00\x00\x06\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\xd5\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x52\x0d"
@@ -190,7 +190,50 @@ def ref_value() -> dict[str, BMSSample]:
             "dischrg_mosfet": True,
             "problem": False,
         },
-        "16S6Tv1.1": {},
+        "16S6Tv1.1": {
+            "cell_count": 16,
+            "temp_sensors": 6,
+            "cell_voltages": [
+                3.317,
+                3.314,
+                3.315,
+                3.315,
+                3.312,
+                3.316,
+                3.314,
+                3.312,
+                3.314,
+                3.315,
+                3.314,
+                3.313,
+                3.313,
+                3.313,
+                3.314,
+                3.311,
+            ],
+            "temp_values": [
+                TS(26.9, TS.T.AMBIENT),
+                TS(28.9, TS.T.MOSFET),
+                TS(25.9, TS.T.CELL),
+                TS(25.9, TS.T.CELL),
+                TS(25.9, TS.T.CELL),
+                TS(25.9, TS.T.CELL),
+            ],
+            "voltage": 53.03,
+            "current": 0.5,
+            "cycle_charge": 4.9,
+            "battery_level": 50,
+            "cycles": 12,
+            "problem_code": 0,
+            "chrg_mosfet": True,
+            "dischrg_mosfet": True,
+            "delta_voltage": 0.006,
+            "cycle_capacity": 259.847,
+            "power": 26.515,
+            "battery_charging": True,
+            "temperature": 26.567,
+            "problem": False,
+        },
     }
 
 

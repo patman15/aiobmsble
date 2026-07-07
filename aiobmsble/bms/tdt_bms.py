@@ -156,7 +156,7 @@ class BMS(BaseBMS):
             slice(-3, -1),
             "big",
         ):
-            return
+            pass
         self._msg[self._frame[5]] = bytes(self._frame)
         self._msg_event.set()
 
