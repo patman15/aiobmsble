@@ -54,13 +54,16 @@ class BMS(BaseBMS):
         super().__init__(ble_device, keep_alive, secret, logger_name)
         self._msg: dict[int, bytes] = {}
         self._cmd_heads: set[int] = BMS._CMD_HEADS
-        self._valid_reply: int = 0 # expected reply type
+        self._valid_reply: int = 0  # expected reply type
         self._exp_len: int = 0
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [{"manufacturer_id": 54976, "connectable": True}]
+        return [
+            {"manufacturer_id": 54976, "connectable": True},
+            {"local_name": "HS02*", "connectable": True},
+        ]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
