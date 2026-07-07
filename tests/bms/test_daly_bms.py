@@ -1,7 +1,7 @@
 """Test the Daly BMS implementation."""
 
 from collections.abc import Buffer
-from typing import Final
+from typing import Final, cast
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -314,9 +314,9 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request: pytest.FixtureRequest):
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
-    return request.param
+    return cast(tuple[bytearray, str], request.param)
 
 
 async def test_problem_response(

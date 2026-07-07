@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample, TempSensor as TS
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.eg4_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient

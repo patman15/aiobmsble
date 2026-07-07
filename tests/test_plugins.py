@@ -34,10 +34,10 @@ def test_advertisements_ignore() -> None:
             ), f"{adv} incorrectly matches {bms_under_test.__name__}! {reason=}"
 
 
-def get_defined_methods(cls) -> list[str]:
+def get_defined_methods(cls: type) -> list[str]:
     """Return method/property names defined directly in the class, in source order."""
 
-    def first_lineno(obj) -> int | None:
+    def first_lineno(obj: object) -> int | None:
         """Extract the first line number from functions, staticmethods, classmethods, or properties."""
         if inspect.isfunction(obj):
             return obj.__code__.co_firstlineno
