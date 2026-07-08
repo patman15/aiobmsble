@@ -34,7 +34,7 @@ class BMS(BaseBMS):
             0,
             2,
             False,
-            lambda x: (x & 0x3FFF) / 10 * (-1 if x >> 15 else 1),
+            lambda x: (x & 0x3FFF) * (-1 if x >> 15 else 1),
             0x8C,
         ),
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 10, 0x8C),
