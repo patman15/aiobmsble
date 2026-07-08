@@ -1,14 +1,14 @@
 """Test the E&J technology BMS implementation."""
 
 from collections.abc import Buffer
-from typing import Final
+from typing import Final, cast
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_sum
 from aiobmsble.bms.redodo_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -29,7 +29,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "design_capacity": 105,
     "cycle_capacity": 1829.443,
     "runtime": 172825,
-    "temp_values": [23, 22, -2],
+    "temp_values": [TS(23), TS(22), TS(-2)],
     "temp_sensors": 3,
     "temperature": 14.333,
     "cycles": 3,
@@ -141,7 +141,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 )
 def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
-    return request.param[0]
+    return cast(bytearray, request.param[0])
 
 
 async def test_invalid_response(
@@ -198,7 +198,7 @@ async def test_invalid_response(
 )
 def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
-    return request.param
+    return cast(tuple[bytearray, str], request.param)
 
 
 async def test_problem_response(

@@ -9,7 +9,7 @@ from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.renogy_pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
@@ -35,7 +35,7 @@ def ref_value() -> BMSSample:
         "problem": False,
         "problem_code": 0,
         "runtime": 626886,
-        "temp_values": [27.3, 26.8, 27.5],
+        "temp_values": [TS(27.3), TS(26.8), TS(27.5)],
         "temp_sensors": 3,
         "temperature": 27.2,
         "voltage": 13.3,

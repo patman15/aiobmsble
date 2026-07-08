@@ -1,12 +1,13 @@
 """Test the Vatrer BMS implementation."""
 
 from collections.abc import Buffer
+from typing import cast
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.vatrer_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -27,7 +28,8 @@ def ref_value() -> BMSSample:
         "cell_count": 16,
         "runtime": 28814,
         "temp_sensors": 4,
-        "temp_values": [18.0, 20.0, 19.0, 20.0, 20.0, 20.0],
+        "temp_values": [TS(v) for v in (18.0, 20.0, 19.0, 20.0, 20.0)]
+        + [TS(20.0, TS.T.MOSFET)],
         "temperature": 19.5,
         "battery_charging": False,
         "power": -261.243,
@@ -181,7 +183,7 @@ async def test_invalid_response(
 )
 def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
-    return request.param
+    return cast(tuple[bytearray, str], request.param)
 
 
 async def test_problem_response(

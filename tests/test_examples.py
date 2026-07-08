@@ -49,7 +49,7 @@ class TestMinimal:
         await examples.minimal.main("Dummy device")
         assert "Found device: Dummy device (11:22:33:44:55:66)" in caplog.text
         assert (
-            "BMS data: {'voltage': 12,\n\t'current': 1.5,\n\t'temperature': 27.182,\n"
+            "BMS data: {'voltage': 12.0,\n\t'current': 1.5,\n\t'temperature': 27.182,\n"
             "\t'power': 18.0,\n\t'battery_charging': True,\n\t'problem': False}\n"
             in caplog.text
         )

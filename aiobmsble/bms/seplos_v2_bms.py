@@ -4,14 +4,14 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_xmodem
 
 
@@ -152,7 +152,7 @@ class BMS(BaseBMS):
         self._exp_len = BMS._MIN_LEN
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: int, address: int = 0, data: bytes = b"") -> bytes:
         """Assemble a Seplos V2 BMS command."""
         assert cmd in (0x47, 0x51, 0x61, 0x62, 0x04)  # allow only read commands
@@ -225,6 +225,8 @@ class BMS(BaseBMS):
             signed=False,
             offset=2731,
             divider=10,
+            types=(TempSensor.T.CELL,) * (result.get("temp_sensors", 2) - 2)
+            + (TempSensor.T.AMBIENT, TempSensor.T.MOSFET),
         )
 
         self._msg.clear()

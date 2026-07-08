@@ -1,13 +1,13 @@
 """Test the ANT implementation."""
 
 from collections.abc import Buffer
-from typing import Final
+from typing import Final, cast
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSSample, TempSensor as TS
 from aiobmsble.bms.ant_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -54,7 +54,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         2.337,
         2.335,
     ],
-    "temp_values": [29.0, 29.0, 29.0, 29.0, 30.0, 30.0],
+    "temp_values": [TS(29.0)] * 4 + [TS(30.0, TS.T.MOSFET), TS(30.0, TS.T.BALANCER)],
     "delta_voltage": 0.148,
     "problem": False,
     "problem_code": 0,
@@ -79,7 +79,7 @@ class MockANTBleakClient(MockBleakClient):
     }
     REQUIRE_PASS: bool = False
     UNLOCKED = False
-    DEFAULT_PASS_MSG = ( # password is "12345678" in ASCII
+    DEFAULT_PASS_MSG = (  # password is "12345678" in ASCII
         b"\x7e\xa1\x23\x01\x6a\x08\x31\x32\x33\x34\x35\x36\x37\x38\xd9\xee\xaa\x55"
     )
     RESP: Final[dict[int, bytearray]] = {
@@ -192,13 +192,16 @@ async def test_device_info(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request):
+def fix_response(request: pytest.FixtureRequest) -> bytearray:
     """Return faulty response frame."""
-    return request.param[0]
+    return cast(bytearray, request.param[0])
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytearray,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
