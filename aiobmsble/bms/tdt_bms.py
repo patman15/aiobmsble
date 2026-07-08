@@ -37,7 +37,7 @@ class BMS(BaseBMS):
             lambda x: (x & 0x3FFF) * (-1 if x >> 15 else 1),
             0x8C,
         ),
-        BMSDp("cycle_charge", 4, 2, False, lambda x: x / 10, 0x8C),
+        BMSDp("cycle_charge", 4, 2, False, idx=0x8C),
         BMSDp("battery_level", 12, 2, False, idx=0x8C),
         BMSDp("cycles", 8, 2, False, idx=0x8C),
     )  # problem code, switches are not included in the list, but extra
