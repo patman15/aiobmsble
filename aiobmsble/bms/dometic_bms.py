@@ -40,6 +40,8 @@ class BMS(BaseBMS):
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS} | {0x56, 0x57}
 
+    accept_secret: bool = True
+
     def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive)
@@ -96,6 +98,7 @@ class BMS(BaseBMS):
                 self._log.debug(
                     "Could not subscribe to notify characteristic %s: %s", char, ex
                 )
+        await self._await_msg(b"APP+AEN="+self._secret.encode(encoding="ASCII"))
 
     def _notification_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
