@@ -26,7 +26,6 @@ class BMS(BaseBMS):
     _NOTIFY_CHARS: Final[set[str]] = {
         "00000004-0000-1000-8000-008025000000",
         "0000000a-0000-1000-8000-008025000000",
-        "00002346-0000-1000-8000-00805f9b34fb",
     }
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
