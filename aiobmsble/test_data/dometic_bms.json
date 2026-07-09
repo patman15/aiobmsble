@@ -10,5 +10,17 @@
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/564)"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "KAA_500xxx_TLB150",
+      "platform_data": ["00:21:7e:00:00:00"],
+      "rssi": -74,
+      "manufacturer_data": { "2117": "1485" }
+    },
+    "type": "dometic_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/729)"
+    ]
   }
 ]
