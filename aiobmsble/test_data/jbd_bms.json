@@ -615,22 +615,5 @@
       "source advmon (https://github.com/patman15/aiobmsble/issues/199)",
       "Lossigy 48V 100Ah LiFePO4"
     ]
-  },
-  {
-    "advertisement": {
-      "local_name": "DCHC7AC",
-      "platform_data": ["15:72:D7:00:00:00"],
-      "rssi": -93,
-      "manufacturer_data": { "29205": "d7000000" },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb",
-        "00000001-0000-1000-8000-00805f9b34fb"
-      ]
-    },
-    "type": "jbd_bms",
-    "_comments": [
-      "source advmon (https://github.com/patman15/aiobmsble/issues/745)",
-      "DC HOUSE smart battery"
-    ]
   }
 ]
