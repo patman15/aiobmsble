@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from enum import Enum
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -23,15 +24,23 @@ class BMS(BaseBMS):
         "default_manufacturer": "Dometic",
         "default_model": "Büttner BMS",
     }
-    _NOTIFY_CHARS: Final[set[str]] = {
-        "00000004-0000-1000-8000-008025000000",
-        "0000000a-0000-1000-8000-008025000000",
-    }
+
+    class _NotifyChars(Enum):
+        ch_b = "00000004-0000-1000-8000-008025000000"
+        ch_c = "0000000a-0000-1000-8000-008025000000"
+
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100, 0x02),
-        BMSDp("current", 6, 2, False, lambda x: (x if x<=32767 else 32767-x) / 100, 0x02),
+        BMSDp(
+            "current",
+            6,
+            2,
+            False,
+            lambda x: (x if x <= 32767 else 32767 - x) / 100,
+            0x02,
+        ),
         BMSDp("design_capacity", 4, 4, False, idx=0x07),
         BMSDp("battery_level", 4, 1, False, idx=0x0B),
         BMSDp("temperature", 4, 2, False, lambda x: (x - 500) / 10, 0x0C),
@@ -39,6 +48,7 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 4, 1, False, idx=0x0E),
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS} | {0x56, 0x57}
+    _ka_resp: int = 0xFF
 
     accept_secret: bool = True
 
@@ -66,12 +76,12 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_rx() -> str:
         """Return UUID of characteristic that provides notification/read property."""
-        return "00000002-0000-1000-8000-008025000000"
+        return BMS.normalize_db_uuid_str("0002")
 
     @staticmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-        raise NotImplementedError
+        return BMS.normalize_db_uuid_str("0001")
 
     # async def _fetch_device_info(self) -> BMSInfo:
     #     """Fetch the device information via BLE."""
@@ -83,28 +93,58 @@ class BMS(BaseBMS):
     # def _raw_values() -> frozenset[BMSValue]:
     #     return frozenset({"runtime"})  # never calculate, e.g. runtime
 
+    @staticmethod
+    def normalize_db_uuid_str(uuid: str) -> str:
+        """Normalize a Dometic Büttner characteristics UUID."""
+        assert len(uuid) == 4
+        return f"0000{uuid}-0000-1000-8000-008025000000"
+
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         await super()._init_connection(char_notify)
         # subscribe to further notify characteristic
-        for char in BMS._NOTIFY_CHARS:
+        for char in BMS._NotifyChars:
             self._log.debug("Subscribing to notify characteristic %s", char)
             try:
                 await self._client.start_notify(
-                    char, getattr(self, "_notification_handler")
+                    char.value, getattr(self, "_notification_handler")
                 )
             except BleakError as ex:
                 self._log.debug(
                     "Could not subscribe to notify characteristic %s: %s", char, ex
                 )
-        await self._await_msg(b"APP+AEN="+self._secret.encode(encoding="ASCII"))
+        await self._await_msg(
+            b"APP+AEN" + (f"={self._secret}".encode("ASCII") if self._secret else b""),
+            wait_for_notify=False,
+        )
+
+    async def _keep_alive_handler(
+        self, sender: BleakGATTCharacteristic, data: bytearray
+    ) -> None:
+        self._log.debug("RX BLE data from %s: %s", sender.uuid, data)
+
+        if sender.uuid == BMS._NotifyChars.ch_b.value:
+            await self._await_msg(
+                self._ka_resp.to_bytes(1), BMS.normalize_db_uuid_str("0003"), False
+            )
+            self._ka_resp |= 0x20
+            await asyncio.sleep(0.1)  # FIXME! rate limit
+            return
+
+        if sender.uuid == BMS._NotifyChars.ch_c.value:
+            await self._await_msg(bytes(data), BMS.normalize_db_uuid_str("0009"), False)
+            await asyncio.sleep(0.1)  # FIXME! rate limit
+            return
+
+        self._log.debug("unknown notification source")
+        return
 
     def _notification_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
-        self._log.debug("RX BLE data from %s: %s", str(sender)[:8], data)
+        self._log.debug("RX BLE data from %s: %s", sender.uuid, data)
 
         if not data.startswith(BMS._HEAD):
             self._log.debug("unknown SOF (%s)", data[:2].hex(" "))
@@ -117,12 +157,10 @@ class BMS(BaseBMS):
             return
 
         self._data_final.setdefault(data[2], {})[data[3]] = bytes(data)
-        for device in self._data_final:
-            if not BMS._CMDS.issubset(self._data_final[device].keys()):
-                break
-        else:
+        if self._data_final and all(
+            BMS._CMDS.issubset(data.keys()) for data in self._data_final.values()
+        ):
             self._msg_event.set()
-
 
     @staticmethod
     def _cellV(
@@ -139,9 +177,18 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
+        if not self._msg_event.is_set():
+            self._log.debug("requesting data update")
+            self._data_final.clear()
+            await self._await_msg(b"APP+RDN=1", wait_for_notify=False)
+
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
-        result: BMSSample = self._decode_data(BMS._FIELDS, next(iter(self._data_final.values())))
-        result["cell_voltages"] = BMS._cellV(next(iter(self._data_final.values())), cells=4)
+        result: BMSSample = self._decode_data(
+            BMS._FIELDS, next(iter(self._data_final.values()))
+        )
+        result["cell_voltages"] = BMS._cellV(
+            next(iter(self._data_final.values())), cells=4
+        )
 
         self._data_final.clear()
         return result
