@@ -17,7 +17,19 @@
       "rssi": -70
     },
     "type": "gobel_bms",
+    "_comments": ["Real device example with trailing spaces in name"]
+  },
+  {
+    "advertisement": {
+      "local_name": "B7522603211101     ",
+      "platform_data": ["04:D8:10:00:00:00"],
+      "manufacturer_data": { "65535": "4e" },
+      "rssi": -70
+    },
+    "type": "gobel_bms",
     "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/749)",
+      "Dyness AR1.2 (Group 24, 100Ah LiFePO4)",
       "Real device example with trailing spaces in name"
     ]
   }
