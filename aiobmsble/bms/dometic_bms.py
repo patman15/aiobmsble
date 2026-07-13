@@ -52,9 +52,15 @@ class BMS(BaseBMS):
 
     accept_secret: bool = True
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        keep_alive: bool = True,
+        secret: str = "",
+        logger_name: str = "",
+    ) -> None:
         """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, keep_alive, secret, logger_name)
         self._data_final: dict[int, dict[int, bytes]] = {}
 
     @staticmethod
