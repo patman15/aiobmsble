@@ -166,6 +166,14 @@ class BMSDp(NamedTuple):
     idx: int = -1  # array index containing the message to be parsed
 
 
+@dataclass(slots=True, frozen=True)
+class BMSConfig:
+    """Configuration for the BMS (connection)."""
+
+    keep_alive: bool = True  # keep connection after querying (enhances stability)
+    secret: str = ""  # application level secret for authentication
+
+
 class BMSInfo(TypedDict, total=False):
     """Human readable information about the BMS device."""
 
