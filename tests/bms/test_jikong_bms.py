@@ -12,7 +12,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSInfo, BMSMode, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSMode, BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_sum, lstr2int
 from aiobmsble.bms.jikong_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -651,7 +651,7 @@ async def test_update(
 
     patch_bleak_client(MockJikongBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
@@ -919,7 +919,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockJikongBleakClient)
 
-    bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device(), BMSConfig(False))
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {
         "problem": True,

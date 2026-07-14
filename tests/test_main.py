@@ -13,7 +13,7 @@ from bleak.backends.scanner import AdvertisementData
 from bleak.exc import BleakError
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 import aiobmsble.__main__ as main_mod
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
 from aiobmsble.test_data import adv_dict_to_advdata
@@ -127,10 +127,9 @@ async def test_bms_retry_with_secret(
     DummyBMS.accept_secret = True
     orig_init = DummyBMS.__init__
 
-    def init_with_secret(self, ble_device, keep_alive=True, secret="") -> None:
+    def init_with_secret(self, ble_device, config: BMSConfig = BMSConfig(True), logger_name: str = "") -> None:
         # call original initializer and remember the secret
-        orig_init(self, ble_device, keep_alive)
-        self._secret = secret
+        orig_init(self, ble_device, config, logger_name)
 
     monkeypatch.setattr(DummyBMS, "__init__", init_with_secret)
 
@@ -138,8 +137,8 @@ async def test_bms_retry_with_secret(
 
     async def fake_update(self) -> BMSSample:
         # record the secret used for each invocation
-        attempts.append(getattr(self, "_secret", ""))
-        if not getattr(self, "_secret", ""):
+        attempts.append(getattr(self._cfg, "secret", ""))
+        if not getattr(self._cfg, "secret", ""):
             raise TimeoutError
         return {"voltage": 99}
 

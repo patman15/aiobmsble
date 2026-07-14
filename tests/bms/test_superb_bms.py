@@ -7,7 +7,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.superb_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -80,7 +80,7 @@ async def test_update(
     monkeypatch.setattr(MockSuperBBleakClient, "_RESP", _PROTO_DEFS)
     patch_bleak_client(MockSuperBBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS
 
@@ -119,7 +119,7 @@ async def test_tx_notimplemented(patch_bleak_client) -> None:
 
     patch_bleak_client(MockSuperBBleakClient)
 
-    bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device(), BMSConfig(False))
 
     with pytest.raises(NotImplementedError):
         _ret = bms.uuid_tx()

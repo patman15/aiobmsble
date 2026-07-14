@@ -134,7 +134,7 @@ class BaseBMS(ABC):
     async def __aenter__(self) -> Self:
         """Asynchronous context manager to implement `async with` functionality."""
         if not self._cfg.keep_alive:
-            raise ValueError("usage of context manager requires `keep_alive=True`.")
+            raise ValueError("usage of context manager requires `BMSConfig(keep_alive=True)`.")
         await self._connect()
         return self
 

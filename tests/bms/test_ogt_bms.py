@@ -9,7 +9,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.ogt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
@@ -124,7 +124,7 @@ async def test_update(patch_bleak_client, ogt_bms_name, keep_alive_fixture) -> N
     patch_bleak_client(MockOGTBleakClient)
 
     bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", ogt_bms_name), keep_alive_fixture
+        generate_ble_device("cc:cc:cc:cc:cc:cc", ogt_bms_name), BMSConfig(keep_alive_fixture)
     )
 
     result: BMSSample = await bms.async_update()
@@ -168,7 +168,9 @@ async def test_update_16s(monkeypatch, patch_bleak_client) -> None:
     )
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"), False)
+    bms = BMS(
+        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"), BMSConfig(False)
+    )
 
     # verify all sensors are reported
     assert await bms.async_update() == _RESULT_DEFS | {
@@ -264,7 +266,7 @@ async def test_invalid_bms_type(patch_bleak_client) -> None:
     patch_bleak_client(MockOGTBleakClient)
 
     bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"), keep_alive=True
+        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"), BMSConfig(True)
     )
 
     result: BMSSample = await bms.async_update()
