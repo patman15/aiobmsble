@@ -65,7 +65,7 @@ class BMS(BaseBMS):
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
             }
-            for pattern in ("HS*", "ECO????")
+            for pattern in ("HS*", "ECO????", "DCH????")
         ]
 
     @staticmethod
