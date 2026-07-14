@@ -114,7 +114,7 @@ class BMS(BaseBMS):
             self._log.debug("Subscribing to notify characteristic %s", char)
             try:
                 await self._client.start_notify(
-                    char.value, getattr(self, "_notification_handler")
+                    char.value, getattr(self, "_keep_alive_handler")
                 )
             except BleakError as ex:
                 self._log.debug(
