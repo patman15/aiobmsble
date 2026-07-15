@@ -52,11 +52,11 @@ type BMSValue = Literal[
 ]
 
 type BMSpackvalue = Literal[
-    "pack_voltages",
-    "pack_currents",
-    "pack_battery_levels",
-    "pack_battery_health",
-    "pack_cycles",
+    "voltage",
+    "current",
+    "battery_level",
+    "battery_health",
+    "cycles",
 ]
 
 
@@ -112,6 +112,20 @@ class TempSensor:
         return f"{self.__class__.__name__}({self.value!r}, {self.type!r})"
 
 
+class PackSample(TypedDict, total=False):
+    """Dictionary representing a sample of a battery sub-system."""
+
+    battery_level: float  # [%]
+    battery_health: float  # [%]
+    current: float  # [A]
+    cycles: int  # [#]
+    cell_count: int  # [#]
+    cell_voltages: list[float]  # [V]
+    temp_sensors: int  # [#]
+    temp_values: list[TempSensor]  # [°C]
+    voltage: float  # [V]
+
+
 class BMSSample(TypedDict, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
 
@@ -148,11 +162,7 @@ class BMSSample(TypedDict, total=False):
     heater: bool  # True: enabled/heating
 
     # battery pack data
-    pack_voltages: list[float]  # [V]
-    pack_currents: list[float]  # [A]
-    pack_battery_levels: list[int | float]  # [%]
-    pack_battery_health: list[int | float]  # [%]
-    pack_cycles: list[int]  # [#]
+    packs: list[PackSample]  # data from battery sub-systems
 
 
 class BMSDp(NamedTuple):
