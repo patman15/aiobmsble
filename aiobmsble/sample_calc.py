@@ -16,26 +16,28 @@ _HRS_TO_SECS: Final[int] = 60 * 60
 
 
 @dataclass(frozen=True, slots=True)
-class _Calc:
+class _C:
+    """Definition of a method to derive BMSSample values from its dependencies."""
+
     output: BMSValue
     requires: frozenset[BMSValue]
     formula: Callable[[BMSSample], Any]
 
 
-def _calc_voltage(data: BMSSample) -> float:
+def _c_voltage(data: BMSSample) -> float:
     return round(sum(data.get("cell_voltages", [])), 3)
 
 
-def _calc_delta_voltage(data: BMSSample) -> float | None:
+def _c_delta_voltage(data: BMSSample) -> float | None:
     cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
     return round(max(cell_voltages) - min(cell_voltages), 3) if cell_voltages else None
 
 
-def _calc_cycle_charge(data: BMSSample) -> float:
+def _c_cycle_charge(data: BMSSample) -> float:
     return (data.get("design_capacity", 0) * data.get("battery_level", 0)) / 100
 
 
-def _calc_battery_level(data: BMSSample) -> float | None:
+def _c_battery_level(data: BMSSample) -> float | None:
     design_capacity: Final[int] = data.get("design_capacity", 0)
     return (
         round(data.get("cycle_charge", 0) / design_capacity * 100, 1)
@@ -44,28 +46,28 @@ def _calc_battery_level(data: BMSSample) -> float | None:
     )
 
 
-def _calc_cell_count(data: BMSSample) -> int:
+def _c_cell_count(data: BMSSample) -> int:
     return len(data.get("cell_voltages", []))
 
 
-def _calc_cycle_capacity(data: BMSSample) -> float:
+def _c_cycle_capacity(data: BMSSample) -> float:
     return round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3)
 
 
-def _calc_cycles(data: BMSSample) -> float | None:
+def _c_cycles(data: BMSSample) -> float | None:
     design_capacity: Final[int] = data.get("design_capacity", 0)
     return data.get("total_charge", 0) // design_capacity if design_capacity else None
 
 
-def _calc_power(data: BMSSample) -> float:
+def _c_power(data: BMSSample) -> float:
     return round(data.get("voltage", 0) * data.get("current", 0), 3)
 
 
-def _calc_battery_charging(data: BMSSample) -> bool:
+def _c_battery_charging(data: BMSSample) -> bool:
     return data.get("current", 0) > 0
 
 
-def _calc_runtime(data: BMSSample) -> int | None:
+def _c_runtime(data: BMSSample) -> int | None:
     current: Final[float] = data.get("current", 0)
     return (
         int(data.get("cycle_charge", 0) / abs(current) * _HRS_TO_SECS)
@@ -74,7 +76,7 @@ def _calc_runtime(data: BMSSample) -> int | None:
     )
 
 
-def _calc_temperature(data: BMSSample) -> float | None:
+def _c_temperature(data: BMSSample) -> float | None:
     return (
         round(fmean(data.get("temp_values", [])), 3)
         if data.get("temp_values")
@@ -83,39 +85,28 @@ def _calc_temperature(data: BMSSample) -> float | None:
 
 
 @lru_cache
-def _calculation_registry() -> tuple[_Calc, ...]:
+def BMSSample_Calc_registry() -> tuple[_C, ...]:
     """Return calculated values with their input requirements and formula."""
+    fs = frozenset
     return (
-        _Calc("voltage", frozenset({"cell_voltages"}), _calc_voltage),
-        _Calc("delta_voltage", frozenset({"cell_voltages"}), _calc_delta_voltage),
-        _Calc(
-            "cycle_charge",
-            frozenset({"design_capacity", "battery_level"}),
-            _calc_cycle_charge,
-        ),
-        _Calc(
-            "battery_level",
-            frozenset({"design_capacity", "cycle_charge"}),
-            _calc_battery_level,
-        ),
-        _Calc("cell_count", frozenset({"cell_voltages"}), _calc_cell_count),
-        _Calc(
-            "cycle_capacity",
-            frozenset({"voltage", "cycle_charge"}),
-            _calc_cycle_capacity,
-        ),
-        _Calc("cycles", frozenset({"design_capacity", "total_charge"}), _calc_cycles),
-        _Calc("power", frozenset({"voltage", "current"}), _calc_power),
-        _Calc("battery_charging", frozenset({"current"}), _calc_battery_charging),
-        _Calc("runtime", frozenset({"current", "cycle_charge"}), _calc_runtime),
-        _Calc("temperature", frozenset({"temp_values"}), _calc_temperature),
+        _C("voltage", fs({"cell_voltages"}), _c_voltage),
+        _C("delta_voltage", fs({"cell_voltages"}), _c_delta_voltage),
+        _C("cycle_charge", fs({"design_capacity", "battery_level"}), _c_cycle_charge),
+        _C("battery_level", fs({"design_capacity", "cycle_charge"}), _c_battery_level),
+        _C("cell_count", fs({"cell_voltages"}), _c_cell_count),
+        _C("cycle_capacity", fs({"voltage", "cycle_charge"}), _c_cycle_capacity),
+        _C("cycles", fs({"design_capacity", "total_charge"}), _c_cycles),
+        _C("power", fs({"voltage", "current"}), _c_power),
+        _C("battery_charging", fs({"current"}), _c_battery_charging),
+        _C("runtime", fs({"current", "cycle_charge"}), _c_runtime),
+        _C("temperature", fs({"temp_values"}), _c_temperature),
     )
 
 
 @lru_cache
-def _validated_calculation_registry() -> tuple[_Calc, ...]:
+def _validated_calculation_registry() -> tuple[_C, ...]:
     """Return calculation registry after basic consistency checks."""
-    calculations: Final[tuple[_Calc, ...]] = _calculation_registry()
+    calculations: Final[tuple[_C, ...]] = BMSSample_Calc_registry()
     known_values: Final[frozenset[BMSValue]] = cast(
         frozenset[BMSValue], frozenset(get_type_hints(BMSSample))
     )
@@ -147,7 +138,7 @@ def derive_missing_fields(
     data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
 ) -> None:
     """Apply dependency-driven calculations to the provided data mapping."""
-    pending: list[_Calc] = sorted(
+    pending: list[_C] = sorted(
         [
             calc
             for calc in _validated_calculation_registry()
@@ -158,7 +149,7 @@ def derive_missing_fields(
 
     while pending:
         progress: bool = False
-        remaining: list[_Calc] = []
+        remaining: list[_C] = []
 
         for calc in pending:
             if not calc.requires.issubset(data):
