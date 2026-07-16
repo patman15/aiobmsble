@@ -48,6 +48,8 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 4, 1, False, idx=0x0E),
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS} | {0x56, 0x57}
+    _ch_b_event: asyncio.Event = asyncio.Event()
+    _ch_c_event: asyncio.Event = asyncio.Event()
     _ka_resp: int = 0xFF
 
     accept_secret: bool = True
@@ -120,6 +122,10 @@ class BMS(BaseBMS):
                 self._log.debug(
                     "Could not subscribe to notify characteristic %s: %s", char, ex
                 )
+
+        await asyncio.wait_for(self._ch_c_event.wait(), timeout=BMS.TIMEOUT)
+        await asyncio.wait_for(self._ch_b_event.wait(), timeout=BMS.TIMEOUT)
+
         await self._await_msg(
             b"APP+AEN" + (f"={self._secret}".encode("ASCII") if self._secret else b""),
             wait_for_notify=False,
@@ -134,12 +140,14 @@ class BMS(BaseBMS):
             await self._await_msg(
                 self._ka_resp.to_bytes(1), BMS.normalize_db_uuid_str("0003"), False
             )
-            self._ka_resp |= 0x20
+            self._ka_resp ^= 0x20
+            self._ch_b_event.set()
             await asyncio.sleep(0.1)  # FIXME! rate limit
             return
 
         if sender.uuid == BMS._NotifyChars.ch_c.value:
             await self._await_msg(bytes(data), BMS.normalize_db_uuid_str("0009"), False)
+            self._ch_c_event.set()
             await asyncio.sleep(0.1)  # FIXME! rate limit
             return
 
