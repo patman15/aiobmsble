@@ -10,7 +10,6 @@ from collections.abc import Callable, MutableMapping
 from functools import lru_cache
 from itertools import takewhile
 import logging
-from statistics import fmean
 from types import TracebackType
 from typing import Any, Final, Literal, Self, final
 
@@ -39,6 +38,7 @@ from aiobmsble import (
     TempSensor,
     __version__,
 )
+from aiobmsble.sample_calc import derive_missing_fields
 
 
 class BaseBMS(ABC):
@@ -134,7 +134,9 @@ class BaseBMS(ABC):
     async def __aenter__(self) -> Self:
         """Asynchronous context manager to implement `async with` functionality."""
         if not self._cfg.keep_alive:
-            raise ValueError("usage of context manager requires `BMSConfig(keep_alive=True)`.")
+            raise ValueError(
+                "usage of context manager requires `BMSConfig(keep_alive=True)`."
+            )
         await self._connect()
         return self
 
@@ -242,72 +244,6 @@ class BaseBMS(ABC):
         """
         return frozenset()
 
-    @staticmethod
-    def _calculation_registry(
-        data: BMSSample,
-    ) -> dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]]:
-        battery_level: Final[int | float] = data.get("battery_level", 0)
-        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
-        current: Final[float] = data.get("current", 0)
-        design_capacity: Final[float] = data.get("design_capacity", 0)
-
-        return {
-            "voltage": ({"cell_voltages"}, lambda: round(sum(cell_voltages), 3)),
-            "delta_voltage": (
-                {"cell_voltages"},
-                lambda: (
-                    round(max(cell_voltages) - min(cell_voltages), 3)
-                    if len(cell_voltages)
-                    else None
-                ),
-            ),
-            "cycle_charge": (
-                {"design_capacity", "battery_level"},
-                lambda: (design_capacity * battery_level) / 100,
-            ),
-            "battery_level": (
-                {"design_capacity", "cycle_charge"},
-                lambda: round(data.get("cycle_charge", 0) / design_capacity * 100, 1),
-            ),
-            "cell_count": (
-                {"cell_voltages"},
-                lambda: len(cell_voltages),
-            ),
-            "cycle_capacity": (
-                {"voltage", "cycle_charge"},
-                lambda: round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3),
-            ),
-            "cycles": (
-                {"design_capacity", "total_charge"},
-                lambda: data.get("total_charge", 0) // design_capacity,
-            ),
-            "power": (
-                {"voltage", "current"},
-                lambda: round(data.get("voltage", 0) * current, 3),
-            ),
-            "battery_charging": ({"current"}, lambda: current > 0),
-            "runtime": (
-                {"current", "cycle_charge"},
-                lambda: (
-                    int(
-                        data.get("cycle_charge", 0)
-                        / abs(current)
-                        * BaseBMS._HRS_TO_SECS
-                    )
-                    if current < 0
-                    else None
-                ),
-            ),
-            "temperature": (
-                {"temp_values"},
-                lambda: (
-                    round(fmean(data.get("temp_values", [])), 3)
-                    if data.get("temp_values")
-                    else None
-                ),
-            ),
-        }
-
     @final
     @staticmethod
     def _add_missing_values(
@@ -326,24 +262,10 @@ class BaseBMS(ABC):
         if not data:
             return
 
-        def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
-            """Check value to add is not excluded, does not exist, and needed data is available."""
-            return (
-                (value not in raw_values)
-                and (value not in data)
-                and using.issubset(data)
-            )
+        derive_missing_fields(data, raw_values)
 
-        battery_level: Final[int | float] = data.get("battery_level", 0)
-        calculations: Final = BaseBMS._calculation_registry(data)
+        battery_level: Final[float] = data.get("battery_level", 0)
         cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
-
-        for attr, (required, calc_func) in calculations.items():
-            if (
-                can_calc(attr, frozenset(required))
-                and (value := calc_func()) is not None
-            ):
-                data[attr] = value
 
         # do sanity check on values to set problem state
         data["problem"] = any(

@@ -6,7 +6,7 @@ from aiobmsble import TempSensor as TS
 
 
 def test_TempSensor() -> None:
-    """Test correct behaviour of TS and with int | float."""
+    """Test correct behaviour of TS and with int, float."""
     # Test equality with float
     assert TS(3.14) == 3.14
     # Test equality with TS of same value and type

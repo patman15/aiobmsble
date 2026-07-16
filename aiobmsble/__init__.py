@@ -91,7 +91,7 @@ class TempSensor:
     type: T = T.GENERIC
 
     def __eq__(self: Self, other: object) -> bool:
-        """Compare against other TempSensor including type or int | float."""
+        """Compare against other TempSensor including type or int, float."""
 
         if isinstance(other, TempSensor):
             return (self.type, self.value) == (other.type, other.value)
