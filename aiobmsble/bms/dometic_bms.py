@@ -110,22 +110,31 @@ class BMS(BaseBMS):
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
-        await super()._init_connection(char_notify)
         # subscribe to further notify characteristic
-        for char in BMS._NotifyChars:
-            self._log.debug("Subscribing to notify characteristic %s", char)
-            try:
-                await self._client.start_notify(
-                    char.value, getattr(self, "_keep_alive_handler")
-                )
-            except BleakError as ex:
-                self._log.debug(
-                    "Could not subscribe to notify characteristic %s: %s", char, ex
-                )
+        self._log.debug("Subscribing to notify characteristic %s", BMS._NotifyChars.ch_c)
+        try:
+            await self._client.start_notify(
+                BMS._NotifyChars.ch_c.value, getattr(self, "_keep_alive_handler")
+            )
+        except BleakError as ex:
+            self._log.debug(
+                "Could not subscribe to notify characteristic %s: %s", BMS._NotifyChars.ch_c, ex
+            )
 
         await asyncio.wait_for(self._ch_c_event.wait(), timeout=BMS.TIMEOUT)
+
+        self._log.debug("Subscribing to notify characteristic %s", BMS._NotifyChars.ch_b)
+        try:
+            await self._client.start_notify(
+                BMS._NotifyChars.ch_b.value, getattr(self, "_keep_alive_handler")
+            )
+        except BleakError as ex:
+            self._log.debug(
+                "Could not subscribe to notify characteristic %s: %s", BMS._NotifyChars.ch_b, ex
+            )
         await asyncio.wait_for(self._ch_b_event.wait(), timeout=BMS.TIMEOUT)
 
+        await super()._init_connection(char_notify)
         await self._await_msg(
             b"APP+AEN" + (f"={self._secret}".encode("ASCII") if self._secret else b""),
             wait_for_notify=False,
