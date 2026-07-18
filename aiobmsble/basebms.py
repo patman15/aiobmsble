@@ -30,6 +30,7 @@ from bleak_retry_connector import (
 )
 
 from aiobmsble import (
+    BMSConfig,
     BMSDp,
     BMSInfo,
     BMSSample,
@@ -81,24 +82,19 @@ class BaseBMS(ABC):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize the BMS.
 
-        `_notification_handler`: the callback function used for notifications from `uuid_rx()`
-            characteristic. Not defined as abstract in this base class, as it can be both,
-            a normal or async function
+        Note:
+            Subclasses must define a `_notification_handler` method (normal or async) to handle
+            notifications from the `uuid_rx()` characteristic.
 
         Args:
-            ble_device (BLEDevice): the Bleak device to connect to
-            bms_info (dict[Literal["manufacturer", "model"], str]): default BMS identification
-            keep_alive (bool): if true, the connection will be kept active after each update.
-                Make sure to call `disconnect()` when done using the BMS class or better use
-                `async with` context manager (requires `keep_alive=True`).
-            secret (str): optional secret for authentication, if the BMS accepts it (see `accept_secret`).
-            logger_name (str): name of the logger for the BMS instance, default: module name
+            ble_device (BLEDevice): the Bleak BLE device to connect to
+            config (BMSConfig | None): optional BMS configuration; defaults to `BMSConfig()` if not provided
+            logger_name (str): name of the logger for this BMS instance; defaults to the module name
 
         """
         assert (
@@ -108,8 +104,7 @@ class BaseBMS(ABC):
             self.INFO
         ), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
-        self._keep_alive: Final[bool] = keep_alive
-        self._secret: Final[str] = secret
+        self._cfg: Final[BMSConfig] = config or BMSConfig()
         logger_name = logger_name or self.__class__.__module__
         self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
@@ -138,8 +133,8 @@ class BaseBMS(ABC):
     @final
     async def __aenter__(self) -> Self:
         """Asynchronous context manager to implement `async with` functionality."""
-        if not self._keep_alive:
-            raise ValueError("usage of context manager requires `keep_alive=True`.")
+        if not self._cfg.keep_alive:
+            raise ValueError("usage of context manager requires `BMSConfig(keep_alive=True)`.")
         await self._connect()
         return self
 
@@ -550,7 +545,7 @@ class BaseBMS(ABC):
         if not raw:
             self._add_missing_values(data, self._raw_values())
 
-        if not self._keep_alive:
+        if not self._cfg.keep_alive:
             # disconnect after data update to force reconnect next time (slow!)
             self._log.debug("forced disconnect of BMS after update")
             await self.disconnect()

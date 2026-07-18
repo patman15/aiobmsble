@@ -18,7 +18,15 @@ from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    BMSValue,
+    MatcherPattern,
+    TempSensor,
+)
 from aiobmsble.basebms import (
     BaseBMS,
     b2str,
@@ -145,10 +153,11 @@ class WMTestBMS(MinTestBMS):
         self,
         char_tx_properties: list[str],
         ble_device: BLEDevice,
-        keep_alive: bool = True,
+        config: BMSConfig | None = None,
+        logger_name: str = "",
     ) -> None:
         """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, config, logger_name)
         self._char_tx_properties: list[str] = char_tx_properties
 
     def _wr_response(self, char: int | str) -> bool:
@@ -557,7 +566,7 @@ async def test_write_mode(
     bms = WMTestBMS(
         ["write-no-response", "write"],
         generate_ble_device(),
-        False,
+        BMSConfig(keep_alive=False),
     )
 
     # NOTE: output must reflect the end result after one call, as init of HA resets the whole BMS!
@@ -599,7 +608,7 @@ async def test_no_notify(
     """Test BMS update without waiting for notification event."""
     patch_bleak_client(MockBleakClient)
 
-    bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=False))
     with caplog.at_level(DEBUG):
         result: BMSSample = await bms.async_update()
     assert "MockBleakClient write_gatt_char afe2, data: b'mock_command'" in caplog.text
@@ -631,7 +640,7 @@ async def test_context_mgr(
     """Test that context manager provides data."""
     patch_bleak_client(MockBleakClient)
 
-    async with DataTestBMS(generate_ble_device(), keep_alive=True) as bms:
+    async with DataTestBMS(generate_ble_device(), BMSConfig(keep_alive=True)) as bms:
         assert await bms.async_update() == {
             "voltage": 13,
             "current": 1.7,
@@ -654,7 +663,9 @@ async def test_context_mgr_fail(
     patch_bleak_client(MockBleakClient)
 
     with pytest.raises(ValueError, match="usage of context manager*"):
-        async with MinTestBMS(generate_ble_device(), keep_alive=False) as bms:
+        async with MinTestBMS(
+            generate_ble_device(), BMSConfig(keep_alive=False)
+        ) as bms:
             await bms.async_update()
 
 
@@ -1089,6 +1100,7 @@ class MockGATTProfileBleakClient(MockBleakClient):
             ),
         ]
 
+
 class MockEmptyGATTProfileBleakClient(MockBleakClient):
     """Mock BleakClient with a GATT profile."""
 
@@ -1096,6 +1108,7 @@ class MockEmptyGATTProfileBleakClient(MockBleakClient):
     def services(self) -> list[BleakGATTServiceCollection]:  # type: ignore[override]
         """Mock GATT services empty."""
         return []
+
 
 async def test_get_gatt_profile(
     patch_bleak_client: Callable[..., None],
@@ -1130,6 +1143,7 @@ async def test_get_gatt_profile_not_connected(
 
     assert await bms.get_GATT_profile() == "device not connected"
 
+
 async def test_get_gatt_profile_empty(
     patch_bleak_client: Callable[..., None],
 ) -> None:
@@ -1139,6 +1153,7 @@ async def test_get_gatt_profile_empty(
     await bms._client.connect()
 
     assert await bms.get_GATT_profile() == "no services found"
+
 
 async def test_get_gatt_profile_error(
     monkeypatch: pytest.MonkeyPatch,
