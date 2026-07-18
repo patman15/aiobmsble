@@ -110,6 +110,7 @@ class BMS(BaseBMS):
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
+        self._ka_resp = 0xFF
         # subscribe to further notify characteristic
         self._log.debug("Subscribing to notify characteristic %s", BMS._NotifyChars.ch_c)
         try:
@@ -121,6 +122,7 @@ class BMS(BaseBMS):
                 "Could not subscribe to notify characteristic %s: %s", BMS._NotifyChars.ch_c, ex
             )
 
+        self._ch_c_event.clear()
         await asyncio.wait_for(self._ch_c_event.wait(), timeout=BMS.TIMEOUT)
 
         self._log.debug("Subscribing to notify characteristic %s", BMS._NotifyChars.ch_b)
@@ -132,6 +134,7 @@ class BMS(BaseBMS):
             self._log.debug(
                 "Could not subscribe to notify characteristic %s: %s", BMS._NotifyChars.ch_b, ex
             )
+        self._ch_b_event.clear()
         await asyncio.wait_for(self._ch_b_event.wait(), timeout=BMS.TIMEOUT)
 
         await super()._init_connection(char_notify)
@@ -139,6 +142,9 @@ class BMS(BaseBMS):
             b"APP+AEN" + (f"={self._secret}".encode("ASCII") if self._secret else b""),
             wait_for_notify=False,
         )
+        await asyncio.sleep(0.5)
+        await self._await_msg(b"APP+NET", wait_for_notify=False)
+        await asyncio.sleep(0.5)
 
     async def _keep_alive_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
