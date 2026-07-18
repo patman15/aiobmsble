@@ -193,7 +193,7 @@ async def test_device_info(patch_bleak_client) -> None:
 async def test_mos_excl(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    test_seq: tuple[tuple[bytearray, tuple[int | float, ...]], ...],
+    test_seq: tuple[tuple[bytearray, tuple[float, ...]], ...],
 ) -> None:
     """Test Daly BMS data update."""
 

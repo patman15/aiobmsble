@@ -67,7 +67,7 @@ async def test_detect_bms(
     assert "Found matching BMS type: Dummy Manufacturer dummy model" in caplog.text
     assert (
         "BMS data: {'voltage': 12.0,\n\t'current': 1.5,\n\t'temperature': 27.182,\n"
-        "\t'power': 18.0,\n\t'battery_charging': True,\n\t'problem': False}\n"
+        "\t'battery_charging': True,\n\t'power': 18.0,\n\t'problem': False}\n"
         in caplog.text
     )
 
