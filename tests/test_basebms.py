@@ -237,27 +237,56 @@ class BMSBasicTests:
                 f"{self.bms_class.__name__} does not define _async_update(), skipping result type check."
             )
 
+        def _is_typed_dict(tp: Any) -> bool:
+            return (
+                isinstance(tp, type)
+                and issubclass(tp, dict)
+                and hasattr(tp, "__required_keys__")
+            )
+
         def _is_instance_of_type(value: Any, expected_type: Any) -> bool:
             if expected_type is Any:
                 return True
 
-            origin: Any = get_origin(expected_type)
-            args: tuple[Any, ...] = get_args(expected_type)
-            if origin is None:
-                return type(value) is expected_type
+            result: bool
 
-            if origin is UnionType:
-                return any(_is_instance_of_type(value, arg) for arg in args)
+            if _is_typed_dict(expected_type):
+                if not isinstance(value, dict):
+                    result = False
+                else:
+                    sub_hints: dict[str, Any] = get_type_hints(expected_type)
+                    required_keys: frozenset[str] = getattr(
+                        expected_type, "__required_keys__", frozenset()
+                    )
 
-            if type(value) is not origin:
-                return False
+                    if (not required_keys.issubset(value.keys())) or (
+                        not set(value.keys()).issubset(sub_hints.keys())
+                    ):
+                        result = False
+                    else:
+                        result = all(
+                            sub_key in sub_hints
+                            and _is_instance_of_type(sub_value, sub_hints[sub_key])
+                            for sub_key, sub_value in value.items()
+                        )
+            else:
+                origin: Any = get_origin(expected_type)
+                args: tuple[Any, ...] = get_args(expected_type)
 
-            if origin is list:
-                return (not args) or all(
-                    _is_instance_of_type(item, args[0]) for item in value
-                )
+                if origin is None:
+                    result = type(value) is expected_type
+                elif origin is UnionType:
+                    result = any(_is_instance_of_type(value, arg) for arg in args)
+                elif type(value) is not origin:
+                    result = False
+                elif origin is list:
+                    result = (not args) or all(
+                        _is_instance_of_type(item, args[0]) for item in value
+                    )
+                else:
+                    result = False
 
-            return False
+            return result
 
         module = request.module
         mock_client: type[BleakClient] = MockBleakClient

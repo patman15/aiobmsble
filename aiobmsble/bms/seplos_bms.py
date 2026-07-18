@@ -4,9 +4,8 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from collections.abc import Callable
 from functools import lru_cache
-from typing import Any, Final
+from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -16,7 +15,7 @@ from aiobmsble import (
     BMSConfig,
     BMSDp,
     BMSInfo,
-    BMSpackvalue,
+    BMSPDp,
     BMSSample,
     MatcherPattern,
     PackSample,
@@ -49,30 +48,31 @@ class BMS(BaseBMS):
         "PIA": (0x4, 0x1000, _PIA_LEN),
         "PIB": (0x4, 0x1100, _PIB_LEN),
     }
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("temperature", 20, 2, True, lambda x: x / 10, _EIB_LEN),  # avg. ctemp
+    _FIELDS: Final[tuple[BMSDp, ...]] = (  # Protocol Seplos V3
         BMSDp("voltage", 0, 4, False, lambda x: swap32(x) / 100, _EIA_LEN),
         BMSDp("current", 4, 4, True, lambda x: swap32(x, True) / 10, _EIA_LEN),
         BMSDp("cycle_charge", 8, 4, False, lambda x: swap32(x) / 100, _EIA_LEN),
+        BMSDp("design_capacity", 20, 4, False, lambda x: swap32(x) // 100, _EIA_LEN),
         BMSDp("pack_count", 44, 2, False, idx=_EIA_LEN),
         BMSDp("cycles", 46, 2, False, idx=_EIA_LEN),
         BMSDp("battery_level", 48, 2, False, lambda x: x / 10, _EIA_LEN),
         BMSDp("battery_health", 50, 2, False, lambda x: x / 10, _EIA_LEN),
+        BMSDp("temperature", 20, 2, True, lambda x: x / 10, _EIB_LEN),  # avg. ctemp
         BMSDp("problem_code", 1, 9, False, lambda x: x & BMS._PRB_MASK, _EIC_LEN),
         BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), _EIC_LEN),
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), _EIC_LEN),
         BMSDp("heater", 7, 1, False, lambda x: bool(x & 8), _EIC_LEN),
         BMSDp("balancer", 7, 1, False, lambda x: bool(x & 4), _EIC_LEN),  # limit FET
-    )  # Protocol Seplos V3
-    _PFIELDS: Final[
-        tuple[tuple[BMSpackvalue, int, bool, Callable[[int], Any]], ...]
-    ] = (
-        ("voltage", 0, False, lambda x: x / 100),
-        ("current", 2, True, lambda x: x / 100),
-        ("battery_level", 10, False, lambda x: x / 10),
-        ("battery_health", 12, False, lambda x: x / 10),
-        ("cycles", 14, False, lambda x: x),
-    )  # Protocol Seplos V3
+    )
+    _PFIELDS: Final[tuple[BMSPDp, ...]] = (
+        BMSPDp("voltage", 0, 2, False, lambda x: x / 100),
+        BMSPDp("current", 2, 2, True, lambda x: x / 100),
+        BMSPDp("cycle_charge", 4, 2, False, lambda x: x / 100),
+        BMSPDp("design_capacity", 6, 2, False, lambda x: x // 100),
+        BMSPDp("battery_level", 10, 2, False, lambda x: x / 10),
+        BMSPDp("battery_health", 12, 2, False, lambda x: x / 10),
+        BMSPDp("cycles", 14, 2, False, lambda x: x),
+    )
     _CMDS: Final = frozenset({field[2] for field in _QUERY.values()})
     _PCMDS: Final = frozenset({field[2] for field in _PQUERY.values()})
     _VALID_CMDS: Final = frozenset(_CMDS | _PCMDS)
@@ -221,18 +221,9 @@ class BMS(BaseBMS):
             if not {pack << 8 | cmd for cmd in BMS._PCMDS}.issubset(self._msg.keys()):
                 raise ValueError("BMS data incomplete.")
 
-            pack_sample: PackSample = {}
-            for key, idx, sign, func in BMS._PFIELDS:
-                pack_sample[key] = func(
-                    int.from_bytes(
-                        self._msg[pack << 8 | BMS._PIA_LEN][
-                            BMS._HEAD_LEN + idx : BMS._HEAD_LEN + idx + 2
-                        ],
-                        byteorder="big",
-                        signed=sign,
-                    )
-                )
-
+            pack_sample: PackSample = BMS._decode_pack(
+                BMS._PFIELDS, self._msg[pack << 8 | BMS._PIA_LEN], start=BMS._HEAD_LEN
+            )
             pack_sample["cell_voltages"] = BMS._cell_voltages(
                 self._msg[pack << 8 | BMS._PIB_LEN], cells=16, start=BMS._HEAD_LEN
             )
@@ -268,6 +259,8 @@ class BMS(BaseBMS):
                 ),
             )
             # calculate cell_count instead of querying SPA
-            data["cell_count"] = len(data.get("cell_voltages", [])) // self._pack_count
+            data["cell_count"] = max(
+                data.get("cell_count", 0), len(pack_sample["cell_voltages"])
+            )
 
         return data

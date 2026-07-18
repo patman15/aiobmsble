@@ -32,9 +32,11 @@ from aiobmsble import (
     BMSConfig,
     BMSDp,
     BMSInfo,
+    BMSPDp,
     BMSSample,
     BMSValue,
     MatcherPattern,
+    PackSample,
     TempSensor,
     __version__,
 )
@@ -519,6 +521,25 @@ class BaseBMS(ABC):
             result[field.key] = field.fct(
                 int.from_bytes(
                     msg[start + field.pos : start + field.pos + field.size],
+                    byteorder=byteorder,
+                    signed=field.signed,
+                )
+            )
+        return result
+
+    @staticmethod
+    def _decode_pack(
+        fields: tuple[BMSPDp, ...],
+        data: bytes,
+        *,
+        byteorder: Literal["little", "big"] = "big",
+        start: int = 0,
+    ) -> PackSample:
+        result: PackSample = {}
+        for field in fields:
+            result[field.key] = field.fct(
+                int.from_bytes(
+                    data[start + field.pos : start + field.pos + field.size],
                     byteorder=byteorder,
                     signed=field.signed,
                 )
