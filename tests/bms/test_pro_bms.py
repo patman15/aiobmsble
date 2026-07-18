@@ -13,7 +13,7 @@ import logging
 from bleak.backends.device import BLEDevice
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -213,7 +213,7 @@ async def test_async_update_already_streaming(patch_bleak_client) -> None:
     mock_client.set_test_packet(RECORDED_PACKETS["data_charging"])
     patch_bleak_client(lambda *args, **kwargs: mock_client)
 
-    bms = BMS(device, keep_alive=True)
+    bms = BMS(device, BMSConfig(keep_alive=True))
 
     # First update to initialize
     await bms.async_update()

@@ -12,7 +12,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.jbd_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -192,7 +192,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockJBDBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS
 
@@ -214,7 +214,7 @@ async def test_update_secret(
     monkeypatch.setattr(MockJBDBleakClient, "REQUIRE_PASS", True)
     patch_bleak_client(MockJBDBleakClient)
 
-    bms = BMS(generate_ble_device(), secret=secret)
+    bms = BMS(generate_ble_device(), BMSConfig(secret=secret))
     if secret == "wrong":
         with pytest.raises(PermissionError):
             await bms.async_update()
@@ -248,7 +248,7 @@ async def test_invalid_init(
     monkeypatch.setattr(MockJBDBleakClient, "ACK_MSG", bytearray(wrong_init))
     patch_bleak_client(MockJBDBleakClient)
 
-    bms = BMS(generate_ble_device(), secret="000000")
+    bms = BMS(generate_ble_device(), BMSConfig(secret="000000"))
 
     with pytest.raises(TimeoutError):
         _result: BMSSample = await bms.async_update()

@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_sum
 from aiobmsble.bms.neey_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -281,7 +281,7 @@ async def test_update(
 
     monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockNeeyBleakClient)
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
@@ -482,7 +482,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockNeeyBleakClient)
 
-    bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device(), BMSConfig(False))
 
     assert await bms.async_update() == _RESULT_DEFS["v1"] | {
         "problem": True,
