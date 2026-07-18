@@ -102,7 +102,6 @@ REF_VALUE: BMSSample = {
     "power": -350.678,
     "runtime": 72064,
     "problem": False,
-
 }
 
 

@@ -173,6 +173,7 @@ class BMSDp(NamedTuple):
     fct: Callable[[int], Any] = lambda x: x  # conversion function (default do nothing)
     idx: int = -1  # array index containing the message to be parsed
 
+
 class BMSPDp(NamedTuple):
     """Representation of pack data point."""
 
@@ -182,6 +183,7 @@ class BMSPDp(NamedTuple):
     signed: bool  # signed value
     fct: Callable[[int], Any] = lambda x: x  # conversion function (default do nothing)
     idx: int = -1  # array index containing the message to be parsed
+
 
 @dataclass(slots=True, frozen=True)
 class BMSConfig:
