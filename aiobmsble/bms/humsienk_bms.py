@@ -145,6 +145,7 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
+        self._msg.clear()
         for cmd in BMS._CMDS:
             await self._await_msg(BMS._cmd(cmd))
 
