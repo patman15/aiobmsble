@@ -73,25 +73,35 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 | 0 | Charge overcurrent protection |
 | 1 | Charge over-temperature protection |
 | 2 | Charge under-temperature protection |
+| 3 | Cell overvoltage protection |
 | 4 | Pack overvoltage protection |
+| 5 | Analogue front end error |
+| 6 | Charging stopped |
 | 7 | Charge FET status (1 = on) |
 | 8 | Charge overcurrent warning |
 | 9 | Charge over-temperature warning |
 | 10 | Charge under-temperature warning |
+| 11 | Cell overvoltage warning |
 | 12 | Pack overvoltage warning |
+| 13 | Voltage-difference warning |
+| 14 | Voltage difference too large |
 | 15 | Balance active (1 = yes) |
 | 16 | Discharge overcurrent protection |
 | 17 | Discharge over-temperature protection |
 | 18 | Discharge under-temperature protection |
+| 19 | Cell undervoltage protection |
 | 20 | Short circuit protection |
 | 21 | Pack undervoltage protection |
+| 22 | Discharging stopped |
 | 23 | Discharge FET status (1 = on) |
 | 24 | Discharge overcurrent warning |
 | 25 | Discharge over-temperature warning |
 | 26 | Discharge under-temperature warning |
+| 27 | Cell undervoltage warning |
 | 28 | Pack undervoltage warning |
 | 29 | MOS over-temperature warning |
 | 30 | MOS over-temperature protection |
+| 31 | Pre-discharge FET on |
 
 ### cell_balance / cell_disconnect bitmaps
 
