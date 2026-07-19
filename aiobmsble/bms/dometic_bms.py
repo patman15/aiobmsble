@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -57,12 +57,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize BMS."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._data_final: dict[int, dict[int, bytes]] = {}
         self._exp_reply: bytes = b""
 
@@ -149,7 +148,8 @@ class BMS(BaseBMS):
         await super()._init_connection(char_notify)
         self._exp_reply = b"MST+AEN"
         await self._await_msg(
-            b"APP+AEN" + (f"={self._secret}".encode("ASCII") if self._secret else b""),
+            b"APP+AEN"
+            + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
             wait_for_notify=True,
         )
         await self._await_msg(b"APP+NET", wait_for_notify=False)
