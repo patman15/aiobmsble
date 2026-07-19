@@ -127,6 +127,7 @@ class BaseBMS(ABC):
             self._ble_device,
             disconnected_callback=self._on_disconnect,
             services=[*self.uuid_services(), "180a"],
+            pair=True,
         )
         self._frame: bytearray = bytearray()
         self._msg_event: Final[asyncio.Event] = asyncio.Event()
@@ -326,6 +327,7 @@ class BaseBMS(ABC):
                     name=self._ble_device.address,
                     disconnected_callback=self._on_disconnect,
                     services=[*self.uuid_services(), "180a"],
+                    pair=True,
                 )
 
                 if self._log.isEnabledFor(logging.DEBUG):
