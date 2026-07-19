@@ -47,6 +47,7 @@ jobs:
       run: python3 -m ruff check .        
     - name: "Lint using mypy"
       run: | 
+        rm -rf .mypy_cache/
         mypy .
         mypy aiobmsble --strict
     - name: Test with pytest
