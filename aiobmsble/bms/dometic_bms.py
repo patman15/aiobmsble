@@ -64,6 +64,7 @@ class BMS(BaseBMS):
         """Initialize BMS."""
         super().__init__(ble_device, keep_alive, secret, logger_name)
         self._data_final: dict[int, dict[int, bytes]] = {}
+        self._exp_reply: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -112,39 +113,47 @@ class BMS(BaseBMS):
     ) -> None:
         self._ka_resp = 0xFF
         # subscribe to further notify characteristic
-        self._log.debug("Subscribing to notify characteristic %s", BMS._NotifyChars.ch_c)
+        self._log.debug(
+            "Subscribing to notify characteristic %s", BMS._NotifyChars.ch_c
+        )
         try:
             await self._client.start_notify(
                 BMS._NotifyChars.ch_c.value, getattr(self, "_keep_alive_handler")
             )
         except BleakError as ex:
             self._log.debug(
-                "Could not subscribe to notify characteristic %s: %s", BMS._NotifyChars.ch_c, ex
+                "Could not subscribe to notify characteristic %s: %s",
+                BMS._NotifyChars.ch_c,
+                ex,
             )
 
         self._ch_c_event.clear()
         await asyncio.wait_for(self._ch_c_event.wait(), timeout=BMS.TIMEOUT)
 
-        self._log.debug("Subscribing to notify characteristic %s", BMS._NotifyChars.ch_b)
+        self._log.debug(
+            "Subscribing to notify characteristic %s", BMS._NotifyChars.ch_b
+        )
         try:
             await self._client.start_notify(
                 BMS._NotifyChars.ch_b.value, getattr(self, "_keep_alive_handler")
             )
         except BleakError as ex:
             self._log.debug(
-                "Could not subscribe to notify characteristic %s: %s", BMS._NotifyChars.ch_b, ex
+                "Could not subscribe to notify characteristic %s: %s",
+                BMS._NotifyChars.ch_b,
+                ex,
             )
         self._ch_b_event.clear()
         await asyncio.wait_for(self._ch_b_event.wait(), timeout=BMS.TIMEOUT)
 
         await super()._init_connection(char_notify)
+        self._exp_reply = b"MST+AEN"
         await self._await_msg(
             b"APP+AEN" + (f"={self._secret}".encode("ASCII") if self._secret else b""),
-            wait_for_notify=False,
+            wait_for_notify=True,
         )
-        await asyncio.sleep(0.5)
         await self._await_msg(b"APP+NET", wait_for_notify=False)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1)
 
     async def _keep_alive_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
@@ -174,6 +183,11 @@ class BMS(BaseBMS):
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data from %s: %s", sender.uuid, data)
+
+        if self._exp_reply and bytes(data) == self._exp_reply:
+            self._exp_reply = b""
+            self._msg_event.set()
+            return
 
         if not data.startswith(BMS._HEAD):
             self._log.debug("unknown SOF (%s)", data[:2].hex(" "))
