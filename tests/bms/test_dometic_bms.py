@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.service import BleakGATTService
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.dometic_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -619,7 +619,7 @@ async def test_update(
     monkeypatch.setattr(MockDometicBBleakClient, "_RESP", _PROTO_DEFS)
     patch_bleak_client(MockDometicBBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS
 
