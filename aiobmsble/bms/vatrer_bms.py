@@ -105,6 +105,7 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
+        self._msg.clear()
         for addr, length in BMS._CMDS:
             await self._await_msg(BMS._cmd_modbus(dev_id=0x2, addr=addr, count=length))
         if not BMS._RESPS.issubset(set(self._msg.keys())):
