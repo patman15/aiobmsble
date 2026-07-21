@@ -38,7 +38,7 @@ class BMS(BaseBMS):
     _TAIL: Final[bytes] = b"\x7e"
     _CELL_POS: Final[int] = 12
     _MAX_CELLS: Final[int] = 16
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: tuple[BMSDp, ...] = (
         BMSDp(
             "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
         ),
