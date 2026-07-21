@@ -152,8 +152,9 @@ class BMS(BaseBMS):
             + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
             wait_for_notify=True,
         )
-        await self._await_msg(b"APP+NET", wait_for_notify=False)
-        await asyncio.sleep(1)
+        self._exp_reply = b"MST+NET"
+        await self._await_msg(b"APP+NET", wait_for_notify=True)
+        self._msg_event.clear()
 
     async def _keep_alive_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
