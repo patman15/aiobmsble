@@ -94,6 +94,7 @@ class BMS(EJBMS):
             and all(chr(c) in hexdigits for c in self._frame[7:11])
             else 0xFFFF
         )
+        self._frame = self._frame.replace(b"\x00", b"")
 
         if not self._frame.startswith(BMS._HEAD) or (
             not self._frame.endswith(BMS._TAIL) and len(self._frame) < exp_frame_len
@@ -112,9 +113,7 @@ class BMS(EJBMS):
 
         if len(self._frame) != exp_frame_len:
             self._log.debug(
-                "incorrect frame length %i != %i",
-                len(self._frame),
-                exp_frame_len,
+                "incorrect frame length %i != %i", len(self._frame), exp_frame_len
             )
             self._frame.clear()
             return

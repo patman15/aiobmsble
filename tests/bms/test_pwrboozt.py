@@ -32,10 +32,11 @@ class MockPwrBBleakClient(MockBleakClient):
         ) != normalize_uuid_str("0000fff2-0000-1000-8000-00805f9b34fb"):
             return bytearray()
         return bytearray(
-            b":01540100EC000102030405060D2D0D2A0D2B0D2C00000000000000000000000000000000000000"
-            b"0000000000F00000004343434310E8000000007FFFFFFF34AE000304003D63000493E00004C8650"
-            b"00493E0000105F0000600010000000000000000000000000000000000000000000000000000B2~"
-        )  # cells 3.373V, 3.370V, 3.371V, 3.372 V, pack 13.486 V, temp 27 °C, cycles 61, 300 Ah
+            b":01540100EC000102030405060D360D360D380D3000000000000000000000000000000000000000"
+            b"0000000000F00100003D3D3D3D10DD0000320A7FFFFFFF34D4000804003D62000493E00004BDCC0"
+            b"00493E0000105F0010600010000000000000000000000000000000000000000000000000000EB"
+            b"\x00~\x00\x00\x00"
+        )
 
     async def write_gatt_char(
         self,
@@ -63,25 +64,25 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == {
-        "battery_level": 99,
-        "current": 0.0,
+        "battery_level": 98,
+        "current": 12.81,
         "cycles": 61,
         "design_capacity": 300,
-        "voltage": 13.486,
+        "voltage": 13.524,
         "cell_voltages": [
-            3.373,
-            3.370,
-            3.371,
-            3.372,
+            3.382,
+            3.382,
+            3.384,
+            3.376,
         ],
-        "temp_values": [TS(27.0)] * 4,
-        "battery_charging": False,
+        "temp_values": [TS(21.0)] * 4,
+        "battery_charging": True,
         "cell_count": 4,
-        "delta_voltage": 0.003,
-        "temperature": 27.0,
-        "cycle_charge": 297.0,
-        "power": 0.0,
-        "cycle_capacity": 4005.342,
+        "delta_voltage": 0.008,
+        "temperature": 21.0,
+        "cycle_charge": 294.0,
+        "power": 173.242,
+        "cycle_capacity": 3976.056,
         "problem": False,
     }
 

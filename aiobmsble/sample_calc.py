@@ -155,8 +155,9 @@ def derive_missing_fields(
             if not calc.requires.issubset(data):
                 remaining.append(calc)
                 continue
+            key: BMSValue = calc.output
             if (value := calc.formula(data)) is not None:
-                data[calc.output] = value
+                data[key] = value
                 progress = True
 
         if not progress:
