@@ -8,9 +8,9 @@ from aiobmsble import BMSSample, BMSValue, sample_calc
 from aiobmsble.sample_calc import _C, _validated_calculation_registry
 
 
-def _noop_formula(_data: BMSSample) -> None:
+def _noop_formula(_data: BMSSample) -> bool:
     """Return no calculated value."""
-    return
+    return False
 
 
 @pytest.mark.parametrize(
