@@ -27,7 +27,7 @@ class BMS(BaseBMS):
     _MAX_SUBS: Final[int] = 0xF
     _CELL_POS: Final[int] = 9
     _PRB_MAX: Final[int] = 8  # max number of alarm event bytes
-    _PRB_MASK: Final[int] = 0x7DFFFFFFFFFF  # ignore byte 7-8 + byte 6 (bit 7,2)
+    _PRB_MASK: Final[int] = ~(0x80FFC0)  # mask alarm event 6-8 (internal bits)
     _PFIELDS: Final[tuple[BMSDp, ...]] = (  # Seplos V2: single machine data
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),
         BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
@@ -46,7 +46,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -170,6 +170,9 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd, data=data))
 
         result: BMSSample = {}
+        # get extension pack count from manufacturer information (only main unit != 0)
+        result["pack_count"] = self._msg[0x51][42]
+
         result["cell_count"] = self._msg[0x61][BMS._CELL_POS]
         result["temp_sensors"] = self._msg[0x61][
             BMS._CELL_POS + result["cell_count"] * 2 + 1
@@ -183,32 +186,34 @@ class BMS(BaseBMS):
             BMS._PFIELDS, self._msg[0x61], start=BMS._CELL_POS + ct_blk_len
         )
 
-        cst_alarm_pos: Final[int] = (
+        states_pos: Final[int] = (
             (BMS._CELL_POS + ct_blk_len)
             + (result["cell_count"] + result["temp_sensors"])
-            + (4 + 19)
+            + (3 + 19)
         )
-        balance_pos: Final[int] = cst_alarm_pos + 1 + self._msg[0x61][cst_alarm_pos]
-        balance_len: Final[int] = min((result["cell_count"] + 7) // 8, 8)  # round up
-        result["balancer"] = int.from_bytes(
-            self._msg[0x61][balance_pos : balance_pos + balance_len]
-        )
-
-        # get extension pack count from manufacturer information
-        result["pack_count"] = self._msg[0x51][42]
 
         # get switches from parallel data (main pack)
-        states: Final[int] = self._msg[0x62][45]
+        states: Final[int] = self._msg[0x61][states_pos]
         result |= {
             "dischrg_mosfet": bool(states & 0x1),
             "chrg_mosfet": bool(states & 0x2),
             "heater": bool(states & 0x8),
         }
 
+        cst_alarm_pos: Final[int] = states_pos + 1
+        balance_pos: Final[int] = cst_alarm_pos + 1 + self._msg[0x61][cst_alarm_pos]
+        balance_len: Final[int] = min((result["cell_count"] + 7) // 8, 8)  # round up
+        result["balancer"] = int.from_bytes(
+            self._msg[0x61][balance_pos : balance_pos + balance_len]
+        )
+
         # get alarms from parallel data (main pack)
-        alarm_evt: Final[int] = min(self._msg[0x62][46], BMS._PRB_MAX)
+        alarm_evt: Final[int] = min(self._msg[0x61][cst_alarm_pos], BMS._PRB_MAX)
         result["problem_code"] = (
-            int.from_bytes(self._msg[0x62][47 : 47 + alarm_evt], byteorder="big")
+            int.from_bytes(
+                self._msg[0x61][cst_alarm_pos + 1 : cst_alarm_pos + 1 + alarm_evt],
+                byteorder="big",
+            )
             & BMS._PRB_MASK
         )
 
