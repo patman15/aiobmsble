@@ -98,7 +98,7 @@ class BMS(BaseBMS):
         if (
             len(data) > BMS._MIN_LEN
             and data.startswith(BMS._HEAD)
-            and len(self._frame) >= self._exp_len
+            and (len(self._frame) >= self._exp_len or not self._frame)
         ):
             self._exp_len = BMS._MIN_LEN + int.from_bytes(data[5:7])
             self._frame.clear()
@@ -113,7 +113,7 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.endswith(BMS._TAIL):
-            self._log.debug("incorrect frame end: %s", self._frame)
+            self._log.debug("incorrect frame end: 0x%X", self._frame[-1])
             return
 
         if self._frame[1] != BMS._RSP_VER:
