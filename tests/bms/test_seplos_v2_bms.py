@@ -254,11 +254,11 @@ async def test_invalid_response(
         ),
         (
             MockSeplosv2BleakClient.RESP[b"\x00\x46\x61\x00\x01\x00\xf7\xc1"][:101]
-            + b"\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x06\x49\x0d",
+            + b"\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x8a\x0d",
             0x01000000000000,  # Single high voltage alarm
         ),
     ],
-    ids=("all", "over-temp"),
+    ids=("all", "over-temp", "high-volt"),
 )
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,

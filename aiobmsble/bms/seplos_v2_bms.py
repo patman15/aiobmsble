@@ -39,7 +39,7 @@ class BMS(BaseBMS):
     )
     _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
     _CMDS: Final[frozenset[tuple[int, bytes]]] = frozenset(
-        {(0x51, b""), (0x61, b"\x00"), (0x62, b"")}
+        {(0x51, b""), (0x61, b"\x00")}
     )
 
     def __init__(
