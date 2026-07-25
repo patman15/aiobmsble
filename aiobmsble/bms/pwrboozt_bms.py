@@ -15,6 +15,10 @@ from .ej_bms import BMS as EJBMS
 class BMS(EJBMS):
     """PowerBoozt battery implementation."""
 
+    INFO: BMSInfo = {
+        "default_manufacturer": "Powerboozt",
+        "default_model": "battery",
+    }
     _FIELDS: tuple[BMSDp, ...] = (
         # BMSDp(
         #     "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
@@ -64,10 +68,6 @@ class BMS(EJBMS):
     def uuid_tx() -> str:
         """Return 128-bit UUID of characteristic that provides write property."""
         return "fff2"
-
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Return device information for the battery management system."""
-        return {"manufacturer": "Powerboozt", "model": "Battery"}
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
