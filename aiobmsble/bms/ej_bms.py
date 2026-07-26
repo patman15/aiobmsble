@@ -15,19 +15,18 @@ from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, Temp
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
-class Cmd(IntEnum):
-    """BMS operation codes."""
-
-    RT = 0x2
-    CAP = 0x10
-
-
 class BMS(BaseBMS):
     """E&J Technology BMS implementation.
 
     - Standard E&J (two-command protocol: RT + CAP)
     - Metrisun / Chins (single-frame protocol, 140 bytes)
     """
+
+    class Cmd(IntEnum):
+        """BMS operation codes."""
+
+        RT = 0x2
+        CAP = 0x10
 
     INFO: BMSInfo = {
         "default_manufacturer": "E&J Technology",
@@ -39,7 +38,7 @@ class BMS(BaseBMS):
     _TAIL: Final[bytes] = b"\x7e"
     _CELL_POS: Final[int] = 12
     _MAX_CELLS: Final[int] = 16
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: tuple[BMSDp, ...] = (
         BMSDp(
             "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
         ),
@@ -63,7 +62,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -196,10 +195,10 @@ class BMS(BaseBMS):
             await self._await_msg(cmd)
             rsp: int = self._msg[1] & 0x7F
             raw_data[rsp] = self._msg
-            if rsp == Cmd.RT and len(self._msg) == 0x45:
+            if rsp == BMS.Cmd.RT and len(self._msg) == 0x45:
                 # handle single-frame variants (metrisun, Chins)
                 self._log.debug("single frame protocol detected")
-                raw_data[Cmd.CAP] = bytes(7) + self._msg[62:]
+                raw_data[BMS.Cmd.CAP] = bytes(7) + self._msg[62:]
                 break
         return raw_data
 
@@ -207,12 +206,12 @@ class BMS(BaseBMS):
         """Update battery status information."""
         raw_data: Final[dict[int, bytes]] = await self._query_bms()
 
-        if len(raw_data) != len(Cmd) or not all(raw_data.values()):
+        if len(raw_data) != len(BMS.Cmd) or not all(raw_data.values()):
             return {}
 
         result: BMSSample = self._decode_data(BMS._FIELDS, raw_data) | BMSSample(
             cell_voltages=BMS._cell_voltages(
-                raw_data[Cmd.RT], cells=BMS._MAX_CELLS, start=BMS._CELL_POS
+                raw_data[BMS.Cmd.RT], cells=BMS._MAX_CELLS, start=BMS._CELL_POS
             )
         )
         # design_capacity only available in single-frame (140-byte) variants
