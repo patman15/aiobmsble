@@ -198,6 +198,9 @@ def derive_missing_fields(
     data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
 ) -> None:
     """Apply dependency-driven calculations to the provided data mapping."""
+
+    derive_from_packs(data)
+
     pending: list[_C] = sorted(
         [
             calc
@@ -206,8 +209,6 @@ def derive_missing_fields(
         ],
         key=lambda calc: (len(calc.requires), calc.output),
     )
-
-    derive_from_packs(data)
 
     while pending:
         progress: bool = False
