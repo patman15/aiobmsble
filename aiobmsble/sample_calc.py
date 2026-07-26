@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from statistics import fmean
-from typing import Final, cast, get_type_hints
+from typing import Any, Final, cast, get_type_hints
 
 from aiobmsble import BMSpackvalue, BMSSample, BMSValue, CommonValue, PackSample
 
@@ -163,7 +163,7 @@ def derive_from_packs(data: BMSSample) -> None:
         # not native, but available for all packs
         return key not in data and all(key in pack for pack in packs)
 
-    def _pvalues(key: BMSpackvalue) -> list:
+    def _pvalues(key: BMSpackvalue) -> list[Any]:
         return [pack.get(key, 0) for pack in packs]
 
     for pack in packs:
@@ -203,7 +203,6 @@ def derive_missing_fields(
         key=lambda calc: (len(calc.requires), calc.output),
     )
 
-    # first add overall values from packs if missing
     derive_from_packs(data)
 
     while pending:
