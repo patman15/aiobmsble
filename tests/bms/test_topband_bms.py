@@ -1,7 +1,7 @@
 """Test the Topband BMS implementation."""
 
 from collections.abc import Awaitable, Callable
-from typing import Final, cast
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -41,6 +41,22 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
         b"\x30\x30\x30\x30\x30\x37\x42\x41\x52\x52\x52\x52\x52\x52\x52\x52"
     ),
+    0xE8: bytearray(  # Wattstunde
+        b"\xe8\x35\x43\x33\x38\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x33\x32\x38\x36"
+        b"\x30\x31\x30\x30\x30\x42\x30\x30\x36\x34\x30\x30\x39\x42\x30\x42\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x31\x45\x30\x45\x31\x43\x30\x45\x31\x45\x30\x45\x30\x31\x30\x45\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x32\x46\x33"
+    ),
+    # 0xF6: bytearray(  # Voltium Energy
+    #     b"\xf6\x44\x42\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x32\x30\x33\x45"
+    #     b"\x30\x30\x30\x30\x30\x31\x30\x30\x36\x33\x30\x30\x43\x43\x30\x42\x33\x35\x30\x44\x32"
+    #     b"\x46\x30\x44\x33\x38\x30\x44\x33\x34\x30\x44\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+    #     b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+    #     b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x35\x41\x31"
+    #     b"\x06\x06\x06\x06\x06\x06\x06\x06"
+    # ),
 }
 
 _RESULT_DEFS: Final[dict[int, BMSSample]] = {
@@ -98,13 +114,33 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cell_count": 4,
         "cell_voltages": [3.294, 3.336, 3.298, 3.333],
     },
+    0xE8: {
+        "voltage": 14.428,
+        "current": 0.0,
+        "battery_level": 100,
+        "cycle_charge": 99.89,
+        "cycles": 11,
+        "temp_values": [TS(23.95)],
+        "problem_code": 0,
+        "cell_voltages": [
+            3.614,
+            3.612,
+            3.614,
+            3.585,
+        ],
+        "delta_voltage": 0.029,
+        "cell_count": 4,
+        "cycle_capacity": 1441.213,
+        "power": 0.0,
+        "battery_charging": False,
+        "temperature": 23.95,
+        "problem": False,
+    },
+    # 0xF6: {}
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=[0x5E, 0x83, 0xB0],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
     assert isinstance(request.param, int)
@@ -115,6 +151,7 @@ class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
 
     bms_class = BMS
+
 
 class MockTopbandBleakClient(MockBleakClient):
     """Emulate a Topband BMS BleakClient."""
@@ -294,7 +331,12 @@ async def test_invalid_response(
 )
 def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
-    return cast(tuple[bytearray, str], request.param)
+    assert (
+        isinstance(request.param, tuple)
+        and isinstance(request.param[0], bytearray)
+        and isinstance(request.param[1], str)
+    )
+    return request.param
 
 
 async def test_problem_response(

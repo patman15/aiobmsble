@@ -217,19 +217,19 @@ async def test_device_info(patch_bleak_client) -> None:
 @pytest.fixture(
     name="wrong_response",
     params=[
-        (bytearray(7), "critical_length"),
-        (bytearray(b";AT< )'!R\"\x1d\x1a"), "wrong_SOP"),
-        (bytearray(b";BT< )'!R\""), "wrong_EOP"),
-        (bytearray(b";BT<#RUN S\x1d\x1a"), "invalid_character"),
-        (bytearray(b";BT<Ubb\x7f\x10"), "BMS_error"),
-        (bytearray(b"invalid\xf0value"), "invalid_value"),
-        (bytearray(b";BT<UQ S\x1d\x1a"), "wrong_reg"),
+        (bytes(7), "critical_length"),
+        (b";AT< )'!R\"\x1d\x1a", "wrong_SOP"),
+        (b";BT< )'!R\"", "wrong_EOP"),
+        (b";BT<#RUN S\x1d\x1a", "invalid_character"),
+        (b";BT<Ubb\x7f\x10", "BMS_error"),
+        (b"invalid\xf0value", "invalid_value"),
+        (b";BT<UQ S\x1d\x1a", "wrong_reg"),
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    assert isinstance(request.param[0], bytearray)
+    assert isinstance(request.param[0], bytes)
     return request.param[0]
 
 
@@ -237,7 +237,7 @@ async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -249,7 +249,7 @@ async def test_invalid_response(
         if isinstance(char_specifier, str) and normalize_uuid_str(
             char_specifier
         ) == normalize_uuid_str("fff6"):
-            return wrong_response
+            return bytearray(wrong_response)
         raise NotImplementedError("wrong GATT characteristic")
 
     monkeypatch.setattr(MockOGTBleakClient, "_response", patch_resp)
