@@ -176,6 +176,10 @@ def derive_from_packs(data: BMSSample) -> None:
         if "cell_count" not in pack:
             pack["cell_count"] = len(pack["cell_voltages"])
 
+    if _can_calc("cell_voltages"):
+        data["cell_voltages"] = [
+            v for pack in packs for v in pack.get("cell_voltages", [])
+        ]
     if _can_calc("cell_count") and len(set(_pvalues("cell_count"))) == 1:
         data["cell_count"] = _pvalues("cell_count")[0]
     if _can_calc("current"):
@@ -194,6 +198,9 @@ def derive_missing_fields(
     data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
 ) -> None:
     """Apply dependency-driven calculations to the provided data mapping."""
+
+    derive_from_packs(data)
+
     pending: list[_C] = sorted(
         [
             calc
@@ -202,8 +209,6 @@ def derive_missing_fields(
         ],
         key=lambda calc: (len(calc.requires), calc.output),
     )
-
-    derive_from_packs(data)
 
     while pending:
         progress: bool = False
