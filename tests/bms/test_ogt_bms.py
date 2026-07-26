@@ -48,28 +48,28 @@ class MockOGTBleakClient(MockBleakClient):
 
     KEY = 0x10  # key used for decoding, constants are encrypted with this key!
     RESP_TYPE_A: dict[int, bytes] = {
-        0x02: b" U  \x1d\x1a",  # battery_level: 14
-        0x04: b'"  # Q\x1d\x1a',  # cycle_charge: 8.0
-        0x08: b"'!R\"\x1d\x1a",  # voltage: 45.681
-        0x0C: b"(% R\x1d\x1a",  # temperature: 21.8
-        0x10: b"(%VV  \x1d\x1a",  # current: -1.23
+        0x02: b" U  \x1d\x1a",  # battery_level: 14%
+        0x04: b'"  # Q\x1d\x1a',  # cycle_charge: 8.0Ah
+        0x08: b"'!R\"\x1d\x1a",  # voltage: 45.681V
+        0x0C: b"(% R\x1d\x1a",  # temperature: 21.8°C
+        0x10: b"(%VV  \x1d\x1a",  # current: -1.23A
         0x18: b"'(  \x1d\x1a",  # runtime: 7200
         0x2C: b"&#  \x1d\x1a",  # cycles: 99
-        0x3C: b"R( R Q\x1d\x1a",  # design_capacity
+        0x3C: b"R( R Q\x1d\x1a",  # design_capacity 30Ah
     }
     RESP_TYPE_B: dict[int, bytes] = {
-        0x08: b"(% R\x1d\x1a",  # temperature: 21.8
-        0x09: b"'!R\"\x1d\x1a",  # voltage: 45.681
-        0x0A: b"'R   Q\x1d\x1a",  # current: 1.23
-        0x0D: b" U  \x1d\x1a",  # battery_level: 14
-        0x0F: b'"  # Q\x1d\x1a',  # cycle_charge: 8.0
+        0x08: b"(% R\x1d\x1a",  # temperature: 21.8°C
+        0x09: b"'!R\"\x1d\x1a",  # voltage: 45.681V
+        0x0A: b"'R   Q\x1d\x1a",  # current: 1.23A
+        0x0D: b" U  \x1d\x1a",  # battery_level: 14%
+        0x0F: b'"  # Q\x1d\x1a',  # cycle_charge: 8.0Ah
         0x12: b"VVVV\x1d\x1a",  # runtime: 65536 (inf)
         0x17: b"&#  \x1d\x1a",  # cycles: 99
-        0x18: b"R( R Q\x1d\x1a",  # design_capacity
-        0x3F: b"UQ S\x1d\x1a",  # 3.306
-        0x3E: b"U) S\x1d\x1a",  # 3.300
-        0x3D: b"U( S\x1d\x1a",  # 3.304
-        0x3C: b"U' S\x1d\x1a",  # 3.303
+        0x18: b"R( R Q\x1d\x1a",  # design_capacity 30Ah
+        0x3F: b"UQ S\x1d\x1a",  # 3.306V
+        0x3E: b"U) S\x1d\x1a",  # 3.300V
+        0x3D: b"U( S\x1d\x1a",  # 3.304V
+        0x3C: b"U' S\x1d\x1a",  # 3.303V
     }
 
     async def _response(
