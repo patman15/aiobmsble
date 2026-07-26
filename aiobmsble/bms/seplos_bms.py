@@ -98,7 +98,7 @@ class BMS(BaseBMS):
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
             }
-            for pattern in ("SP??B*", "XZHX*", "CSY*", "SP1??B*")
+            for pattern in ("SP??B*", "XZHX*", "CSY*", "SP1??B*", "ST*")
         ]
 
     # setup UUIDs
