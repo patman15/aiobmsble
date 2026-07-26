@@ -33,6 +33,7 @@ class BMS(BaseBMS):
         BMSDp("current", 0, 3, False, lambda x: x / 100, 16),
         BMSDp("runtime", 0, 2, False, lambda x: x * 60, 24),
         BMSDp("cycles", 0, 2, False, idx=44),
+        BMSDp("design_capacity", 0, 3, False, lambda x: x // 1000, 60),
     )
     # Fields for type B: register -> BMSDp
     _FIELDS_B: Final[tuple[BMSDp, ...]] = (
@@ -43,11 +44,11 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 0, 3, False, lambda x: x / 1000, 15),
         BMSDp("runtime", 0, 2, False, lambda x: x * 60, 18),
         BMSDp("cycles", 0, 2, False, idx=23),
+        BMSDp("design_capacity", 0, 3, False, lambda x: x // 1000, 24),
     )
 
     class _Response(NamedTuple):
-        valid: bool
-        reg: int
+        reg: int  # 0: Err, -1: decode error
         value: int
 
     def __init__(
@@ -76,7 +77,7 @@ class BMS(BaseBMS):
             self._key,
         )
         self._exp_reply: int = 0x0
-        self._response: BMS._Response = BMS._Response(False, 0, 0)
+        self._response: BMS._Response = BMS._Response(0, 0)
         self._fields: tuple[BMSDp, ...] = (
             BMS._FIELDS_A
             if self._type == "A"
@@ -126,11 +127,11 @@ class BMS(BaseBMS):
         self._response = self._ogt_response(data)
 
         # check that descrambled message is valid
-        if not self._response.valid:
+        if self._response.reg == -1:
             self._log.debug("response data is invalid")
             return
 
-        if self._response.reg not in (-1, self._exp_reply):
+        if self._response.reg not in (0, self._exp_reply):
             self._log.debug("wrong register response")
             return
 
@@ -145,16 +146,16 @@ class BMS(BaseBMS):
                 (resp[x] ^ self._key) for x in range(len(resp))
             ).decode(encoding="ascii")
         except UnicodeDecodeError:
-            return BMS._Response(False, -1, 0)
+            return BMS._Response(-1, 0)
 
         self._log.debug("response: %s", msg.rstrip("\r\n"))
         # verify correct response
         if len(msg) < 8 or not msg.startswith("+RD,"):
-            return BMS._Response(False, -1, 0)
+            return BMS._Response(-1, 0)
         if msg[4:7] == "Err":
-            return BMS._Response(True, -1, 0)
+            return BMS._Response(0, 0)
         if not msg.endswith("\r\n") or not all(c in hexdigits for c in msg[4:-2]):
-            return BMS._Response(False, -1, 0)
+            return BMS._Response(-1, 0)
 
         # 16-bit value in network order (plus optional multiplier for 24-bit values)
         # multiplier has 1 as minimum due to current value in A type battery
@@ -162,7 +163,7 @@ class BMS(BaseBMS):
         value: int = int.from_bytes(
             bytes.fromhex(msg[6:10]), byteorder="little", signed=signed
         ) * (max(int(msg[10:12], 16), 1) if signed else 1)
-        return BMS._Response(True, int(msg[4:6], 16), value)
+        return BMS._Response(int(msg[4:6], 16), value)
 
     def _ogt_command(self, reg: int, length: int) -> bytes:
         """Put together an scambled query to the BMS."""
@@ -180,31 +181,25 @@ class BMS(BaseBMS):
             # Use idx to get the register number (it was in the idx position)
             self._exp_reply = field.idx
             await self._await_msg(data=self._ogt_command(field.idx, field.size))
-            if self._response.reg < 0:
+            if self._response.reg <= 0:
                 raise TimeoutError
 
-            # Find the field matching this response
-            matched_field: BMSDp | None = next(
-                (f for f in self._fields if f.idx == self._response.reg), None
+            value = field.fct(self._response.value)
+            result[field.key] = value
+            self._log.debug(
+                "decoded data: reg: %s (#%i), raw: %i, value: %s",
+                field.key,
+                field.idx,
+                self._response.value,
+                result.get(field.key),
             )
-
-            if matched_field:
-                value = matched_field.fct(self._response.value)
-                result[matched_field.key] = value
-                self._log.debug(
-                    "decoded data: reg: %s (#%i), raw: %i, value: %s",
-                    matched_field.key,
-                    field.idx,
-                    self._response.value,
-                    result.get(matched_field.key),
-                )
 
         # read cell voltages for type B battery
         if self._type == "B":
             for cell_reg in range(16):
                 self._exp_reply = 63 - cell_reg
                 await self._await_msg(data=self._ogt_command(63 - cell_reg, 2))
-                if self._response.reg < 0:
+                if self._response.reg <= 0:
                     self._log.debug("cell count: %i", cell_reg)
                     break
                 result.setdefault("cell_voltages", []).append(
