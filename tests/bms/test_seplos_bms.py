@@ -62,6 +62,8 @@ REF_VALUE: BMSSample = {
                 [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
                 + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
             ),
+            delta_voltage=0.002,
+            cell_count=16,
         ),
         PackSample(
             voltage=52.35,
@@ -93,10 +95,12 @@ REF_VALUE: BMSSample = {
                 [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
                 + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
             ),
+            delta_voltage=0.003,
+            cell_count=16,
         ),
     ],
-    "delta_voltage": 0.003,
     "cell_count": 16,
+    "delta_voltage": 0.003,
     "battery_charging": False,
     "cycle_capacity": 7019.841,
     "power": -350.678,

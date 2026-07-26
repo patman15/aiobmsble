@@ -4,15 +4,14 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from collections.abc import Callable
 from string import digits, hexdigits
-from typing import Any, Final, NamedTuple
+from typing import Final, NamedTuple
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -23,22 +22,40 @@ class BMS(BaseBMS):
         "default_manufacturer": "Offgridtec",
         "default_model": "LiFePo4 Smart Pro",
     }
-    _IDX_NAME: Final = 0
-    _IDX_LEN: Final = 1
-    _IDX_FCT: Final = 2
     # magic crypt sequence of length 16
     _CRY_SEQ: Final[tuple[int, ...]] = (2, 5, 4, 3, 1, 4, 1, 6, 8, 3, 7, 2, 5, 8, 9, 3)
+    # Fields for type A: register -> BMSDp
+    _FIELDS_A: Final[tuple[BMSDp, ...]] = (
+        BMSDp("battery_level", 0, 1, False, idx=2),
+        BMSDp("cycle_charge", 0, 3, False, lambda x: x / 1000, 4),
+        BMSDp("voltage", 0, 2, False, lambda x: x / 1000, 8),
+        BMSDp("temp_values", 0, 2, False, lambda x: [round(x / 10 - 273.15, 3)], 12),
+        BMSDp("current", 0, 3, False, lambda x: x / 100, 16),
+        BMSDp("runtime", 0, 2, False, lambda x: x * 60, 24),
+        BMSDp("cycles", 0, 2, False, idx=44),
+        BMSDp("design_capacity", 0, 3, False, lambda x: x // 1000, 60),
+    )
+    # Fields for type B: register -> BMSDp
+    _FIELDS_B: Final[tuple[BMSDp, ...]] = (
+        BMSDp("temp_values", 0, 2, False, lambda x: [round(x / 10 - 273.15, 3)], 8),
+        BMSDp("voltage", 0, 2, False, lambda x: x / 1000, 9),
+        BMSDp("current", 0, 3, False, lambda x: x / 1000, 10),
+        BMSDp("battery_level", 0, 1, False, idx=13),
+        BMSDp("cycle_charge", 0, 3, False, lambda x: x / 1000, 15),
+        BMSDp("runtime", 0, 2, False, lambda x: x * 60, 18),
+        BMSDp("cycles", 0, 2, False, idx=23),
+        BMSDp("design_capacity", 0, 3, False, lambda x: x // 1000, 24),
+    )
 
     class _Response(NamedTuple):
-        valid: bool
-        reg: int
+        reg: int  # 0: Err, -1: decode error
         value: int
 
     def __init__(
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -60,39 +77,16 @@ class BMS(BaseBMS):
             self._key,
         )
         self._exp_reply: int = 0x0
-        self._response: BMS._Response = BMS._Response(False, 0, 0)
-        self._REGISTERS: dict[int, tuple[BMSValue, int, Callable[[int], Any]]]
-        if self._type == "A":
-            self._REGISTERS = {
-                # SOC (State of Charge)
-                2: ("battery_level", 1, lambda x: x),
-                4: ("cycle_charge", 3, lambda x: x / 1000),
-                8: ("voltage", 2, lambda x: x / 1000),
-                # MOS temperature
-                12: ("temp_values", 2, lambda x: [round(x / 10 - 273.15, 3)]),
-                # 3rd byte of current is 0 (should be 1 as for B version)
-                16: ("current", 3, lambda x: x / 100),
-                24: ("runtime", 2, lambda x: x * 60),
-                44: ("cycles", 2, lambda x: x),
-                # Type A batteries have no cell voltage registers
-            }
-            self._HEADER = "+RAA"
-        elif self._type == "B":
-            self._REGISTERS = {
-                # MOS temperature
-                8: ("temp_values", 2, lambda x: [round(x / 10 - 273.15, 3)]),
-                9: ("voltage", 2, lambda x: x / 1000),
-                10: ("current", 3, lambda x: x / 1000),
-                # SOC (State of Charge)
-                13: ("battery_level", 1, lambda x: x),
-                15: ("cycle_charge", 3, lambda x: x / 1000),
-                18: ("runtime", 2, lambda x: x * 60),
-                23: ("cycles", 2, lambda x: x),
-            }
-            # add cell voltage registers, note: need to be last!
-            self._HEADER = "+R16"
-        else:
-            self._REGISTERS = {}
+        self._response: BMS._Response = BMS._Response(0, 0)
+        self._fields: tuple[BMSDp, ...] = (
+            BMS._FIELDS_A
+            if self._type == "A"
+            else BMS._FIELDS_B if self._type == "B" else ()
+        )
+        self._header: str = (
+            "+RAA" if self._type == "A" else "+R16" if self._type == "B" else ""
+        )
+        if not self._fields:
             self._log.exception("unknown device type '%c'", self._type)
 
     @staticmethod
@@ -133,11 +127,11 @@ class BMS(BaseBMS):
         self._response = self._ogt_response(data)
 
         # check that descrambled message is valid
-        if not self._response.valid:
+        if self._response.reg == -1:
             self._log.debug("response data is invalid")
             return
 
-        if self._response.reg not in (-1, self._exp_reply):
+        if self._response.reg not in (0, self._exp_reply):
             self._log.debug("wrong register response")
             return
 
@@ -152,16 +146,16 @@ class BMS(BaseBMS):
                 (resp[x] ^ self._key) for x in range(len(resp))
             ).decode(encoding="ascii")
         except UnicodeDecodeError:
-            return BMS._Response(False, -1, 0)
+            return BMS._Response(-1, 0)
 
         self._log.debug("response: %s", msg.rstrip("\r\n"))
         # verify correct response
         if len(msg) < 8 or not msg.startswith("+RD,"):
-            return BMS._Response(False, -1, 0)
+            return BMS._Response(-1, 0)
         if msg[4:7] == "Err":
-            return BMS._Response(True, -1, 0)
+            return BMS._Response(0, 0)
         if not msg.endswith("\r\n") or not all(c in hexdigits for c in msg[4:-2]):
-            return BMS._Response(False, -1, 0)
+            return BMS._Response(-1, 0)
 
         # 16-bit value in network order (plus optional multiplier for 24-bit values)
         # multiplier has 1 as minimum due to current value in A type battery
@@ -169,12 +163,12 @@ class BMS(BaseBMS):
         value: int = int.from_bytes(
             bytes.fromhex(msg[6:10]), byteorder="little", signed=signed
         ) * (max(int(msg[10:12], 16), 1) if signed else 1)
-        return BMS._Response(True, int(msg[4:6], 16), value)
+        return BMS._Response(int(msg[4:6], 16), value)
 
     def _ogt_command(self, reg: int, length: int) -> bytes:
         """Put together an scambled query to the BMS."""
 
-        cmd: Final[str] = f"{self._HEADER}{reg:0>2X}{length:0>2X}"
+        cmd: Final[str] = f"{self._header}{reg:0>2X}{length:0>2X}"
         self._log.debug("command: %s", cmd)
 
         return bytes(ord(cmd[i]) ^ self._key for i in range(len(cmd)))
@@ -183,22 +177,21 @@ class BMS(BaseBMS):
         """Update battery status information."""
         result: BMSSample = {}
 
-        for reg in list(self._REGISTERS):
-            self._exp_reply = reg
-            await self._await_msg(
-                data=self._ogt_command(reg, self._REGISTERS[reg][BMS._IDX_LEN])
-            )
-            if self._response.reg < 0:
+        for field in self._fields:
+            # Use idx to get the register number (it was in the idx position)
+            self._exp_reply = field.idx
+            await self._await_msg(data=self._ogt_command(field.idx, field.size))
+            if self._response.reg <= 0:
                 raise TimeoutError
 
-            name, _length, func = self._REGISTERS[self._response.reg]
-            result[name] = func(self._response.value)
+            value = field.fct(self._response.value)
+            result[field.key] = value
             self._log.debug(
                 "decoded data: reg: %s (#%i), raw: %i, value: %s",
-                name,
-                reg,
+                field.key,
+                field.idx,
                 self._response.value,
-                result.get(name),
+                result.get(field.key),
             )
 
         # read cell voltages for type B battery
@@ -206,7 +199,7 @@ class BMS(BaseBMS):
             for cell_reg in range(16):
                 self._exp_reply = 63 - cell_reg
                 await self._await_msg(data=self._ogt_command(63 - cell_reg, 2))
-                if self._response.reg < 0:
+                if self._response.reg <= 0:
                     self._log.debug("cell count: %i", cell_reg)
                     break
                 result.setdefault("cell_voltages", []).append(
