@@ -18,7 +18,15 @@ from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    BMSValue,
+    MatcherPattern,
+    TempSensor,
+)
 from aiobmsble.basebms import (
     BaseBMS,
     b2str,
@@ -145,10 +153,11 @@ class WMTestBMS(MinTestBMS):
         self,
         char_tx_properties: list[str],
         ble_device: BLEDevice,
-        keep_alive: bool = True,
+        config: BMSConfig | None = None,
+        logger_name: str = "",
     ) -> None:
         """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, config, logger_name)
         self._char_tx_properties: list[str] = char_tx_properties
 
     def _wr_response(self, char: int | str) -> bool:
@@ -228,27 +237,56 @@ class BMSBasicTests:
                 f"{self.bms_class.__name__} does not define _async_update(), skipping result type check."
             )
 
+        def _is_typed_dict(tp: Any) -> bool:
+            return (
+                isinstance(tp, type)
+                and issubclass(tp, dict)
+                and hasattr(tp, "__required_keys__")
+            )
+
         def _is_instance_of_type(value: Any, expected_type: Any) -> bool:
             if expected_type is Any:
                 return True
 
-            origin: Any = get_origin(expected_type)
-            args: tuple[Any, ...] = get_args(expected_type)
-            if origin is None:
-                return type(value) is expected_type
+            result: bool
 
-            if origin is UnionType:
-                return any(_is_instance_of_type(value, arg) for arg in args)
+            if _is_typed_dict(expected_type):
+                if not isinstance(value, dict):
+                    result = False
+                else:
+                    sub_hints: dict[str, Any] = get_type_hints(expected_type)
+                    required_keys: frozenset[str] = getattr(
+                        expected_type, "__required_keys__", frozenset()
+                    )
 
-            if type(value) is not origin:
-                return False
+                    if (not required_keys.issubset(value.keys())) or (
+                        not set(value.keys()).issubset(sub_hints.keys())
+                    ):
+                        result = False
+                    else:
+                        result = all(
+                            sub_key in sub_hints
+                            and _is_instance_of_type(sub_value, sub_hints[sub_key])
+                            for sub_key, sub_value in value.items()
+                        )
+            else:
+                origin: Any = get_origin(expected_type)
+                args: tuple[Any, ...] = get_args(expected_type)
 
-            if origin is list:
-                return (not args) or all(
-                    _is_instance_of_type(item, args[0]) for item in value
-                )
+                if origin is None:
+                    result = type(value) is expected_type
+                elif origin is UnionType:
+                    result = any(_is_instance_of_type(value, arg) for arg in args)
+                elif type(value) is not origin:
+                    result = False
+                elif origin is list:
+                    result = (not args) or all(
+                        _is_instance_of_type(item, args[0]) for item in value
+                    )
+                else:
+                    result = False
 
-            return False
+            return result
 
         module = request.module
         mock_client: type[BleakClient] = MockBleakClient
@@ -557,7 +595,7 @@ async def test_write_mode(
     bms = WMTestBMS(
         ["write-no-response", "write"],
         generate_ble_device(),
-        False,
+        BMSConfig(keep_alive=False),
     )
 
     # NOTE: output must reflect the end result after one call, as init of HA resets the whole BMS!
@@ -599,7 +637,7 @@ async def test_no_notify(
     """Test BMS update without waiting for notification event."""
     patch_bleak_client(MockBleakClient)
 
-    bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=False))
     with caplog.at_level(DEBUG):
         result: BMSSample = await bms.async_update()
     assert "MockBleakClient write_gatt_char afe2, data: b'mock_command'" in caplog.text
@@ -631,7 +669,7 @@ async def test_context_mgr(
     """Test that context manager provides data."""
     patch_bleak_client(MockBleakClient)
 
-    async with DataTestBMS(generate_ble_device(), keep_alive=True) as bms:
+    async with DataTestBMS(generate_ble_device(), BMSConfig(keep_alive=True)) as bms:
         assert await bms.async_update() == {
             "voltage": 13,
             "current": 1.7,
@@ -654,7 +692,9 @@ async def test_context_mgr_fail(
     patch_bleak_client(MockBleakClient)
 
     with pytest.raises(ValueError, match="usage of context manager*"):
-        async with MinTestBMS(generate_ble_device(), keep_alive=False) as bms:
+        async with MinTestBMS(
+            generate_ble_device(), BMSConfig(keep_alive=False)
+        ) as bms:
             await bms.async_update()
 
 
@@ -1089,6 +1129,7 @@ class MockGATTProfileBleakClient(MockBleakClient):
             ),
         ]
 
+
 class MockEmptyGATTProfileBleakClient(MockBleakClient):
     """Mock BleakClient with a GATT profile."""
 
@@ -1096,6 +1137,7 @@ class MockEmptyGATTProfileBleakClient(MockBleakClient):
     def services(self) -> list[BleakGATTServiceCollection]:  # type: ignore[override]
         """Mock GATT services empty."""
         return []
+
 
 async def test_get_gatt_profile(
     patch_bleak_client: Callable[..., None],
@@ -1130,6 +1172,7 @@ async def test_get_gatt_profile_not_connected(
 
     assert await bms.get_GATT_profile() == "device not connected"
 
+
 async def test_get_gatt_profile_empty(
     patch_bleak_client: Callable[..., None],
 ) -> None:
@@ -1139,6 +1182,7 @@ async def test_get_gatt_profile_empty(
     await bms._client.connect()
 
     assert await bms.get_GATT_profile() == "no services found"
+
 
 async def test_get_gatt_profile_error(
     monkeypatch: pytest.MonkeyPatch,

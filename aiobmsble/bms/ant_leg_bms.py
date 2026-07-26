@@ -9,7 +9,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -59,12 +59,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
-        logger_name: str = "",
+        config: BMSConfig | None = None,
+        logger_name: str = ""
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
@@ -72,10 +71,10 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "ANT-BLE[01]*",
+                "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
-            }
+            } for pattern in ("ANT-BLE[01]*", "ANT-BLE22*")
         ]
 
     @staticmethod

@@ -9,7 +9,7 @@ from bleak.exc import BleakDeviceNotFoundError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.tdt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -275,7 +275,7 @@ async def test_update(
     monkeypatch.setattr(MockTDTBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockTDTBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == ref_value()[protocol_type]
 
@@ -312,7 +312,7 @@ async def test_update_0x1e_head(
     monkeypatch.setattr(MockTDTBleakClient, "RESP", resp_0x1e)
     patch_bleak_client(MockTDTBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == ref_value()["4S4Tv0.0"]
 
@@ -517,7 +517,7 @@ async def test_problem_response(
     monkeypatch.setattr(MockTDTBleakClient, "RESP", problem_response[0])
     patch_bleak_client(MockTDTBleakClient)
 
-    bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device(), BMSConfig(False))
 
     result: BMSSample = await bms.async_update()
     assert result.get("problem", False)  # we expect a problem

@@ -7,7 +7,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.pace_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -144,7 +144,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     patch_bleak_client(MockPaceBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == {
         "pack_count": 1,

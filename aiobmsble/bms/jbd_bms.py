@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum, swap32
 
 
@@ -45,12 +45,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
-        logger_name: str = "",
+        config: BMSConfig | None = None,
+        logger_name: str = ""
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._valid_reply: int = 0x00
         self._msg: bytes = b""
 
@@ -140,16 +139,16 @@ class BMS(BaseBMS):
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
-        if self._secret:
+        if self._cfg.secret:
             await self._client.start_notify(BMS.uuid_rx(), self._notify_init_handler)
-            data: Final[bytes] = self._secret.encode(encoding="ASCII")
+            data: Final[bytes] = self._cfg.secret.encode(encoding="ASCII")
             try:
                 await self._await_msg(
                     BMS._HEAD_INIT
                     + b"\x15"
-                    + len(self._secret).to_bytes(1)
+                    + len(self._cfg.secret).to_bytes(1)
                     + data
-                    + ((0x15 + len(self._secret) + sum(data)) & 0xFF).to_bytes(1)
+                    + ((0x15 + len(self._cfg.secret) + sum(data)) & 0xFF).to_bytes(1)
                 )
             except TimeoutError:
                 self._log.warning("Failed to initialize connection with secret")

@@ -7,7 +7,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.ant_leg_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -150,7 +150,7 @@ async def test_update(
 
     bms = BMS(
         generate_ble_device(BT_ADDRESS, "MockBLEdevice"),
-        keep_alive_fixture,
+        BMSConfig(keep_alive_fixture),
     )
 
     assert await bms.async_update() == _RESULT_DEFS
