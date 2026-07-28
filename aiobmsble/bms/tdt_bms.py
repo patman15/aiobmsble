@@ -34,13 +34,25 @@ class BMS(BaseBMS):
             0,
             2,
             False,
+            lambda x: (x & 0x3FFF) / 10 * (-1 if x >> 15 else 1),
+            0x8C,
+        ),
+        BMSDp("cycle_charge", 4, 2, False, lambda x: x / 10, 0x8C),
+        BMSDp("battery_level", 12, 2, False, idx=0x8C),
+        BMSDp("cycles", 8, 2, False, idx=0x8C),
+    )  # problem code, switches are not included in the list, but extra
+    _FIELDS_v1: Final[tuple[BMSDp, ...]] = (
+        BMSDp(
+            "current",
+            0,
+            2,
+            False,
             lambda x: (x & 0x3FFF) * (-1 if x >> 15 else 1),
             0x8C,
         ),
         BMSDp("cycle_charge", 4, 2, False, idx=0x8C),
-        BMSDp("battery_level", 12, 2, False, idx=0x8C),
-        BMSDp("cycles", 8, 2, False, idx=0x8C),
-    )  # problem code, switches are not included in the list, but extra
+    )
+
     _CMDS: Final = frozenset({field.idx for field in _FIELDS} | {0x8D})
 
     def __init__(
@@ -56,6 +68,8 @@ class BMS(BaseBMS):
         self._cmd_heads: set[int] = BMS._CMD_HEADS
         self._valid_reply: int = 0  # expected reply type
         self._exp_len: int = 0
+        self._fields: tuple[BMSDp, ...] = BMS._FIELDS
+        self._crc_fix: bool | None = None  # disable CRC for 0x8D messages (BMS bug!)
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -100,6 +114,14 @@ class BMS(BaseBMS):
             "serial_number": b2str(self._msg[0x92][48:68]),
         }
 
+    @staticmethod
+    def _merge_fields(
+        base: tuple[BMSDp, ...], overrides: tuple[BMSDp, ...]
+    ) -> tuple[BMSDp, ...]:
+        """Merge overrides into base fields, matching by name."""
+        override_map: dict[str, BMSDp] = {f.key: f for f in overrides}
+        return tuple(override_map.get(f.key, f) for f in base)
+
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
@@ -110,6 +132,9 @@ class BMS(BaseBMS):
             self._log.debug("error unlocking BMS: %X", ret)
 
         await super()._init_connection()
+        _bms_info: BMSInfo = await self._fetch_device_info()
+        if _bms_info.get("sw_version", "") == "1.1":
+            self._fields = self._merge_fields(BMS._FIELDS, BMS._FIELDS_v1)
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -141,12 +166,8 @@ class BMS(BaseBMS):
             self._log.debug("unknown frame version: V%.1f", self._frame[1] / 10)
             return
 
-        if self._frame[4]:
-            self._log.debug("BMS reported error code: 0x%X", self._frame[4])
-            return
-
-        if self._frame[5] != self._valid_reply:
-            self._log.debug("BMS sent unexpected reply.")
+        if self._frame[4] or self._frame[5] != self._valid_reply:
+            self._log.debug("unexpected BMS reply (error code: 0x%X)", self._frame[4])
             return
 
         if not self._check_integrity(
@@ -156,7 +177,14 @@ class BMS(BaseBMS):
             slice(-3, -1),
             "big",
         ):
-            pass
+            if self._crc_fix is False or self._frame[5] != 0x8D:
+                return
+            if self._crc_fix is None:
+                self._crc_fix = self._frame[-3:-1] == b"\x00\x52"
+                if not self._crc_fix:
+                    return
+                self._log.warning("disabling CRC check, values might be unreliable")
+
         self._msg[self._frame[5]] = bytes(self._frame)
         self._msg_event.set()
 
@@ -212,7 +240,7 @@ class BMS(BaseBMS):
         idx: Final[int] = result.get("cell_count", 0) + result.get("temp_sensors", 0)
 
         result |= BMS._decode_data(
-            BMS._FIELDS, self._msg, start=BMS._CELL_POS + idx * 2 + 2
+            self._fields, self._msg, start=BMS._CELL_POS + idx * 2 + 2
         )
         result["problem_code"] = int.from_bytes(
             self._msg[0x8D][BMS._CELL_POS + idx + 6 : BMS._CELL_POS + idx + 8]

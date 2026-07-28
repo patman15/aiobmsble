@@ -1,6 +1,7 @@
 """Test the TDT implementation."""
 
 from collections.abc import Buffer
+from copy import deepcopy
 from typing import Final
 from uuid import UUID
 
@@ -226,16 +227,16 @@ def ref_value() -> dict[str, BMSSample]:
                 TS(25.9, TS.T.CELL),
             ],
             "voltage": 53.03,
-            "current": 0.5,
-            "cycle_charge": 4.9,
+            "current": 5,
+            "cycle_charge": 49,
             "battery_level": 50,
             "cycles": 12,
             "problem_code": 0,
             "chrg_mosfet": True,
             "dischrg_mosfet": True,
             "delta_voltage": 0.006,
-            "cycle_capacity": 259.847,
-            "power": 26.515,
+            "cycle_capacity": 2598.47,
+            "power": 265.15,
             "battery_charging": True,
             "temperature": 26.567,
             "problem": False,
@@ -269,7 +270,7 @@ class MockTDTBleakClient(MockBleakClient):
         0x8D: b"\x00\x01\x03\x00\x8d\x00\x00",
         0x92: b"\x00\x01\x03\x00\x92\x00\x00",
     }
-    RESP: Final[dict[int, bytes]] = _PROTO_DEFS["16S6Tv0.0"]
+    RESP: Final[dict[int, bytes]] = deepcopy(_PROTO_DEFS["16S6Tv0.0"])
 
     _char_fffa: int = 0x0  # return value for UUID "fffa"
 
@@ -283,7 +284,7 @@ class MockTDTBleakClient(MockBleakClient):
             and bytes(data)[-1] == self.TAIL_CMD
         ):
             for k, v in self.CMDS.items():
-                if bytes(data)[1:].startswith(v) and k in self.RESP:
+                if bytes(data)[1:].startswith(v) and (k in self.RESP):
                     return bytearray(self.RESP[k])
 
         return bytearray()
@@ -413,11 +414,19 @@ async def test_device_info(
             "sw_version": "mock_SW_version",
         }
         if protocol_type in ("4S4Tv0.0", "16S6Tv0.4")
-        else {
-            "sw_version": "6032_10016S000_L_41",
-            "manufacturer": "",
-            "serial_number": "60326016207270001",
-        }
+        else (
+            {
+                "sw_version": "6032_10016S000_L_41",
+                "manufacturer": "",
+                "serial_number": "60326016207270001",
+            }
+            if protocol_type == "16S6Tv0.0"
+            else {
+                "sw_version": "1.1",
+                "manufacturer": "40",
+                "serial_number": "0001",
+            }
+        )
     )
 
 
@@ -501,12 +510,8 @@ async def test_init_fail(
     name="problem_response",
     params=[
         (
-            {
-                0x8C: (  # 4 cell message
-                    b"\x7e\x00\x01\x03\x00\x8c\x00\x20\x04\x0c\xe1\x0c\xdf\x0c\xe1\x0c"
-                    b"\xdc\x04\x0b\x93\x0b\x9b\x0b\x8d\x0b\x8c\x40\x00\x05\x26\x02\x3f"
-                    b"\x04\x1c\x00\x08\x03\xe8\x00\x37\x91\x91\x0d"
-                ),
+            {  # 4 cell messages
+                0x8C: (_PROTO_DEFS["4S4Tv0.0"][0x8C]),
                 0x8D: (
                     b"\x7e\x00\x41\x03\x00\x8d\x00\x18\x04\x00\x00\x00\x00\x04\x00\x00"
                     b"\x00\x00\x00\x00\x00\x00\x00\x01\x06\x09\x00\x00\x18\x00\x00\x00"
@@ -516,12 +521,8 @@ async def test_init_fail(
             "first_bit_4cell",
         ),
         (
-            {
-                0x8C: (  # 4 cell message
-                    b"\x7e\x00\x01\x03\x00\x8c\x00\x20\x04\x0c\xe1\x0c\xdf\x0c\xe1\x0c"
-                    b"\xdc\x04\x0b\x93\x0b\x9b\x0b\x8d\x0b\x8c\x40\x00\x05\x26\x02\x3f"
-                    b"\x04\x1c\x00\x08\x03\xe8\x00\x37\x91\x91\x0d"
-                ),
+            {  # 4 cell messages
+                0x8C: (_PROTO_DEFS["4S4Tv0.0"][0x8C]),
                 0x8D: (
                     b"\x7e\x00\x41\x03\x00\x8d\x00\x18\x04\x00\x00\x00\x00\x04\x00\x00"
                     b"\x00\x00\x00\x00\x00\x00\x80\x00\x06\x09\x00\x00\x18\x00\x00\x00"
@@ -531,13 +532,8 @@ async def test_init_fail(
             "last_bit_4cell",
         ),
         (
-            {
-                0x8C: (  # 16 cell message
-                    b"\x7e\x00\x01\x03\x00\x8c\x00\x3c\x10\x0c\xe3\x0c\xe6\x0c\xde\x0c\xde\x0c\xdd"
-                    b"\x0c\xde\x0c\xdd\x0c\xdc\x0c\xdc\x0c\xda\x0c\xde\x0c\xde\x0c\xde\x0c\xdd\x0c"
-                    b"\xdf\x0c\xde\x06\x0b\x5e\x0b\x6f\x0b\x5e\x0b\x5e\x0b\x5e\x0b\x66\xc0\x39\x14"
-                    b"\x96\x03\xdf\x04\x3b\x00\x08\x03\xe8\x00\x5b\x2b\x9c\x0d"
-                ),
+            {  # 16 cell message
+                0x8C: (_PROTO_DEFS["16S6Tv0.0"][0x8C]),
                 0x8D: (
                     b"\x7e\x00\x01\x03\x00\x8d\x00\x27\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
                     b"\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01"
@@ -547,13 +543,8 @@ async def test_init_fail(
             "first_bit_16cell",
         ),
         (
-            {
-                0x8C: (  # 16 cell message
-                    b"\x7e\x00\x01\x03\x00\x8c\x00\x3c\x10\x0c\xe3\x0c\xe6\x0c\xde\x0c\xde\x0c\xdd"
-                    b"\x0c\xde\x0c\xdd\x0c\xdc\x0c\xdc\x0c\xda\x0c\xde\x0c\xde\x0c\xde\x0c\xdd\x0c"
-                    b"\xdf\x0c\xde\x06\x0b\x5e\x0b\x6f\x0b\x5e\x0b\x5e\x0b\x5e\x0b\x66\xc0\x39\x14"
-                    b"\x96\x03\xdf\x04\x3b\x00\x08\x03\xe8\x00\x5b\x2b\x9c\x0d"
-                ),
+            {  # 16 cell message
+                0x8C: (_PROTO_DEFS["16S6Tv0.0"][0x8C]),
                 0x8D: (
                     b"\x7e\x00\x01\x03\x00\x8d\x00\x27\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
                     b"\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x80\x00"
@@ -576,11 +567,13 @@ def prb_response(
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
+    patch_bms_timeout,
     problem_response: tuple[dict[int, bytes], str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
-    monkeypatch.setattr(MockTDTBleakClient, "RESP", bytearray(problem_response[0]))
+    patch_bms_timeout()
+    monkeypatch.setattr(MockTDTBleakClient, "RESP", problem_response[0])
     patch_bleak_client(MockTDTBleakClient)
 
     bms = BMS(generate_ble_device(), False)
