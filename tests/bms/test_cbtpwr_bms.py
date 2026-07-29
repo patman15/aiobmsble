@@ -248,19 +248,23 @@ async def test_all_cell_voltages(patch_bleak_client, patch_bms_timeout) -> None:
     name="problem_response",
     params=[
         (
-            {0x21: bytearray(b"\xaa\x55\x21\x04\x01\x00\x00\x00\x26\x0d\x0a")},
+            {0x21: b"\xaa\x55\x21\x04\x01\x00\x00\x00\x26\x0d\x0a"},
             "first_bit",
         ),
         (
-            {0x21: bytearray(b"\xaa\x55\x21\x04\x00\x00\x00\x80\xa5\x0d\x0a")},
+            {0x21: b"\xaa\x55\x21\x04\x00\x00\x00\x80\xa5\x0d\x0a"},
             "last_bit",
         ),
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request: pytest.FixtureRequest) -> tuple[dict[int, bytearray], str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[dict[int, bytes], str]:
     """Return faulty response frame."""
-    assert isinstance(request.param, tuple)
+    assert (
+        isinstance(request.param, tuple)
+        and isinstance(request.param[0], dict)
+        and isinstance(request.param[1], str)
+    )
     return request.param
 
 
@@ -268,7 +272,7 @@ async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    problem_response: tuple[dict[int, bytearray], str],
+    problem_response: tuple[dict[int, bytes], str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
