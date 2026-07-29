@@ -94,10 +94,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=[0x1, 0x2],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
     assert isinstance(request.param, int)

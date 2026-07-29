@@ -21,45 +21,40 @@ __version__: str = "0.0.0.dev0"
 with suppress(PackageNotFoundError):
     __version__ = version("aiobmsble")
 
-type BMSValue = Literal[
+type CommonValue = Literal[
+    "battery_health",
+    "battery_level",
+    "cell_count",
+    "cell_voltages",
+    "current",
+    "cycle_charge",
+    "cycles",
+    "delta_voltage",
+    "design_capacity",
+    "temp_sensors",
+    "temp_values",
+    "voltage",
+]
+
+type BMSValue = CommonValue | Literal[
     "battery_charging",
     "battery_mode",
-    "battery_level",
-    "battery_health",
-    "current",
     "power",
     "temperature",
-    "voltage",
-    "cycles",
     "cycle_capacity",
-    "cycle_charge",
     "total_charge",
-    "delta_voltage",
     "problem",
     "runtime",
     "balancer",
     "balance_current",
-    "cell_count",
-    "cell_voltages",
-    "design_capacity",
     "pack_count",
-    "temp_sensors",
-    "temp_values",
     "problem_code",
     "chrg_mosfet",
     "dischrg_mosfet",
     "heater",
 ]
 
-type BMSpackvalue = Literal[
-    "voltage",
-    "current",
-    "battery_level",
-    "battery_health",
-    "cycles",
-    "cycle_charge",
-    "design_capacity",
-]
+type BMSpackvalue = CommonValue
 
 
 class BMSMode(IntEnum):
@@ -119,10 +114,12 @@ class BatterySample(TypedDict, total=False):
 
     battery_level: float | int  # [%]
     battery_health: float | int  # [%]
+    cell_count: int  # [#]
     cell_voltages: list[float]  # [V]
     current: float  # [A]
     cycles: int  # [#]
     cycle_charge: int | float  # [Ah]
+    delta_voltage: float  # [V]
     design_capacity: int  # [Ah]
     temp_sensors: int  # [#]
     temp_values: list[TempSensor]  # [°C]
@@ -141,9 +138,7 @@ class BMSSample(BatterySample, total=False):
     battery_mode: BMSMode  # BMS charging mode
     power: float  # [W] (positive: charging)
     temperature: int | float  # [°C]
-    cell_count: int  # [#]
     cycle_capacity: int | float  # [Wh]
-    delta_voltage: float  # [V]
     problem: bool  # True: problem detected
     runtime: int  # [s]
 
