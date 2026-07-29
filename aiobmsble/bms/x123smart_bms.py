@@ -128,7 +128,7 @@ class BMS(BaseBMS):
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
-        r"""Handle notifications: split '\\r'-terminated ASCII lines."""
+        r"""Handle notifications: split '\r'-terminated ASCII lines."""
         self._buffer += data
         while b"\r" in self._buffer:
             raw, _, self._buffer = self._buffer.partition(b"\r")
@@ -204,12 +204,11 @@ class BMS(BaseBMS):
             "E!"
         )  # enable live data streaming (fails if not authorized)
 
-    async def disconnect(self, reset: bool = False) -> None:
+    async def _disconnect(self, reset: bool) -> None:
         """Stop the keep-alive ping task, then disconnect."""
         if self._ping_task is not None:
             self._ping_task.cancel()
             self._ping_task = None
-        await super().disconnect(reset)
 
     async def _async_update(self) -> BMSSample:
         """Return the latest known values.
@@ -240,7 +239,7 @@ class BMS(BaseBMS):
                 self._ping_task is not None and not self._ping_task.done(),
             )
 
-        sample: BMSSample = dict(self._values)
+        sample: BMSSample = self._values.copy()
         if self._cells:
             ordered: list[tuple[float, float]] = [
                 self._cells[i] for i in sorted(self._cells)
