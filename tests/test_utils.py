@@ -37,16 +37,19 @@ async def test_bms_identify(plugin: ModuleType) -> None:
     This also ensures that each BMS has at least one advertisement.
     """
     bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1]
-    adv, mac_addr, _type, _comments = (
-        bms_advertisements(bms_type)[-1]
-        if bms_type != "dummy_bms"
-        else (
-            adv_dict_to_advdata({"local_name": "dummy"}),
-            "cc:cc:cc:cc:cc:cc",
-            bms_type,
-            "",
+    try:
+        adv, mac_addr, _type, _comments = (
+            bms_advertisements(bms_type)[-1]
+            if bms_type != "dummy_bms"
+            else (
+                adv_dict_to_advdata({"local_name": "dummy"}),
+                "cc:cc:cc:cc:cc:cc",
+                bms_type,
+                "",
+            )
         )
-    )
+    except IndexError:
+        pytest.fail(f"No advertisement provided for {bms_type} in test_data")
 
     bms_class: type[BaseBMS] | None = await bms_identify(adv, mac_addr)
     assert bms_class == plugin.BMS
