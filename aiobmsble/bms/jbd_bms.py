@@ -46,7 +46,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -72,6 +72,8 @@ class BMS(BaseBMS):
                 "SBL-*",  # SBL
                 "OGR-*",  # OGRPHY
                 "TZ-H*",  # CERRNSS battery
+                "12???BL*",  # SBL connect battery
+                "24???BL*",  # SBL connect battery
             )
         ] + [
             MatcherPattern(
