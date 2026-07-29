@@ -69,7 +69,7 @@ class BMS(BaseBMS):
         self._last_reply: str = ""  # last "OK"/"NA"/"WRONG" style reply
         self._reply_event: Final[asyncio.Event] = asyncio.Event()
         self._wr_lock: Final[asyncio.Lock] = asyncio.Lock()
-        self._ping_task: asyncio.Task | None = None
+        self._ping_task: asyncio.Task[None] | None = None
         self._cells: dict[int, tuple[float, float]] = {}  # idx -> (volt, temp)
         self._cell_total: int = 0
         self._values: BMSSample = {}
