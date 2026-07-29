@@ -20,26 +20,11 @@ class BMS(EJBMS):
         "default_model": "battery",
     }
     _FIELDS: tuple[BMSDp, ...] = (
-        # BMSDp(
-        #     "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
-        # ),
         BMSDp("battery_level", 69, 1, False),
-        BMSDp("current", 54, 4, True, lambda x: x / 1000),
-        # BMSDp("cycle_charge", 7, 2, False, lambda x: x / 10, Cmd.CAP),
-        # BMSDp(
-        #     "temp_values", 48, 1, False, lambda x: [TempSensor(x - 40)], Cmd.RT
-        # ),  # only 1st sensor relevant
+        BMSDp("current", 54, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 1000),
         BMSDp("cycles", 67, 2, False),
         BMSDp("design_capacity", 70, 4, False, lambda x: x // 1000),
         BMSDp("voltage", 62, 2, False, lambda x: x / 1000),
-        # BMSDp(
-        #     "problem_code", 52, 2, False, lambda x: x & 0x0FFC, Cmd.RT
-        # ),  # mask status bits
-        # BMSDp("dischrg_mosfet", 52, 1, False, lambda x: bool(x & 0x10), Cmd.RT),
-        # BMSDp("chrg_mosfet", 52, 1, False, lambda x: bool(x & 0x20), Cmd.RT),
-        # BMSDp("balancer", 55, 2, False, int, idx=Cmd.RT),
-        # BMSDp("heater", 54, 1, False, bool, Cmd.RT),
-        # BMSDp("design_capacity", 66, 2, False, lambda x: x // 10, Cmd.RT),
     )
 
     @staticmethod
