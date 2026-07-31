@@ -54,7 +54,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -110,7 +110,7 @@ class BMS(BaseBMS):
         }
 
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Retrieve BMS data update."""
 
@@ -127,6 +127,13 @@ class BMS(BaseBMS):
 
         self._frame.extend(data)
 
+        self._log.debug(
+            "notify instance=%#x Bleak instance=%#x sender=%r handle=%s ",
+            id(self),
+            id(self._client),
+            sender,
+            getattr(sender, "handle", None),
+        )
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )

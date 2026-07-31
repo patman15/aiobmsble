@@ -288,6 +288,9 @@ class BaseBMS(ABC):
         """Disconnect callback function."""
 
         self._log.debug("disconnected from BMS")
+        self._log.debug(
+            "notify instance=%#x Bleak instance=%#x", id(self), id(_client)
+        )
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -316,9 +319,12 @@ class BaseBMS(ABC):
 
         try:
             async with asyncio.timeout(self._CONNECT_TIMEOUT):
-                await close_stale_connections(
-                    self._ble_device, only_other_adapters=False
-                )  # ensure no stale connection exists
+                try:
+                    await self._client.disconnect()  # close existing connection
+                except (BleakError, TimeoutError, EOFError) as exc:
+                    self._log.debug(
+                        "failed to disconnect stale connection (%s)", type(exc).__name__
+                    )
 
                 self._client = await establish_connection(
                     client_class=BleakClient,
@@ -326,6 +332,10 @@ class BaseBMS(ABC):
                     name=self._ble_device.address,
                     disconnected_callback=self._on_disconnect,
                     services=[*self.uuid_services(), "180a"],
+                )
+
+                self._log.debug(
+                    "notify instance=%#x Bleak instance=%#x", id(self), id(self._client)
                 )
 
                 if self._log.isEnabledFor(logging.DEBUG):
@@ -343,6 +353,11 @@ class BaseBMS(ABC):
                 "failed to initialize BMS connection (%s)", type(exc).__name__
             )
             await self.disconnect()
+            raise
+        except Exception as exc:
+            self._log.info(
+                "unexpected error during BMS connection init (%s)", type(exc).__name__
+            )
             raise
 
     def _wr_response(self, char: int | str) -> bool:
@@ -429,6 +444,9 @@ class BaseBMS(ABC):
         """
 
         self._log.debug("disconnecting BMS (%s)", self._client.is_connected)
+        self._log.debug(
+            "notify instance=%#x Bleak instance=%#x", id(self), id(self._client)
+        )
         self._msg_event.clear()
         try:
             await self._client.disconnect()
