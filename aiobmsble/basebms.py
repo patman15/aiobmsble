@@ -319,9 +319,12 @@ class BaseBMS(ABC):
 
         try:
             async with asyncio.timeout(self._CONNECT_TIMEOUT):
-                await close_stale_connections(
-                    self._ble_device, only_other_adapters=False
-                )  # ensure no stale connection exists
+                try:
+                    await self._client.disconnect()  # close existing connection
+                except (BleakError, TimeoutError, EOFError) as exc:
+                    self._log.debug(
+                        "failed to disconnect stale connection (%s)", type(exc).__name__
+                    )
 
                 self._client = await establish_connection(
                     client_class=BleakClient,
