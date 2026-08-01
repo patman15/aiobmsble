@@ -18,7 +18,12 @@ class BMS(BaseBMS):
     """LiPower BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Ective", "default_model": "LiPower BMS"}
-    _DEV_IDS: Final[tuple[bytes, ...]] = (b"\x22", b"\x0B", b"\x08")  # alternative device IDs
+    _DEV_IDS: Final[tuple[bytes, ...]] = (
+        b"\x22",
+        b"\x0b",
+        b"\x08",
+        b"\x38",
+    )  # alternative device IDs
     _MIN_LEN: Final[int] = 5  # minimal frame length, including SOF and checksum
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 15, 2, False, lambda x: x / 10),
@@ -41,7 +46,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
