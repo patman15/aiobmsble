@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.ecoworthy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -94,10 +94,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=[0x1, 0x2],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
     assert isinstance(request.param, int)
@@ -201,7 +198,7 @@ async def test_update(
     monkeypatch.setattr(MockECOWBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockECOWBleakClient)
 
-    bms = BMS(generate_ble_device("e2:e7:79:00:00:00"), keep_alive_fixture)
+    bms = BMS(generate_ble_device("e2:e7:79:00:00:00"), BMSConfig(keep_alive_fixture))
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
     await asyncio.sleep(1e-3)
     # query again to check already connected state

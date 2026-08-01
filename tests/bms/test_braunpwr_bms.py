@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.braunpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -67,30 +67,30 @@ class TestBasicBMS(BMSBasicTests):
 class MockBraunPWRBleakClient(MockBleakClient):
     """Emulate a Braun Power BMS BleakClient."""
 
-    RESP: dict[int, bytearray] = {
-        0x01: bytearray(
+    RESP: dict[int, bytes] = {
+        0x01: (
             b"\x7b\x01\x20\x00\x53\x14\xd3\x00\xd2\x00\xb4\x00\xbe\xfb\x87\x61"
             b"\xc2\x75\x30\x00\x00\x00\x00\x00\x08\x7e\x81\x00\x00\x00\x0e\x00"
             b"\x00\x00\x64\x7d"
         ),
-        0x02: bytearray(
+        0x02: (
             b"\x7b\x02\x21\x10\x0c\xff\x0d\x06\x0d\x05\x0d\x07\x0d\x05\x0d\x07"
             b"\x0d\x05\x0d\x0a\x0d\x04\x0d\x07\x0d\x06\x0d\x08\x0d\x05\x0d\x06"
             b"\x0d\x08\x0d\x09\x7d"
         ),
-        0x03: bytearray(b"{\x03\x09\x04\x0b\x91\x0b\x91\x0b\x91\x0b\x91}"),
-        0x08: bytearray(
+        0x03: b"{\x03\x09\x04\x0b\x91\x0b\x91\x0b\x91\x0b\x91}",
+        0x08: (
             b"\x7b\x08\x16\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7d"
         ),
-        0x09: bytearray(b"\x7b\x09\x03\xff\xff\xff\x7d"),
-        0x74: bytearray(
+        0x09: b"\x7b\x09\x03\xff\xff\xff\x7d",
+        0x74: (
             b"\x7b\x74\x1d\x4b\x53\x5f\x42\x4c\x45\x5f\x57\x49\x46\x49\x5f\x56"
             b"\x65\x72\x31\x2e\x30\x2e\x30\x5f\x32\x30\x32\x34\x30\x33\x31\x33\x7d"
         ),
-        0x78: bytearray(b"\x7b\x78\x02\x00\x23\x7d"),
-        0xF4: bytearray(b"\x7b\xf4\x03\x02\x03\x01\x7d"),
-        0xF5: bytearray(b"\x7b\xf5\x02\x02\x39\x7d"),
+        0x78: b"\x7b\x78\x02\x00\x23\x7d",
+        0xF4: b"\x7b\xf4\x03\x02\x03\x01\x7d",
+        0xF5: b"\x7b\xf5\x02\x02\x39\x7d",
     }
 
     def _response(
@@ -101,7 +101,7 @@ class MockBraunPWRBleakClient(MockBleakClient):
         ) != normalize_uuid_str("ff02"):
             return bytearray()
 
-        return self.RESP.get(cmd, bytearray())
+        return bytearray(self.RESP.get(cmd, b""))
 
     async def write_gatt_char(
         self,
@@ -125,7 +125,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockBraunPWRBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == ref_value()
 
@@ -172,13 +172,17 @@ async def test_device_info(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    return bytearray(request.param[0])
+    assert isinstance(request.param, tuple) and isinstance(request.param[0], bytes)
+    return request.param[0]
 
 
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytearray
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 

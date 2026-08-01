@@ -7,7 +7,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.lipower_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -64,10 +64,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=[0x22, 0x0B, 0x08],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
     assert isinstance(request.param, int)
@@ -125,7 +122,7 @@ async def test_update(
     monkeypatch.setattr(MockLiPwrBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockLiPwrBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 

@@ -12,7 +12,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.jbd_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -55,10 +55,10 @@ class MockJBDBleakClient(MockBleakClient):
     """Emulate a JBD BMS BleakClient."""
 
     HEAD_CMD = 0xDD
-    CMD_INFO = bytearray(b"\xa5\x03")
-    CMD_CELL = bytearray(b"\xa5\x04")
-    HW_INFO = bytearray(b"\xa5\x05")
-    ACK_MSG = bytearray(b"\xff\xaa\x15\x01\x00\x16")
+    CMD_INFO = b"\xa5\x03"
+    CMD_CELL = b"\xa5\x04"
+    HW_INFO = b"\xa5\x05"
+    ACK_MSG = b"\xff\xaa\x15\x01\x00\x16"
     REQUIRE_PASS = False
     UNLOCKED = False
     DEFAULT_SECRET = b"000000"
@@ -90,11 +90,11 @@ class MockJBDBleakClient(MockBleakClient):
             and not self.UNLOCKED
         ):
             self.UNLOCKED = True
-            return (
+            return bytearray(
                 MockJBDBleakClient.ACK_MSG
                 if sum(_msg[2:-1]) & 0xFF == _msg[-1]
                 and _msg[4:-1] == self.DEFAULT_SECRET
-                else bytearray(b"\xff\xaa\x15\x01\x01\x17")
+                else b"\xff\xaa\x15\x01\x01\x17"
             )
 
         if (
@@ -126,7 +126,7 @@ class MockJBDBleakClient(MockBleakClient):
 
         # always send two responses, to test timeout behaviour
         for resp in (
-            self._response(char_specifier, bytearray(b"\xdd\xa5\x03\x00\xff\xfd\x77")),
+            self._response(char_specifier, b"\xdd\xa5\x03\x00\xff\xfd\x77"),
             self._response(char_specifier, data),
         ):
             for notify_data in [
@@ -192,7 +192,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockJBDBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS
 
@@ -214,7 +214,7 @@ async def test_update_secret(
     monkeypatch.setattr(MockJBDBleakClient, "REQUIRE_PASS", True)
     patch_bleak_client(MockJBDBleakClient)
 
-    bms = BMS(generate_ble_device(), secret=secret)
+    bms = BMS(generate_ble_device(), BMSConfig(secret=secret))
     if secret == "wrong":
         with pytest.raises(PermissionError):
             await bms.async_update()
@@ -248,7 +248,7 @@ async def test_invalid_init(
     monkeypatch.setattr(MockJBDBleakClient, "ACK_MSG", bytearray(wrong_init))
     patch_bleak_client(MockJBDBleakClient)
 
-    bms = BMS(generate_ble_device(), secret="000000")
+    bms = BMS(generate_ble_device(), BMSConfig(secret="000000"))
 
     with pytest.raises(TimeoutError):
         _result: BMSSample = await bms.async_update()

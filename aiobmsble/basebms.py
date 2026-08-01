@@ -10,7 +10,6 @@ from collections.abc import Callable, MutableMapping
 from functools import lru_cache
 from itertools import takewhile
 import logging
-from statistics import fmean
 from types import TracebackType
 from typing import Any, Final, Literal, Self, final
 
@@ -30,14 +29,18 @@ from bleak_retry_connector import (
 )
 
 from aiobmsble import (
+    BMSConfig,
     BMSDp,
     BMSInfo,
+    BMSPDp,
     BMSSample,
     BMSValue,
     MatcherPattern,
+    PackSample,
     TempSensor,
     __version__,
 )
+from aiobmsble.sample_calc import derive_missing_fields
 
 
 class BaseBMS(ABC):
@@ -81,24 +84,19 @@ class BaseBMS(ABC):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize the BMS.
 
-        `_notification_handler`: the callback function used for notifications from `uuid_rx()`
-            characteristic. Not defined as abstract in this base class, as it can be both,
-            a normal or async function
+        Note:
+            Subclasses must define a `_notification_handler` method (normal or async) to handle
+            notifications from the `uuid_rx()` characteristic.
 
         Args:
-            ble_device (BLEDevice): the Bleak device to connect to
-            bms_info (dict[Literal["manufacturer", "model"], str]): default BMS identification
-            keep_alive (bool): if true, the connection will be kept active after each update.
-                Make sure to call `disconnect()` when done using the BMS class or better use
-                `async with` context manager (requires `keep_alive=True`).
-            secret (str): optional secret for authentication, if the BMS accepts it (see `accept_secret`).
-            logger_name (str): name of the logger for the BMS instance, default: module name
+            ble_device (BLEDevice): the Bleak BLE device to connect to
+            config (BMSConfig | None): optional BMS configuration; defaults to `BMSConfig()` if not provided
+            logger_name (str): name of the logger for this BMS instance; defaults to the module name
 
         """
         assert (
@@ -108,8 +106,7 @@ class BaseBMS(ABC):
             self.INFO
         ), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
-        self._keep_alive: Final[bool] = keep_alive
-        self._secret: Final[str] = secret
+        self._cfg: Final[BMSConfig] = config or BMSConfig()
         logger_name = logger_name or self.__class__.__module__
         self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
@@ -138,8 +135,10 @@ class BaseBMS(ABC):
     @final
     async def __aenter__(self) -> Self:
         """Asynchronous context manager to implement `async with` functionality."""
-        if not self._keep_alive:
-            raise ValueError("usage of context manager requires `keep_alive=True`.")
+        if not self._cfg.keep_alive:
+            raise ValueError(
+                "usage of context manager requires `BMSConfig(keep_alive=True)`."
+            )
         await self._connect()
         return self
 
@@ -247,72 +246,6 @@ class BaseBMS(ABC):
         """
         return frozenset()
 
-    @staticmethod
-    def _calculation_registry(
-        data: BMSSample,
-    ) -> dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]]:
-        battery_level: Final[int | float] = data.get("battery_level", 0)
-        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
-        current: Final[float] = data.get("current", 0)
-        design_capacity: Final[float] = data.get("design_capacity", 0)
-
-        return {
-            "voltage": ({"cell_voltages"}, lambda: round(sum(cell_voltages), 3)),
-            "delta_voltage": (
-                {"cell_voltages"},
-                lambda: (
-                    round(max(cell_voltages) - min(cell_voltages), 3)
-                    if len(cell_voltages)
-                    else None
-                ),
-            ),
-            "cycle_charge": (
-                {"design_capacity", "battery_level"},
-                lambda: (design_capacity * battery_level) / 100,
-            ),
-            "battery_level": (
-                {"design_capacity", "cycle_charge"},
-                lambda: round(data.get("cycle_charge", 0) / design_capacity * 100, 1),
-            ),
-            "cell_count": (
-                {"cell_voltages"},
-                lambda: len(cell_voltages),
-            ),
-            "cycle_capacity": (
-                {"voltage", "cycle_charge"},
-                lambda: round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3),
-            ),
-            "cycles": (
-                {"design_capacity", "total_charge"},
-                lambda: data.get("total_charge", 0) // design_capacity,
-            ),
-            "power": (
-                {"voltage", "current"},
-                lambda: round(data.get("voltage", 0) * current, 3),
-            ),
-            "battery_charging": ({"current"}, lambda: current > 0),
-            "runtime": (
-                {"current", "cycle_charge"},
-                lambda: (
-                    int(
-                        data.get("cycle_charge", 0)
-                        / abs(current)
-                        * BaseBMS._HRS_TO_SECS
-                    )
-                    if current < 0
-                    else None
-                ),
-            ),
-            "temperature": (
-                {"temp_values"},
-                lambda: (
-                    round(fmean(data.get("temp_values", [])), 3)
-                    if data.get("temp_values")
-                    else None
-                ),
-            ),
-        }
-
     @final
     @staticmethod
     def _add_missing_values(
@@ -331,24 +264,10 @@ class BaseBMS(ABC):
         if not data:
             return
 
-        def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
-            """Check value to add is not excluded, does not exist, and needed data is available."""
-            return (
-                (value not in raw_values)
-                and (value not in data)
-                and using.issubset(data)
-            )
+        derive_missing_fields(data, raw_values)
 
-        battery_level: Final[int | float] = data.get("battery_level", 0)
-        calculations: Final = BaseBMS._calculation_registry(data)
+        battery_level: Final[float] = data.get("battery_level", 0)
         cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
-
-        for attr, (required, calc_func) in calculations.items():
-            if (
-                can_calc(attr, frozenset(required))
-                and (value := calc_func()) is not None
-            ):
-                data[attr] = value
 
         # do sanity check on values to set problem state
         data["problem"] = any(
@@ -369,6 +288,9 @@ class BaseBMS(ABC):
         """Disconnect callback function."""
 
         self._log.debug("disconnected from BMS")
+        self._log.debug(
+            "notify instance=%#x Bleak instance=%#x", id(self), id(_client)
+        )
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -397,9 +319,12 @@ class BaseBMS(ABC):
 
         try:
             async with asyncio.timeout(self._CONNECT_TIMEOUT):
-                await close_stale_connections(
-                    self._ble_device, only_other_adapters=False
-                )  # ensure no stale connection exists
+                try:
+                    await self._client.disconnect()  # close existing connection
+                except (BleakError, TimeoutError, EOFError) as exc:
+                    self._log.debug(
+                        "failed to disconnect stale connection (%s)", type(exc).__name__
+                    )
 
                 self._client = await establish_connection(
                     client_class=BleakClient,
@@ -407,6 +332,10 @@ class BaseBMS(ABC):
                     name=self._ble_device.address,
                     disconnected_callback=self._on_disconnect,
                     services=[*self.uuid_services(), "180a"],
+                )
+
+                self._log.debug(
+                    "notify instance=%#x Bleak instance=%#x", id(self), id(self._client)
                 )
 
                 if self._log.isEnabledFor(logging.DEBUG):
@@ -424,6 +353,11 @@ class BaseBMS(ABC):
                 "failed to initialize BMS connection (%s)", type(exc).__name__
             )
             await self.disconnect()
+            raise
+        except Exception as exc:
+            self._log.info(
+                "unexpected error during BMS connection init (%s)", type(exc).__name__
+            )
             raise
 
     def _wr_response(self, char: int | str) -> bool:
@@ -510,6 +444,9 @@ class BaseBMS(ABC):
         """
 
         self._log.debug("disconnecting BMS (%s)", self._client.is_connected)
+        self._log.debug(
+            "notify instance=%#x Bleak instance=%#x", id(self), id(self._client)
+        )
         self._msg_event.clear()
         try:
             await self._client.disconnect()
@@ -550,7 +487,7 @@ class BaseBMS(ABC):
         if not raw:
             self._add_missing_values(data, self._raw_values())
 
-        if not self._keep_alive:
+        if not self._cfg.keep_alive:
             # disconnect after data update to force reconnect next time (slow!)
             self._log.debug("forced disconnect of BMS after update")
             await self.disconnect()
@@ -602,6 +539,25 @@ class BaseBMS(ABC):
             result[field.key] = field.fct(
                 int.from_bytes(
                     msg[start + field.pos : start + field.pos + field.size],
+                    byteorder=byteorder,
+                    signed=field.signed,
+                )
+            )
+        return result
+
+    @staticmethod
+    def _decode_pack(
+        fields: tuple[BMSPDp, ...],
+        data: bytes,
+        *,
+        byteorder: Literal["little", "big"] = "big",
+        start: int = 0,
+    ) -> PackSample:
+        result: PackSample = {}
+        for field in fields:
+            result[field.key] = field.fct(
+                int.from_bytes(
+                    data[start + field.pos : start + field.pos + field.size],
                     byteorder=byteorder,
                     signed=field.signed,
                 )

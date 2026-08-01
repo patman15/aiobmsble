@@ -12,7 +12,15 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSMode,
+    BMSSample,
+    MatcherPattern,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum, lstr2int
 
 
@@ -45,12 +53,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
         self._char_write_handle: int = -1
         self._sw_version: int = 0
@@ -103,7 +110,7 @@ class BMS(BaseBMS):
         }
 
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Retrieve BMS data update."""
 
@@ -120,6 +127,13 @@ class BMS(BaseBMS):
 
         self._frame.extend(data)
 
+        self._log.debug(
+            "notify instance=%#x Bleak instance=%#x sender=%r handle=%s ",
+            id(self),
+            id(self._client),
+            sender,
+            getattr(sender, "handle", None),
+        )
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )

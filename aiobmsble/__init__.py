@@ -21,43 +21,40 @@ __version__: str = "0.0.0.dev0"
 with suppress(PackageNotFoundError):
     __version__ = version("aiobmsble")
 
-type BMSValue = Literal[
+type CommonValue = Literal[
+    "battery_health",
+    "battery_level",
+    "cell_count",
+    "cell_voltages",
+    "current",
+    "cycle_charge",
+    "cycles",
+    "delta_voltage",
+    "design_capacity",
+    "temp_sensors",
+    "temp_values",
+    "voltage",
+]
+
+type BMSValue = CommonValue | Literal[
     "battery_charging",
     "battery_mode",
-    "battery_level",
-    "battery_health",
-    "current",
     "power",
     "temperature",
-    "voltage",
-    "cycles",
     "cycle_capacity",
-    "cycle_charge",
     "total_charge",
-    "delta_voltage",
     "problem",
     "runtime",
     "balancer",
     "balance_current",
-    "cell_count",
-    "cell_voltages",
-    "design_capacity",
     "pack_count",
-    "temp_sensors",
-    "temp_values",
     "problem_code",
     "chrg_mosfet",
     "dischrg_mosfet",
     "heater",
 ]
 
-type BMSpackvalue = Literal[
-    "pack_voltages",
-    "pack_currents",
-    "pack_battery_levels",
-    "pack_battery_health",
-    "pack_cycles",
-]
+type BMSpackvalue = CommonValue
 
 
 class BMSMode(IntEnum):
@@ -91,7 +88,7 @@ class TempSensor:
     type: T = T.GENERIC
 
     def __eq__(self: Self, other: object) -> bool:
-        """Compare against other TempSensor including type or int | float."""
+        """Compare against other TempSensor including type or int, float."""
 
         if isinstance(other, TempSensor):
             return (self.type, self.value) == (other.type, other.value)
@@ -112,34 +109,44 @@ class TempSensor:
         return f"{self.__class__.__name__}({self.value!r}, {self.type!r})"
 
 
-class BMSSample(TypedDict, total=False):
+class BatterySample(TypedDict, total=False):
+    """Common fields for battery samples."""
+
+    battery_level: float | int  # [%]
+    battery_health: float | int  # [%]
+    cell_count: int  # [#]
+    cell_voltages: list[float]  # [V]
+    current: float  # [A]
+    cycles: int  # [#]
+    cycle_charge: int | float  # [Ah]
+    delta_voltage: float  # [V]
+    design_capacity: int  # [Ah]
+    temp_sensors: int  # [#]
+    temp_values: list[TempSensor]  # [°C]
+    voltage: float  # [V]
+
+
+class PackSample(BatterySample, total=False):
+    """Dictionary representing a sample of a battery sub-system."""
+
+
+class BMSSample(BatterySample, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
 
+    # BMS-specific fields
     battery_charging: bool  # True: battery charging
     battery_mode: BMSMode  # BMS charging mode
-    battery_level: int | float  # [%] SoC
-    battery_health: int | float  # [%] SoH
-    current: float  # [A] (positive: charging)
     power: float  # [W] (positive: charging)
     temperature: int | float  # [°C]
-    voltage: float  # [V]
     cycle_capacity: int | float  # [Wh]
-    cycles: int  # [#]
-    delta_voltage: float  # [V]
     problem: bool  # True: problem detected
     runtime: int  # [s]
 
     # detailed information
     balancer: bool | int  # False: off, True: active or bit mask, 1: enabled/active
     balance_current: float  # [A]
-    cell_count: int  # [#] of parallel cells, i.e. per pack
-    cell_voltages: list[float]  # [V]
-    cycle_charge: int | float  # [Ah]
     total_charge: int  # [Ah], overall discharged
-    design_capacity: int  # [Ah]
     pack_count: int  # [#]
-    temp_sensors: int  # [#]
-    temp_values: list[TempSensor]  # [°C]
     problem_code: int  # BMS specific code, 0 no problem, max. 64 bit
 
     # BMS switches
@@ -148,22 +155,37 @@ class BMSSample(TypedDict, total=False):
     heater: bool  # True: enabled/heating
 
     # battery pack data
-    pack_voltages: list[float]  # [V]
-    pack_currents: list[float]  # [A]
-    pack_battery_levels: list[int | float]  # [%]
-    pack_battery_health: list[int | float]  # [%]
-    pack_cycles: list[int]  # [#]
+    packs: list[PackSample]  # data from battery sub-systems
 
 
 class BMSDp(NamedTuple):
-    """Representation of one BMS data point."""
+    """Representation of main BMS data point."""
 
-    key: BMSValue  # the key of the value to be parsed
+    key: BMSValue
     pos: int  # position within the message
     size: int  # size in bytes
     signed: bool  # signed value
     fct: Callable[[int], Any] = lambda x: x  # conversion function (default do nothing)
     idx: int = -1  # array index containing the message to be parsed
+
+
+class BMSPDp(NamedTuple):
+    """Representation of pack data point."""
+
+    key: BMSpackvalue
+    pos: int  # position within the message
+    size: int  # size in bytes
+    signed: bool  # signed value
+    fct: Callable[[int], Any] = lambda x: x  # conversion function (default do nothing)
+    idx: int = -1  # array index containing the message to be parsed
+
+
+@dataclass(slots=True, frozen=True)
+class BMSConfig:
+    """Configuration for the BMS (connection)."""
+
+    keep_alive: bool = True  # keep connection after querying (enhances stability)
+    secret: str = ""  # application level secret for authentication
 
 
 class BMSInfo(TypedDict, total=False):

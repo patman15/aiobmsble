@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.lithionics_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -86,7 +86,7 @@ class MockLithionicsBleakClient(MockBleakClient):
         """Mock start_notify."""
         await super().start_notify(char_specifier, callback)
         self._task = asyncio.create_task(self._notify())
-        await asyncio.sleep(0) # yield control to allow task to start
+        await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
@@ -104,7 +104,7 @@ async def test_update(
     monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", STREAM_DATA)
     patch_bleak_client(MockLithionicsBleakClient)
 
-    bms = BMS(generate_ble_device(name="Lithionics"), keep_alive_fixture)
+    bms = BMS(generate_ble_device(name="Lithionics"), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == ref_value()
 
@@ -172,9 +172,7 @@ async def test_invalid_frame_length(
     """Test handling of frames exceeding BLE_MAX_ATTR_SIZE in notification handler."""
     patch_bms_timeout("lithionics_bms")
     monkeypatch.setattr(
-        MockLithionicsBleakClient,
-        "_RESP",
-        bytearray(b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1)),
+        MockLithionicsBleakClient, "_RESP", b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1)
     )
     patch_bleak_client(MockLithionicsBleakClient)
 

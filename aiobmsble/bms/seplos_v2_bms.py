@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_xmodem
 
 
@@ -27,7 +27,7 @@ class BMS(BaseBMS):
     _MAX_SUBS: Final[int] = 0xF
     _CELL_POS: Final[int] = 9
     _PRB_MAX: Final[int] = 8  # max number of alarm event bytes
-    _PRB_MASK: Final[int] = 0x7DFFFFFFFFFF  # ignore byte 7-8 + byte 6 (bit 7,2)
+    _PRB_MASK: Final[int] = ~(0x80FFC0)  # mask alarm event 6-8 (internal bits)
     _PFIELDS: Final[tuple[BMSDp, ...]] = (  # Seplos V2: single machine data
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),
         BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
@@ -39,18 +39,17 @@ class BMS(BaseBMS):
     )
     _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
     _CMDS: Final[frozenset[tuple[int, bytes]]] = frozenset(
-        {(0x51, b""), (0x61, b"\x00"), (0x62, b"")}
+        {(0x51, b""), (0x61, b"\x00")}
     )
 
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: dict[int, bytes] = {}
         self._exp_len: int = BMS._MIN_LEN
         self._exp_reply: set[int] = set()
@@ -99,7 +98,7 @@ class BMS(BaseBMS):
         if (
             len(data) > BMS._MIN_LEN
             and data.startswith(BMS._HEAD)
-            and len(self._frame) >= self._exp_len
+            and (len(self._frame) >= self._exp_len or not self._frame)
         ):
             self._exp_len = BMS._MIN_LEN + int.from_bytes(data[5:7])
             self._frame.clear()
@@ -114,7 +113,7 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.endswith(BMS._TAIL):
-            self._log.debug("incorrect frame end: %s", self._frame)
+            self._log.debug("incorrect frame end: 0x%X", self._frame[-1])
             return
 
         if self._frame[1] != BMS._RSP_VER:
@@ -171,6 +170,9 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd, data=data))
 
         result: BMSSample = {}
+        # get extension pack count from manufacturer information (only main unit != 0)
+        result["pack_count"] = self._msg[0x51][42]
+
         result["cell_count"] = self._msg[0x61][BMS._CELL_POS]
         result["temp_sensors"] = self._msg[0x61][
             BMS._CELL_POS + result["cell_count"] * 2 + 1
@@ -184,32 +186,34 @@ class BMS(BaseBMS):
             BMS._PFIELDS, self._msg[0x61], start=BMS._CELL_POS + ct_blk_len
         )
 
-        cst_alarm_pos: Final[int] = (
+        states_pos: Final[int] = (
             (BMS._CELL_POS + ct_blk_len)
             + (result["cell_count"] + result["temp_sensors"])
-            + (4 + 19)
+            + (3 + 19)
         )
-        balance_pos: Final[int] = cst_alarm_pos + 1 + self._msg[0x61][cst_alarm_pos]
-        balance_len: Final[int] = min((result["cell_count"] + 7) // 8, 8)  # round up
-        result["balancer"] = int.from_bytes(
-            self._msg[0x61][balance_pos : balance_pos + balance_len]
-        )
-
-        # get extension pack count from manufacturer information
-        result["pack_count"] = self._msg[0x51][42]
 
         # get switches from parallel data (main pack)
-        states: Final[int] = self._msg[0x62][45]
+        states: Final[int] = self._msg[0x61][states_pos]
         result |= {
             "dischrg_mosfet": bool(states & 0x1),
             "chrg_mosfet": bool(states & 0x2),
             "heater": bool(states & 0x8),
         }
 
+        cst_alarm_pos: Final[int] = states_pos + 1
+        balance_pos: Final[int] = cst_alarm_pos + 1 + self._msg[0x61][cst_alarm_pos]
+        balance_len: Final[int] = min((result["cell_count"] + 7) // 8, 8)  # round up
+        result["balancer"] = int.from_bytes(
+            self._msg[0x61][balance_pos : balance_pos + balance_len]
+        )
+
         # get alarms from parallel data (main pack)
-        alarm_evt: Final[int] = min(self._msg[0x62][46], BMS._PRB_MAX)
+        alarm_evt: Final[int] = min(self._msg[0x61][cst_alarm_pos], BMS._PRB_MAX)
         result["problem_code"] = (
-            int.from_bytes(self._msg[0x62][47 : 47 + alarm_evt], byteorder="big")
+            int.from_bytes(
+                self._msg[0x61][cst_alarm_pos + 1 : cst_alarm_pos + 1 + alarm_evt],
+                byteorder="big",
+            )
             & BMS._PRB_MASK
         )
 

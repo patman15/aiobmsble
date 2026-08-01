@@ -1,14 +1,13 @@
 """Test the E&J technology BMS implementation."""
 
 from collections.abc import Buffer
-from typing import cast
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.ej_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -33,7 +32,7 @@ class MockEJBleakClient(MockBleakClient):
             char_specifier
         ) != normalize_uuid_str("6e400002-b5a3-f393-e0a9-e50e24dcca9e"):
             return bytearray()
-        cmd: int = int(bytearray(data)[3:5], 16)
+        cmd: int = int(bytes(data)[3:5], 16)
         if cmd == 0x02:
             return bytearray(
                 b":0082310080000101C00000880F540F3C0F510FD70F310F2C0F340F3A0FED0FED0000000000000000"
@@ -139,7 +138,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockEJBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == {
         "voltage": 39.517,
@@ -189,7 +188,7 @@ async def test_update_single_frame(
 
     patch_bleak_client(MockEJsfBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == MockEJsfBleakClient.values()
 
@@ -205,7 +204,7 @@ async def test_update_sf_no_crc(patch_bleak_client) -> None:
 
     patch_bleak_client(MockEJsfnoCRCBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "libattU_MockBLEDevice"), True)
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "libattU_MockBLEDevice"), BMSConfig(True))
 
     assert await bms.async_update() == MockEJsfnoCRCBleakClient.values()
 
@@ -288,7 +287,12 @@ async def test_invalid_response(
 )
 def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
-    return cast(tuple[bytearray, str], request.param)
+    assert (
+        isinstance(request.param, tuple)
+        and isinstance(request.param[0], bytearray)
+        and isinstance(request.param[1], str)
+    )
+    return request.param
 
 
 async def test_problem_response(

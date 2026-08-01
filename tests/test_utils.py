@@ -8,7 +8,7 @@ import pytest
 
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.test_data import adv_dict_to_advdata, bms_advertisements
+from aiobmsble.test_data import BmsAdvSample, adv_dict_to_advdata, bms_advertisements
 from aiobmsble.utils import (
     StreamParser,
     _advertisement_matches,
@@ -37,16 +37,16 @@ async def test_bms_identify(plugin: ModuleType) -> None:
     This also ensures that each BMS has at least one advertisement.
     """
     bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1]
-    adv, mac_addr, _type, _comments = (
-        bms_advertisements(bms_type)[-1]
-        if bms_type != "dummy_bms"
-        else (
+
+    if bms_type == "dummy_bms":
+        adv, mac_addr = (
             adv_dict_to_advdata({"local_name": "dummy"}),
             "cc:cc:cc:cc:cc:cc",
-            bms_type,
-            "",
         )
-    )
+    else:
+        advertisements: tuple[BmsAdvSample, ...] = bms_advertisements(bms_type)
+        assert advertisements, f"No advertisement provided for {bms_type} in test_data"
+        adv, mac_addr, _type, _comments = advertisements[-1]
 
     bms_class: type[BaseBMS] | None = await bms_identify(adv, mac_addr)
     assert bms_class == plugin.BMS

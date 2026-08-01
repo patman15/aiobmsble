@@ -9,7 +9,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.ogt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
@@ -23,6 +23,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "temperature": 21.75,
     "temp_values": [TS(21.75)],
     "cycle_capacity": 365.448,
+    "design_capacity": 30,
     "power": 56.188,
     "problem": False,
 }
@@ -46,27 +47,29 @@ class MockOGTBleakClient(MockBleakClient):
     """Emulate an OGT BMS BleakClient."""
 
     KEY = 0x10  # key used for decoding, constants are encrypted with this key!
-    RESP_TYPE_A: dict[int, bytearray] = {
-        0x02: bytearray(b" U  \x1d\x1a"),  # battery_level: 14
-        0x04: bytearray(b'"  # Q\x1d\x1a'),  # cycle_charge: 8.0
-        0x08: bytearray(b"'!R\"\x1d\x1a"),  # voltage: 45.681
-        0x0C: bytearray(b"(% R\x1d\x1a"),  # temperature: 21.8
-        0x10: bytearray(b"(%VV  \x1d\x1a"),  # current: -1.23
-        0x18: bytearray(b"'(  \x1d\x1a"),  # runtime: 7200
-        0x2C: bytearray(b"&#  \x1d\x1a"),  # cycles: 99
+    RESP_TYPE_A: dict[int, bytes] = {
+        0x02: b" U  \x1d\x1a",  # battery_level: 14%
+        0x04: b'"  # Q\x1d\x1a',  # cycle_charge: 8.0Ah
+        0x08: b"'!R\"\x1d\x1a",  # voltage: 45.681V
+        0x0C: b"(% R\x1d\x1a",  # temperature: 21.8°C
+        0x10: b"(%VV  \x1d\x1a",  # current: -1.23A
+        0x18: b"'(  \x1d\x1a",  # runtime: 7200
+        0x2C: b"&#  \x1d\x1a",  # cycles: 99
+        0x3C: b"R( R Q\x1d\x1a",  # design_capacity 30Ah
     }
-    RESP_TYPE_B: dict[int, bytearray] = {
-        0x08: bytearray(b"(% R\x1d\x1a"),  # temperature: 21.8
-        0x09: bytearray(b"'!R\"\x1d\x1a"),  # voltage: 45.681
-        0x0A: bytearray(b"'R   Q\x1d\x1a"),  # current: 1.23
-        0x0D: bytearray(b" U  \x1d\x1a"),  # battery_level: 14
-        0x0F: bytearray(b'"  # Q\x1d\x1a'),  # cycle_charge: 8.0
-        0x12: bytearray(b"VVVV\x1d\x1a"),  # runtime: 65536 (inf)
-        0x17: bytearray(b"&#  \x1d\x1a"),  # cycles: 99
-        0x3F: bytearray(b"UQ S\x1d\x1a"),  # 3.306
-        0x3E: bytearray(b"U) S\x1d\x1a"),  # 3.300
-        0x3D: bytearray(b"U( S\x1d\x1a"),  # 3.304
-        0x3C: bytearray(b"U' S\x1d\x1a"),  # 3.303
+    RESP_TYPE_B: dict[int, bytes] = {
+        0x08: b"(% R\x1d\x1a",  # temperature: 21.8°C
+        0x09: b"'!R\"\x1d\x1a",  # voltage: 45.681V
+        0x0A: b"'R   Q\x1d\x1a",  # current: 1.23A
+        0x0D: b" U  \x1d\x1a",  # battery_level: 14%
+        0x0F: b'"  # Q\x1d\x1a',  # cycle_charge: 8.0Ah
+        0x12: b"VVVV\x1d\x1a",  # runtime: 65536 (inf)
+        0x17: b"&#  \x1d\x1a",  # cycles: 99
+        0x18: b"R( R Q\x1d\x1a",  # design_capacity 30Ah
+        0x3F: b"UQ S\x1d\x1a",  # 3.306V
+        0x3E: b"U) S\x1d\x1a",  # 3.300V
+        0x3D: b"U( S\x1d\x1a",  # 3.304V
+        0x3C: b"U' S\x1d\x1a",  # 3.303V
     }
 
     async def _response(
@@ -78,15 +81,15 @@ class MockOGTBleakClient(MockBleakClient):
             assert self._ble_device.name is not None
             if self._ble_device.name[9] == "A":
                 assert (
-                    bytearray(data)[0:4] == b";BQQ"
+                    bytes(data)[0:4] == b"\x3b\x42\x51\x51"
                 ), "BMS type A command header incorrect."
             else:
                 assert (
-                    bytearray(data)[0:4] == b";B!&"
+                    bytes(data)[0:4] == b"\x3b\x42\x21\x26"
                 ), "BMS type B command header incorrect."
 
             reg: Final[int] = int(
-                bytearray((bytearray(data)[x] ^ self.KEY) for x in range(4, 6)).decode(
+                bytearray((bytes(data)[x] ^ self.KEY) for x in range(4, 6)).decode(
                     encoding="ascii"
                 ),
                 16,
@@ -94,12 +97,12 @@ class MockOGTBleakClient(MockBleakClient):
             assert self._ble_device.name is not None
 
             if self._ble_device.name[9] == "A" and reg in self.RESP_TYPE_A:
-                return bytearray(b";BT<") + bytearray(data)[4:6] + self.RESP_TYPE_A[reg]
+                return bytearray(b";BT<" + bytes(data)[4:6] + self.RESP_TYPE_A[reg])
 
             if self._ble_device.name[9] == "B" and reg in self.RESP_TYPE_B:
-                return bytearray(b";BT<") + bytearray(data)[4:6] + self.RESP_TYPE_B[reg]
+                return bytearray(b";BT<" + bytes(data)[4:6] + self.RESP_TYPE_B[reg])
 
-            return bytearray(b";BT<") + bytearray(b"Ubb\x7f\x10")  # Error
+            return bytearray(b";BT<" + b"Ubb\x7f\x10")  # Error
 
         return bytearray()
 
@@ -118,13 +121,16 @@ class MockOGTBleakClient(MockBleakClient):
         )
 
 
-async def test_update(patch_bleak_client, ogt_bms_name, keep_alive_fixture) -> None:
+async def test_update(
+    patch_bleak_client, ogt_bms_name: str, keep_alive_fixture: bool
+) -> None:
     """Test OGT BMS data update."""
 
     patch_bleak_client(MockOGTBleakClient)
 
     bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", ogt_bms_name), keep_alive_fixture
+        generate_ble_device("cc:cc:cc:cc:cc:cc", ogt_bms_name),
+        BMSConfig(keep_alive_fixture),
     )
 
     result: BMSSample = await bms.async_update()
@@ -154,7 +160,7 @@ async def test_update(patch_bleak_client, ogt_bms_name, keep_alive_fixture) -> N
     await bms.disconnect()
 
 
-async def test_update_16s(monkeypatch, patch_bleak_client) -> None:
+async def test_update_16s(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test OGT BMS data update for 16 cell (max possible)."""
 
     monkeypatch.setattr(
@@ -168,7 +174,9 @@ async def test_update_16s(monkeypatch, patch_bleak_client) -> None:
     )
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"), False)
+    bms = BMS(
+        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"), BMSConfig(False)
+    )
 
     # verify all sensors are reported
     assert await bms.async_update() == _RESULT_DEFS | {
@@ -209,19 +217,19 @@ async def test_device_info(patch_bleak_client) -> None:
 @pytest.fixture(
     name="wrong_response",
     params=[
-        (bytearray(7), "critical_length"),
-        (bytearray(b";AT< )'!R\"\x1d\x1a"), "wrong_SOP"),
-        (bytearray(b";BT< )'!R\""), "wrong_EOP"),
-        (bytearray(b";BT<#RUN S\x1d\x1a"), "invalid_character"),
-        (bytearray(b";BT<Ubb\x7f\x10"), "BMS_error"),
-        (bytearray(b"invalid\xf0value"), "invalid_value"),
-        (bytearray(b";BT<UQ S\x1d\x1a"), "wrong_reg"),
+        (bytes(7), "critical_length"),
+        (b";AT< )'!R\"\x1d\x1a", "wrong_SOP"),
+        (b";BT< )'!R\"", "wrong_EOP"),
+        (b";BT<#RUN S\x1d\x1a", "invalid_character"),
+        (b";BT<Ubb\x7f\x10", "BMS_error"),
+        (b"invalid\xf0value", "invalid_value"),
+        (b";BT<UQ S\x1d\x1a", "wrong_reg"),
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    assert isinstance(request.param[0], bytearray)
+    assert isinstance(request.param[0], bytes)
     return request.param[0]
 
 
@@ -229,7 +237,7 @@ async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -241,7 +249,7 @@ async def test_invalid_response(
         if isinstance(char_specifier, str) and normalize_uuid_str(
             char_specifier
         ) == normalize_uuid_str("fff6"):
-            return wrong_response
+            return bytearray(wrong_response)
         raise NotImplementedError("wrong GATT characteristic")
 
     monkeypatch.setattr(MockOGTBleakClient, "_response", patch_resp)
@@ -264,7 +272,7 @@ async def test_invalid_bms_type(patch_bleak_client) -> None:
     patch_bleak_client(MockOGTBleakClient)
 
     bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"), keep_alive=True
+        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"), BMSConfig(True)
     )
 
     result: BMSSample = await bms.async_update()

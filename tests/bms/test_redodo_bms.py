@@ -1,14 +1,14 @@
 """Test the E&J technology BMS implementation."""
 
 from collections.abc import Buffer
-from typing import Final, cast
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_sum
 from aiobmsble.bms.redodo_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -49,7 +49,7 @@ class TestBasicBMS(BMSBasicTests):
 class MockRedodoBleakClient(MockBleakClient):
     """Emulate a Redodo BMS BleakClient."""
 
-    _RESP = bytearray(
+    _RESP = (
         b"\x00\x00\x65\x01\x93\x55\xaa\x00\x46\x66\x00\x00\xbc\x67\x00\x00\xf5\x0c\xf7\x0c\xfc\x0c"
         b"\xfb\x0c\xf8\x0c\xf2\x0c\xfa\x0c\xf5\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
         b"\x00\x00\x00\x00\x65\xfa\xff\xff\x17\x00\x16\x00\xfe\xff\x00\x00\x00\x00\xe9\x1a\x04\x29"
@@ -66,7 +66,7 @@ class MockRedodoBleakClient(MockBleakClient):
             return bytearray()
         cmd: int = bytearray(data)[4]
         if cmd == 0x13:
-            return self._RESP
+            return bytearray(self._RESP)
         return bytearray()
 
     async def write_gatt_char(
@@ -88,7 +88,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockRedodoBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS
 
@@ -103,7 +103,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     name="wrong_response",
     params=[
         (
-            bytearray(
+            (
                 b"\x00\x00\x65\x01\x93\x55\xaa\x00\x46\x66\x00\x00\xbc\x67\x00\x00\xf5\x0c\xf7\x0c"
                 b"\xfc\x0c\xfb\x0c\xf8\x0c\xf2\x0c\xfa\x0c\xf5\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x65\xfa\xff\xff\x17\x00\x16\x00\x17\x00\x00\x00"
@@ -114,7 +114,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
             "wrong CRC",
         ),
         (
-            bytearray(
+            (
                 b"\x00\x01\x65\x01\x93\x55\xaa\x00\x46\x66\x00\x00\xbc\x67\x00\x00\xf5\x0c\xf7\x0c"
                 b"\xfc\x0c\xfb\x0c\xf8\x0c\xf2\x0c\xfa\x0c\xf5\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x65\xfa\xff\xff\x17\x00\x16\x00\x17\x00\x00\x00"
@@ -125,7 +125,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
             "wrong SOF",
         ),
         (
-            bytearray(
+            (
                 b"\x00\x00\x65\x01\x93\x55\xaa\x00\x46\x66\x00\x00\xbc\x67\x00\x00\xf5\x0c\xf7\x0c"
                 b"\xfc\x0c\xfb\x0c\xf8\x0c\xf2\x0c\xfa\x0c\xf5\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x65\xfa\xff\xff\x17\x00\x16\x00\x17\x00\x00\x00"
@@ -135,20 +135,21 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
             ),
             "wrong length",
         ),
-        (bytearray(b"\x00"), "too short"),
+        (b"\x00", "too short"),
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    return cast(bytearray, request.param[0])
+    assert isinstance(request.param, tuple) and isinstance(request.param[0], bytes)
+    return request.param[0]
 
 
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -198,7 +199,12 @@ async def test_invalid_response(
 )
 def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
-    return cast(tuple[bytearray, str], request.param)
+    assert (
+        isinstance(request.param, tuple)
+        and isinstance(request.param[0], bytearray)
+        and isinstance(request.param[1], str)
+    )
+    return request.param
 
 
 async def test_problem_response(
@@ -227,7 +233,7 @@ async def test_temp_sensor_detection(
 ) -> None:
     """Test data up date with BMS returning protection flags."""
 
-    _FRAME: bytearray = MockRedodoBleakClient._RESP.copy()
+    _FRAME: bytearray = bytearray(MockRedodoBleakClient._RESP)
 
     patch_bleak_client(MockRedodoBleakClient)
     bms = BMS(generate_ble_device())
@@ -242,7 +248,7 @@ async def test_temp_sensor_detection(
     ):
         _FRAME[52:62] = response.ljust(10, b"\x00")  # set temp values
         _FRAME[-1] = crc_sum(_FRAME[:-1])  # update frame CRC
-        monkeypatch.setattr(MockRedodoBleakClient, "_RESP", _FRAME)
+        monkeypatch.setattr(MockRedodoBleakClient, "_RESP", bytes(_FRAME))
 
         assert await bms.async_update() == _RESULT_DEFS | {
             "temp_sensors": expected[0],

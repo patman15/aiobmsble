@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.felicity_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -71,7 +71,7 @@ def ref_value() -> BMSSample:
             3.297,
             3.297,
         ],
-        "temp_values": [TS(13.0)]*4,
+        "temp_values": [TS(13.0)] * 4,
         "delta_voltage": 0.001,
         "runtime": 3564000,
         "problem": False,
@@ -90,10 +90,10 @@ class MockFelicityBleakClient(MockBleakClient):
 
     HEAD_CMD: Final[int] = 0x7B
     TAIL_CMD: Final[int] = 0x7D
-    CMDS: Final[dict[str, bytearray]] = {
-        "dat": bytearray(b"wifilocalMonitor:get Date"),
-        "bas": bytearray(b"wifilocalMonitor:get dev basice infor"),
-        "rt": bytearray(b"wifilocalMonitor:get dev real infor"),
+    CMDS: Final[dict[str, bytes]] = {
+        "dat": b"wifilocalMonitor:get Date",
+        "bas": b"wifilocalMonitor:get dev basice infor",
+        "rt": b"wifilocalMonitor:get dev real infor",
     }
     RESP: Final[dict[str, bytearray]] = RESP_VALUE
 
@@ -135,7 +135,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     patch_bleak_client(MockFelicityBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == ref_value()
 
@@ -158,7 +158,9 @@ async def test_device_info(patch_bleak_client) -> None:
     }
 
 
-async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+async def test_problem_response(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
     """Test Felicity BMS data update with problem response."""
 
     prb_resp: dict[str, bytearray] = RESP_VALUE.copy()
@@ -168,7 +170,7 @@ async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_cli
 
     monkeypatch.setattr(MockFelicityBleakClient, "RESP", prb_resp)
 
-    bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device(), BMSConfig(False))
 
     assert await bms.async_update() == ref_value() | {
         "problem": True,
