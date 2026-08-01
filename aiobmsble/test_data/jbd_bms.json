@@ -79,6 +79,24 @@
   },
   {
     "advertisement": {
+      "local_name": "1kWh 24V 30A",
+      "manufacturer_data": {
+        "15984": "97aabbcc"
+      },
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
+      "rssi": -88,
+      "platform_data": ["70:3E:97:AA:BB:CC"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (BMS_BLE-HA, custom Aerotech 24V LiFePO4, 2026-08)",
+      "JBD-SP10S020-L8S-30A on Iton BLE module (OUI 70:3E:97)",
+      "User-configured local_name (not JBD-*); identified via OUI + ff00",
+      "MAC anonymized; NIC suffix retained in manufacturer_data pattern only"
+    ]
+  },
+  {
+    "advertisement": {
       "manufacturer_data": {
         "49572": "38991554"
       },
