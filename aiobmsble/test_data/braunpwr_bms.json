@@ -8,7 +8,9 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "platform_data": ["24:19:72:00:00:00"],
+      "platform_data": [
+        "24:19:72:00:00:00"
+      ],
       "rssi": -70
     },
     "type": "braunpwr_bms",
@@ -41,13 +43,36 @@
       "service_uuids": [
         "0000ff00-0000-1000-8000-00805f9b34fb"
       ],
-      "platform_data": ["F4:AB:5C:00:00:00"],
+      "platform_data": [
+        "F4:AB:5C:00:00:00"
+      ],
       "rssi": -82
     },
     "type": "braunpwr_bms",
     "_comments": [
       "source LOG (https://github.com/patman15/BMS_BLE-HA/issues/613)",
       "Docan Energy Panda 32kWh - requires prefix on name"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "KS-Vanvolt-666",
+      "manufacturer_data": {
+        "123": "02ffff7d"
+      },
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb"
+      ],
+      "platform_data": [
+        "CF:68:06:00:00:00"
+      ],
+      "rssi": -76
+    },
+    "type": "braunpwr_bms",
+    "_comments": [
+      "recorded from a real device (Vanvolt Arctic Pro, 12.8V/180Ah, 4 cells)",
+      "the owner sets the BLE name freely; factory default is a per-device serial number,",
+      "so the 'KS-' prefix has to be added by the user (see BMS_BLE-HA issue #781)"
     ]
   }
 ]
