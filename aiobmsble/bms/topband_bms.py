@@ -1,4 +1,4 @@
-"""Module to support Ective BMS.
+"""Module to support Topband BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -24,7 +24,7 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class BMS(BaseBMS):
-    """Ective BMS implementation."""
+    """Topband BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Topband", "default_model": "smart BMS"}
     _HEAD_RSP: Final[tuple[bytes, ...]] = (
