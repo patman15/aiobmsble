@@ -284,13 +284,10 @@ class BaseBMS(ABC):
         )
 
     @final
-    def _on_disconnect(self, _client: BleakClient) -> None:
+    def _on_disconnect(self, client: BleakClient) -> None:
         """Disconnect callback function."""
 
-        self._log.debug("disconnected from BMS")
-        self._log.debug(
-            "notify instance=%#x Bleak instance=%#x", id(self), id(_client)
-        )
+        self._log.debug("disconnected from BMS (id: %#x)", id(client))
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -334,10 +331,6 @@ class BaseBMS(ABC):
                     services=[*self.uuid_services(), "180a"],
                 )
 
-                self._log.debug(
-                    "notify instance=%#x Bleak instance=%#x", id(self), id(self._client)
-                )
-
                 if self._log.isEnabledFor(logging.DEBUG):
                     gatt: str = await self.get_GATT_profile()
                     self._log.debug(
@@ -359,6 +352,8 @@ class BaseBMS(ABC):
                 "unexpected error during BMS connection init (%s)", type(exc).__name__
             )
             raise
+
+        self._log.debug("BMS connected (id: %#x)", id(self._client))
 
     def _wr_response(self, char: int | str) -> bool:
         char_tx: Final[BleakGATTCharacteristic | None] = (
@@ -443,9 +438,10 @@ class BaseBMS(ABC):
             of stale connections. (Default: False)
         """
 
-        self._log.debug("disconnecting BMS (%s)", self._client.is_connected)
         self._log.debug(
-            "notify instance=%#x Bleak instance=%#x", id(self), id(self._client)
+            "disconnecting BMS (id: %#x, connected: %s)",
+            id(self._client),
+            self._client.is_connected,
         )
         self._msg_event.clear()
         try:
