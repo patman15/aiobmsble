@@ -59,7 +59,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -179,7 +179,8 @@ class BMS(BaseBMS):
             if self._crc_fix is False or self._frame[5] != 0x8D:
                 return
             if self._crc_fix is None:
-                self._crc_fix = self._frame[-3:-1] == b"\x00\x52"
+                # only 0x8D messages have wrong CRC, which seems to be 1 byte only
+                self._crc_fix = int.from_bytes(self._frame[-3:-1]) <= 0xFF
                 if not self._crc_fix:
                     return
                 self._log.warning("disabling CRC check, values might be unreliable")
