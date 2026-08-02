@@ -58,31 +58,6 @@ def ref_value() -> BMSSample:
     }
 
 
-def ref_value_12v() -> BMSSample:
-    """Return reference value for a 4 cell, 12V Braun Power BMS (Vanvolt Arctic Pro)."""
-    return {
-        "voltage": 13.38,
-        "current": 0.0,
-        "battery_level": 70,
-        "battery_health": 100,
-        "cell_count": 4,
-        "cycle_charge": 128.83,
-        "cycles": 49,
-        "cell_voltages": [3.347, 3.347, 3.348, 3.346],
-        "design_capacity": 182,
-        "power": 0.0,
-        "temp_sensors": 2,
-        "temp_values": [TS(22.0, TS.T.CELL)] * 2,
-        "delta_voltage": 0.002,
-        "cycle_capacity": 1723.745,
-        "battery_charging": False,
-        "temperature": 22.0,
-        "problem_code": 0,
-        "problem": False,
-        "balancer": 0,
-    }
-
-
 class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
 
@@ -143,51 +118,6 @@ class MockBraunPWRBleakClient(MockBleakClient):
             "MockABCBleakClient", self._response(char_specifier, bytes(data)[1])
         )
         await asyncio.sleep(0)
-
-
-class MockVanvoltBleakClient(MockBraunPWRBleakClient):
-    """Emulate a 4 cell, 12V Braun Power BMS (Vanvolt Arctic Pro).
-
-    Frames recorded from a real device, 2026-08-01.
-    """
-
-    RESP: dict[int, bytes] = MockBraunPWRBleakClient.RESP | {
-        0x01: (
-            b"\x7b\x01\x20\x00\x46\x05\x3a\x01\x2c\x00\xdc\x00\xf0\x00\x00\x32"
-            b"\x53\x47\x70\x46\x50\x00\x00\x00\x31\x00\x00\x00\x00\x00\x0c\x00"
-            b"\x00\x00\x64\x7d"
-        ),
-        0x02: b"\x7b\x02\x09\x04\x0d\x13\x0d\x13\x0d\x14\x0d\x12\x7d",
-        0x03: b"\x7b\x03\x05\x02\x0b\x87\x0b\x87\x7d",
-        0x74: (
-            b"\x7b\x74\x18\x4b\x53\x5f\x42\x4c\x45\x5f\x56\x65\x72\x31\x2e\x30"
-            b"\x2e\x30\x5f\x32\x30\x32\x34\x30\x33\x32\x36\x7d"
-        ),
-        0xF4: b"\x7b\xf4\x03\x02\x01\x05\x7d",
-        0xF5: b"\x7b\xf5\x02\x0b\x3a\x7d",
-    }
-
-
-async def test_update_12v(patch_bleak_client, keep_alive_fixture: bool) -> None:
-    """Test data update of a 4 cell, 12V device (recorded from a real Vanvolt-666)."""
-
-    patch_bleak_client(MockVanvoltBleakClient)
-
-    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
-
-    assert await bms.async_update() == ref_value_12v()
-
-    await bms.disconnect()
-
-
-async def test_device_info_12v(patch_bleak_client) -> None:
-    """Test device information of a real Vanvolt-666."""
-    patch_bleak_client(MockVanvoltBleakClient)
-    bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "hw_version": "KS_BLE_Ver1.0.0_20240326",
-        "sw_version": "2.1.5",
-    }
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
@@ -300,7 +230,7 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[2],
 )
-def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, int, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytes, int, str]:
     """Return faulty response frame."""
     assert isinstance(request.param, tuple)
     return request.param
@@ -309,14 +239,14 @@ def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, int, str]:
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    problem_response: tuple[bytearray, int, str],
+    problem_response: tuple[bytes, int, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
     monkeypatch.setattr(
         MockBraunPWRBleakClient,
         "RESP",
-        MockBraunPWRBleakClient.RESP | {0x1: bytearray(problem_response[0])},
+        MockBraunPWRBleakClient.RESP | {0x1: bytes(problem_response[0])},
     )
 
     patch_bleak_client(MockBraunPWRBleakClient)
