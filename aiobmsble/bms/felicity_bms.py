@@ -103,7 +103,7 @@ class BMS(BaseBMS):
             return
 
         try:
-            self._msg = loads(self._frame)
+            self._msg = loads(bytes(self._frame))
         except (JSONDecodeError, UnicodeDecodeError):
             self._log.debug("JSON decode error: %s", self._frame)
             return

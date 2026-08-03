@@ -40,7 +40,8 @@ from aiobmsble import (
     TempSensor,
     __version__,
 )
-from aiobmsble.sample_calc import derive_missing_fields
+from aiobmsble._boundedbytearr import BoundedByteArray
+from aiobmsble._sample_calc import derive_missing_fields
 
 
 class BaseBMS(ABC):
@@ -128,7 +129,7 @@ class BaseBMS(ABC):
             disconnected_callback=self._on_disconnect,
             services=[*self.uuid_services(), "180a"],
         )
-        self._frame: bytearray = bytearray()
+        self._frame: BoundedByteArray = BoundedByteArray(BaseBMS.BLE_MAX_ATTR_SIZE * 4)
         self._msg_event: Final[asyncio.Event] = asyncio.Event()
         self._connect_lock: Final[asyncio.Lock] = asyncio.Lock()
 
@@ -660,7 +661,7 @@ class BaseBMS(ABC):
     @final
     def _check_integrity(
         self,
-        data: bytes | bytearray,
+        data: bytes | bytearray | BoundedByteArray,
         integrity_func: Callable[[bytes | bytearray], int],
         dic_data_slice: slice,
         dic_expected: slice | int,
