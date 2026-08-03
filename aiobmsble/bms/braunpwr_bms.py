@@ -98,6 +98,7 @@ class BMS(BaseBMS):
         if (
             data.startswith(BMS._HEAD)
             and len(self._frame) >= BMS._MIN_LEN
+            and len(data) >= BMS._MIN_LEN
             and data[1] in {*BMS._CMDS, *BMS._INIT_CMDS}
             and len(self._frame) >= BMS._MIN_LEN + self._frame[2]
         ):
