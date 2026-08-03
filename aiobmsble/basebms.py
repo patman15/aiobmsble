@@ -55,6 +55,7 @@ class BaseBMS(ABC):
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
+    _MAX_MSG_LEN: int = 0xFF  # maximum allowed frame length
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
     # Hard timeout for the entire connection setup (connect + GATT + notify).
     # Acts as a safety net when BlueZ hangs and bleak_retry_connector's
@@ -129,7 +130,9 @@ class BaseBMS(ABC):
             disconnected_callback=self._on_disconnect,
             services=[*self.uuid_services(), "180a"],
         )
-        self._frame: BoundedByteArray = BoundedByteArray(BaseBMS.BLE_MAX_ATTR_SIZE * 4)
+        self._frame: BoundedByteArray = BoundedByteArray(
+            max(BaseBMS._MAX_MSG_LEN, BaseBMS.BLE_MAX_ATTR_SIZE) * 2
+        )
         self._msg_event: Final[asyncio.Event] = asyncio.Event()
         self._connect_lock: Final[asyncio.Lock] = asyncio.Lock()
 

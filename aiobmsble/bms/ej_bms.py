@@ -139,10 +139,10 @@ class BMS(BaseBMS):
         )
 
         exp_frame_len: Final[int] = (
-            int(self._frame[7:11], 16)
+            min(int(self._frame[7:11], 16), BMS._MAX_MSG_LEN)
             if len(self._frame) > 10
             and all(chr(c) in hexdigits for c in self._frame[7:11])
-            else 0xFFFF
+            else BMS._MAX_MSG_LEN
         )
 
         if not self._frame.startswith(BMS._HEAD) or (
