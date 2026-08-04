@@ -29,6 +29,9 @@ class BoundedByteArray:
     type PrefixOrSuffix = BytesLike | tuple[BytesLike, ...]
     type IndexOrSlice = int | slice
 
+    # mutable and therefore intentionally unhashable
+    __hash__ = None  # type: ignore[assignment]
+
     def __init__(
         self,
         maxlen: int,
@@ -244,6 +247,15 @@ class BoundedByteArray:
             UnicodeDecodeError: If decoding fails with strict error handling.
         """
         return self._data.decode(encoding, errors)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, BoundedByteArray):
+            return self._data == other._data
+
+        if isinstance(other, (bytes, bytearray, memoryview)):
+            return self._data == other
+
+        return NotImplemented
 
     def __len__(self) -> int:
         """Return the current number of bytes."""

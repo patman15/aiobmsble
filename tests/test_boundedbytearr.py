@@ -190,3 +190,38 @@ def test_iadd_exceeds_maxlen() -> None:
         buffer += b"\x02\x03"
 
     assert bytes(buffer) == b"\x01"
+
+
+def test_eq_bytes_like() -> None:
+    """Check comparison against common bytes-like objects."""
+    buffer: Final[BoundedByteArray] = BoundedByteArray(8, b"\xde\xad")
+
+    assert buffer == b"\xde\xad"
+    assert buffer == bytearray(b"\xde\xad")
+    assert buffer == memoryview(b"\xde\xad")
+    assert (buffer == b"\xde\xae") is False
+
+
+def test_eq_boundedbytearray() -> None:
+    """Check comparison against another bounded array by value."""
+    left: Final[BoundedByteArray] = BoundedByteArray(8, b"\x01\x02")
+    right: Final[BoundedByteArray] = BoundedByteArray(4, b"\x01\x02")
+    other: Final[BoundedByteArray] = BoundedByteArray(8, b"\x01\x03")
+
+    assert left == right
+    assert (left == other) is False
+
+
+def test_eq_unsupported_type() -> None:
+    """Check comparison with unsupported types returns False."""
+    buffer: Final[BoundedByteArray] = BoundedByteArray(8, b"\x01")
+
+    assert (buffer == "01") is False
+
+
+def test_hash_unhashable() -> None:
+    """Check that mutable bounded arrays are intentionally unhashable."""
+    buffer: Final[BoundedByteArray] = BoundedByteArray(8, b"\x01")
+
+    with pytest.raises(TypeError, match="unhashable type"):
+        hash(buffer)
