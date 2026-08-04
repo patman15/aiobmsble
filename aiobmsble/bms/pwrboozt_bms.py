@@ -106,7 +106,9 @@ class BMS(EJBMS):
             self._frame.clear()
             return
 
-        if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
+        if (len(self._frame) % 2) or not all(
+            chr(c) in hexdigits for c in self._frame[1:-1]
+        ):
             self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
