@@ -134,13 +134,16 @@ class BMS(BaseBMS):
 
         await self._await_msg(BMS._CMD_PRE + BMS._CMD_RT)
 
-        return (
-            BMS._conv_data(self._msg)
-            | {"temp_values": BMS._conv_temp(self._msg)}
-            | {"cell_voltages": BMS._conv_cells(self._msg)}
-            | {
-                "problem_code": int(
-                    self._msg.get("Bwarn", 0) + self._msg.get("Bfault", 0)
-                )
-            }
-        )
+        try:
+            return (
+                BMS._conv_data(self._msg)
+                | {"temp_values": BMS._conv_temp(self._msg)}
+                | {"cell_voltages": BMS._conv_cells(self._msg)}
+                | {
+                    "problem_code": int(
+                        self._msg.get("Bwarn", 0) + self._msg.get("Bfault", 0)
+                    )
+                }
+            )
+        except (IndexError, TypeError) as exc:
+            raise ValueError("BMS data incomplete.") from exc

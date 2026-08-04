@@ -130,8 +130,11 @@ class BMS(BaseBMS):
         self._msg_event.clear()
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
-        result: BMSSample = BMS._parse_primary(
-            self._stream_data["primary"]
-        ) | BMS._parse_status(self._stream_data["status"])
+        try:
+            result: BMSSample = BMS._parse_primary(
+                self._stream_data["primary"]
+            ) | BMS._parse_status(self._stream_data["status"])
+        except (IndexError, ValueError) as exc:
+            raise ValueError("BMS data incomplete.") from exc
 
         return result

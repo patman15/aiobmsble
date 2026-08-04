@@ -203,7 +203,11 @@ class BMS(BaseBMS):
 
         # wait for BMS ready (0xC8)
         _bms_info: BMSInfo = await self._fetch_device_info()
-        self._sw_version = lstr2int(_bms_info.get("sw_version", "0"))
+        try:
+            self._sw_version = lstr2int(_bms_info.get("sw_version", "0"))
+        except ValueError:
+            self._log.debug("invalid sw_version '%s', assuming 0", _bms_info.get("sw_version"))
+            self._sw_version = 0
         self._log.debug("device information: %s", _bms_info)
         self._prot_offset = -32 if self._sw_version < 11 else 0
         if not self._bms_ready:
