@@ -4,8 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-import asyncio
-
+from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSInfo, BMSSample, MatcherPattern
@@ -19,6 +18,7 @@ class BMS(TopbandBMS):
         "default_manufacturer": "PowerXtreme",
         "default_model": "smart BMS",
     }
+    _ctrl_proto: bool = False  # parse control protocol
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -46,17 +46,29 @@ class BMS(TopbandBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        self._ctrl_proto = True
+        bms_info: BMSInfo = await super()._fetch_device_info()
+        await self._await_msg(b"<N:NA>")
+        bms_info["serial_number"] = str(self._msg[2:])
+
+        return bms_info
+
+    def _notification_handler(
+        self, _sender: BleakGATTCharacteristic, data: bytearray
+    ) -> None:
+        """Handle the RX characteristics notify event (new data arrives)."""
+        if self._ctrl_proto and data.startswith(b"<") and data.endswith(b">"):
+            self._msg = bytes(data[1:-1])
+            self._ctrl_proto = False
+            self._msg_event.set()
+            return
+        super()._notification_handler(_sender, data)
+
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        for cmd in (b"<B:AN>", b"<I:EM>", b"<I:WA>", b"<N:NA>"):
-            try:
-                await self._await_msg(cmd)
-            except TimeoutError:
-                continue
-            await asyncio.sleep(0.5)
-        return self._decode_data(BMS._FIELDS, self._msg, byteorder="little") | {
-            "cell_voltages": BMS._cell_voltages(
-                self._msg, cells=BMS._MAX_CELLS, start=22, byteorder="little"
-            )
-        }
+        await self._await_msg(b"<B:ST>")
+
+        return await super()._async_update()
