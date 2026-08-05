@@ -59,7 +59,7 @@ class BMS(TopbandBMS):
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
-        if self._ctrl_proto and data.startswith(b"<") and data.endswith(b">"):
+        if self._ctrl_proto and len(data) >= 3 and data[0] == 0x3C and data[-1] == 0x3E:
             self._msg = bytes(data[1:-1])
             self._ctrl_proto = False
             self._msg_event.set()
