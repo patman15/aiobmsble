@@ -174,7 +174,6 @@ class BMS(BaseBMS):
             data.startswith(BMS._HEAD_RSP)
             and len(self._frame) > BMS._INFO_LEN
             and data[1] in (0x03, 0x04, 0x05)
-            and data[2] == 0x00
             and len(self._frame) >= BMS._INFO_LEN + self._frame[3]
         ):
             self._frame.clear()
@@ -195,6 +194,10 @@ class BMS(BaseBMS):
         frame_end: Final[int] = BMS._INFO_LEN + self._frame[3] - 1
         if self._frame[frame_end] != BMS._TAIL:
             self._log.debug("incorrect frame end (length: %i).", len(self._frame))
+            return
+
+        if self._frame[2] & 0x80:
+            self._log.debug("error response (type 0x%X)", self._frame[1])
             return
 
         if not self._check_integrity(
