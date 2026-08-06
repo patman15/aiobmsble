@@ -70,7 +70,10 @@ class BMS(TopbandBMS):
         """Fetch the device information via BLE."""
         self._ctrl_proto = True
         bms_info: BMSInfo = await super()._fetch_device_info()
-        await self._await_msg(b"<N:NA>")
+        try:
+            await self._await_msg(b"<N:NA>")
+        finally:
+            self._ctrl_proto = False
         bms_info["serial_number"] = str(self._msg[2:])
 
         return bms_info
@@ -106,10 +109,13 @@ class BMS(TopbandBMS):
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
-        if self._ctrl_proto and len(data) >= 3 and data[0] == 0x3C and data[-1] == 0x3E:
-            self._msg = bytes(data[1:-1])
-            self._ctrl_proto = False
-            self._msg_event.set()
+        if self._ctrl_proto:
+            if len(data) >= 3 and data[0] == 0x3C and data[-1] == 0x3E:
+                self._log.debug("RX BLE data (ctrl): %s", data)
+                self._msg = bytes(data[1:-1])
+                self._msg_event.set()
+                return
+            self._log.debug("ignoring non-control data: %s", data)
             return
         super()._notification_handler(_sender, data)
 
