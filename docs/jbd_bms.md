@@ -14,9 +14,7 @@ Default password is "000000".
 
 ## Protection status (`problem_code`)
 
-On basic info (`0x03`), aiobmsble maps a 16-bit little-endian field at data offset 20 to `problem_code` (`BMSDp("problem_code", 20, 2, False)`).
-
-That word is the JBD **protection status** bitfield from the public UART/BLE protocol (same layout as Overkill Solar EEPROM register `0x10` "Current errors"). Bit = 1 means the protection is active.
+On basic info (`0x03`), aiobmsble maps a 16-bit little-endian field at data offset 20 to `problem_code`. That word is the JBD "protection status" bitfield from the public UART/BLE protocol (same layout as Overkill Solar EEPROM register `0x10` "current errors"). Bit = 1 means the protection is active.
 
 | Bit | Mask | Meaning |
 |---|---|---|
@@ -37,17 +35,15 @@ That word is the JBD **protection status** bitfield from the public UART/BLE pro
 
 ### Cell OV release hysteresis
 
-Cell overvoltage (bit 0) is not a separate sticky latch register. Trip and clear use EEPROM thresholds `COVP` and `COVP_REL` (Overkill `0x24` / `0x25`).
-
-With typical factory-style thresholds (e.g. `COVP=3650 mV`, `COVP_REL=3550 mV`):
+Cell overvoltage (bit 0) is not a separate sticky latch register. Trip and clear use EEPROM thresholds `COVP` and `COVP_REL` (Overkill `0x24` / `0x25`), with typical factory-style thresholds (e.g. `COVP=3650 mV`, `COVP_REL=3550 mV`):
 
 - Bit 0 sets when any cell reaches the trip threshold.
-- Bit 0 can remain set while any cell is still **above** `COVP_REL`, even if every cell is already **below** `COVP`.
+- Bit 0 remains set while any cell is still **above** `COVP_REL`, even if every cell is already **below** `COVP`.
 - The bit clears only after all cells fall below the release threshold (and related delay settings elapse).
 
-So `problem_code & 0x1` during / after top-of-charge can mean "still in the OV release band", not necessarily "still above trip" or "hard faulted". Useful when correlating `problem_code` with live cell voltages in logging or integrations. Behavior may vary with firmware and EEPROM settings.
+So `problem_code & 0x1` during / after top-of-charge means "still in the OV release band", not necessarily "still above trip" or "hard faulted". This is useful to know when correlating `problem_code` with live cell voltages. Behavior may vary with firmware and EEPROM settings.
 
-References: JBD Smart BMS protocol (protection status note), [Overkill Solar JBD register map](https://gitlab.com/Overkill-Solar-LLC/overkill-solar-bms-tools/-/blob/master/JBD_REGISTER_MAP.md) (`0x10`, `0x24`, `0x25`).
+References: [JBD Smart BMS protocol](https://github.com/syssi/esphome-jbd-bms/blob/00874229f610f28b18132b6c02f5388de781af4a/docs/Jiabaida.communication.protocol.pdf) (protection status note), [Overkill Solar JBD register map](https://gitlab.com/Overkill-Solar-LLC/overkill-solar-bms-tools/-/blob/master/JBD_REGISTER_MAP.md) (`0x10`, `0x24`, `0x25`).
 
 ## Chins Extended Fields
 
