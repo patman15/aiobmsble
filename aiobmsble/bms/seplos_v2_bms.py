@@ -100,7 +100,7 @@ class BMS(BaseBMS):
             and data.startswith(BMS._HEAD)
             and (len(self._frame) >= self._exp_len or not self._frame)
         ):
-            self._exp_len = BMS._MIN_LEN + int.from_bytes(data[5:7])
+            self._exp_len = min(BMS._MIN_LEN + int.from_bytes(data[5:7]), BMS._MAX_MSG_LEN)
             self._frame.clear()
 
         self._frame.extend(data)
