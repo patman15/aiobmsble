@@ -260,7 +260,14 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockJBDBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {"hw_version": "0123456789", "sw_version": "8.0"}
+    assert await bms.device_info() == {
+        "fw_version": "mock_FW_version",
+        "hw_version": "0123456789",
+        "sw_version": "8.0",
+        "manufacturer": "mock_manufacturer",
+        "model": "mock_model",
+        "serial_number": "mock_serial_number",
+    }
 
 
 @pytest.fixture(
