@@ -434,6 +434,9 @@ class BaseBMS(ABC):
                 # try next write mode, without reconnecting, as recursion might occur
         raise TimeoutError
 
+    async def _disconnect(self, reset: bool) -> None:
+        """Override if actions in a subclass are required before connections is closed."""
+
     @final
     async def disconnect(self, reset: bool = False) -> None:
         """Disconnect the BMS, includes stopping notifications.
@@ -450,6 +453,8 @@ class BaseBMS(ABC):
             self._client.is_connected,
         )
         self._msg_event.clear()
+        await self._disconnect(reset)
+
         try:
             await self._client.disconnect()
         except (BleakError, TimeoutError, EOFError) as exc:

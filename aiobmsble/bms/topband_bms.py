@@ -36,7 +36,7 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 0, 4, False, lambda x: x / 1000),
         BMSDp("current", 4, 4, True, lambda x: x / 1000),
         BMSDp("battery_level", 14, 2, False),
@@ -131,7 +131,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
-        return self._decode_data(BMS._FIELDS, self._msg, byteorder="little") | {
+        return self._decode_data(BMS.FIELDS, self._msg, byteorder="little") | {
             "cell_voltages": BMS._cell_voltages(
                 self._msg, cells=BMS._MAX_CELLS, start=22, byteorder="little"
             )
