@@ -135,6 +135,7 @@ class BaseBMS(ABC):
         )
         self._msg_event: Final[asyncio.Event] = asyncio.Event()
         self._connect_lock: Final[asyncio.Lock] = asyncio.Lock()
+        self._op_lock: Final[asyncio.Lock] = asyncio.Lock()
 
     @final
     async def __aenter__(self) -> Self:
@@ -201,14 +202,15 @@ class BaseBMS(ABC):
         keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
         """
 
-        disconnect: Final[bool] = not self._client.is_connected
-        await self._connect()
-        dev_info: Final[BMSInfo] = await self._fetch_device_info()
-        if disconnect:
-            await self.disconnect()
+        async with self._op_lock:
+            disconnect: Final[bool] = not self._client.is_connected
+            await self._connect()
+            dev_info: Final[BMSInfo] = await self._fetch_device_info()
+            if disconnect:
+                await self.disconnect()
 
-        self._log.debug("BMS info %s", dev_info)
-        return dev_info
+            self._log.debug("BMS info %s", dev_info)
+            return dev_info
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
@@ -481,18 +483,19 @@ class BaseBMS(ABC):
             BMSSample: dictionary with BMS values
 
         """
-        await self._connect()
+        async with self._op_lock:
+            await self._connect()
 
-        data: BMSSample = await self._async_update()
-        if not raw:
-            self._add_missing_values(data, self._raw_values())
+            data: BMSSample = await self._async_update()
+            if not raw:
+                self._add_missing_values(data, self._raw_values())
 
-        if not self._cfg.keep_alive:
-            # disconnect after data update to force reconnect next time (slow!)
-            self._log.debug("forced disconnect of BMS after update")
-            await self.disconnect()
+            if not self._cfg.keep_alive:
+                # disconnect after data update to force reconnect next time (slow!)
+                self._log.debug("forced disconnect of BMS after update")
+                await self.disconnect()
 
-        return data
+            return data
 
     @final
     @staticmethod
