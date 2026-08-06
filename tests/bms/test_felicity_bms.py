@@ -217,3 +217,24 @@ async def test_invalid_response(
 
     assert not result
     await bms.disconnect()
+
+
+async def test_malformed_json_raises_value_error(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that structurally invalid (but valid JSON) data raises the documented ValueError."""
+
+    bad_resp: dict[str, bytearray] = RESP_VALUE.copy()
+    bad_resp["rt"] = bytearray(
+        RESP_VALUE["rt"].replace(b'"Batt":[[52800],[-1],[null]]', b'"Batt":[]')
+    )
+
+    patch_bleak_client(MockFelicityBleakClient)
+    monkeypatch.setattr(MockFelicityBleakClient, "RESP", bad_resp)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete"):
+        await bms.async_update()
+
+    await bms.disconnect()

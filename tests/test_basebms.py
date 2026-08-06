@@ -146,6 +146,44 @@ class DataTestBMS(MinTestBMS):
         }
 
 
+class OpGuardTestBMS(MinTestBMS):
+    """BMS to verify that public operations do not overlap."""
+
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        config: BMSConfig | None = None,
+        logger_name: str = "",
+    ) -> None:
+        """Initialize the OpGuardTestBMS."""
+        super().__init__(ble_device, config, logger_name)
+        self._op_active = False
+
+    async def _fetch_device_info(self) -> BMSInfo:
+        if self._op_active:
+            raise RuntimeError("overlapping base operations")
+
+        self._op_active = True
+        try:
+            await asyncio.sleep(0)
+            await self._await_msg(b"mock_info", wait_for_notify=False)
+            return {"model": "mock_model"}
+        finally:
+            self._op_active = False
+
+    async def _async_update(self) -> BMSSample:
+        if self._op_active:
+            raise RuntimeError("overlapping base operations")
+
+        self._op_active = True
+        try:
+            await asyncio.sleep(0)
+            await self._await_msg(b"mock_update", wait_for_notify=False)
+            return {"problem_code": 21}
+        finally:
+            self._op_active = False
+
+
 class WMTestBMS(MinTestBMS):
     """Write mode mock BMS implementation."""
 
@@ -498,6 +536,23 @@ async def test_async_update(patch_bleak_client: Callable[..., None], raw: bool) 
             }
         )
     assert await bms.async_update(raw=raw) == base_result
+
+
+async def test_op_guard_device_info_async_update(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify device_info and async_update are serialized for one BMS instance."""
+    patch_bleak_client()
+    bms: OpGuardTestBMS = OpGuardTestBMS(
+        generate_ble_device(), BMSConfig(keep_alive=True)
+    )
+    await bms._connect()
+
+    info, data = await asyncio.gather(bms.device_info(), bms.async_update(raw=True))
+    assert info == {"model": "mock_model"}
+    assert data == {"problem_code": 21}
+
+    await bms.disconnect()
 
 
 @pytest.mark.parametrize(
