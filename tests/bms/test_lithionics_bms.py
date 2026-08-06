@@ -196,6 +196,26 @@ def test_uuid_tx_not_implemented() -> None:
         BMS.uuid_tx()
 
 
+async def test_non_numeric_field_raises_value_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+) -> None:
+    """Test that a non-numeric (but correctly shaped) primary field raises ValueError."""
+    stream: bytes = (
+        b"1x,350,350,350,349,55,48,-3,99,000000\r\n"
+        b"&,1,319,006391,0136,2300,FF05,8700\r\n"
+    )
+    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", stream)
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device(name="Lithionics"))
+
+    with pytest.raises(ValueError, match="BMS data incomplete"):
+        await bms.async_update()
+
+    await bms.disconnect()
+
+
 @pytest.mark.parametrize(
     ("status_line", "expected"),
     [
