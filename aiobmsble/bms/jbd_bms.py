@@ -108,11 +108,8 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-
-        result: BMSInfo = await super()._fetch_device_info()
-
         await self._await_cmd_resp(0x03)
-        result["sw_version"] = f"{self._msg[22] >> 4}.{self._msg[22] & 0xF}"
+        result: BMSInfo = {"sw_version": f"{self._msg[22] >> 4}.{self._msg[22] & 0xF}"}
         await self._await_cmd_resp(0x05)
         result["hw_version"] = b2str(self._msg[4 : self._msg[3] + 4])
         return result
