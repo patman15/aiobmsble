@@ -267,19 +267,21 @@ async def test_device_info(patch_bleak_client) -> None:
     name="wrong_response",
     params=[
         (
-            bytearray(
-                b"\xdd\x03\x00\x1d\x06\x18\xfe\xe1\x01\xf2\x01\xf4\x00\x2a\x2c\x7c\x00\x00\x00"
-                b"\x00\x00\x00\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x84\xdd"
-            ),
+            b"\xdd\x03\x00\x1d\x06\x18\xfe\xe1\x01\xf2\x01\xf4\x00\x2a\x2c\x7c\x00\x00\x00"
+            b"\x00\x00\x00\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x84\xdd",
             "wrong end",
         ),
-        (bytearray(b"\xdd\x04\x00\x1d" + b"\x00" * 31 + b"\x77"), "wrong CRC"),
+        (b"\xdd\x04\x00\x1d" + b"\x00" * 31 + b"\x77", "wrong CRC"),
+        (
+            b"\xdd\x03\x80\x00\xff\x80\x77",
+            "error",
+        ),
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    assert isinstance(request.param[0], bytearray)
+    assert isinstance(request.param[0], bytes)
     return request.param[0]
 
 
@@ -287,14 +289,14 @@ async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
     patch_bms_timeout()
 
     monkeypatch.setattr(
-        MockJBDBleakClient, "_response", lambda _s, _c, _d: wrong_response
+        MockJBDBleakClient, "_response", lambda _s, _c, _d: bytearray(wrong_response)
     )
 
     patch_bleak_client(MockJBDBleakClient)

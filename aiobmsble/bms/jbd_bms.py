@@ -194,7 +194,7 @@ class BMS(BaseBMS):
             return
 
         if self._frame[2] & 0x80:
-            self._log.debug("error response (type 0x%X)", self._frame[1])
+            self._log.debug("error response (0x%X)", self._frame[2])
             return
 
         if not self._check_integrity(
@@ -206,7 +206,11 @@ class BMS(BaseBMS):
             return
 
         if len(self._frame) != BMS._INFO_LEN + self._frame[3]:
-            self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
+            self._log.debug(
+                "wrong data length (%i != %i)",
+                len(self._frame),
+                self._frame[3] + BMS._INFO_LEN,
+            )
 
         if self._frame[1] != self._valid_reply:
             self._log.debug("unexpected response (type 0x%X)", self._frame[1])
