@@ -11,7 +11,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    MatcherPattern,
+    TempSensor as TS,
+)
 from aiobmsble.bms.topband_bms import BMS as TopbandBMS
 
 
@@ -22,13 +29,22 @@ class BMS(TopbandBMS):
         "default_manufacturer": "PowerXtreme",
         "default_model": "smart BMS",
     }
-    FIELDS: tuple[BMSDp, ...] = tuple(
-        f._replace(fct=lambda x: x / 10) if f.key == "current" else f
-        for f in TopbandBMS.FIELDS
+    FIELDS: tuple[BMSDp, ...] = (
+        BMSDp("voltage", 0, 4, False, lambda x: x / 1000),
+        BMSDp("current", 4, 4, True, lambda x: x / 10),
+        BMSDp("battery_level", 14, 2, False),
+        BMSDp("cycle_charge", 8, 4, False, lambda x: x / 1000),
+        BMSDp("cycles", 12, 2, False),
+        BMSDp("temp_values", 16, 2, False, lambda x: [TS(round(x / 10 - 273.15, 3))]),
+        BMSDp("problem_code", 18, 1, False),
     )
+    # FIELDS: tuple[BMSDp, ...] = tuple(
+    #     f._replace(fct=lambda x: x / 10) if f.key == "current" else f
+    #     for f in TopbandBMS.FIELDS
+    # )
 
     _ALIVE_INTERVAL: Final[float] = 8.0  # seconds
-    _ctrl_proto: bool = False  # parse control protocol
+    _ctrl_proto: bytes = b""  # parse control protocol
 
     def __init__(
         self,
@@ -68,12 +84,13 @@ class BMS(TopbandBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        self._ctrl_proto = True
         bms_info: BMSInfo = await super()._fetch_device_info()
         try:
+            self._ctrl_proto = b"N"
             await self._await_msg(b"<N:NA>")
         finally:
-            self._ctrl_proto = False
+            self._ctrl_proto = b""
+            self._msg_event.clear()
         bms_info["serial_number"] = str(self._msg[2:])
 
         return bms_info
@@ -84,7 +101,7 @@ class BMS(TopbandBMS):
             while True:
                 await asyncio.sleep(BMS._ALIVE_INTERVAL)
                 async with self._op_lock:
-                    await self._await_msg(b"<I:WA>", wait_for_notify=False)
+                    await self._await_msg(b"<D:AN>", wait_for_notify=False)
         except asyncio.CancelledError:
             return
         except Exception as exc:  # noqa: BLE001 - keep-alive must not crash the loop
@@ -110,7 +127,12 @@ class BMS(TopbandBMS):
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if self._ctrl_proto:
-            if len(data) >= 3 and data[0] == 0x3C and data[-1] == 0x3E:
+            if (
+                len(data) >= 3
+                and data[0] == 0x3C
+                and data[-1] == 0x3E
+                and data[1] == self._ctrl_proto[0]
+            ):
                 self._log.debug("RX BLE data (ctrl): %s", data)
                 self._msg = bytes(data[1:-1])
                 self._msg_event.set()
@@ -122,6 +144,8 @@ class BMS(TopbandBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await self._await_msg(b"<B:ST>")
+        if not self._msg_event.is_set():
+            self._log.debug("requesting data from BMS")
+            await self._await_msg(b"<B:ST>")
 
         return await super()._async_update()
