@@ -30,7 +30,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -130,8 +130,11 @@ class BMS(BaseBMS):
         self._msg_event.clear()
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
-        result: BMSSample = BMS._parse_primary(
-            self._stream_data["primary"]
-        ) | BMS._parse_status(self._stream_data["status"])
+        try:
+            result: BMSSample = BMS._parse_primary(
+                self._stream_data["primary"]
+            ) | BMS._parse_status(self._stream_data["status"])
+        except (IndexError, ValueError) as exc:
+            raise ValueError("BMS data incomplete.") from exc
 
         return result
