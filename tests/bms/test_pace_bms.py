@@ -232,3 +232,47 @@ async def test_invalid_response(
 
     assert not result
     await bms.disconnect()
+
+
+async def test_device_info_incomplete(monkeypatch, patch_bleak_client) -> None:
+    """Test that a truncated (but CRC-valid) sw/hw version response raises ValueError."""
+    monkeypatch.setattr(
+        MockPaceBleakClient,
+        "_RESP",
+        MockPaceBleakClient._RESP
+        | {
+            b"\x9a\x00\x00\x00\x01\x00\x00\x00\xe4\xc8\x9d": bytearray(
+                b"\x9a\x00\x00\x00\x01\x00\x00\x05\x00\x00\x00\x00\x00\x75\xd7\x9d"
+            )
+        },
+    )
+    patch_bleak_client(MockPaceBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete"):
+        await bms.device_info()
+
+    await bms.disconnect()
+
+
+async def test_cell_block_incomplete(monkeypatch, patch_bleak_client) -> None:
+    """Test that a truncated (but CRC-valid) cell block response raises ValueError."""
+    monkeypatch.setattr(
+        MockPaceBleakClient,
+        "_RESP",
+        MockPaceBleakClient._RESP
+        | {
+            b"\x9a\x00\x00\x0a\x02\x00\x00\x02\x01\x01\x28\x9c\x9d": bytearray(
+                b"\x9a\x00\x00\x0a\x02\x00\x00\x00\xa1\x50\x9d"
+            )
+        },
+    )
+    patch_bleak_client(MockPaceBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete"):
+        await bms.async_update()
+
+    await bms.disconnect()

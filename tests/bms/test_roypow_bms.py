@@ -3,7 +3,7 @@
 from asyncio import sleep
 from collections.abc import Buffer
 from copy import deepcopy
-from typing import Final, cast
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -53,10 +53,10 @@ class TestBasicBMS(BMSBasicTests):
 class MockRoyPowBleakClient(MockBleakClient):
     """Emulate a RoyPow BMS BleakClient."""
 
-    CMDS: Final[dict[int, bytearray]] = {
-        0x02: bytearray(b"\xea\xd1\x01\x04\xff\x02\xf9\xf5"),
-        0x03: bytearray(b"\xea\xd1\x01\x04\xff\x03\xf8\xf5"),
-        0x04: bytearray(b"\xea\xd1\x01\x04\xff\x04\xff\xf5"),
+    CMDS: Final[dict[int, bytes]] = {
+        0x02: b"\xea\xd1\x01\x04\xff\x02\xf9\xf5",
+        0x03: b"\xea\xd1\x01\x04\xff\x03\xf8\xf5",
+        0x04: b"\xea\xd1\x01\x04\xff\x04\xff\xf5",
     }
     RESP: Final[dict[int, bytearray]] = {
         0x02: bytearray(  # cell info
@@ -266,7 +266,12 @@ async def test_missing_message(
 )
 def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
-    return cast(tuple[bytearray, str], request.param)
+    assert (
+        isinstance(request.param, tuple)
+        and isinstance(request.param[0], bytearray)
+        and isinstance(request.param[1], str)
+    )
+    return request.param
 
 
 async def test_problem_response(

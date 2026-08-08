@@ -55,10 +55,10 @@ class MockJBDBleakClient(MockBleakClient):
     """Emulate a JBD BMS BleakClient."""
 
     HEAD_CMD = 0xDD
-    CMD_INFO = bytearray(b"\xa5\x03")
-    CMD_CELL = bytearray(b"\xa5\x04")
-    HW_INFO = bytearray(b"\xa5\x05")
-    ACK_MSG = bytearray(b"\xff\xaa\x15\x01\x00\x16")
+    CMD_INFO = b"\xa5\x03"
+    CMD_CELL = b"\xa5\x04"
+    HW_INFO = b"\xa5\x05"
+    ACK_MSG = b"\xff\xaa\x15\x01\x00\x16"
     REQUIRE_PASS = False
     UNLOCKED = False
     DEFAULT_SECRET = b"000000"
@@ -90,11 +90,11 @@ class MockJBDBleakClient(MockBleakClient):
             and not self.UNLOCKED
         ):
             self.UNLOCKED = True
-            return (
+            return bytearray(
                 MockJBDBleakClient.ACK_MSG
                 if sum(_msg[2:-1]) & 0xFF == _msg[-1]
                 and _msg[4:-1] == self.DEFAULT_SECRET
-                else bytearray(b"\xff\xaa\x15\x01\x01\x17")
+                else b"\xff\xaa\x15\x01\x01\x17"
             )
 
         if (
@@ -126,7 +126,7 @@ class MockJBDBleakClient(MockBleakClient):
 
         # always send two responses, to test timeout behaviour
         for resp in (
-            self._response(char_specifier, bytearray(b"\xdd\xa5\x03\x00\xff\xfd\x77")),
+            self._response(char_specifier, b"\xdd\xa5\x03\x00\xff\xfd\x77"),
             self._response(char_specifier, data),
         ):
             for notify_data in [
@@ -260,7 +260,7 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockJBDBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {"hw_version": "0123456789"}
+    assert await bms.device_info() == {"hw_version": "0123456789", "sw_version": "8.0"}
 
 
 @pytest.fixture(

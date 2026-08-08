@@ -98,7 +98,7 @@ class BMS(BaseBMS):
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
             }
-            for pattern in ("SP??B*", "XZHX*", "CSY*", "SP1??B*")
+            for pattern in ("SP??B*", "XZHX*", "CSY*", "SP1??B*", "ST*")
         ]
 
     # setup UUIDs
@@ -248,19 +248,5 @@ class BMS(BaseBMS):
             )
 
             data.setdefault("packs", []).append(pack_sample)
-
-            # update per pack delta voltage
-            data["delta_voltage"] = max(
-                data.get("delta_voltage", 0),
-                round(
-                    max(pack_sample["cell_voltages"])
-                    - min(pack_sample["cell_voltages"]),
-                    3,
-                ),
-            )
-            # calculate cell_count instead of querying SPA
-            data["cell_count"] = max(
-                data.get("cell_count", 0), len(pack_sample["cell_voltages"])
-            )
 
         return data

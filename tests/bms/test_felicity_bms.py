@@ -71,7 +71,7 @@ def ref_value() -> BMSSample:
             3.297,
             3.297,
         ],
-        "temp_values": [TS(13.0)]*4,
+        "temp_values": [TS(13.0)] * 4,
         "delta_voltage": 0.001,
         "runtime": 3564000,
         "problem": False,
@@ -90,10 +90,10 @@ class MockFelicityBleakClient(MockBleakClient):
 
     HEAD_CMD: Final[int] = 0x7B
     TAIL_CMD: Final[int] = 0x7D
-    CMDS: Final[dict[str, bytearray]] = {
-        "dat": bytearray(b"wifilocalMonitor:get Date"),
-        "bas": bytearray(b"wifilocalMonitor:get dev basice infor"),
-        "rt": bytearray(b"wifilocalMonitor:get dev real infor"),
+    CMDS: Final[dict[str, bytes]] = {
+        "dat": b"wifilocalMonitor:get Date",
+        "bas": b"wifilocalMonitor:get dev basice infor",
+        "rt": b"wifilocalMonitor:get dev real infor",
     }
     RESP: Final[dict[str, bytearray]] = RESP_VALUE
 
@@ -158,7 +158,9 @@ async def test_device_info(patch_bleak_client) -> None:
     }
 
 
-async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+async def test_problem_response(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
     """Test Felicity BMS data update with problem response."""
 
     prb_resp: dict[str, bytearray] = RESP_VALUE.copy()
@@ -214,4 +216,25 @@ async def test_invalid_response(
         result = await bms.async_update()
 
     assert not result
+    await bms.disconnect()
+
+
+async def test_malformed_json_raises_value_error(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that structurally invalid (but valid JSON) data raises the documented ValueError."""
+
+    bad_resp: dict[str, bytearray] = RESP_VALUE.copy()
+    bad_resp["rt"] = bytearray(
+        RESP_VALUE["rt"].replace(b'"Batt":[[52800],[-1],[null]]', b'"Batt":[]')
+    )
+
+    patch_bleak_client(MockFelicityBleakClient)
+    monkeypatch.setattr(MockFelicityBleakClient, "RESP", bad_resp)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete"):
+        await bms.async_update()
+
     await bms.disconnect()

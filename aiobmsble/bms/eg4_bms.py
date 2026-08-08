@@ -4,21 +4,13 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from typing import Final
+from typing import Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import (
-    BMSConfig,
-    BMSDp,
-    BMSInfo,
-    BMSSample,
-    BMSValue,
-    MatcherPattern,
-    TempSensor,
-)
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -43,7 +35,9 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 55, 6, False),
         BMSDp("balancer", 79, 2, False),
     )
-    _OPT_FIELDS: Final[tuple[BMSValue, ...]] = (
+    _OPT_FIELDS: Final[
+        tuple[Literal["cycle_charge", "cycles", "design_capacity"], ...]
+    ] = (
         "cycle_charge",
         "cycles",
         "design_capacity",
@@ -53,7 +47,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)

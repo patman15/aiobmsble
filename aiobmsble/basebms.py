@@ -40,7 +40,8 @@ from aiobmsble import (
     TempSensor,
     __version__,
 )
-from aiobmsble.sample_calc import derive_missing_fields
+from aiobmsble._boundedbytearr import BoundedByteArray
+from aiobmsble._sample_calc import derive_missing_fields
 
 
 class BaseBMS(ABC):
@@ -54,6 +55,7 @@ class BaseBMS(ABC):
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
+    _MAX_MSG_LEN: int = 0xFF  # maximum allowed frame length
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
     # Hard timeout for the entire connection setup (connect + GATT + notify).
     # Acts as a safety net when BlueZ hangs and bleak_retry_connector's
@@ -128,9 +130,12 @@ class BaseBMS(ABC):
             disconnected_callback=self._on_disconnect,
             services=[*self.uuid_services(), "180a"],
         )
-        self._frame: bytearray = bytearray()
+        self._frame: BoundedByteArray = BoundedByteArray(
+            max(BaseBMS._MAX_MSG_LEN, BaseBMS.BLE_MAX_ATTR_SIZE) * 2
+        )
         self._msg_event: Final[asyncio.Event] = asyncio.Event()
         self._connect_lock: Final[asyncio.Lock] = asyncio.Lock()
+        self._op_lock: Final[asyncio.Lock] = asyncio.Lock()
 
     @final
     async def __aenter__(self) -> Self:
@@ -197,14 +202,15 @@ class BaseBMS(ABC):
         keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
         """
 
-        disconnect: Final[bool] = not self._client.is_connected
-        await self._connect()
-        dev_info: Final[BMSInfo] = await self._fetch_device_info()
-        if disconnect:
-            await self.disconnect()
+        async with self._op_lock:
+            disconnect: Final[bool] = not self._client.is_connected
+            await self._connect()
+            dev_info: Final[BMSInfo] = await self._fetch_device_info()
+            if disconnect:
+                await self.disconnect()
 
-        self._log.debug("BMS info %s", dev_info)
-        return dev_info
+            self._log.debug("BMS info %s", dev_info)
+            return dev_info
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
@@ -284,10 +290,10 @@ class BaseBMS(ABC):
         )
 
     @final
-    def _on_disconnect(self, _client: BleakClient) -> None:
+    def _on_disconnect(self, client: BleakClient) -> None:
         """Disconnect callback function."""
 
-        self._log.debug("disconnected from BMS")
+        self._log.debug("disconnected from BMS (id: %#x)", id(client))
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -316,9 +322,12 @@ class BaseBMS(ABC):
 
         try:
             async with asyncio.timeout(self._CONNECT_TIMEOUT):
-                await close_stale_connections(
-                    self._ble_device, only_other_adapters=False
-                )  # ensure no stale connection exists
+                try:
+                    await self._client.disconnect()  # close existing connection
+                except (BleakError, TimeoutError, EOFError) as exc:
+                    self._log.debug(
+                        "failed to disconnect stale connection (%s)", type(exc).__name__
+                    )
 
                 self._client = await establish_connection(
                     client_class=BleakClient,
@@ -344,6 +353,13 @@ class BaseBMS(ABC):
             )
             await self.disconnect()
             raise
+        except Exception as exc:
+            self._log.info(
+                "unexpected error during BMS connection init (%s)", type(exc).__name__
+            )
+            raise
+
+        self._log.debug("BMS connected (id: %#x)", id(self._client))
 
     def _wr_response(self, char: int | str) -> bool:
         char_tx: Final[BleakGATTCharacteristic | None] = (
@@ -428,7 +444,11 @@ class BaseBMS(ABC):
             of stale connections. (Default: False)
         """
 
-        self._log.debug("disconnecting BMS (%s)", self._client.is_connected)
+        self._log.debug(
+            "disconnecting BMS (id: %#x, connected: %s)",
+            id(self._client),
+            self._client.is_connected,
+        )
         self._msg_event.clear()
         try:
             await self._client.disconnect()
@@ -463,18 +483,19 @@ class BaseBMS(ABC):
             BMSSample: dictionary with BMS values
 
         """
-        await self._connect()
+        async with self._op_lock:
+            await self._connect()
 
-        data: BMSSample = await self._async_update()
-        if not raw:
-            self._add_missing_values(data, self._raw_values())
+            data: BMSSample = await self._async_update()
+            if not raw:
+                self._add_missing_values(data, self._raw_values())
 
-        if not self._cfg.keep_alive:
-            # disconnect after data update to force reconnect next time (slow!)
-            self._log.debug("forced disconnect of BMS after update")
-            await self.disconnect()
+            if not self._cfg.keep_alive:
+                # disconnect after data update to force reconnect next time (slow!)
+                self._log.debug("forced disconnect of BMS after update")
+                await self.disconnect()
 
-        return data
+            return data
 
     @final
     @staticmethod
@@ -646,7 +667,7 @@ class BaseBMS(ABC):
     @final
     def _check_integrity(
         self,
-        data: bytes | bytearray,
+        data: bytes | bytearray | BoundedByteArray,
         integrity_func: Callable[[bytes | bytearray], int],
         dic_data_slice: slice,
         dic_expected: slice | int,

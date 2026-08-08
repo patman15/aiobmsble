@@ -26,6 +26,7 @@ class BMS(BaseBMS):
     _INIT_LEN: Final[int] = 5  # initialization frame size
     _INFO_LEN: Final[int] = 7  # minimum frame size
     _BASIC_INFO: Final[int] = 23  # basic info data length
+    _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
@@ -37,6 +38,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 23, 1, False),
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x1)),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2)),
+        BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
         BMSDp("temp_sensors", 26, 1, False),  # count is not limited
     )  # general protocol v4
 
@@ -46,7 +48,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -106,11 +108,11 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
+        await self._await_cmd_resp(0x03)
+        result: BMSInfo = {"sw_version": f"{self._msg[22] >> 4}.{self._msg[22] & 0xF}"}
         await self._await_cmd_resp(0x05)
-        length: Final[int] = self._msg[3]
-        return {
-            "hw_version": b2str(self._msg[4 : length + 4]),
-        }
+        result["hw_version"] = b2str(self._msg[4 : self._msg[3] + 4])
+        return result
 
     def _notify_init_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -233,12 +235,12 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        data: BMSSample = {}
+        result: BMSSample = {}
         await self._await_cmd_resp(0x03)
-        data = BMS._decode_data(BMS._FIELDS, self._msg)
-        data["temp_values"] = BMS._temp_values(
+        result = BMS._decode_data(BMS._FIELDS, self._msg)
+        result["temp_values"] = BMS._temp_values(
             self._msg,
-            values=data.get("temp_sensors", 0),
+            values=result.get("temp_sensors", 0),
             start=27,
             signed=False,
             offset=2731,
@@ -246,8 +248,8 @@ class BMS(BaseBMS):
         )
 
         await self._await_cmd_resp(0x04)
-        data["cell_voltages"] = BMS._cell_voltages(
-            self._msg, cells=self._msg[3] // 2, start=4, byteorder="big"
+        result["cell_voltages"] = BMS._cell_voltages(
+            self._msg, cells=result.get("cell_count", 0), start=4, byteorder="big"
         )
 
-        return data
+        return result

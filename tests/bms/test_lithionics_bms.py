@@ -86,7 +86,7 @@ class MockLithionicsBleakClient(MockBleakClient):
         """Mock start_notify."""
         await super().start_notify(char_specifier, callback)
         self._task = asyncio.create_task(self._notify())
-        await asyncio.sleep(0) # yield control to allow task to start
+        await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
@@ -172,9 +172,7 @@ async def test_invalid_frame_length(
     """Test handling of frames exceeding BLE_MAX_ATTR_SIZE in notification handler."""
     patch_bms_timeout("lithionics_bms")
     monkeypatch.setattr(
-        MockLithionicsBleakClient,
-        "_RESP",
-        bytearray(b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1)),
+        MockLithionicsBleakClient, "_RESP", b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1)
     )
     patch_bleak_client(MockLithionicsBleakClient)
 
@@ -196,6 +194,26 @@ def test_uuid_tx_not_implemented() -> None:
     """Test that TX UUID is intentionally not implemented for stream-only protocol."""
     with pytest.raises(NotImplementedError):
         BMS.uuid_tx()
+
+
+async def test_non_numeric_field_raises_value_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+) -> None:
+    """Test that a non-numeric (but correctly shaped) primary field raises ValueError."""
+    stream: bytes = (
+        b"1x,350,350,350,349,55,48,-3,99,000000\r\n"
+        b"&,1,319,006391,0136,2300,FF05,8700\r\n"
+    )
+    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", stream)
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device(name="Lithionics"))
+
+    with pytest.raises(ValueError, match="BMS data incomplete"):
+        await bms.async_update()
+
+    await bms.disconnect()
 
 
 @pytest.mark.parametrize(

@@ -7,7 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from collections.abc import Callable
 from functools import lru_cache
 from struct import unpack_from
-from typing import Any, Final, Literal
+from typing import Any, Final, Literal, NamedTuple
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -29,6 +29,17 @@ class BMS(BaseBMS):
 
     type FieldList = tuple[tuple[BMSValue, int, str, Callable[[int], Any]], ...]
 
+    class BMSDp(NamedTuple):
+        """Representation of main BMS data point."""
+
+        key: BMSValue
+        pos: int  # position within the message
+        fmt: str  # type conversion
+        fct: Callable[[int], Any] = (
+            lambda x: x
+        )  # conversion function (default do nothing)
+        idx: int = -1  # array index containing the message to be parsed
+
     INFO: BMSInfo = {"default_manufacturer": "Neey", "default_model": "Balancer"}
     _BT_MODULE_MSG: Final = b"\x41\x54\x0d\x0a"  # AT\r\n from BLE module
     _HEAD_RSP: Final = b"\x55\xaa\x11\x01"  # start, dev addr, read cmd
@@ -36,27 +47,27 @@ class BMS(BaseBMS):
     _TAIL: Final[int] = 0xFF  # end of message
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _MIN_FRAME: Final[int] = 10  # header length
-    _FIELDS: Final[FieldList] = (
-        ("voltage", 201, "<f", lambda x: round(x, 3)),
-        ("delta_voltage", 209, "<f", lambda x: round(x, 3)),
-        ("problem_code", 216, "B", lambda x: x if x in {1, 3, 7, 8, 9, 10, 11} else 0),
-        ("balancer", 216, "B", lambda x: (x == 0x5)),
-        ("balance_current", 218, "<f", lambda x: round(x, 3)),
-        ("current", 222, "<f", lambda x: round(x, 3)),
-        ("design_capacity", 242, "<f", int),
-        ("cycle_charge", 246, "<f", lambda x: round(x, 3)),
-        ("battery_level", 250, "<f", lambda x: round(x, 3)),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 201, "<f", lambda x: round(x, 3)),
+        BMSDp("delta_voltage", 209, "<f", lambda x: round(x, 3)),
+        BMSDp("problem_code", 216, "B", lambda x: x if x in {1, 3, 7, 8, 9, 10, 11} else 0),
+        BMSDp("balancer", 216, "B", lambda x: (x == 0x5)),
+        BMSDp("balance_current", 218, "<f", lambda x: round(x, 3)),
+        BMSDp("current", 222, "<f", lambda x: round(x, 3)),
+        BMSDp("design_capacity", 242, "<f", int),
+        BMSDp("cycle_charge", 246, "<f", lambda x: round(x, 3)),
+        BMSDp("battery_level", 250, "<f", lambda x: round(x, 3)),
     )
-    _FIELDS_v1: Final[FieldList] = (
+    _FIELDS_v1: Final[tuple[BMSDp, ...]] = (
         *_FIELDS[:4],
-        ("balance_current", 217, "<f", lambda x: round(x, 3)),
+        BMSDp("balance_current", 217, "<f", lambda x: round(x, 3)),
     )
 
     def __init__(
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -134,6 +145,7 @@ class BMS(BaseBMS):
 
         if not self._frame.startswith(BMS._HEAD_RSP):
             self._log.debug("incorrect SOF")
+            self._frame.clear()
             return
 
         # trim message in case oversized
@@ -143,6 +155,7 @@ class BMS(BaseBMS):
 
         if self._frame[-1] != BMS._TAIL:
             self._log.debug("incorrect EOF")
+            self._frame.clear()
             return
 
         # check that message type is expected
@@ -158,6 +171,7 @@ class BMS(BaseBMS):
         if not self._check_integrity(
             self._frame, crc_sum, slice(None, -2), slice(-2, -1)
         ):
+            self._frame.clear()
             return
 
         self._msg = bytes(self._frame)
@@ -244,10 +258,10 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _conv_data(fields: FieldList, data: bytes) -> BMSSample:
+    def _conv_data(fields: tuple[BMSDp, ...], data: bytes) -> BMSSample:
         """Return BMS data from status message."""
         result: BMSSample = {}
-        for key, idx, fmt, func in fields:
-            result[key] = func(unpack_from(fmt, data, idx)[0])
+        for field in fields:
+            result[field.key] = field.fct(unpack_from(field.fmt, data, field.pos)[0])
 
         return result
