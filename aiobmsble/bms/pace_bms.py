@@ -28,6 +28,7 @@ class BMS(BaseBMS):
     _TAIL: Final[bytes] = b"\x9d"
     _FRM_TYPE: Final[slice] = slice(1, 7)
     _MIN_LEN: Final[int] = 11  # minimal frame length
+    _CELL_POS: Final[int] = 12  # position of first cell voltage
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 1, 4, True, lambda x: x / 100),
         BMSDp("voltage", 5, 4, False, lambda x: x / 100),
@@ -44,7 +45,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -73,13 +74,22 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
+        _SW_VER_POS: Final[int] = 10
+        _HW_VER_POS: Final[int] = 65
+
         result: BMSInfo = BMSInfo()
         await self._await_msg(self._cmd(b"\x00\x00\x00\x02\x00\x00"))
         length: int = self._msg[8]
         result["serial_number"] = b2str(self._msg[9 : 9 + length])
         await self._await_msg(self._cmd(b"\x00\x00\x00\x01\x00\x00"))
-        result["sw_version"] = b2str(self._msg[10 : 10 + self._msg[9]])
-        result["hw_version"] = b2str(self._msg[65 : 65 + self._msg[64]])
+        if len(self._msg) < _HW_VER_POS:
+            raise ValueError("BMS data incomplete.")
+        result["sw_version"] = b2str(
+            self._msg[_SW_VER_POS : _SW_VER_POS + self._msg[_SW_VER_POS - 1]]
+        )
+        result["hw_version"] = b2str(
+            self._msg[_HW_VER_POS : _HW_VER_POS + self._msg[_HW_VER_POS - 1]]
+        )
         return result
 
     def _notification_handler(
@@ -133,9 +143,11 @@ class BMS(BaseBMS):
             BMS._FIELDS, self._msg, byteorder="big", start=8
         )
         await self._await_msg(BMS._cmd(b"\x00\x00\x0a\x02\x00\x00", b"\x01\x01"))
-        result["cell_count"] = self._msg[11]
+        if len(self._msg) < BMS._CELL_POS:
+            raise ValueError("BMS data incomplete.")
+        result["cell_count"] = self._msg[BMS._CELL_POS - 1]
         result["cell_voltages"] = BMS._cell_voltages(
-            self._msg, cells=result["cell_count"], start=12, gap=2
+            self._msg, cells=result["cell_count"], start=BMS._CELL_POS, gap=2
         )
         result["temp_values"] = BMS._temp_values(
             self._msg,
