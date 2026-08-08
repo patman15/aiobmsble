@@ -101,7 +101,7 @@ class BMS(BaseBMS):
             ]
             + [  # Chins/MOBILEKTRO Battery "G-{voltage}V{capacity}Ah-{serial}"
                 MatcherPattern(
-                    local_name="G-[0-5][2-8]V[0-9]*A[H|h]-[0-9]*", connectable=True
+                    local_name="G-[0-5][2-8]V[0-9]*A[Hh]-[0-9]*", connectable=True
                 ),
             ]
         )
