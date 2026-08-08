@@ -1,6 +1,7 @@
 """Test the TDT implementation."""
 
 from collections.abc import Buffer
+from copy import deepcopy
 from typing import Final
 from uuid import UUID
 
@@ -17,19 +18,19 @@ from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 27
 
-_PROTO_DEFS: Final[dict[str, dict[int, bytearray]]] = {
+_PROTO_DEFS: Final[dict[str, dict[int, bytes]]] = {
     "4S4Tv0.0": {
-        0x8C: bytearray(  # 4 cell message
+        0x8C: (  # 4 cell message
             b"\x7e\x00\x01\x03\x00\x8c\x00\x20\x04\x0c\xe1\x0c\xdf\x0c\xe1\x0c"
             b"\xdc\x04\x0b\x93\x0b\x9b\x0b\x8d\x0b\x8c\x40\x00\x05\x26\x02\x3f"
             b"\x04\x1c\x00\x08\x03\xe8\x00\x37\x91\x91\x0d"
         ),
-        0x8D: bytearray(
+        0x8D: (
             b"\x7e\x00\x41\x03\x00\x8d\x00\x18\x04\x00\x00\x00\x00\x04\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x06\x09\x00\x00\x18\x00\x00\x00"
             b"\xdf\x68\x0d"
         ),
-        0x95: bytearray(
+        0x95: (
             b"\x0e\x2c\x00\x03\xa1\xde\x06\x0a\x03\x20\x3d\x31\x00\x7d\xdf\xc5"
             b"\xa5\x6f\x9b\x9a\xaf\x0e\x19\x15\x00\x04\x00\x12\x14\x00\x7e\x00"
             b"\x01\x06\x00\x95\x00\x07\x07\xe8\x0b\x16\x0e\x07\x08\xc9\x41\x0d"
@@ -37,18 +38,18 @@ _PROTO_DEFS: Final[dict[str, dict[int, bytearray]]] = {
         ),
     },
     "16S6Tv0.0": {
-        0x8C: bytearray(  # 16 cell message
+        0x8C: (  # 16 cell message
             b"\x7e\x00\x01\x03\x00\x8c\x00\x3c\x10\x0c\xe3\x0c\xe6\x0c\xde\x0c\xde\x0c\xdd\x0c"
             b"\xde\x0c\xdd\x0c\xdc\x0c\xdc\x0c\xda\x0c\xde\x0c\xde\x0c\xde\x0c\xdd\x0c\xdf\x0c"
             b"\xde\x06\x0b\x5e\x0b\x6f\x0b\x5e\x0b\x5e\x0b\x5e\x0b\x66\xc0\x39\x14\x96\x03\xdf"
             b"\x04\x3b\x00\x08\x03\xe8\x00\x5b\x2b\x9c\x0d"
         ),
-        0x8D: bytearray(
+        0x8D: (
             b"\x7e\x00\x01\x03\x00\x8d\x00\x27\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x0e\x01"
             b"\x00\x00\x18\x00\x00\x00\x00\x0b\x7b\x0d"
         ),
-        0x92: bytearray(
+        0x92: (
             b"\x7e\x00\x01\x03\x00\x92\x00\x3c\x36\x30\x33\x32\x5f\x31\x30\x30\x31\x36\x53\x30"
             b"\x30\x30\x5f\x4c\x5f\x34\x31\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x36\x30\x33\x32\x36\x30\x31\x36\x32\x30\x37\x32"
@@ -56,16 +57,35 @@ _PROTO_DEFS: Final[dict[str, dict[int, bytearray]]] = {
         ),
     },
     "16S6Tv0.4": {  # version 0.4
-        0x8C: bytearray(  # 16 cell message
+        0x8C: (  # 16 cell message
             b"\x7e\x04\x01\x03\x00\x8c\x00\x3c\x10\x0c\xb2\x0c\xb8\x0c\xb5\x0c\xb8\x0c\xb4\x0c"
             b"\xb6\x0c\xb8\x0c\xb9\x0c\xb5\x0c\xb9\x0c\xb9\x0c\xb9\x0c\xba\x0c\xb7\x0c\xb7\x0c"
             b"\xb8\x06\x0b\xa9\x0b\xa6\x0b\xb8\x0b\xae\x0b\xc2\x0b\xbb\xc0\xa2\x14\x60\x02\x85"
             b"\x04\xfa\x00\xd5\x04\xb0\x00\x33\x2f\xb4\x0d"
         ),
-        0x8D: bytearray(
+        0x8D: (
             b"\x7e\x04\x01\x03\x00\x8d\x00\x27\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x0e\xfe"
             b"\x00\x00\x00\x00\x00\x00\x00\x3f\x56\x0d"
+        ),
+    },
+    "16S6Tv1.1": {
+        0x8C: (
+            b"\x7e\x00\x01\x03\x00\x8c\x00\x3c\x10\x0c\xf5\x0c\xf2\x0c\xf3\x0c\xf3\x0c\xf0\x0c"
+            b"\xf4\x0c\xf2\x0c\xf0\x0c\xf2\x0c\xf3\x0c\xf2\x0c\xf1\x0c\xf1\x0c\xf1\x0c\xf2\x0c"
+            b"\xef\x06\x0b\xb8\x0b\xcc\x0b\xae\x0b\xae\x0b\xae\x0b\xae\x00\x05\x14\xb7\x00\x31"
+            b"\x00\x63\x00\x0c\x00\x64\x00\x32\x13\x62\x0d"
+        ),
+        0x8D: (  # device seems to send wrong CRC with this message
+            b"\x7e\x00\x01\x03\x00\x8d\x00\x31\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x06\x00\x00\xf1\xf1\xf1\xf1\x00\x00\x00\x01\x00\x00\x06\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\xd5\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x52\x0d"
+        ),
+        0x92: (
+            b"\x7e\x00\x01\x03\x00\x92\x00\x3c\x31\x2e\x31\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x34\x30\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x30\x30\x30\x31\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x12\x5a\x0d"
         ),
     },
 }
@@ -177,10 +197,57 @@ def ref_value() -> dict[str, BMSSample]:
             "dischrg_mosfet": True,
             "problem": False,
         },
+        "16S6Tv1.1": {
+            "cell_count": 16,
+            "temp_sensors": 6,
+            "cell_voltages": [
+                3.317,
+                3.314,
+                3.315,
+                3.315,
+                3.312,
+                3.316,
+                3.314,
+                3.312,
+                3.314,
+                3.315,
+                3.314,
+                3.313,
+                3.313,
+                3.313,
+                3.314,
+                3.311,
+            ],
+            "temp_values": [
+                TS(26.9, TS.T.AMBIENT),
+                TS(28.9, TS.T.MOSFET),
+                TS(25.9, TS.T.CELL),
+                TS(25.9, TS.T.CELL),
+                TS(25.9, TS.T.CELL),
+                TS(25.9, TS.T.CELL),
+            ],
+            "voltage": 53.03,
+            "current": 5,
+            "cycle_charge": 49,
+            "battery_level": 50,
+            "cycles": 12,
+            "problem_code": 0,
+            "chrg_mosfet": True,
+            "dischrg_mosfet": True,
+            "delta_voltage": 0.006,
+            "cycle_capacity": 2598.47,
+            "power": 265.15,
+            "battery_charging": True,
+            "temperature": 26.567,
+            "problem": False,
+        },
     }
 
 
-@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
+@pytest.fixture(
+    name="protocol_type",
+    params=["4S4Tv0.0", "16S6Tv0.0", "16S6Tv0.4", "16S6Tv1.1"],
+)
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
     assert isinstance(request.param, str)
@@ -203,7 +270,7 @@ class MockTDTBleakClient(MockBleakClient):
         0x8D: b"\x00\x01\x03\x00\x8d\x00\x00",
         0x92: b"\x00\x01\x03\x00\x92\x00\x00",
     }
-    RESP: Final[dict[int, bytearray]] = _PROTO_DEFS["16S6Tv0.0"]
+    RESP: Final[dict[int, bytes]] = deepcopy(_PROTO_DEFS["16S6Tv0.0"])
 
     _char_fffa: int = 0x0  # return value for UUID "fffa"
 
@@ -217,8 +284,8 @@ class MockTDTBleakClient(MockBleakClient):
             and bytes(data)[-1] == self.TAIL_CMD
         ):
             for k, v in self.CMDS.items():
-                if bytes(data)[1:].startswith(v) and k in self.RESP:
-                    return self.RESP[k]
+                if bytes(data)[1:].startswith(v) and (k in self.RESP):
+                    return bytearray(self.RESP[k])
 
         return bytearray()
 
@@ -266,12 +333,14 @@ class MockTDTBleakClient(MockBleakClient):
 
 async def test_update(
     monkeypatch: pytest.MonkeyPatch,
+    patch_bms_timeout,
     patch_bleak_client,
     protocol_type: str,
     keep_alive_fixture: bool,
 ) -> None:
     """Test TDT BMS data update."""
 
+    patch_bms_timeout()  # required for header detection
     monkeypatch.setattr(MockTDTBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockTDTBleakClient)
 
@@ -294,13 +363,13 @@ async def test_update_0x1e_head(
 ) -> None:
     """Test TDT BMS data update."""
 
-    resp_0x1e: Final[dict[int, bytearray]] = {
-        0x8C: bytearray(  # 4 cell message
+    resp_0x1e: Final[dict[int, bytes]] = {
+        0x8C: (  # 4 cell message
             b"\x7e\x00\x01\x03\x00\x8c\x00\x20\x04\x0c\xe1\x0c\xdf\x0c\xe1\x0c"
             b"\xdc\x04\x0b\x93\x0b\x9b\x0b\x8d\x0b\x8c\x40\x00\x05\x26\x02\x3f"
             b"\x04\x1c\x00\x08\x03\xe8\x00\x37\x91\x91\x0d"
         ),
-        0x8D: bytearray(  # independent of the query, reply header is always 0x7E
+        0x8D: (  # independent of the query, reply header is always 0x7E
             b"\x7e\x00\x41\x03\x00\x8d\x00\x18\x04\x00\x00\x00\x00\x04\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x06\x09\x00\x00\x18\x00\x00\x00"
             b"\xdf\x68\x0d"
@@ -347,17 +416,25 @@ async def test_device_info(
             "sw_version": "mock_SW_version",
         }
         if protocol_type in ("4S4Tv0.0", "16S6Tv0.4")
-        else {
-            "sw_version": "6032_10016S000_L_41",
-            "manufacturer": "",
-            "serial_number": "60326016207270001",
-        }
+        else (
+            {
+                "sw_version": "6032_10016S000_L_41",
+                "manufacturer": "",
+                "serial_number": "60326016207270001",
+            }
+            if protocol_type == "16S6Tv0.0"
+            else {
+                "sw_version": "1.1",
+                "manufacturer": "40",
+                "serial_number": "0001",
+            }
+        )
     )
 
 
-@pytest.fixture(
-    name="wrong_response",
-    params=[
+@pytest.mark.parametrize(
+    ("wrong_response"),
+    [
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x18\x00", "invalid frame end"),
         (b"\x7e\x10\x01\x03\x00\x8c\x00\x01\x00\xad\x19\x0d", "invalid version"),
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x00\x0d", "invalid CRC"),
@@ -368,23 +445,49 @@ async def test_device_info(
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytes:
-    """Return faulty response frame."""
-    return bytes(request.param[0])
-
-
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
     wrong_response: bytes,
 ) -> None:
-    """Test data up date with BMS returning invalid data."""
+    """Test data update with BMS returning invalid data."""
 
     patch_bms_timeout()
 
     monkeypatch.setattr(
-        MockTDTBleakClient, "_response", lambda _s, _c, _d: wrong_response
+        MockTDTBleakClient, "RESP", MockTDTBleakClient.RESP | {0x8C: wrong_response[0]}
+    )
+
+    patch_bleak_client(MockTDTBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = {}
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
+
+    assert not result
+    await bms.disconnect()
+
+
+async def test_incorrect_CRC(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+) -> None:
+    """Test BMS returning invalid CRC on 0x8D frame, while expected to be correct."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(
+        MockTDTBleakClient,
+        "RESP",
+        MockTDTBleakClient.RESP
+        | {
+            0x8D: b"\x7e\x04\x01\x03\x00\x8d\x00\x27\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x0e\xfe"
+            b"\x00\x00\x00\x00\x00\x00\x00\x3f\xff\x0d"
+        },
     )
 
     patch_bleak_client(MockTDTBleakClient)
@@ -405,10 +508,10 @@ async def test_init_fail(
 ) -> None:
     """Test that failing to initialize simply continues and tries to read data."""
 
-    async def error_repsonse(*_args, **_kwargs) -> bytearray:
-        return bytearray(1)
+    async def error_repsonse(*_args, **_kwargs) -> bytes:
+        return b"\x00"
 
-    async def throw_response(*_args, **_kwargs) -> bytearray:
+    async def throw_response(*_args, **_kwargs) -> bytes:
         raise BleakDeviceNotFoundError("MockTDTBleakClient")
 
     monkeypatch.setattr(MockTDTBleakClient, "RESP", _PROTO_DEFS["16S6Tv0.0"])
@@ -435,13 +538,9 @@ async def test_init_fail(
     name="problem_response",
     params=[
         (
-            {
-                0x8C: bytearray(  # 4 cell message
-                    b"\x7e\x00\x01\x03\x00\x8c\x00\x20\x04\x0c\xe1\x0c\xdf\x0c\xe1\x0c"
-                    b"\xdc\x04\x0b\x93\x0b\x9b\x0b\x8d\x0b\x8c\x40\x00\x05\x26\x02\x3f"
-                    b"\x04\x1c\x00\x08\x03\xe8\x00\x37\x91\x91\x0d"
-                ),
-                0x8D: bytearray(
+            {  # 4 cell messages
+                0x8C: (_PROTO_DEFS["4S4Tv0.0"][0x8C]),
+                0x8D: (
                     b"\x7e\x00\x41\x03\x00\x8d\x00\x18\x04\x00\x00\x00\x00\x04\x00\x00"
                     b"\x00\x00\x00\x00\x00\x00\x00\x01\x06\x09\x00\x00\x18\x00\x00\x00"
                     b"\x4f\x65\x0d"  #          ^^  ^^ problem bits
@@ -450,13 +549,9 @@ async def test_init_fail(
             "first_bit_4cell",
         ),
         (
-            {
-                0x8C: bytearray(  # 4 cell message
-                    b"\x7e\x00\x01\x03\x00\x8c\x00\x20\x04\x0c\xe1\x0c\xdf\x0c\xe1\x0c"
-                    b"\xdc\x04\x0b\x93\x0b\x9b\x0b\x8d\x0b\x8c\x40\x00\x05\x26\x02\x3f"
-                    b"\x04\x1c\x00\x08\x03\xe8\x00\x37\x91\x91\x0d"
-                ),
-                0x8D: bytearray(
+            {  # 4 cell messages
+                0x8C: (_PROTO_DEFS["4S4Tv0.0"][0x8C]),
+                0x8D: (
                     b"\x7e\x00\x41\x03\x00\x8d\x00\x18\x04\x00\x00\x00\x00\x04\x00\x00"
                     b"\x00\x00\x00\x00\x00\x00\x80\x00\x06\x09\x00\x00\x18\x00\x00\x00"
                     b"\x37\x6f\x0d"  #          ^^  ^^ problem bits
@@ -465,14 +560,9 @@ async def test_init_fail(
             "last_bit_4cell",
         ),
         (
-            {
-                0x8C: bytearray(  # 16 cell message
-                    b"\x7e\x00\x01\x03\x00\x8c\x00\x3c\x10\x0c\xe3\x0c\xe6\x0c\xde\x0c\xde\x0c\xdd"
-                    b"\x0c\xde\x0c\xdd\x0c\xdc\x0c\xdc\x0c\xda\x0c\xde\x0c\xde\x0c\xde\x0c\xdd\x0c"
-                    b"\xdf\x0c\xde\x06\x0b\x5e\x0b\x6f\x0b\x5e\x0b\x5e\x0b\x5e\x0b\x66\xc0\x39\x14"
-                    b"\x96\x03\xdf\x04\x3b\x00\x08\x03\xe8\x00\x5b\x2b\x9c\x0d"
-                ),
-                0x8D: bytearray(
+            {  # 16 cell message
+                0x8C: (_PROTO_DEFS["16S6Tv0.0"][0x8C]),
+                0x8D: (
                     b"\x7e\x00\x01\x03\x00\x8d\x00\x27\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
                     b"\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01"
                     b"\x0e\x01\x00\x00\x18\x00\x00\x00\x00\xce\x2a\x0d"  #     problem bits ^^  ^^
@@ -481,14 +571,9 @@ async def test_init_fail(
             "first_bit_16cell",
         ),
         (
-            {
-                0x8C: bytearray(  # 16 cell message
-                    b"\x7e\x00\x01\x03\x00\x8c\x00\x3c\x10\x0c\xe3\x0c\xe6\x0c\xde\x0c\xde\x0c\xdd"
-                    b"\x0c\xde\x0c\xdd\x0c\xdc\x0c\xdc\x0c\xda\x0c\xde\x0c\xde\x0c\xde\x0c\xdd\x0c"
-                    b"\xdf\x0c\xde\x06\x0b\x5e\x0b\x6f\x0b\x5e\x0b\x5e\x0b\x5e\x0b\x66\xc0\x39\x14"
-                    b"\x96\x03\xdf\x04\x3b\x00\x08\x03\xe8\x00\x5b\x2b\x9c\x0d"
-                ),
-                0x8D: bytearray(
+            {  # 16 cell message
+                0x8C: (_PROTO_DEFS["16S6Tv0.0"][0x8C]),
+                0x8D: (
                     b"\x7e\x00\x01\x03\x00\x8d\x00\x27\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
                     b"\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x80\x00"
                     b"\x0e\x01\x00\x00\x18\x00\x00\x00\x00\xc9\xd2\x0d"  #     problem bits ^^  ^^
@@ -501,7 +586,7 @@ async def test_init_fail(
 )
 def prb_response(
     request: pytest.FixtureRequest,
-) -> tuple[dict[int, bytearray], str]:
+) -> tuple[dict[int, bytes], str]:
     """Return faulty response frame."""
     assert isinstance(request.param, tuple)
     return request.param
@@ -510,10 +595,12 @@ def prb_response(
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    problem_response: tuple[dict[int, bytearray], str],
+    patch_bms_timeout,
+    problem_response: tuple[dict[int, bytes], str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
+    patch_bms_timeout()
     monkeypatch.setattr(MockTDTBleakClient, "RESP", problem_response[0])
     patch_bleak_client(MockTDTBleakClient)
 
