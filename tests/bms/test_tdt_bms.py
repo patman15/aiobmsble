@@ -333,12 +333,14 @@ class MockTDTBleakClient(MockBleakClient):
 
 async def test_update(
     monkeypatch: pytest.MonkeyPatch,
+    patch_bms_timeout,
     patch_bleak_client,
     protocol_type: str,
     keep_alive_fixture: bool,
 ) -> None:
     """Test TDT BMS data update."""
 
+    patch_bms_timeout()  # required for header detection
     monkeypatch.setattr(MockTDTBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockTDTBleakClient)
 
@@ -430,9 +432,9 @@ async def test_device_info(
     )
 
 
-@pytest.fixture(
-    name="wrong_response",
-    params=[
+@pytest.mark.parametrize(
+    ("wrong_response"),
+    [
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x18\x00", "invalid frame end"),
         (b"\x7e\x10\x01\x03\x00\x8c\x00\x01\x00\xad\x19\x0d", "invalid version"),
         (b"\x7e\x00\x01\x03\x00\x8c\x00\x01\x00\xa1\x00\x0d", "invalid CRC"),
@@ -443,23 +445,49 @@ async def test_device_info(
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytes:
-    """Return faulty response frame."""
-    return bytes(request.param[0])
-
-
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
     wrong_response: bytes,
 ) -> None:
-    """Test data up date with BMS returning invalid data."""
+    """Test data update with BMS returning invalid data."""
 
     patch_bms_timeout()
 
     monkeypatch.setattr(
-        MockTDTBleakClient, "_response", lambda _s, _c, _d: wrong_response
+        MockTDTBleakClient, "RESP", MockTDTBleakClient.RESP | {0x8C: wrong_response[0]}
+    )
+
+    patch_bleak_client(MockTDTBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = {}
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
+
+    assert not result
+    await bms.disconnect()
+
+
+async def test_incorrect_CRC(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+) -> None:
+    """Test BMS returning invalid CRC on 0x8D frame, while expected to be correct."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(
+        MockTDTBleakClient,
+        "RESP",
+        MockTDTBleakClient.RESP
+        | {
+            0x8D: b"\x7e\x04\x01\x03\x00\x8d\x00\x27\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x0e\xfe"
+            b"\x00\x00\x00\x00\x00\x00\x00\x3f\xff\x0d"
+        },
     )
 
     patch_bleak_client(MockTDTBleakClient)
