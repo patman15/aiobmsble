@@ -230,7 +230,7 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[2],
 )
-def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, int, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytes, int, str]:
     """Return faulty response frame."""
     assert isinstance(request.param, tuple)
     return request.param
@@ -239,14 +239,14 @@ def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, int, str]:
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    problem_response: tuple[bytearray, int, str],
+    problem_response: tuple[bytes, int, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
     monkeypatch.setattr(
         MockBraunPWRBleakClient,
         "RESP",
-        MockBraunPWRBleakClient.RESP | {0x1: bytearray(problem_response[0])},
+        MockBraunPWRBleakClient.RESP | {0x1: bytes(problem_response[0])},
     )
 
     patch_bleak_client(MockBraunPWRBleakClient)

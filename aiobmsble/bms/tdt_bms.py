@@ -146,7 +146,7 @@ class BMS(BaseBMS):
             and data[0] == BMS._RSP_HEAD
             and len(self._frame) >= self._exp_len
         ):
-            self._exp_len = BMS._INFO_LEN + int.from_bytes(data[6:8])
+            self._exp_len = min(BMS._INFO_LEN + int.from_bytes(data[6:8]), BMS._MAX_MSG_LEN)
             self._frame.clear()
 
         self._frame.extend(data)

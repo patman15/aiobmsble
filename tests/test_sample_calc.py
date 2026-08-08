@@ -4,8 +4,8 @@ from typing import Final, cast
 
 import pytest
 
-from aiobmsble import BMSSample, BMSValue, sample_calc
-from aiobmsble.sample_calc import _C, _validated_calculation_registry, derive_from_packs
+from aiobmsble import BMSSample, BMSValue, _sample_calc
+from aiobmsble._sample_calc import _C, _validated_calc_registry, derive_from_packs
 
 
 def _noop_formula(_data: BMSSample) -> bool:
@@ -65,13 +65,13 @@ def test_validated_calculation_registry_invalid_entries(
     def _mock_registry() -> tuple[_C, ...]:
         return registry
 
-    _validated_calculation_registry.cache_clear()
-    monkeypatch.setattr(sample_calc, "BMSSample_Calc_registry", _mock_registry)
+    _validated_calc_registry.cache_clear()
+    monkeypatch.setattr(_sample_calc, "BMSSample_Calc_registry", _mock_registry)
 
     with pytest.raises(ValueError, match=error):
-        _validated_calculation_registry()
+        _validated_calc_registry()
 
-    _validated_calculation_registry.cache_clear()
+    _validated_calc_registry.cache_clear()
 
 
 def test_validated_calculation_registry_valid_entry(
@@ -85,12 +85,12 @@ def test_validated_calculation_registry_valid_entry(
     def _mock_registry() -> tuple[_C, ...]:
         return registry
 
-    _validated_calculation_registry.cache_clear()
-    monkeypatch.setattr(sample_calc, "BMSSample_Calc_registry", _mock_registry)
+    _validated_calc_registry.cache_clear()
+    monkeypatch.setattr(_sample_calc, "BMSSample_Calc_registry", _mock_registry)
 
-    assert _validated_calculation_registry() == registry
+    assert _validated_calc_registry() == registry
 
-    _validated_calculation_registry.cache_clear()
+    _validated_calc_registry.cache_clear()
 
 
 # Test derive_from_packs() functionality.
@@ -362,7 +362,7 @@ def test_derive_from_packs_single_pack() -> None:
 def test_battery_level_missing_design_capacity() -> None:
     """Check battery_level is not derived when design_capacity is absent."""
     data: BMSSample = {"cycle_charge": 20.0}
-    sample_calc.derive_missing_fields(data)
+    _sample_calc.derive_missing_fields(data)
 
     assert data == {"cycle_charge": 20.0}
 
@@ -370,7 +370,7 @@ def test_battery_level_missing_design_capacity() -> None:
 def test_cycles_missing_design_capacity() -> None:
     """Check cycles is not derived when design_capacity is absent."""
     data: BMSSample = {"total_charge": 500}
-    sample_calc.derive_missing_fields(data)
+    _sample_calc.derive_missing_fields(data)
 
     assert data == {"total_charge": 500}
 
@@ -382,7 +382,7 @@ def test_design_capacity_zero_multiple_calcs() -> None:
         "cycle_charge": 20.0,
         "total_charge": 500,
     }
-    sample_calc.derive_missing_fields(data)
+    _sample_calc.derive_missing_fields(data)
 
     assert data == {
         "design_capacity": 0,
