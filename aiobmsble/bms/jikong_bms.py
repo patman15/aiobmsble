@@ -110,7 +110,7 @@ class BMS(BaseBMS):
         }
 
     def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
+        self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Retrieve BMS data update."""
 
@@ -127,13 +127,6 @@ class BMS(BaseBMS):
 
         self._frame.extend(data)
 
-        self._log.debug(
-            "notify instance=%#x Bleak instance=%#x sender=%r handle=%s ",
-            id(self),
-            id(self._client),
-            sender,
-            getattr(sender, "handle", None),
-        )
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )

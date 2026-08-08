@@ -337,10 +337,6 @@ class BaseBMS(ABC):
                     services=[*self.uuid_services(), "180a"],
                 )
 
-                self._log.debug(
-                    "notify instance=%#x Bleak instance=%#x", id(self), id(self._client)
-                )
-
                 if self._log.isEnabledFor(logging.DEBUG):
                     gatt: str = await self.get_GATT_profile()
                     self._log.debug(
