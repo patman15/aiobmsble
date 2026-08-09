@@ -152,7 +152,7 @@ class BMS(BaseBMS):
             + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
             wait_for_notify=True,
         )
-        self._exp_reply = b"MST+NET"
+        self._exp_reply = b"MST+NET="
         await self._await_msg(b"APP+NET", wait_for_notify=True)
         self._msg_event.clear()
 
@@ -185,7 +185,7 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data from %s: %s", sender.uuid, data)
 
-        if self._exp_reply and bytes(data) == self._exp_reply:
+        if self._exp_reply and bytes(data).startswith(self._exp_reply):
             self._exp_reply = b""
             self._msg_event.set()
             return
