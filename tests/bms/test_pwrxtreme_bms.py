@@ -1,46 +1,50 @@
 """Test the PowerXtreme BMS implementation."""
 
+from collections.abc import Buffer
 from typing import Final
+from uuid import UUID
 
+from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.pwrxtreme_bms import BMS
 from tests.bluetooth import generate_ble_device
-from tests.bms.test_topband_bms import MockTopbandBleakClient
+from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
-BT_FRAME_SIZE = 32
+BT_FRAME_SIZE = 200
 
-_PROTO_DEFS: Final[dict[int, bytearray]] = {
-    0x5E: bytearray(  # PowerXtreme X210
-        b"\x5e\x43\x33\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x32\x30\x33\x43\x30"
-        b"\x33\x30\x30\x30\x31\x30\x30\x36\x34\x30\x30\x42\x34\x30\x42\x30\x30\x30\x30\x30\x31\x30"
-        b"\x30\x31\x30\x30\x44\x33\x43\x30\x44\x33\x44\x30\x44\x33\x41\x30\x44\x30\x30\x30\x30\x30"
+_PROTO_DEFS: Final[dict[int, bytes]] = {
+    0x5E: (  # PowerXtreme X210
+        b"\x5e\x32\x43\x33\x34\x30\x30\x30\x30\x45\x30\x46\x46\x46\x46\x46\x46\x32\x30\x33\x43\x30"
+        b"\x33\x30\x30\x30\x32\x30\x30\x36\x33\x30\x30\x37\x38\x30\x42\x30\x30\x30\x30\x30\x31\x30"
+        b"\x30\x30\x43\x30\x44\x30\x42\x30\x44\x30\x43\x30\x44\x30\x39\x30\x44\x30\x30\x30\x30\x30"
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-        b"\x33\x37\x32"
+        b"\x35\x45\x35"
     ),
 }
 
 
 _RESULT_DEFS: Final[dict[int, BMSSample]] = {
     0x5E: {
-        "voltage": 13.507,
-        "current": 0.0,
-        "battery_level": 100,
+        "voltage": 13.356,
+        "current": -3.2,
+        "battery_level": 99,
         "cycle_charge": 212.0,
-        "cycles": 1,
-        "temp_values": [TS(26.45, TS.T.GENERIC)],
+        "cycles": 2,
+        "temp_values": [TS(20.45, TS.T.GENERIC)],
         "problem_code": 0,
-        "cell_voltages": [3.344, 3.388, 3.389, 3.386],
+        "cell_voltages": [3.34, 3.339, 3.34, 3.337],
         "battery_charging": False,
         "cell_count": 4,
-        "delta_voltage": 0.045,
-        "temperature": 26.45,
-        "cycle_capacity": 2863.484,
-        "power": 0.0,
+        "delta_voltage": 0.003,
+        "temperature": 20.45,
+        "cycle_capacity": 2831.472,
+        "power": -42.739,
         "problem": False,
+        "runtime": 238500,
     }
 }
 
@@ -58,16 +62,47 @@ class TestBasicBMS(BMSBasicTests):
     bms_class = BMS
 
 
+class MockPwrXtremeBleakClient(MockBleakClient):
+    """Emulate a Topband BMS BleakClient."""
+
+    _RESP: bytes = _PROTO_DEFS[0x5E]
+
+    def _response(
+        self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
+    ) -> bytearray:
+        assert char_specifier == "fff2"
+
+        return bytearray(self._RESP)
+
+    async def write_gatt_char(
+        self,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        data: Buffer,
+        response: bool | None = None,
+    ) -> None:
+        """Issue write command to GATT."""
+
+        assert (
+            self._notify_callback
+        ), "write to characteristics but notification not enabled"
+
+        resp: Final[bytearray] = self._response(char_specifier, data)
+        for notify_data in [
+            resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
+        ]:
+            self._notify_callback("MockPaceBleakClient", notify_data)
+
+
 async def test_update(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     protocol_type: int,
     keep_alive_fixture: bool,
 ) -> None:
-    """Test Topband BMS data update."""
+    """Test PowerXtreme BMS data update."""
 
-    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
-    patch_bleak_client(MockTopbandBleakClient)
+    monkeypatch.setattr(MockPwrXtremeBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
+    patch_bleak_client(MockPwrXtremeBleakClient)
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
