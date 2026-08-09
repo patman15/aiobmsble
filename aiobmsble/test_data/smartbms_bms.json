@@ -1,0 +1,21 @@
+[
+  {
+    "advertisement": {
+      "local_name": "123\\SmartBMS",
+      "platform_data": ["E8:A2:C9:23:72:94"],
+      "rssi": -91,
+      "manufacturer_data": { "2330": "00060d02" },
+      "service_uuids": [
+        "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+      ]
+    },
+    "type": "smartbms_bms",
+    "_comments": [
+      "source https://github.com/patman15/BMS_BLE-HA/issues/542",
+      "123SmartBMS gen3 via Nordic UART bridge (nRF52810 UART AT Command)",
+      "RX 6e400002 (write-without-response, write, max 244 B), TX 6e400003 (notify)",
+      "also advertises Battery Service 180f, Tx Power 1804, Device Info 180a",
+      "manufacturer string: nRF52810 UART AT Command"
+    ]
+  }
+]
