@@ -109,7 +109,9 @@ class BMS(TopbandBMS):
         await super()._init_connection(char_notify)
 
         if self._alive_task is None or self._alive_task.done():
-            self._alive_task = asyncio.create_task(self._alive_loop())
+            self._alive_task = asyncio.create_task(
+                self._alive_loop(), name="BMS keep-alive"
+            )
 
     async def _disconnect(self, reset: bool) -> None:
         """Stop the keep-alive alive task, then disconnect."""
