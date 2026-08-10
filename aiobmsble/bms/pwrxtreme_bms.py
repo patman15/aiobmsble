@@ -72,10 +72,14 @@ class BMS(TopbandBMS):
         try:
             self._ctrl_proto = b"N"
             await self._await_msg(b"<N:NA>")
+            bms_info["serial_number"] = self._msg[2:].decode("ascii", errors="strict")
+        except TimeoutError:
+            self._log.debug("failed to fetch serial number")
+        except UnicodeError:
+            self._log.debug("failed to decode serial number")
         finally:
             self._ctrl_proto = b""
             self._msg_event.clear()
-        bms_info["serial_number"] = str(self._msg[2:])
 
         return bms_info
 

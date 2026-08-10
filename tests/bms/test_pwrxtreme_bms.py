@@ -86,11 +86,28 @@ class MockPwrXtremeBleakClient(MockBleakClient):
             self._notify_callback
         ), "write to characteristics but notification not enabled"
 
+        if bytes(data) == b"<N:NA>":
+            self._notify_callback("MockPwrXtremeBleakClient", b"<N:X210-24092528>")
+
         resp: Final[bytearray] = self._response(char_specifier, data)
         for notify_data in [
             resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
-            self._notify_callback("MockPaceBleakClient", notify_data)
+            self._notify_callback("MockPwrXtremeBleakClient", notify_data)
+
+
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(MockPwrXtremeBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {
+        "fw_version": "mock_FW_version",
+        "hw_version": "mock_HW_version",
+        "sw_version": "mock_SW_version",
+        "manufacturer": "mock_manufacturer",
+        "model": "mock_model",
+        "serial_number": "X210-24092528",
+    }
 
 
 async def test_update(
