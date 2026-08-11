@@ -132,8 +132,7 @@ class BMS(BaseBMS):
 
         await super()._init_connection()
         _bms_info: BMSInfo = await self._fetch_device_info()
-        if _bms_info.get("sw_version", "") == "1.1":
-            # too general? https://github.com/patman15/BMS_BLE-HA/issues/728#issuecomment-5099308860
+        if _bms_info.get("sw_version", "").startswith("1."):
             self._fields = self._merge_fields(BMS._FIELDS, BMS._FIELDS_v1)
 
     def _notification_handler(
