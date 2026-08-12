@@ -31,6 +31,7 @@ class BMS(BaseBMS):
 
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
+    _ALIVE_INTERVAL: Final[float] = 12.0  # seconds
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100, 0x02),
         BMSDp(
@@ -62,6 +63,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, config, logger_name)
+        self._alive_task: asyncio.Task[None] | None = None
         self._data_final: dict[int, dict[int, bytes]] = {}
         self._exp_reply: bytes = b""
 
@@ -106,6 +108,18 @@ class BMS(BaseBMS):
         """Normalize a Dometic Büttner characteristics UUID."""
         assert len(uuid) == 4
         return f"0000{uuid}-0000-1000-8000-008025000000"
+
+    async def _alive_loop(self) -> None:
+        """Continuously poll the module so it keeps streaming."""
+        try:
+            while True:
+                await asyncio.sleep(BMS._ALIVE_INTERVAL)
+                async with self._op_lock:
+                    await self._await_msg(b"APP+NET", wait_for_notify=False)
+        except asyncio.CancelledError:
+            return
+        except Exception as exc:  # noqa: BLE001 - keep-alive must not crash the loop
+            self._log.debug("alive loop stopped (%s)", type(exc).__name__)
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -155,6 +169,11 @@ class BMS(BaseBMS):
         self._exp_reply = b"MST+NET="
         await self._await_msg(b"APP+NET", wait_for_notify=True)
         self._msg_event.clear()
+
+        if self._alive_task is None or self._alive_task.done():
+            self._alive_task = asyncio.create_task(
+                self._alive_loop(), name="BMS keep-alive"
+            )
 
     async def _keep_alive_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
