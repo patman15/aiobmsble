@@ -89,6 +89,9 @@ class MockPwrXtremeBleakClient(MockBleakClient):
         if bytes(data) == b"<N:NA>":
             self._notify_callback("MockPwrXtremeBleakClient", b"<N:X210-24092528>")
 
+        if bytes(data) == b"<M:SR>":
+            self._notify_callback("MockPwrXtremeBleakClient", b"<M:EM01234567890123>")
+
         resp: Final[bytearray] = self._response(char_specifier, data)
         for notify_data in [
             resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
@@ -105,8 +108,8 @@ async def test_device_info(patch_bleak_client) -> None:
         "hw_version": "mock_HW_version",
         "sw_version": "mock_SW_version",
         "manufacturer": "mock_manufacturer",
-        "model": "mock_model",
-        "serial_number": "X210-24092528",
+        "model": "X210-24092528",
+        "serial_number": "EM01234567890123",
     }
 
 

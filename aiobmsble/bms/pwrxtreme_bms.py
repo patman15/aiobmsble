@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from typing import Final
+from typing import Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -68,18 +68,24 @@ class BMS(TopbandBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
+        info_cmd: tuple[tuple[bytes, Literal["serial_number", "model"]], ...] = (
+            (b"<M:SR>", "serial_number"),
+            (b"<N:NA>", "model"),
+        )
         bms_info: BMSInfo = await super()._fetch_device_info()
-        try:
-            self._ctrl_proto = b"N"
-            await self._await_msg(b"<N:NA>")
-            bms_info["serial_number"] = self._msg[2:].decode("ascii", errors="strict")
-        except TimeoutError:
-            self._log.debug("failed to fetch serial number")
-        except UnicodeError:
-            self._log.debug("failed to decode serial number")
-        finally:
-            self._ctrl_proto = b""
-            self._msg_event.clear()
+
+        for cmd, info in info_cmd:
+            try:
+                self._ctrl_proto = cmd[1:2]
+                await self._await_msg(cmd)
+                bms_info[info] = self._msg[2:].decode("ascii", errors="strict")
+            except TimeoutError:
+                self._log.debug("failed to fetch %s", info)
+            except UnicodeError:
+                self._log.debug("failed to decode %s", info)
+            finally:
+                self._ctrl_proto = b""
+                self._msg_event.clear()
 
         return bms_info
 
