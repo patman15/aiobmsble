@@ -186,19 +186,21 @@ class BMS(BaseBMS):
     ) -> None:
         self._log.debug("RX BLE data from %s: %s", sender.uuid, data)
 
+        if not len(data):
+            self._log.debug("empty notification")
+            return
+
         if sender.uuid == BMS._NotifyChars.ch_b.value:
             await self._await_msg(
                 self._ka_resp.to_bytes(1), BMS.normalize_db_uuid_str("0003"), False
             )
             self._ka_resp ^= 0x20
             self._ch_b_event.set()
-            await asyncio.sleep(0.1)  # FIXME! rate limit
             return
 
         if sender.uuid == BMS._NotifyChars.ch_c.value:
             await self._await_msg(bytes(data), BMS.normalize_db_uuid_str("0009"), False)
             self._ch_c_event.set()
-            await asyncio.sleep(0.1)  # FIXME! rate limit
             return
 
         self._log.debug("unknown notification source")
