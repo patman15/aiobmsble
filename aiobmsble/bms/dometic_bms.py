@@ -206,11 +206,16 @@ class BMS(BaseBMS):
         self._log.debug("unknown notification source")
         return
 
-    def _notification_handler(
+    async def _notification_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data from %s: %s", sender.uuid, data)
+
+        if data == b"+++":
+            self._log.debug("received disconnect from BMS")
+            await self.disconnect()
+            return
 
         if self._exp_reply and bytes(data).startswith(self._exp_reply):
             self._exp_reply = b""
