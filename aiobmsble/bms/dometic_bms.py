@@ -31,7 +31,7 @@ class BMS(BaseBMS):
 
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
-    _ALIVE_INTERVAL: Final[float] = 12.0  # seconds
+    _ALIVE_INTERVAL: Final[float] = 24.0  # seconds
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100, 0x02),
         BMSDp(
@@ -116,6 +116,12 @@ class BMS(BaseBMS):
                 await asyncio.sleep(BMS._ALIVE_INTERVAL)
                 async with self._op_lock:
                     await self._await_msg(b"APP+NET", wait_for_notify=False)
+                    await self._await_msg(
+                        self._ka_resp.to_bytes(1),
+                        BMS.normalize_db_uuid_str("0003"),
+                        False,
+                    )
+                    self._ka_resp ^= 0x20
         except asyncio.CancelledError:
             return
         except Exception as exc:  # noqa: BLE001 - keep-alive must not crash the loop
