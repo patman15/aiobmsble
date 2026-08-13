@@ -148,13 +148,13 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
 
     assert await bms.async_update() == {
         "pack_count": 1,
-        "voltage": 53.01,
-        "current": -4.23,
+        "voltage": 53.02,
+        "current": -3.84,
         "battery_level": 74,
         "battery_health": 100,
-        "cycle_charge": 74.0,
+        "cycle_charge": 74.23,
         "design_capacity": 100,
-        "cycle_capacity": 3922.74,
+        "cycle_capacity": 3935.675,
         "delta_voltage": 0.004,
         "cycles": 239,
         "cell_count": 16,
@@ -179,8 +179,8 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
         "temp_values": [22.2, 22.4, 22.7, 22.4],
         "temperature": 22.425,
         "battery_charging": False,
-        "runtime": 62978,
-        "power": -224.232,
+        "runtime": 69590,
+        "power": -203.597,
         "problem": False,
     }
 

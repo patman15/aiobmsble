@@ -18,8 +18,6 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 class BMS(BaseBMS):
     """PACEEX BMS implementation."""
 
-    # TODO: implement multi battery pack
-
     INFO: BMSInfo = {
         "default_manufacturer": "PeiCheng Technology",
         "default_model": "PACEEX Smart BMS",
@@ -29,16 +27,14 @@ class BMS(BaseBMS):
     _FRM_TYPE: Final[slice] = slice(1, 7)
     _MIN_LEN: Final[int] = 11  # minimal frame length
     _CELL_POS: Final[int] = 12  # position of first cell voltage
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("current", 1, 4, True, lambda x: x / 100),
-        BMSDp("voltage", 5, 4, False, lambda x: x / 100),
-        BMSDp("cycle_charge", 9, 4, False, lambda x: x / 100),
-        BMSDp("design_capacity", 13, 4, False, lambda x: x // 100),
-        BMSDp("battery_level", 21, 1, False),
-        BMSDp("battery_health", 22, 1, False),
-        BMSDp("pack_count", 0, 1, False),
-        BMSDp("cycles", 23, 4, False),
-        # BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (  # pack values, 0x0a01 reply
+        BMSDp("current", 1, 2, True, lambda x: x / 100),
+        BMSDp("voltage", 3, 2, False, lambda x: x / 100),
+        BMSDp("cycle_charge", 5, 2, False, lambda x: x / 100),
+        BMSDp("design_capacity", 9, 2, False, lambda x: x // 100),
+        BMSDp("battery_level", 11, 1, False),
+        BMSDp("battery_health", 12, 1, False),
+        BMSDp("cycles", 13, 2, False),
     )
 
     def __init__(
@@ -138,7 +134,10 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(BMS._cmd(b"\x00\x00\x0a\x00\x00\x00"))
+        # pack level query, answered by every pack; the system level query
+        # (0x0a00) is answered only by the pack acting as master in a parallel
+        # bank, all others reply with an all-zero payload.
+        await self._await_msg(BMS._cmd(b"\x00\x00\x0a\x01\x00\x00", b"\x01\x01"))
         result: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._msg, byteorder="big", start=8
         )
@@ -160,4 +159,7 @@ class BMS(BaseBMS):
             types=(TempSensor.T.CELL,) * 4
             + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
+        await self._await_msg(BMS._cmd(b"\x00\x00\x0a\x00\x00\x00"))
+        if pack_count := self._msg[8]:  # zero on all packs except the master
+            result["pack_count"] = pack_count
         return result
