@@ -44,13 +44,13 @@ RESP_VALUE: Final[dict[str, bytearray]] = {
 def ref_value() -> BMSSample:
     """Return reference value for mock Seplos BMS."""
     return {
-        "voltage": 52.8,
+        "voltage": 52.75,
         "current": -0.1,
         "battery_level": 33.0,
         "cycle_charge": 99.0,
         "temperature": 13.0,
-        "cycle_capacity": 5227.2,
-        "power": -5.28,
+        "cycle_capacity": 5222.25,
+        "power": -5.275,
         "battery_charging": False,
         "cell_count": 16,
         "cell_voltages": [
@@ -146,6 +146,76 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
     await bms.disconnect()
 
 
+async def test_multipack_update(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that a pack reports its own values, not the parallel stack's totals.
+
+    Response recorded from an FLB48314TG1 pack in a 3-pack parallel stack; the
+    stack-level "Batt" key holds 197.7 A while this pack delivers 64.7 A.
+    """
+
+    multipack_resp: dict[str, bytearray] = RESP_VALUE | {
+        "rt": bytearray(
+            b'{"CommVer":1,"wifiSN":"F075704831426030796","modID":3,'
+            b'"date":"20260813120925","DevSN":"075704831426030796","Type":112,'
+            b'"SubType":7353,"Estate":9152,"Bfault":0,"Bwarn":0,"Bstate":9152,'
+            b'"BBfault":0,"BBwarn":0,"BTemp":[[340,330],[256,514]],'
+            b'"Batt":[[54100],[1977],[null]],"Batsoc":[[7860,943,1050000]],'
+            b'"Templist":[[340,340],[0,0],[65535,65535],[65535,65535]],'
+            b'"BattList":[[54070,65535],[647,-1]],"BatsocList":[[7800,1000,350000]],'
+            b'"BatcelList":[[3378,3380,3379,3380,3379,3380,3380,3382,3389,3381,'
+            b"3380,3381,3380,3380,3379,3380],[65535,65535,65535,65535,65535,65535,"
+            b'65535,65535,65535,65535,65535,65535,65535,65535,65535,65535]],'
+            b'"EMSpara":[[3,14]],"BMaxMin":[[3389,3378],[8,0]],'
+            b'"LVolCur":[[576,480],[4320,4800]],"BMSpara":[[3,14]],'
+            b'"BLVolCu":[[576,480],[1600,1600]],'
+            b'"BtemList":[[340,340,340,340,32767,32767,32767,32767]]}'
+        )
+    }
+
+    patch_bleak_client(MockFelicityBleakClient)
+    monkeypatch.setattr(MockFelicityBleakClient, "RESP", multipack_resp)
+
+    bms = BMS(generate_ble_device(), BMSConfig(False))
+
+    assert await bms.async_update() == {
+        "voltage": 54.07,
+        "current": 64.7,
+        "battery_level": 78.0,
+        "cycle_charge": 273.0,
+        "temperature": 34.0,
+        "cycle_capacity": 14761.11,
+        "power": 3498.329,
+        "battery_charging": True,
+        "cell_count": 16,
+        "cell_voltages": [
+            3.378,
+            3.38,
+            3.379,
+            3.38,
+            3.379,
+            3.38,
+            3.38,
+            3.382,
+            3.389,
+            3.381,
+            3.38,
+            3.381,
+            3.38,
+            3.38,
+            3.379,
+            3.38,
+        ],
+        "temp_values": [TS(34.0)] * 4,
+        "delta_voltage": 0.011,
+        "problem": False,
+        "problem_code": 0,
+    }
+
+    await bms.disconnect()
+
+
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockFelicityBleakClient)
@@ -226,7 +296,9 @@ async def test_malformed_json_raises_value_error(
 
     bad_resp: dict[str, bytearray] = RESP_VALUE.copy()
     bad_resp["rt"] = bytearray(
-        RESP_VALUE["rt"].replace(b'"Batt":[[52800],[-1],[null]]', b'"Batt":[]')
+        RESP_VALUE["rt"].replace(
+            b'"BattList":[[52750,65535],[-1,-1]]', b'"BattList":[]'
+        )
     )
 
     patch_bleak_client(MockFelicityBleakClient)
