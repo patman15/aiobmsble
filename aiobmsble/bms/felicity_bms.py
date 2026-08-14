@@ -38,8 +38,6 @@ class BMS(BaseBMS):
             ]
         ]
     ] = [
-        # "Batt"/"Batsoc" aggregate all packs of a parallel stack, while the
-        # "*List" keys hold the values of the individual pack queried
         ("voltage", "BattList", lambda x: x[0][0] / 1000),
         ("current", "BattList", lambda x: x[1][0] / 10),
         ("cycle_charge", "BatsocList", lambda x: (int(x[0][0]) * int(x[0][2])) / 1e7),
