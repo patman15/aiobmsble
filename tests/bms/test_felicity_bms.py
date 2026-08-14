@@ -44,13 +44,13 @@ RESP_VALUE: Final[dict[str, bytearray]] = {
 def ref_value() -> BMSSample:
     """Return reference value for mock Seplos BMS."""
     return {
-        "voltage": 52.8,
+        "voltage": 52.75,
         "current": -0.1,
         "battery_level": 33.0,
         "cycle_charge": 99.0,
         "temperature": 13.0,
-        "cycle_capacity": 5227.2,
-        "power": -5.28,
+        "cycle_capacity": 5222.25,
+        "power": -5.275,
         "battery_charging": False,
         "cell_count": 16,
         "cell_voltages": [
@@ -226,7 +226,7 @@ async def test_malformed_json_raises_value_error(
 
     bad_resp: dict[str, bytearray] = RESP_VALUE.copy()
     bad_resp["rt"] = bytearray(
-        RESP_VALUE["rt"].replace(b'"Batt":[[52800],[-1],[null]]', b'"Batt":[]')
+        RESP_VALUE["rt"].replace(b'"BattList":[[52750,65535],[-1,-1]]', b'"BattList":[]')
     )
 
     patch_bleak_client(MockFelicityBleakClient)
