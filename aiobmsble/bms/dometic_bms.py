@@ -181,6 +181,11 @@ class BMS(BaseBMS):
                 self._alive_loop(), name="BMS keep-alive"
             )
 
+    async def _disconnect(self, reset: bool) -> None:
+        if self._alive_task:
+            self._alive_task.cancel()
+        return await super()._disconnect(reset)
+
     async def _keep_alive_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
