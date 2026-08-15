@@ -1,0 +1,15 @@
+[
+  {
+    "advertisement": {
+      "local_name": "123\\SmartBMS",
+      "platform_data": ["E8:A2:C9:00:00:00"],
+      "rssi": -91,
+      "manufacturer_data": { "2330": "00060d02" },
+      "service_uuids": ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
+    },
+    "type": "smartbms_bms",
+    "_comments": [
+      "source advmon https://github.com/patman15/BMS_BLE-HA/issues/542"
+    ]
+  }
+]
