@@ -1,0 +1,18 @@
+[
+  {
+    "advertisement": {
+      "local_name": "BT-Battery",
+      "platform_data": ["00:25:07:00:00:00"],
+      "rssi": -69,
+      "manufacturer_data": { "9472": "07000000" },
+      "service_data": {
+        "0000ffe1-0000-1000-8000-00805f9b34fb": "002507000000"
+      }
+    },
+    "type": "doerrpwr_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/792)",
+      "manufacturer_data, service_data, contain MAC address"
+    ]
+  }
+]
