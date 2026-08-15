@@ -42,7 +42,6 @@ class BMS(BaseBMS):
         self._buffer: bytearray = bytearray()
         self._last_reply: str = ""  # last "OK"/"NA"/"WRONG" style reply
         self._reply_event: Final[asyncio.Event] = asyncio.Event()
-        self._wr_lock: Final[asyncio.Lock] = asyncio.Lock()
         self._ping_task: asyncio.Task[None] | None = None
         self._cells: dict[int, tuple[float, float]] = {}  # idx -> (volt, temp)
         self._cell_total: int = 0
@@ -94,7 +93,7 @@ class BMS(BaseBMS):
         """Continuously poll the module so it keeps streaming."""
         try:
             while True:
-                async with self._wr_lock:
+                async with self._op_lock:
                     await self._client.write_gatt_char(
                         self.uuid_tx(), BMS._PING, response=False
                     )
@@ -144,7 +143,7 @@ class BMS(BaseBMS):
 
     async def _write_cmd(self, command: str) -> None:
         r"""Send an ASCII command terminated by '\\r'."""
-        async with self._wr_lock:
+        async with self._op_lock:
             await self._client.write_gatt_char(
                 self.uuid_tx(), (command + "\r").encode("ascii"), response=True
             )
