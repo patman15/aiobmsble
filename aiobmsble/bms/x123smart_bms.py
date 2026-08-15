@@ -85,9 +85,9 @@ class BMS(BaseBMS):
         return sign * BMS._to_int(field.lstrip("+-"))
 
     @staticmethod
-    def _to_temp(field: str) -> float:
+    def _to_temp(field: str) -> int:
         """Convert a raw temperature field to degrees Celsius."""
-        return round(BMS._to_int(field) * 0.857 - 232.1, 1)
+        return BMS._to_int(field) - 276
 
     async def _ping_loop(self) -> None:
         """Continuously poll the module so it keeps streaming."""
