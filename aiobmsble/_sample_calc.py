@@ -123,7 +123,7 @@ def BMSSample_Calc_registry() -> tuple[_C, ...]:
 
 
 @lru_cache
-def _validated_calculation_registry() -> tuple[_C, ...]:
+def _validated_calc_registry() -> tuple[_C, ...]:
     """Return calculation registry after basic consistency checks."""
     calculations: Final[tuple[_C, ...]] = BMSSample_Calc_registry()
     known_values: Final[frozenset[BMSValue]] = cast(
@@ -204,7 +204,7 @@ def derive_missing_fields(
     pending: list[_C] = sorted(
         [
             calc
-            for calc in _validated_calculation_registry()
+            for calc in _validated_calc_registry()
             if calc.output not in raw_values and calc.output not in data
         ],
         key=lambda calc: (len(calc.requires), calc.output),

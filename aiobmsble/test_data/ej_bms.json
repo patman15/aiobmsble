@@ -103,14 +103,31 @@
   {
     "advertisement": {
       "local_name": "G-12V300Ah-0345",
-      "service_uuids": [
-        "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
-      ],
       "rssi": -50
     },
     "type": "ej_bms",
     "_comments": [
       "Chins Battery, tested on Cerbo GX"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "G-12V80Ah-0054"
+    },
+    "type": "ej_bms",
+    "_comments": [
+      "MOBILEKTRO MLB-1280D-NT",
+      "nRF connect (https://github.com/patman15/BMS_BLE-HA/issues/759)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "G-12V80AH-0669"
+    },
+    "type": "ej_bms",
+    "_comments": [
+      "MOBILEKTRO MLB-1280D-NT",
+      "nRF connect (https://github.com/patman15/BMS_BLE-HA/issues/759)"
     ]
   }
 ]

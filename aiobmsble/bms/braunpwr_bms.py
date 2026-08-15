@@ -46,7 +46,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -63,7 +63,7 @@ class BMS(BaseBMS):
                 manufacturer_id=0x7B,
                 connectable=True,
             )
-            for pattern in ("HSKS-*", "BL-*")
+            for pattern in ("HSKS-*", "BL-*", "KS-*")
         ]
 
     @staticmethod
@@ -98,6 +98,7 @@ class BMS(BaseBMS):
         if (
             data.startswith(BMS._HEAD)
             and len(self._frame) >= BMS._MIN_LEN
+            and len(data) >= BMS._MIN_LEN
             and data[1] in {*BMS._CMDS, *BMS._INIT_CMDS}
             and len(self._frame) >= BMS._MIN_LEN + self._frame[2]
         ):

@@ -36,7 +36,7 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = ""
+        logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
