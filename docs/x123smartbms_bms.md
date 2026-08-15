@@ -3,6 +3,11 @@
 Protocol details based on the official UART protocol documentation (v3.3.11) and a
 BLE advertisement capture of a gen3 battery.
 
+The data semantics (value scaling, cell/pack fields) are documented by 123electric's 
+own open-source, MIT-licensed projects `123electric/123SmartBMS-Venus` and 
+`123electric/smartbms-thingspeak`. The BLE ASCII transport is additionally covered by 
+the pre-existing public implementation `dudeofea/123SmartBMS_Python_Client` (2021).
+
 ## Device Discovery
 
 The BMS is not directly BLE-addressable; it is accessed via a BLE UART bridge
@@ -14,13 +19,27 @@ The BMS is not directly BLE-addressable; it is accessed via a BLE UART bridge
 | Local name | `123\SmartBMS` (also `123BMS-BLE*` after rename) |
 | Service UUID | `6e400001-b5a3-f393-e0a9-e50e24dcca9e` |
 | RX (notify) | `6e400003-b5a3-f393-e0a9-e50e24dcca9e` |
-| TX (write) | `6e400002-b5a3-f393-e0a9-e50e24dcca9e` |
+| TX (write-without-response, write, max 244 B) | `6e400002-b5a3-f393-e0a9-e50e24dcca9e` |
+| Battery service | `0000180f-0000-1000-8000-00805f9b34fb` |
+| Tx Power | `00001804-0000-1000-8000-00805f9b34fb` |
+| Device Info | `0000180a-0000-1000-8000-00805f9b34fb` |
 | Manufacturer data | `0x2330: 0x060d02` (gen3 capture) |
 
-The bridge additionally advertises Battery Service (`180f`), Tx Power (`1804`/`2a07`)
-and Device Information (`180a`).
-
 ## Protocol
+
+* All messages are ASCII and `\r`-terminated. 
+* Responses are success = `OK`, failure/not-authorized = `NA`/`WRONG`.
+* The module only clocks out its serial buffer while it is polled: a single-byte
+  ping `$` has to be sent continuously (~330 ms) or no data is returned at all.
+* A 4-digit PIN is mandatory before any command is accepted:  
+      `PW<pin>!`         -> `OK`
+* Streaming of live values is enabled with:  
+      `E!`               -> `OK`, afterwards the device pushes data frames
+* Data frames (underscore separated, hex fields):  
+      `U_<packV>_<inA>_<packA>_<outA>`       pack voltage (`*0.005 V`), current (`*0.05 A`)  
+      `C_<idx>_<n>_<cellV>_<cellT>_<..>_<>`  per-cell voltage (`*0.005 V`), temp (raw)  
+      `E_<inWh>_<packWh>_<outWh>_<soc>`      state of charge (hex `%`)  
+      `T / V / M / B / H`                    min/max temp, min/max volt, power, capacity, history  
 
 The BMS pushes one 58 byte status frame per second, big-endian. The last byte is
 the 8-bit checksum: `frame[57] = sum(frame[:57]) & 0xFF`. There is no frame
@@ -104,8 +123,7 @@ Bits 1-3 are ORed into `problem_code` (`0x0E` mask).
 ## Notes
 
 - Temperature decode follows the official documentation: `°C = raw - 0x114`
-  (`0x114` = 0 °C, `0x128` = 20 °C). The Victron Venus driver uses a different
-  scaling (`round(raw * 0.857 - 232)`); this still needs live validation.
+  (`0x114` = 0 °C, `0x128` = 20 °C).
 - `design_capacity` is derived from the configured capacity and nominal cell
   voltage: `capacity_kWh * 1000 / (nominal_V * cell_count)`.
 - `cycle_capacity` is taken from the stored energy field (Wh).

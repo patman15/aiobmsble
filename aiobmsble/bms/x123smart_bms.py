@@ -2,32 +2,6 @@ r"""Module to support 123\\SmartBMS (123electric) generation 3.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
-
-Implemented for interoperability. The data semantics (value scaling, cell/pack
-fields) are documented by 123electric's own open-source, MIT-licensed projects
-`123electric/123SmartBMS-Venus` and `123electric/smartbms-thingspeak`; the BLE
-ASCII transport is additionally covered by the pre-existing public
-implementation `dudeofea/123SmartBMS_Python_Client` (2021). This module is an
-independent, clean-room implementation and contains no third-party code.
-
-Protocol notes:
-
-* gen3 hardware uses a Raytac/Nordic module exposing the Nordic UART Service
-  (6e400001) with RX=6e400002 (write), TX=6e400003 (notify).
-* All commands are ASCII, terminated with a carriage return ('\\r'); replies are
-  '\\r'-terminated as well. Success = "OK", failure/not-authorized = "NA"/"WRONG".
-* The module only clocks out its serial buffer while it is polled: a single-byte
-  ping "$" has to be sent continuously (~330 ms) or no data is returned at all.
-* A 4-digit PIN is mandatory before any command is accepted:
-      PW<pin>!         -> "OK"
-* Streaming of live values is enabled with:
-      E!               -> "OK", afterwards the device pushes data frames
-* Data frames (underscore separated, hex fields):
-      U_<packV>_<inA>_<packA>_<outA>       pack voltage (*0.005 V), currents (*0.05 A)
-      C_<idx>_<n>_<cellV>_<cellT>_<..>_<>  per-cell voltage (*0.005 V), temp (raw)
-      E_<inWh>_<packWh>_<outWh>_<soc>      state of charge (hex %)
-      T / V / M / B / H                    min/max temp, min/max volt, power, capacity, history
-  Cell/pack temperature raw value converts as: degC = raw * 0.857 - 232.1
 """
 
 import asyncio
