@@ -141,7 +141,7 @@ async def test_update_secret(
 
     bms = BMS(generate_ble_device(), BMSConfig(secret=secret))
     if secret == "8182":
-        assert (await bms.async_update())["battery_level"] == 100
+        assert await bms.async_update() == _RESULT_DEFS
     else:
         with pytest.raises((ConnectionError, TimeoutError)):
             await bms.async_update()

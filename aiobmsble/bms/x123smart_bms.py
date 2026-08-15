@@ -51,8 +51,13 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        # advertised name is literally "123\SmartBMS"; '?' matches the backslash
-        return [{"local_name": "123?SmartBMS", "connectable": True}]
+        return [
+            {
+                "local_name": "123\\SmartBMS",
+                "service_uuid": BMS.uuid_services()[0],
+                "connectable": True,
+            }
+        ]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
