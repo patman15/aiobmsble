@@ -30,7 +30,7 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 |--------|-------------|
 | `0x50` | Charge FET control (data: `[0x00]`=off, `[0x01]`=on) |
 | `0x51` | Discharge FET control (data: `[0x00]`=off, `[0x01]`=on) |
-| `0x52` | Balance control (data: `[0x00]`=off, `[0x01]`=on) |
+| `0x52` | Heater control (data: `[0x00]`=off, `[0x01]`=on) |
 | `0x53` | Clear error/protection status |
 
 ## 0x21 — Battery Info (26 data bytes)
@@ -123,9 +123,9 @@ Each is a 24-bit bitmap where bit 0 = cell 1, bit 1 = cell 2, etc.
 
 Up to 24 cells, 2 bytes each (unsigned 16-bit LE, millivolts).
 
-## 0x58 — Configuration (44 data bytes)
+## 0x58 — Configuration (48 data bytes)
 
-All fields are 2-byte unsigned LE unless noted.
+All fields are 2-byte unsigned LE unless noted, giving 24 values.
 
 > **Warning:** These are **protection trip points**. They do not track the
 > operating envelope, in either direction, and must not be fed to a charge
@@ -167,5 +167,14 @@ All fields are 2-byte unsigned LE unless noted.
 | 38 | discharge_high_temp_recovery | Discharge high temp recovery |
 | 40 | discharge_low_temp | Discharge low temp threshold (deciKelvin) |
 | 42 | discharge_low_temp_recovery | Discharge low temp recovery |
+| 44 | *unknown* | Purpose unconfirmed; reads 3450 on a 4S LiFePO4 pack |
+| 46 | *unknown* | Purpose unconfirmed; reads 30 on a 4S LiFePO4 pack |
 
 Temperature conversion: `°C = (raw - 2731) / 10`
+
+> **Note:** The delay fields are in unconfirmed units. A recorded pack reports
+> `ovp_delay` 4, `uvp_delay` 4, `charge_ocp_delay` 16, `discharge_ocp1_delay` 160
+> and `discharge_ocp2_delay` 20480, which is not consistent with seconds across
+> all of them — and OCP2 guards a higher current than OCP1, so it would be
+> expected to trip sooner, not later. Treat the raw values as opaque until
+> confirmed.

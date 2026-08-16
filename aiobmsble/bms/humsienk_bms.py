@@ -165,7 +165,9 @@ class BMS(BaseBMS):
             start=23,
             size=1,
             byteorder="little",
-            types=(TempSensor.T.MOSFET,),
+            # t1-t4 (cells), MOSFET, environment
+            types=(TempSensor.T.CELL,) * 4
+            + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
 
         # Add problem for cell disconnect bitmap
