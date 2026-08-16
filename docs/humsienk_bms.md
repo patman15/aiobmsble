@@ -127,11 +127,21 @@ Up to 24 cells, 2 bytes each (unsigned 16-bit LE, millivolts).
 
 All fields are 2-byte unsigned LE unless noted.
 
-> **Warning:** These are **protection trip points, not continuous operating
-> limits**. Observed packs report values well above their rated continuous
-> figures (e.g. 300 A charge/discharge and a 55 °C charge ceiling against a
-> 250 A / 45 °C datasheet rating). Feeding these to a charge controller as
-> operating limits would drive the pack past its rating.
+> **Warning:** These are **protection trip points**. They do not track the
+> operating envelope, in either direction, and must not be fed to a charge
+> controller as operating limits.
+>
+> Measured on a 12 V 640 Ah pack, against its
+> [datasheet](https://www.humsienk.com/collections/12v-batteries/products/12v-640ah-bluetooth-lifepo4-battery)
+> rating of 250 A maximum continuous and a 0–45 °C charge range:
+>
+> | Field | BMS reports | Datasheet | |
+> |---|---|---|---|
+> | `charge_ocp` | 300.0 A | 250 A continuous | higher |
+> | `discharge_ocp1` / `ocp2` | 300.0 A / 455.0 A | 250 A continuous | higher |
+> | `charge_high_temp` | 55 °C | 45 °C | higher |
+> | `discharge_high_temp` | 60 °C | 65 °C | **lower** |
+> | `rated_capacity` | 628 Ah | 640 Ah | **lower** |
 
 | Offset | Field | Description |
 |--------|-------|-------------|
