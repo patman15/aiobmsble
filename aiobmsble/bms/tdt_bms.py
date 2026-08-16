@@ -74,9 +74,12 @@ class BMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            {"manufacturer_id": 54976, "connectable": True},
-            {"local_name": "HS02*", "connectable": True},
-        ]
+            MatcherPattern(
+                local_name=pattern,
+                connectable=True,
+            )
+            for pattern in ("HS02*", "WTDH*")
+        ] + [{"manufacturer_id": 54976, "connectable": True}]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
@@ -146,7 +149,9 @@ class BMS(BaseBMS):
             and data[0] == BMS._RSP_HEAD
             and len(self._frame) >= self._exp_len
         ):
-            self._exp_len = min(BMS._INFO_LEN + int.from_bytes(data[6:8]), BMS._MAX_MSG_LEN)
+            self._exp_len = min(
+                BMS._INFO_LEN + int.from_bytes(data[6:8]), BMS._MAX_MSG_LEN
+            )
             self._frame.clear()
 
         self._frame.extend(data)

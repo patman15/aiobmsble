@@ -25,5 +25,20 @@
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/728)",
       "Humsienk 100Ah 51.2V Golf Cart Battery"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "WTDH04SC02",
+      "platform_data": ["AA:C2:37:00:00:00"],
+      "rssi": -55,
+      "manufacturer_data": { "49834": "3700000000024c000300" },
+      "service_uuids": ["0000fff0-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "tdt_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/798)",
+      "WattCycle 12V 314Ah Mini Super LiFePO4",
+      "manufacturer_data starts with MAC"
+    ]
   }
 ]
