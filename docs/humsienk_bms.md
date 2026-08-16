@@ -85,7 +85,7 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 | 12 | Pack overvoltage warning |
 | 13 | Voltage-difference warning |
 | 14 | Voltage difference too large |
-| 15 | Balance active (1 = yes) |
+| 15 | Heater status (1 = on) |
 | 16 | Discharge overcurrent protection |
 | 17 | Discharge over-temperature protection |
 | 18 | Discharge under-temperature protection |
@@ -103,12 +103,18 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 | 30 | MOS over-temperature protection |
 | 31 | Pre-discharge FET on |
 
+> **Note:** Bits 7, 15 and 23 form a coherent set of switch states (charge FET,
+> heater, discharge FET) rather than alarms, and are masked out of `problem_code`
+> by `_ALARM_MASK`. Balancing is *not* reported here — see `cell_balance` below.
+
 ### cell_balance / cell_disconnect bitmaps
 
 Each is a 24-bit bitmap where bit 0 = cell 1, bit 1 = cell 2, etc.
 
 - **cell_balance**: a set bit means that cell is actively being balanced.
-  Exposed as a scalar `balancer` bool.
+  Exposed directly as the `balancer` bit mask. Note this reports which cells are
+  balancing *at this instant*; whether balancing is enabled is not reported by
+  the BMS.
 - **cell_disconnect**: a set bit indicates a physically disconnected cell
   (broken wire, faulty connection). Any non-zero value triggers `problem=True`
   in the driver.
@@ -120,6 +126,12 @@ Up to 24 cells, 2 bytes each (unsigned 16-bit LE, millivolts).
 ## 0x58 — Configuration (44 data bytes)
 
 All fields are 2-byte unsigned LE unless noted.
+
+> **Warning:** These are **protection trip points, not continuous operating
+> limits**. Observed packs report values well above their rated continuous
+> figures (e.g. 300 A charge/discharge and a 55 °C charge ceiling against a
+> 250 A / 45 °C datasheet rating). Feeding these to a charge controller as
+> operating limits would drive the pack past its rating.
 
 | Offset | Field | Description |
 |--------|-------|-------------|
