@@ -51,7 +51,7 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 | 24 | 1 | s8 | MOS temp | MOSFET temperature in °C |
 | 25 | 1 | s8 | env temp | Environment temperature in °C |
 
-## 0x20 — Operating Status (14–15 data bytes)
+## 0x20 — Operating Status (15 data bytes)
 
 | Offset | Size | Type | Field | Description |
 |--------|------|------|-------|-------------|
@@ -61,6 +61,7 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 | 4 | 4 | u32 LE | operation_status | Alarm/protection/FET flags (see below) |
 | 8 | 3 | u24 LE | cell_balance | Bitmap of cells being balanced |
 | 11 | 3 | u24 LE | cell_disconnect | Bitmap of disconnected cells |
+| 14 | 1 | u8 | *unknown* | Purpose unconfirmed; reads 0 on every recorded frame |
 
 > **Note:** Uptime fields (bytes 0–3) are not parsed by the driver. The framework's
 > `runtime` field means "time remaining until empty" (derived from `cycle_charge / current`),
