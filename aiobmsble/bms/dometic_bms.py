@@ -51,7 +51,6 @@ class BMS(BaseBMS):
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS} | {0x56, 0x57}
 
-
     accept_secret: bool = True
 
     def __init__(
@@ -129,51 +128,34 @@ class BMS(BaseBMS):
         except Exception as exc:  # noqa: BLE001 - keep-alive must not crash the loop
             self._log.debug("alive loop stopped (%s)", type(exc).__name__)
 
+    async def _subscribe_and_wait(self, char_uuid, event: asyncio.Event) -> None:
+        self._log.debug("Subscribing to notify characteristic %s", char_uuid)
+        try:
+            await self._client.start_notify(char_uuid, self._keep_alive_handler)
+        except BleakError as ex:
+            self._log.debug(
+                "Could not subscribe to notify characteristic %s: %s", char_uuid, ex
+            )
+        event.clear()
+        await asyncio.wait_for(event.wait(), timeout=BMS.TIMEOUT)
+
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         self._ka_resp = 0xFF
-        # subscribe to further notify characteristic
-        self._log.debug(
-            "Subscribing to notify characteristic %s", BMS._NotifyChars.ch_c
-        )
-        try:
-            await self._client.start_notify(
-                BMS._NotifyChars.ch_c.value, self._keep_alive_handler
-            )
-        except BleakError as ex:
-            self._log.debug(
-                "Could not subscribe to notify characteristic %s: %s",
-                BMS._NotifyChars.ch_c,
-                ex,
-            )
 
-        self._ch_c_event.clear()
-        await asyncio.wait_for(self._ch_c_event.wait(), timeout=BMS.TIMEOUT)
-
-        self._log.debug(
-            "Subscribing to notify characteristic %s", BMS._NotifyChars.ch_b
-        )
-        try:
-            await self._client.start_notify(
-                BMS._NotifyChars.ch_b.value, self._keep_alive_handler
-            )
-        except BleakError as ex:
-            self._log.debug(
-                "Could not subscribe to notify characteristic %s: %s",
-                BMS._NotifyChars.ch_b,
-                ex,
-            )
-        self._ch_b_event.clear()
-        await asyncio.wait_for(self._ch_b_event.wait(), timeout=BMS.TIMEOUT)
+        await self._subscribe_and_wait(BMS._NotifyChars.ch_c.value, self._ch_c_event)
+        await self._subscribe_and_wait(BMS._NotifyChars.ch_b.value, self._ch_b_event)
 
         await super()._init_connection(char_notify)
+
         self._exp_reply = b"MST+AEN"
         await self._await_msg(
             b"APP+AEN"
             + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
             wait_for_notify=True,
         )
+
         self._exp_reply = b"MST+NET="
         await self._await_msg(b"APP+NET", wait_for_notify=True)
         self._msg_event.clear()
