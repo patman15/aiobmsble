@@ -530,8 +530,8 @@ _PROTO_DEFS: Final[list[bytes]] = [
     b"U}",
     b'U<\x85\x06\xb4 \x11"3O\xe9',
     b'U}\x85\x06\xf4\xb1\x963"\x80a',
-    b"+++",
-    b"+++",
+#    b"+++",
+#    b"+++",
 ]
 
 _RESULT_DEFS: Final[BMSSample] = {
@@ -609,7 +609,12 @@ class MockDBBleakClient(MockBleakClient):
             ]
         ] = {
             channel: BleakGATTCharacteristic(
-                self, handle, uuid, ["notify"], lambda: 512, self.DBSrv
+                self,
+                handle,
+                uuid,
+                ["notify"],
+                lambda: BMS.BLE_MAX_ATTR_SIZE,
+                self.DBSrv,
             )
             for channel, (uuid, handle) in self._CHARACTERISTIC_DEFS.items()
         }
@@ -632,19 +637,22 @@ class MockDBBleakClient(MockBleakClient):
         """Continuously send protocol information over channel A."""
         assert self._cbs.get("chA") is not None
 
-        while True:
-            response = self._RESP[self._idx]
+        try:
+            while True:
+                response = self._RESP[self._idx]
 
-            for offset in range(0, len(response), BT_FRAME_SIZE):
-                await self._notify(
-                    "chA",
-                    response[offset : offset + BT_FRAME_SIZE],
-                )
+                for offset in range(0, len(response), BT_FRAME_SIZE):
+                    await self._notify(
+                        "chA",
+                        response[offset : offset + BT_FRAME_SIZE],
+                    )
 
-            self._idx = (self._idx + 1) % len(self._RESP)
+                self._idx = (self._idx + 1) % len(self._RESP)
 
-            if not self._idx:
-                await asyncio.sleep(0)
+                if not self._idx:
+                    await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            return
 
     async def write_gatt_char(
         self,
@@ -768,17 +776,20 @@ class MockDBBleakClient(MockBleakClient):
     async def disconnect(self) -> None:
         """Mock disconnect and wait for notification tasks."""
 
-        for task in self._tasks.values():
-            LOGGER.debug("cancelling task %r", task)
-            task.cancel()
+        tasks: Final = tuple(self._tasks.values())
+        for task in tasks:
+            if not task.done():
+                LOGGER.debug("cancelling task=%r", task)
+                task.cancel()
+
+        for task in tasks:
             with contextlib.suppress(asyncio.CancelledError):
                 await task
 
+        await super().disconnect()
         self._state = self._State.IDLE
         self._tasks.clear()
         self._cbs.clear()
-
-        await super().disconnect()
 
 
 async def test_update(
@@ -798,6 +809,19 @@ async def test_update(
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
+
+async def test_bms_disconnect(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test Dometic Büttner BMS data update."""
+
+    monkeypatch.setattr(MockDBBleakClient, "_RESP", [*_PROTO_DEFS[:100], b"+++"])
+    patch_bleak_client(MockDBBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig())
+
+    assert await bms.async_update() == _RESULT_DEFS
+    assert bms.is_connected is False
 
 
 # @pytest.mark.parametrize(

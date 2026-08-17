@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from enum import Enum
+from enum import StrEnum
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -25,9 +25,13 @@ class BMS(BaseBMS):
         "default_model": "Büttner BMS",
     }
 
-    class _NotifyChars(Enum):
-        ch_b = "00000004-0000-1000-8000-008025000000"
-        ch_c = "0000000a-0000-1000-8000-008025000000"
+    class _NotifyChars(StrEnum):
+        ch_a_tx = "00000001-0000-1000-8000-008025000000"
+        ch_a_rx = "00000002-0000-1000-8000-008025000000"
+        ch_b_tx = "00000003-0000-1000-8000-008025000000"
+        ch_b_rx = "00000004-0000-1000-8000-008025000000"
+        ch_c_tx = "00000009-0000-1000-8000-008025000000"
+        ch_c_rx = "0000000a-0000-1000-8000-008025000000"
 
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
@@ -64,6 +68,7 @@ class BMS(BaseBMS):
         self._alive_task: asyncio.Task[None] | None = None
         self._data_final: dict[int, dict[int, bytes]] = {}
         self._exp_reply: bytes = b""
+        self._disconnect_event: asyncio.Event = asyncio.Event()
         self._ch_b_event: asyncio.Event = asyncio.Event()
         self._ch_c_event: asyncio.Event = asyncio.Event()
         self._ka_resp: int = 0xFF
@@ -87,12 +92,12 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_rx() -> str:
         """Return UUID of characteristic that provides notification/read property."""
-        return BMS.normalize_db_uuid_str("0002")
+        return BMS._NotifyChars.ch_a_rx
 
     @staticmethod
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
-        return BMS.normalize_db_uuid_str("0001")
+        return BMS._NotifyChars.ch_a_tx
 
     # async def _fetch_device_info(self) -> BMSInfo:
     #     """Fetch the device information via BLE."""
@@ -136,6 +141,7 @@ class BMS(BaseBMS):
             self._log.debug(
                 "Could not subscribe to notify characteristic %s: %s", char_uuid, ex
             )
+            raise
         event.clear()
         await asyncio.wait_for(event.wait(), timeout=BMS.TIMEOUT)
 
@@ -143,9 +149,10 @@ class BMS(BaseBMS):
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         self._ka_resp = 0xFF
+        self._disconnect_event.clear()
 
-        await self._subscribe_and_wait(BMS._NotifyChars.ch_c.value, self._ch_c_event)
-        await self._subscribe_and_wait(BMS._NotifyChars.ch_b.value, self._ch_b_event)
+        await self._subscribe_and_wait(BMS._NotifyChars.ch_c_rx, self._ch_c_event)
+        await self._subscribe_and_wait(BMS._NotifyChars.ch_b_rx, self._ch_b_event)
 
         await super()._init_connection(char_notify)
 
@@ -179,16 +186,16 @@ class BMS(BaseBMS):
             self._log.debug("empty notification")
             return
 
-        if sender.uuid == BMS._NotifyChars.ch_b.value:
+        if sender.uuid == BMS._NotifyChars.ch_b_rx:
             await self._await_msg(
-                self._ka_resp.to_bytes(1), BMS.normalize_db_uuid_str("0003"), False
+                self._ka_resp.to_bytes(1), BMS._NotifyChars.ch_b_tx, False
             )
             self._ka_resp ^= 0x20
             self._ch_b_event.set()
             return
 
-        if sender.uuid == BMS._NotifyChars.ch_c.value:
-            await self._await_msg(bytes(data), BMS.normalize_db_uuid_str("0009"), False)
+        if sender.uuid == BMS._NotifyChars.ch_c_rx:
+            await self._await_msg(bytes(data), BMS._NotifyChars.ch_c_tx, False)
             self._ch_c_event.set()
             return
 
@@ -203,7 +210,7 @@ class BMS(BaseBMS):
 
         if data == b"+++":
             self._log.debug("received disconnect from BMS")
-            await self.disconnect()
+            self._disconnect_event.set()
             return
 
         if self._exp_reply and bytes(data).startswith(self._exp_reply):
@@ -248,7 +255,12 @@ class BMS(BaseBMS):
             self._exp_reply = b"MST+DCO="
             await self._await_msg(b"APP+RDN=1")
 
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        try:
+            await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        finally:
+            if self._disconnect_event.is_set():
+                await super().disconnect()
+
         result: BMSSample = self._decode_data(
             BMS._FIELDS, next(iter(self._data_final.values()))
         )
