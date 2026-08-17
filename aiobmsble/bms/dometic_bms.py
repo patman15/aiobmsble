@@ -32,6 +32,7 @@ class BMS(BaseBMS):
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
     _ALIVE_INTERVAL: Final[float] = 24.0  # seconds
+    _UUID_SLC: Final[slice] = slice(4, 8)
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100, 0x02),
         BMSDp(
@@ -49,9 +50,7 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 4, 1, False, idx=0x0E),
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS} | {0x56, 0x57}
-    _ch_b_event: asyncio.Event = asyncio.Event()
-    _ch_c_event: asyncio.Event = asyncio.Event()
-    _ka_resp: int = 0xFF
+
 
     accept_secret: bool = True
 
@@ -66,6 +65,9 @@ class BMS(BaseBMS):
         self._alive_task: asyncio.Task[None] | None = None
         self._data_final: dict[int, dict[int, bytes]] = {}
         self._exp_reply: bytes = b""
+        self._ch_b_event: asyncio.Event = asyncio.Event()
+        self._ch_c_event: asyncio.Event = asyncio.Event()
+        self._ka_resp: int = 0xFF
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -137,7 +139,7 @@ class BMS(BaseBMS):
         )
         try:
             await self._client.start_notify(
-                BMS._NotifyChars.ch_c.value, getattr(self, "_keep_alive_handler")
+                BMS._NotifyChars.ch_c.value, self._keep_alive_handler
             )
         except BleakError as ex:
             self._log.debug(
@@ -154,7 +156,7 @@ class BMS(BaseBMS):
         )
         try:
             await self._client.start_notify(
-                BMS._NotifyChars.ch_b.value, getattr(self, "_keep_alive_handler")
+                BMS._NotifyChars.ch_b.value, self._keep_alive_handler
             )
         except BleakError as ex:
             self._log.debug(
@@ -189,7 +191,7 @@ class BMS(BaseBMS):
     async def _keep_alive_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
-        self._log.debug("RX BLE data from %s: %s", sender.uuid, data)
+        self._log.debug("RX BLE data (UUID=%s): %s", sender.uuid[BMS._UUID_SLC], data)
 
         if not len(data):
             self._log.debug("empty notification")
@@ -215,7 +217,7 @@ class BMS(BaseBMS):
         self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
-        self._log.debug("RX BLE data from %s: %s", sender.uuid, data)
+        self._log.debug("RX BLE data (UUID=%s): %s", sender.uuid[BMS._UUID_SLC], data)
 
         if data == b"+++":
             self._log.debug("received disconnect from BMS")
@@ -261,7 +263,8 @@ class BMS(BaseBMS):
         if not self._msg_event.is_set():
             self._log.debug("requesting data update")
             self._data_final.clear()
-            await self._await_msg(b"APP+RDN=1", wait_for_notify=False)
+            self._exp_reply = b"MST+DCO="
+            await self._await_msg(b"APP+RDN=1")
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
         result: BMSSample = self._decode_data(

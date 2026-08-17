@@ -447,24 +447,25 @@ class BaseBMS(ABC):
             of stale connections. (Default: False)
         """
 
-        self._log.debug(
-            "disconnecting BMS (id: %#x, connected: %s)",
-            id(self._client),
-            self._client.is_connected,
-        )
-        self._msg_event.clear()
-        await self._disconnect(reset)
+        async with self._connect_lock:
+            self._log.debug(
+                "disconnecting BMS (id: %#x, connected: %s)",
+                id(self._client),
+                self._client.is_connected,
+            )
+            self._msg_event.clear()
+            await self._disconnect(reset)
 
-        try:
-            await self._client.disconnect()
-        except (BleakError, TimeoutError, EOFError) as exc:
-            self._log.warning("disconnect failed! (%s)", type(exc).__name__)
-        if reset:
-            self._log.debug("closing stale BMS connections and resetting write mode")
-            self._inv_wr_mode = None  # reset write mode
-            await close_stale_connections(
-                self._ble_device, only_other_adapters=False
-            )  # ensure all connections are closed
+            try:
+                await self._client.disconnect()
+            except (BleakError, TimeoutError, EOFError) as exc:
+                self._log.warning("disconnect failed! (%s)", type(exc).__name__)
+            if reset:
+                self._log.debug("closing stale BMS connections and resetting write mode")
+                self._inv_wr_mode = None  # reset write mode
+                await close_stale_connections(
+                    self._ble_device, only_other_adapters=False
+                )  # ensure all connections are closed
 
     @final
     async def _wait_event(self) -> None:

@@ -50,7 +50,6 @@ class MockMyVoltaBleakClient(MockBleakClient):
         b"\x01\x03\x05\x07\x13\x01\x03\x05\x07\x01\x03\x05\x01\x03\x01"
     )
     _RESP: bytes = _PROTO_DEFS
-    _task: asyncio.Task[None] | None = None
 
     def __init__(
         self,
@@ -63,6 +62,7 @@ class MockMyVoltaBleakClient(MockBleakClient):
         super().__init__(
             address_or_ble_device, disconnected_callback, services, **kwargs
         )
+        self._task: asyncio.Task[None] | None = None
         self._iterator: int = 0
         self._pos: int = 0
 

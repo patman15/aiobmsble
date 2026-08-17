@@ -343,6 +343,7 @@ class BMSBasicTests:
 
         bms: BaseBMS = self.bms_class(generate_ble_device())
         result: BMSSample = await bms.async_update()
+        await bms.disconnect()
 
         hints: dict[str, Any] = get_type_hints(BMSSample)
         assert isinstance(

@@ -1,9 +1,11 @@
 """Test the Dometic Büttner BMS implementation."""
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Buffer, Callable
 import contextlib
-from typing import Any, Final
+from enum import Enum, auto
+import inspect
+from typing import Any, Final, Literal
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -13,18 +15,19 @@ import pytest
 from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.dometic_bms import BMS
 from tests.bluetooth import generate_ble_device
-from tests.conftest import MockBleakClient
+from tests.conftest import LOGGER, MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 32
 
 _PROTO_DEFS: Final[list[bytes]] = [
-    b"\x9b\x00",
-    b"\x12",
-    b"MST+AEN",
-    b"MST+NET=\x85\x8f\x01\x05\x00\x08\x04\x03\x02\x05\x01",
-    b"MST+NET=\x85\x00\x01\x05\x00\x08\x04\x03\x02\x05\x04",
-    b'MST+DCO=\x11"3@',
+    # init sequence:
+    #    b"\x9b\x00",
+    #    b"\x12",
+    #    b"MST+AEN",
+    #    b"MST+NET=\x85\x8f\x01\x05\x00\x08\x04\x03\x02\x05\x01",
+    #    b"MST+NET=\x85\x00\x01\x05\x00\x08\x04\x03\x02\x05\x04",
+    #    b'MST+DCO=\x11"3@',
     b"#\x85\x00\xf2\x00\x00\x00\x00",
     b"#\x85\x00\x02\x051\x81\x11",
     b"#\x85\x005\nW\x07X",
@@ -541,9 +544,9 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycle_capacity": 1829,
     "delta_voltage": 0.004,
     "design_capacity": 150,
-    "voltage": 13.29,
+    "voltage": 13.28,
     "current": -2.74,
-    "power": -36.415,
+    "power": -36.387,
     "runtime": 181313,
     "temperature": 14.0,
     "problem": False,
@@ -559,29 +562,46 @@ class TestBasicBMS(BMSBasicTests):
 class MockDometicBBleakClient(MockBleakClient):
     """Emulate a Dometic Büttner BMS BleakClient."""
 
+    class _State(Enum):
+        IDLE = auto()
+        WAIT_CHC = auto()
+        NOTIFY_CHB = auto()
+        WAIT_CHB = auto()
+        WAIT_AEN = auto()
+        WAIT_NET = auto()
+        WAIT_RDN = auto()
+        RUNNING = auto()
+
     _RESP: list[bytes] = _PROTO_DEFS
-    _task: asyncio.Task[None] | None = None
+    _chb_data: Final[bytes] = b"\x12"
+    _chb_resp: Final[bytes] = b"\xff"
+    _chc_data: Final[bytes] = b"\x9b\x00"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize MockDometicBBleakClient."""
         super().__init__(*args, **kwargs)
         self._idx: int = 0
+        self._state: MockDometicBBleakClient._State = self._State.IDLE
+        self._cbs: dict[
+            Literal["chA", "chB", "chC"],
+            Callable[[BleakGATTCharacteristic, bytearray], Awaitable[None]],
+        ] = {}
+        self._tasks: dict[Literal["chA", "chB", "chC"], asyncio.Task[None]] = {}
 
     async def _send_info(self) -> None:
-        assert self._notify_callback is not None
+        assert self._cbs.get("chA") is not None
         while True:
-            await asyncio.sleep(0.025)  # FIXME! Adjust timing to TIMEOUT value
             for notify_data in [
                 self._RESP[self._idx][i : i + BT_FRAME_SIZE]
                 for i in range(0, len(self._RESP[self._idx]), BT_FRAME_SIZE)
             ]:
-                self._notify_callback(
+                await self._cbs["chA"](
                     BleakGATTCharacteristic(
                         self,
                         0x1,
                         "00000002-0000-1000-8000-008025000000",
                         ["notify"],
-                        lambda: 20,
+                        lambda: 22,
                         BleakGATTService(
                             self, 0x0, "0000fefb-0000-1000-8000-00805f9b34fb"
                         ),
@@ -589,6 +609,118 @@ class MockDometicBBleakClient(MockBleakClient):
                     bytearray(notify_data),
                 )
             self._idx = (self._idx + 1) % len(self._RESP)
+            if not self._idx:
+                await asyncio.sleep(0)
+
+    async def write_gatt_char(
+        self,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        data: Buffer,
+        response: bool | None = None,
+    ) -> None:
+        """Issue write command to GATT."""
+        await super().write_gatt_char(char_specifier, data, response)
+        assert isinstance(char_specifier, str)
+        if (
+            self._state == self._State.WAIT_CHC
+            and char_specifier[4:8] == "0009"
+            and bytes(data) == self._chc_data
+        ):
+            self._state = self._State.NOTIFY_CHB
+            return
+        if (
+            self._state == self._State.WAIT_CHB
+            and char_specifier[4:8] == "0003"
+            and bytes(data) == self._chb_resp
+        ):
+            self._state = self._State.WAIT_AEN
+            return
+        if (
+            self._state == self._State.WAIT_AEN
+            and char_specifier[4:8] == "0001"
+            and bytes(data) == b"APP+AEN"
+        ):
+            self._state = self._State.WAIT_NET
+            await self._cbs["chA"](
+                BleakGATTCharacteristic(
+                    self,
+                    0x1,
+                    "00000002-0000-1000-8000-008025000000",
+                    ["notify"],
+                    lambda: 22,
+                    BleakGATTService(self, 0x0, "0000fefb-0000-1000-8000-00805f9b34fb"),
+                ),
+                bytearray(b"MST+AEN"),
+            )
+            return
+        if (
+            self._state == self._State.WAIT_NET
+            and char_specifier[4:8] == "0001"
+            and bytes(data) == b"APP+NET"
+        ):
+            self._state = self._State.WAIT_RDN
+            await self._cbs["chA"](
+                BleakGATTCharacteristic(
+                    self,
+                    0x1,
+                    "00000002-0000-1000-8000-008025000000",
+                    ["notify"],
+                    lambda: 22,
+                    BleakGATTService(self, 0x0, "0000fefb-0000-1000-8000-00805f9b34fb"),
+                ),
+                bytearray(b"MST+NET=mock"),
+            )
+            return
+        if (
+            (self._state in (self._State.WAIT_RDN, self._State.RUNNING))
+            and char_specifier[4:8] == "0001"
+            and bytes(data) == b"APP+RDN=1"
+        ):
+            self._state = self._State.RUNNING
+            await self._cbs["chA"](
+                BleakGATTCharacteristic(
+                    self,
+                    0x1,
+                    "00000002-0000-1000-8000-008025000000",
+                    ["notify"],
+                    lambda: 22,
+                    BleakGATTService(self, 0x0, "0000fefb-0000-1000-8000-00805f9b34fb"),
+                ),
+                bytearray(b'MST+DCO=\x11"3@'),
+            )
+            self._tasks["chA"] = asyncio.create_task(self._send_info())
+            return
+        pytest.fail(f"write init sequence incorrect ({self._state=})")
+
+    async def _mock_chB(self) -> None:
+        assert self._cbs.get("chB") is not None
+        self._state = self._State.WAIT_CHB
+        await self._cbs["chB"](
+            BleakGATTCharacteristic(
+                self,
+                0x1,
+                "00000004-0000-1000-8000-008025000000",
+                ["notify"],
+                lambda: 21,
+                BleakGATTService(self, 0x0, "0000fefb-0000-1000-8000-00805f9b34fb"),
+            ),
+            bytearray(self._chb_data),
+        )
+
+    async def _mock_chC(self) -> None:
+        assert self._cbs.get("chC") is not None
+        self._state = self._State.WAIT_CHC
+        await self._cbs["chC"](
+            BleakGATTCharacteristic(
+                self,
+                0x1,
+                "0000000a-0000-1000-8000-008025000000",
+                ["notify"],
+                lambda: 22,
+                BleakGATTService(self, 0x0, "0000fefb-0000-1000-8000-00805f9b34fb"),
+            ),
+            bytearray(self._chc_data),
+        )
 
     async def start_notify(
         self,
@@ -599,15 +731,36 @@ class MockDometicBBleakClient(MockBleakClient):
         **kwargs,
     ) -> None:
         """Mock start_notify."""
-        await super().start_notify(char_specifier, callback)
-        self._task = asyncio.create_task(self._send_info())
+        characteristic: Final[str] = str(char_specifier)[4:8]
+        assert callable(callback) and inspect.iscoroutinefunction(
+            callback
+        ), "callback must be an async function"
+        self._enabled_notify.add(char_specifier)
+
+        if self._state == self._State.WAIT_AEN and characteristic == "0002":
+            self._cbs["chA"] = callback
+            return
+        if self._state == self._State.NOTIFY_CHB and characteristic == "0004":  # chB
+            self._tasks["chB"] = asyncio.create_task(self._mock_chB())
+            self._cbs["chB"] = callback
+            return
+        if self._state == self._State.IDLE and characteristic == "000a":  # chC
+            self._tasks["chC"] = asyncio.create_task(self._mock_chC())
+            self._cbs["chC"] = callback
+            return
+
+        pytest.fail(f"notify init sequence incorrect ({self._state=})")
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
-        if self._task is not None:
-            self._task.cancel()
+        for task in self._tasks.values():
+            LOGGER.debug(f"cancelling {task=}")
+            task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
-                await self._task
+                await task
+        self._state = self._State.IDLE
+        self._tasks.clear()
+        self._cbs.clear()
         await super().disconnect()
 
 
