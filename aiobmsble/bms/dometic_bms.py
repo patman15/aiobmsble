@@ -10,7 +10,6 @@ from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
@@ -109,12 +108,6 @@ class BMS(BaseBMS):
     # def _raw_values() -> frozenset[BMSValue]:
     #     return frozenset({"runtime"})  # never calculate, e.g. runtime
 
-    @staticmethod
-    def normalize_db_uuid_str(uuid: str) -> str:
-        """Normalize a Dometic Büttner characteristics UUID."""
-        assert len(uuid) == 4
-        return f"0000{uuid}-0000-1000-8000-008025000000"
-
     async def _alive_loop(self) -> None:
         """Continuously poll the module so it keeps streaming."""
         try:
@@ -124,7 +117,7 @@ class BMS(BaseBMS):
                     await self._await_msg(b"APP+NET", wait_for_notify=False)
                     await self._await_msg(
                         self._ka_resp.to_bytes(1),
-                        BMS.normalize_db_uuid_str("0003"),
+                        BMS._NotifyChars.ch_b_tx,
                         False,
                     )
                     self._ka_resp ^= 0x20
@@ -135,13 +128,8 @@ class BMS(BaseBMS):
 
     async def _subscribe_and_wait(self, char_uuid, event: asyncio.Event) -> None:
         self._log.debug("Subscribing to notify characteristic %s", char_uuid)
-        try:
-            await self._client.start_notify(char_uuid, self._keep_alive_handler)
-        except BleakError as ex:
-            self._log.debug(
-                "Could not subscribe to notify characteristic %s: %s", char_uuid, ex
-            )
-            raise
+
+        await self._client.start_notify(char_uuid, self._keep_alive_handler)
         event.clear()
         await asyncio.wait_for(event.wait(), timeout=BMS.TIMEOUT)
 
@@ -186,20 +174,18 @@ class BMS(BaseBMS):
             self._log.debug("empty notification")
             return
 
-        if sender.uuid == BMS._NotifyChars.ch_b_rx:
-            await self._await_msg(
-                self._ka_resp.to_bytes(1), BMS._NotifyChars.ch_b_tx, False
-            )
-            self._ka_resp ^= 0x20
-            self._ch_b_event.set()
-            return
-
-        if sender.uuid == BMS._NotifyChars.ch_c_rx:
-            await self._await_msg(bytes(data), BMS._NotifyChars.ch_c_tx, False)
-            self._ch_c_event.set()
-            return
-
-        self._log.debug("unknown notification source")
+        match sender.uuid:
+            case BMS._NotifyChars.ch_b_rx:
+                await self._await_msg(
+                    self._ka_resp.to_bytes(1), BMS._NotifyChars.ch_b_tx, False
+                )
+                self._ka_resp ^= 0x20
+                self._ch_b_event.set()
+            case BMS._NotifyChars.ch_c_rx:
+                await self._await_msg(bytes(data), BMS._NotifyChars.ch_c_tx, False)
+                self._ch_c_event.set()
+            case _:
+                self._log.debug("unknown notification source")
         return
 
     async def _notification_handler(
