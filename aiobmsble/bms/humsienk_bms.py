@@ -28,7 +28,7 @@ class BMS(BaseBMS):
     }
     _HEAD: Final[bytes] = b"\xaa"  # beginning of frame
     _MIN_LEN: Final[int] = 5  # minimal frame len
-    _ALARM_MASK: Final[int] = 0xFF7F7F7F  # exclude MOSFET, balance status bits
+    _ALARM_MASK: Final[int] = 0xFF7F7F7F  # bits 7, 15, 23 are chrg FET, heater, dischrg FET
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 4, False, lambda x: x / 1000, 0x21),
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),
@@ -38,8 +38,9 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 17, 4, False, lambda x: round(x / 1000), 0x21),
         BMSDp("cycles", 21, 2, False, idx=0x21),
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 0x80), 0x20),
+        BMSDp("heater", 8, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("dischrg_mosfet", 9, 1, False, lambda x: bool(x & 0x80), 0x20),
-        BMSDp("balancer", 8, 1, False, lambda x: bool(x & 0x80), 0x20),
+        BMSDp("balancer", 11, 3, False, idx=0x20),  # bit 0 = cell 1
         BMSDp("problem_code", 7, 4, False, lambda x: x & BMS._ALARM_MASK, 0x20),
     )
     _CMDS: Final = frozenset({b"\x20", b"\x21", b"\x22"})
@@ -161,7 +162,8 @@ class BMS(BaseBMS):
             start=23,
             size=1,
             byteorder="little",
-            types=(TempSensor.T.MOSFET,),
+            types=(TempSensor.T.CELL,) * 4
+            + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
 
         # Add problem for cell disconnect bitmap
