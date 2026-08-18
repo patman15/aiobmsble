@@ -28,8 +28,7 @@ class BMS(BaseBMS):
     }
     _HEAD: Final[bytes] = b"\xaa"  # beginning of frame
     _MIN_LEN: Final[int] = 5  # minimal frame len
-    # bits 7, 15, 23 are switch states (charge FET, heater, discharge FET), not alarms
-    _ALARM_MASK: Final[int] = 0xFF7F7F7F
+    _ALARM_MASK: Final[int] = 0xFF7F7F7F  # bits 7, 15, 23 are chrg FET, heater, dischrg FET
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 4, False, lambda x: x / 1000, 0x21),
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),
@@ -38,12 +37,10 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 13, 4, False, lambda x: x / 1000, 0x21),
         BMSDp("design_capacity", 17, 4, False, lambda x: round(x / 1000), 0x21),
         BMSDp("cycles", 21, 2, False, idx=0x21),
-        # operation_status u32 (frame offset 7) switch bits: 7, 15, 23
-        BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 0x80), 0x20),  # bit 7
-        BMSDp("heater", 8, 1, False, lambda x: bool(x & 0x80), 0x20),  # bit 15
-        BMSDp("dischrg_mosfet", 9, 1, False, lambda x: bool(x & 0x80), 0x20),  # bit 23
-        # cell balancing bitmap (frame offset 11), bit 0 = cell 1
-        BMSDp("balancer", 11, 3, False, idx=0x20),
+        BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 0x80), 0x20),
+        BMSDp("heater", 8, 1, False, lambda x: bool(x & 0x80), 0x20),
+        BMSDp("dischrg_mosfet", 9, 1, False, lambda x: bool(x & 0x80), 0x20),
+        BMSDp("balancer", 11, 3, False, idx=0x20),  # bit 0 = cell 1
         BMSDp("problem_code", 7, 4, False, lambda x: x & BMS._ALARM_MASK, 0x20),
     )
     _CMDS: Final = frozenset({b"\x20", b"\x21", b"\x22"})
@@ -165,7 +162,6 @@ class BMS(BaseBMS):
             start=23,
             size=1,
             byteorder="little",
-            # t1-t4 (cells), MOSFET, environment
             types=(TempSensor.T.CELL,) * 4
             + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
