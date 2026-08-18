@@ -249,8 +249,11 @@ async def test_invalid_init(
 
 
 @pytest.mark.parametrize("client", [MockJBDBleakClient, MockOversizedBleakClient])
-async def test_device_info(patch_bleak_client, client: object) -> None:
+async def test_device_info(
+    patch_bleak_client, patch_bms_timeout, client: object
+) -> None:
     """Test that the BMS returns initialized dynamic device information."""
+    patch_bms_timeout()
     patch_bleak_client(client)
     bms = BMS(generate_ble_device())
     if client == MockJBDBleakClient:
@@ -259,7 +262,7 @@ async def test_device_info(patch_bleak_client, client: object) -> None:
             "sw_version": "8.0",
         }
     else:
-        assert await bms.device_info() == {"hw_version": "", "sw_version": "8.0"}
+        assert await bms.device_info() == {"sw_version": "8.0"}
 
 
 @pytest.fixture(

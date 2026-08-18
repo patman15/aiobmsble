@@ -110,8 +110,11 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         await self._await_cmd_resp(0x03)
         result: BMSInfo = {"sw_version": f"{self._msg[22] >> 4}.{self._msg[22] & 0xF}"}
-        await self._await_cmd_resp(0x05)
-        result["hw_version"] = b2str(self._msg[4 : self._msg[3] + 4])
+        try:
+            await self._await_cmd_resp(0x05)
+            result["hw_version"] = b2str(self._msg[4 : self._msg[3] + 4])
+        except TimeoutError:
+            pass
         return result
 
     def _notify_init_handler(
@@ -205,8 +208,12 @@ class BMS(BaseBMS):
         if len(self._frame) != BMS._INFO_LEN + self._frame[3]:
             self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
 
-        if self._frame[1] != self._valid_reply:
-            self._log.debug("unexpected response (type 0x%X)", self._frame[1])
+        if self._frame[1] != self._valid_reply or self._frame[2] & 0x80:
+            self._log.debug(
+                "unexpected response (type 0x%X, code: 0x%X)",
+                self._frame[1],
+                self._frame[2],
+            )
             return
 
         self._msg = bytes(self._frame)
