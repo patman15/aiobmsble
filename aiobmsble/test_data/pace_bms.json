@@ -2,12 +2,27 @@
   {
     "advertisement": {
       "local_name": "PC-9662",
-      "rssi":-69,
-      "manufacturer_data":{"1":"04b4c2e00101015043003132333435363738393031325a"}
+      "platform_data": ["B4:C2:E0:00:00:00"],
+      "rssi": -69,
+      "manufacturer_data": {
+        "1": "04b4c2e00101015043003132333435363738393031325a"
+      }
     },
     "type": "pace_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/521)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "LLM_UNAZAY_000EY4",
+      "platform_data": ["A8:A0:92:00:00:00"],
+      "rssi": -94
+    },
+    "type": "pace_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/800)",
+      "LVTOPSUN"
     ]
   }
 ]
