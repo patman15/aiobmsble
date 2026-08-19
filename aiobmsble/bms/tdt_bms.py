@@ -9,6 +9,7 @@ from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
+from bleak.exc import BleakCharacteristicNotFoundError
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
@@ -127,11 +128,14 @@ class BMS(BaseBMS):
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
-        await self._await_msg(data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False)
-        if (
-            ret := int.from_bytes(await self._client.read_gatt_char(BMS._UUID_CFG))
-        ) != 0x1:
-            self._log.debug("error unlocking BMS: %X", ret)
+        try:
+            await self._await_msg(data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False)
+            if (
+                ret := int.from_bytes(await self._client.read_gatt_char(BMS._UUID_CFG))
+            ) != 0x1:
+                self._log.debug("error unlocking BMS: %X", ret)
+        except BleakCharacteristicNotFoundError:
+            self._log.debug("skipping unlock step")
 
         await super()._init_connection()
         _bms_info: BMSInfo = await self._fetch_device_info()
