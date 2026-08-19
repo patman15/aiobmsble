@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from contextlib import suppress
 from enum import StrEnum
 from typing import Final
 
@@ -110,23 +111,33 @@ class BMS(BaseBMS):
 
     async def _alive_loop(self) -> None:
         """Continuously poll the module so it keeps streaming."""
-        try:
-            while True:
-                await asyncio.sleep(BMS._ALIVE_INTERVAL)
-                async with self._op_lock:
-                    await self._await_msg(b"APP+NET", wait_for_notify=False)
-                    await self._await_msg(
-                        self._ka_resp.to_bytes(1),
-                        BMS._NotifyChars.ch_b_tx,
-                        False,
-                    )
-                    self._ka_resp ^= 0x20
-        except asyncio.CancelledError:
-            return
-        except Exception as exc:  # noqa: BLE001 - keep-alive must not crash the loop
-            self._log.debug("alive loop stopped (%s)", type(exc).__name__)
+        while True:
+            await asyncio.sleep(BMS._ALIVE_INTERVAL)
+            async with self._op_lock:
+                await self._await_msg(b"APP+NET", wait_for_notify=False)
+                await self._await_msg(
+                    self._ka_resp.to_bytes(1),
+                    BMS._NotifyChars.ch_b_tx,
+                    False,
+                )
+                self._ka_resp ^= 0x20
 
-    async def _subscribe_and_wait(self, char_uuid, event: asyncio.Event) -> None:
+    def _log_alive_loop_exc(self, task: asyncio.Task[None]) -> None:
+        """Log any exception raised by keep-alive loop."""
+        if task.cancelled():
+            # Expected path: we cancelled it ourselves in _disconnect().
+            self._log.debug("task '%s' was cancelled", task.get_name())
+            return
+
+        self._log.error(
+            "task '%s' terminated with unexpectedly",
+            task.get_name(),
+            exc_info=task.exception(),
+        )
+
+    async def _subscribe_and_wait(
+        self, char_uuid: _NotifyChars, event: asyncio.Event
+    ) -> None:
         self._log.debug("Subscribing to notify characteristic %s", char_uuid)
 
         await self._client.start_notify(char_uuid, self._keep_alive_handler)
@@ -159,10 +170,19 @@ class BMS(BaseBMS):
             self._alive_task = asyncio.create_task(
                 self._alive_loop(), name="BMS keep-alive"
             )
+            self._alive_task.add_done_callback(self._log_alive_loop_exc)
+
+    # async def _disconnect(self, reset: bool) -> None:
+    #     if self._alive_task:
+    #         self._alive_task.cancel()
+    #     return await super()._disconnect(reset)
 
     async def _disconnect(self, reset: bool) -> None:
-        if self._alive_task:
-            self._alive_task.cancel()
+        task, self._alive_task = self._alive_task, None
+        if task and not task.done():
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
         return await super()._disconnect(reset)
 
     async def _keep_alive_handler(
@@ -185,7 +205,7 @@ class BMS(BaseBMS):
                 await self._await_msg(bytes(data), BMS._NotifyChars.ch_c_tx, False)
                 self._ch_c_event.set()
             case _:
-                self._log.debug("unknown notification source")
+                self._log.debug("unknown notification sender")
         return
 
     async def _notification_handler(
