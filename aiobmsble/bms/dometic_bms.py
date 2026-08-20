@@ -97,16 +97,6 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return BMS._NotifyChars.ch_a_tx
 
-    # async def _fetch_device_info(self) -> BMSInfo:
-    #     """Fetch the device information via BLE."""
-    #     return BMSInfo(
-    #         default_manufacturer="Dummy manufacturer", default_model="Dummy BMS"
-    #     )  # TODO: implement query code or remove function to query service 0x180A
-
-    # @staticmethod
-    # def _raw_values() -> frozenset[BMSValue]:
-    #     return frozenset({"runtime"})  # never calculate, e.g. runtime
-
     async def _alive(self) -> None:
         """Continuously poll the module so it keeps streaming."""
         await self._await_msg(b"APP+NET", wait_for_notify=False)
@@ -225,7 +215,7 @@ class BMS(BaseBMS):
             await self._await_msg(b"APP+RDN=1")
 
         try:
-            await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+            await asyncio.wait_for(self._wait_event(), timeout=max(BMS.TIMEOUT, 15.0))
         finally:
             if self._disconnect_event.is_set():
                 await super().disconnect()
