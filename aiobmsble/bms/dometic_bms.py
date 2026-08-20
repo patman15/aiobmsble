@@ -6,7 +6,6 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from enum import StrEnum
-from random import choice
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -98,6 +97,16 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return BMS._NotifyChars.ch_a_tx
 
+    # async def _fetch_device_info(self) -> BMSInfo:
+    #     """Fetch the device information via BLE."""
+    #     return BMSInfo(
+    #         default_manufacturer="Dummy manufacturer", default_model="Dummy BMS"
+    #     )  # TODO: implement query code or remove function to query service 0x180A
+
+    # @staticmethod
+    # def _raw_values() -> frozenset[BMSValue]:
+    #     return frozenset({"runtime"})  # never calculate, e.g. runtime
+
     async def _alive(self) -> None:
         """Continuously poll the module so it keeps streaming."""
         await self._await_msg(b"APP+NET", wait_for_notify=False)
@@ -120,7 +129,7 @@ class BMS(BaseBMS):
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
-        self._ka_resp = choice([0xFF, 0xDF])
+        self._ka_resp = 0xFF
         self._disconnect_event.clear()
 
         await self._subscribe_and_wait(BMS._NotifyChars.ch_c_rx, self._ch_c_event)
