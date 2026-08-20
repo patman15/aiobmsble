@@ -5,14 +5,12 @@ from collections.abc import Awaitable, Buffer, Callable
 import contextlib
 from enum import Enum, auto
 import inspect
-import itertools
 from logging import DEBUG
 from typing import Any, Final, Literal, Self
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.service import BleakGATTService
-from bleak.exc import BleakGATTProtocolError
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample
@@ -673,7 +671,7 @@ async def test_alive_loop_running(
 ) -> None:
     """Test that the keep-alive loop actually sends its keep-alive messages."""
     monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS)
-    monkeypatch.setattr(BMS, "_ALIVE_INTERVAL", 0.0)
+    monkeypatch.setattr(BMS, "ALIVE_INTERVAL", 0.0)
     patch_bleak_client(MockDBBleakClient)
 
     written: set[tuple[str, bytes]] = set()
@@ -705,45 +703,6 @@ async def test_alive_loop_running(
     assert bms.is_connected is False
 
 
-async def test_alive_loop_exception(
-    monkeypatch: pytest.MonkeyPatch,
-    patch_bleak_client,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Test that the keep-alive loop actually sends its keep-alive messages."""
-    monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS)
-    monkeypatch.setattr(BMS, "_ALIVE_INTERVAL", 0.0)
-    patch_bleak_client(MockDBBleakClient)
-
-    orig_write = MockDBBleakClient.write_gatt_char
-
-    async def _write_exc(self, char_specifier, data, response=None) -> None:
-        if bytes(data) == b"\xdf":
-            raise BleakGATTProtocolError(0x73)  # raise on first keep-alive run
-        await orig_write(self, char_specifier, data, response)
-
-    monkeypatch.setattr(MockDBBleakClient, "write_gatt_char", _write_exc)
-
-    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=True))
-
-    assert await bms.async_update() == _RESULT_DEFS
-
-    # yield control so loop performs its keep-alive messages
-    with caplog.at_level(DEBUG):
-        for _ in range(2):
-            await asyncio.sleep(0)
-
-    assert "task 'BMS keep-alive' terminated with unexpectedly" in caplog.text
-    await bms.disconnect()
-
-
-async def test_disconnect_without_connection(patch_bleak_client) -> None:
-    """Test disconnect when BMS has never connected (alive_task is None)."""
-    patch_bleak_client(MockDBBleakClient)
-    bms = BMS(generate_ble_device(), BMSConfig())
-    await bms.disconnect()
-
-
 async def test_keep_alive_handler_broken_sender(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
@@ -758,27 +717,6 @@ async def test_keep_alive_handler_broken_sender(
         await bms.async_update()
     assert "unknown notification sender" in caplog.text
     assert "empty notification" in caplog.text
-    await bms.disconnect()
-
-
-async def test_reconnect_with_running_alive_task(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
-    """Test _init_connection skips creating a new alive-task when one is running."""
-    monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS)
-    patch_bleak_client(MockDBBleakClient)
-
-    calls: itertools.count = itertools.count()
-
-    async def _disconnect_no_cancel(self: BMS, reset: bool) -> None:
-        if next(calls) and self._alive_task:
-            self._alive_task.cancel()
-
-    monkeypatch.setattr(BMS, "_disconnect", _disconnect_no_cancel)
-
-    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
-    await bms.async_update()  # first update: alive_task created, NOT cancelled on disconnect
-    await bms.async_update()  # reconnect: _init_connection sees running task
     await bms.disconnect()
 
 

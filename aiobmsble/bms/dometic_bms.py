@@ -5,7 +5,6 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from contextlib import suppress
 from enum import StrEnum
 from typing import Final
 
@@ -35,7 +34,7 @@ class BMS(BaseBMS):
 
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
-    _ALIVE_INTERVAL: Final[float] = 24.0  # seconds
+    ALIVE_INTERVAL: float | None = 24.0  # seconds
     _UUID_SLC: Final[slice] = slice(4, 8)
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100, 0x02),
@@ -65,7 +64,6 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize BMS."""
         super().__init__(ble_device, config, logger_name)
-        self._alive_task: asyncio.Task[None] | None = None
         self._data_final: dict[int, dict[int, bytes]] = {}
         self._exp_reply: bytes = b""
         self._disconnect_event: asyncio.Event = asyncio.Event()
@@ -109,31 +107,15 @@ class BMS(BaseBMS):
     # def _raw_values() -> frozenset[BMSValue]:
     #     return frozenset({"runtime"})  # never calculate, e.g. runtime
 
-    async def _alive_loop(self) -> None:
+    async def _alive(self) -> None:
         """Continuously poll the module so it keeps streaming."""
-        while True:
-            await asyncio.sleep(BMS._ALIVE_INTERVAL)
-            async with self._op_lock:
-                await self._await_msg(b"APP+NET", wait_for_notify=False)
-                await self._await_msg(
-                    self._ka_resp.to_bytes(1),
-                    BMS._NotifyChars.ch_b_tx,
-                    False,
-                )
-                self._ka_resp ^= 0x20
-
-    def _log_alive_loop_exc(self, task: asyncio.Task[None]) -> None:
-        """Log any exception raised by keep-alive loop."""
-        if task.cancelled():
-            # Expected path: we cancelled it ourselves in _disconnect().
-            self._log.debug("task '%s' was cancelled", task.get_name())
-            return
-
-        self._log.error(
-            "task '%s' terminated with unexpectedly",
-            task.get_name(),
-            exc_info=task.exception(),
+        await self._await_msg(b"APP+NET", wait_for_notify=False)
+        await self._await_msg(
+            self._ka_resp.to_bytes(1),
+            BMS._NotifyChars.ch_b_tx,
+            False,
         )
+        self._ka_resp ^= 0x20
 
     async def _subscribe_and_wait(
         self, char_uuid: _NotifyChars, event: asyncio.Event
@@ -165,25 +147,6 @@ class BMS(BaseBMS):
         self._exp_reply = b"MST+NET="
         await self._await_msg(b"APP+NET", wait_for_notify=True)
         self._msg_event.clear()
-
-        if self._alive_task is None or self._alive_task.done():
-            self._alive_task = asyncio.create_task(
-                self._alive_loop(), name="BMS keep-alive"
-            )
-            self._alive_task.add_done_callback(self._log_alive_loop_exc)
-
-    # async def _disconnect(self, reset: bool) -> None:
-    #     if self._alive_task:
-    #         self._alive_task.cancel()
-    #     return await super()._disconnect(reset)
-
-    async def _disconnect(self, reset: bool) -> None:
-        task, self._alive_task = self._alive_task, None
-        if task and not task.done():
-            task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
-        return await super()._disconnect(reset)
 
     async def _keep_alive_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
