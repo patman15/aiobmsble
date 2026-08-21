@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS
+from aiobmsble.basebms import BLEAK_TIMEOUT, BaseBMS
 
 
 class BMS(BaseBMS):
@@ -37,20 +37,20 @@ class BMS(BaseBMS):
     ALIVE_INTERVAL: float | None = 24.0  # seconds
     _UUID_SLC: Final[slice] = slice(4, 8)
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("voltage", 4, 2, False, lambda x: x / 100, 0x02),
+        BMSDp("voltage", 4, 2, False, lambda x: x / 100, 0x2),
         BMSDp(
             "current",
             6,
             2,
             False,
             lambda x: (x if x <= 32767 else 32767 - x) / 100,
-            0x02,
+            0x2,
         ),
-        BMSDp("design_capacity", 4, 4, False, idx=0x07),
-        BMSDp("battery_level", 4, 1, False, idx=0x0B),
+        BMSDp("design_capacity", 4, 4, False, idx=0x7),
+        BMSDp("battery_level", 4, 1, False, idx=0xB),
         BMSDp("temperature", 4, 2, False, lambda x: (x - 500) / 10, 0x0C),
         BMSDp("cycle_capacity", 4, 2, False, idx=0x36),
-        BMSDp("battery_health", 4, 1, False, idx=0x0E),
+        BMSDp("battery_health", 4, 1, False, idx=0xE),
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS} | {0x56, 0x57}
 
@@ -215,7 +215,7 @@ class BMS(BaseBMS):
             await self._await_msg(b"APP+RDN=1")
 
         try:
-            await asyncio.wait_for(self._wait_event(), timeout=max(BMS.TIMEOUT, 15.0))
+            await asyncio.wait_for(self._wait_event(), timeout=BLEAK_TIMEOUT)
         finally:
             if self._disconnect_event.is_set():
                 await super().disconnect()
