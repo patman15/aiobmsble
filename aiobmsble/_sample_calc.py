@@ -191,7 +191,7 @@ def derive_from_packs(data: BMSSample) -> None:
     if _can_calc("design_capacity"):
         data["design_capacity"] = sum(_pvalues("design_capacity"))
     if _can_calc("voltage"):
-        data["voltage"] = fmean(_pvalues("voltage"))
+        data["voltage"] = round(fmean(_pvalues("voltage")), 3)
 
 
 def derive_missing_fields(

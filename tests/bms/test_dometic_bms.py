@@ -13,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.service import BleakGATTService
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.dometic_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import LOGGER, MockBleakClient
@@ -371,20 +371,73 @@ _PROTO_DEFS_MIN: Final[tuple[bytes, ...]] = (
 )
 
 _RESULT_DEFS: Final[BMSSample] = {
-    "battery_charging": False,
-    "battery_level": 92,
-    "battery_health": 100,
+    "pack_count": 2,
+    "packs": [
+        {
+            "voltage": 13.28,
+            "current": -2.74,
+            "design_capacity": 150,
+            "battery_level": 92,
+            "temp_values": [TS(14.0)],
+            "cycle_capacity": 1829,
+            "battery_health": 100,
+            "cell_voltages": [
+                3.315,
+                3.316,
+                3.314,
+                3.312,
+            ],
+            "delta_voltage": 0.004,
+            "cell_count": 4,
+        },
+        {
+            "voltage": 13.27,
+            "current": -2.93,
+            "design_capacity": 150,
+            "battery_level": 92,
+            "temp_values": [TS(14.0)],
+            "cycle_capacity": 1814,
+            "battery_health": 100,
+            "cell_voltages": [
+                3.311,
+                3.311,
+                3.311,
+                3.307,
+            ],
+            "delta_voltage": 0.004,
+            "cell_count": 4,
+        },
+    ],
+    "cell_voltages": [
+        3.315,
+        3.316,
+        3.314,
+        3.312,
+        3.311,
+        3.311,
+        3.311,
+        3.307,
+    ],
     "cell_count": 4,
-    "cell_voltages": [3.315, 3.316, 3.314, 3.312],
-    "cycle_charge": 138.0,
-    "cycle_capacity": 1829,
+    "current": -5.67,
+    "delta_voltage": 0.004,
+    "design_capacity": 300,
+    "voltage": 13.275,
+    "battery_charging": False,
+    "power": -75.269,
+    "problem": False,
+}
+_RESULT_DEFS_MIN: Final[BMSSample] = {
+    "pack_count": 1,
+    "packs": [_RESULT_DEFS["packs"][0]],
+    "cell_voltages": _RESULT_DEFS["cell_voltages"][:4],
+    "cell_count": 4,
+    "current": -2.74,
     "delta_voltage": 0.004,
     "design_capacity": 150,
     "voltage": 13.28,
-    "current": -2.74,
+    "battery_charging": False,
     "power": -36.387,
-    "runtime": 181313,
-    "temperature": 14.0,
     "problem": False,
 }
 
@@ -684,7 +737,7 @@ async def test_inc_update(
     monkeypatch.setattr(
         MockDBBleakClient, "_RESP", _PROTO_DEFS_MIN
     )  # patch minimal set without design capacity
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.async_update() == _RESULT_DEFS_MIN
     await bms.disconnect()
 
 
@@ -693,12 +746,16 @@ async def test_bms_disconnect(
 ) -> None:
     """Test Dometic Büttner BMS data update."""
 
-    monkeypatch.setattr(MockDBBleakClient, "_RESP", [*_PROTO_DEFS[:100], b"+++"])
+    monkeypatch.setattr(
+        MockDBBleakClient,
+        "_RESP",
+        [*_PROTO_DEFS_MIN, b"#\x85\x00\x07\x00\x00\x00\x96", b"+++"],
+    )
     patch_bleak_client(MockDBBleakClient)
 
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.async_update() == _RESULT_DEFS_MIN
     assert bms.is_connected is False
 
 

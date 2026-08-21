@@ -13,7 +13,14 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 from bleak_retry_connector import BLEAK_TIMEOUT
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    MatcherPattern,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import BaseBMS
 
 
@@ -49,7 +56,7 @@ class BMS(BaseBMS):
         ),
         BMSDp("design_capacity", 4, 4, False, idx=0x7),
         BMSDp("battery_level", 4, 1, False, idx=0xB),
-        BMSDp("temperature", 4, 2, False, lambda x: (x - 500) / 10, 0x0C),
+        BMSDp("temp_values", 4, 2, False, lambda x: [TS((x - 500) / 10)], 0x0C),
         BMSDp("cycle_capacity", 4, 2, False, idx=0x36),
         BMSDp("battery_health", 4, 1, False, idx=0xE),
     )
@@ -231,12 +238,13 @@ class BMS(BaseBMS):
                 raise ValueError("BMS data incomplete.")
             self._design_cap[dev] = data[0x7] = cap_msg
 
-        result: BMSSample = self._decode_data(
-            BMS._FIELDS, next(iter(self._data_final.values()))
-        )
-        result["cell_voltages"] = BMS._cellV(
-            next(iter(self._data_final.values())), cells=4
-        )
+        result: BMSSample = BMSSample(pack_count=len(self._data_final))
+        for pack in sorted(self._data_final):
+            pack_result: BMSSample = self._decode_data(
+                BMS._FIELDS, self._data_final[pack]
+            )
+            pack_result["cell_voltages"] = BMS._cellV(self._data_final[pack], cells=4)
+            result.setdefault("packs", []).append(pack_result)
 
         self._data_final.clear()
         return result
