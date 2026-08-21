@@ -358,6 +358,18 @@ _PROTO_DEFS: Final[tuple[bytes, ...]] = (
     b"U}",
 )
 
+_PROTO_DEFS_MIN: Final[tuple[bytes, ...]] = (
+    b"#\x85\x00\xf2\x00\x00\x00\x00",
+    b"#\x85\x00\x02\x050\x81\x11",
+    b"#\x85\x00V\x0c\xf3\x0c\xf4",
+    b"#\x85\x00W\x0c\xf2\x0c\xf0",
+    b"#\x85\x00\x0b\\\xff\xff\xff",
+    b"#\x85\x00\x0c\x02\x80\xff\xff",
+    b"#\x85\x00\x0ed\x00\x00\x00",
+    b"#\x85\x00\xc0\x00\x00\x00\x00",
+    b"#\x85\x006\x07%\xff\xff",
+)
+
 _RESULT_DEFS: Final[BMSSample] = {
     "battery_charging": False,
     "battery_level": 92,
@@ -636,6 +648,43 @@ async def test_update(
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
 
+    await bms.disconnect()
+
+
+async def test_incomplete_first_update(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+) -> None:
+    """Test Dometic Büttner BMS data update with missing design capacity at beginning."""
+
+    monkeypatch.setattr(
+        MockDBBleakClient, "_RESP", _PROTO_DEFS_MIN
+    )  # patch minimal set without design capacity
+    patch_bleak_client(MockDBBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.async_update()
+
+    await bms.disconnect()
+
+
+async def test_inc_update(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+) -> None:
+    """Test Dometic Büttner BMS incremental update (second without design capacity)."""
+
+    patch_bleak_client(MockDBBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig())
+
+    assert await bms.async_update() == _RESULT_DEFS
+    monkeypatch.setattr(
+        MockDBBleakClient, "_RESP", _PROTO_DEFS_MIN
+    )  # patch minimal set without design capacity
+    assert await bms.async_update() == _RESULT_DEFS
     await bms.disconnect()
 
 

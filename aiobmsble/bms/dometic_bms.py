@@ -226,8 +226,9 @@ class BMS(BaseBMS):
 
         # restore design capacity if not received
         for dev, data in self._data_final.items():
-            if (cap_msg := data.get(0x7) or self._design_cap.get(dev)) is not None:
-                self._design_cap[dev] = data[0x7] = cap_msg
+            if (cap_msg := data.get(0x7) or self._design_cap.get(dev)) is None:
+                raise ValueError("BMS data incomplete.")
+            self._design_cap[dev] = data[0x7] = cap_msg
 
         result: BMSSample = self._decode_data(
             BMS._FIELDS, next(iter(self._data_final.values()))
