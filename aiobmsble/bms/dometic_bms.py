@@ -52,7 +52,10 @@ class BMS(BaseBMS):
         BMSDp("cycle_capacity", 4, 2, False, idx=0x36),
         BMSDp("battery_health", 4, 1, False, idx=0xE),
     )
-    _CMDS: Final[set[int]] = {field.idx for field in _FIELDS} | {0x56, 0x57}
+    _CMDS: Final[set[int]] = {field.idx for field in _FIELDS if field.idx != 0x7} | {
+        0x56,
+        0x57,
+    }  # do not wait for design capacity (won't change anyway)
 
     accept_secret: bool = True
 
@@ -70,6 +73,7 @@ class BMS(BaseBMS):
         self._ch_b_event: asyncio.Event = asyncio.Event()
         self._ch_c_event: asyncio.Event = asyncio.Event()
         self._ka_resp: int = 0xFF
+        self._design_cap: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -219,6 +223,11 @@ class BMS(BaseBMS):
         finally:
             if self._disconnect_event.is_set():
                 await super().disconnect()
+
+        # restore design capacity if not received
+        for dev, data in self._data_final.items():
+            if (cap_msg := data.get(0x7) or self._design_cap.get(dev)) is not None:
+                self._design_cap[dev] = data[0x7] = cap_msg
 
         result: BMSSample = self._decode_data(
             BMS._FIELDS, next(iter(self._data_final.values()))
