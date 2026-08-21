@@ -144,7 +144,7 @@ class MockJBDBleakClient(MockBleakClient):
         """Issue write command to GATT."""
 
         _task: asyncio.Task[None] = asyncio.create_task(
-            self._send_data(char_specifier, data)
+            self._send_data(char_specifier, data), name="send_loop"
         )
         self._tasks.add(_task)
         _task.add_done_callback(self._tasks.discard)

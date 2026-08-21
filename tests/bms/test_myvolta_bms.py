@@ -90,7 +90,7 @@ class MockMyVoltaBleakClient(MockBleakClient):
     ) -> None:
         """Mock start_notify."""
         await super().start_notify(char_specifier, callback, **kwargs)
-        self._task = asyncio.create_task(self._stream_data())
+        self._task = asyncio.create_task(self._stream_data(), name="send_loop")
         await asyncio.sleep(0)
 
     async def disconnect(self) -> None:
