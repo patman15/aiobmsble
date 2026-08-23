@@ -95,14 +95,14 @@ class BMS(TopbandBMS):
             while True:
                 await asyncio.sleep(BMS._ALIVE_INTERVAL)
                 async with self._op_lock:
-                    try:
-                        self._ctrl_proto = b"I"
-                        await self._await_msg(b"<I:WA>")
-                    except TimeoutError:
-                        pass
-                    finally:
-                        self._ctrl_proto = b""
-                        self._msg_event.clear()
+                    # try:
+                    # self._ctrl_proto = b"I"
+                    await self._await_msg(b"<*>", wait_for_notify=False)
+                # except TimeoutError:
+                #     pass
+                # finally:
+                #     self._ctrl_proto = b""
+                #     self._msg_event.clear()
         except asyncio.CancelledError:
             return
         except Exception as exc:  # noqa: BLE001 - keep-alive must not crash the loop
@@ -150,6 +150,14 @@ class BMS(TopbandBMS):
         if not self._msg_event.is_set():
             self._log.debug("requesting data from BMS")
             await self._await_msg(b"<B:ST>")
+
+        try:
+            self._ctrl_proto = b"H"
+            await self._await_msg(b"<H:ST>")
+            self._log.debug("Heater: %s", self._msg[2:].decode("ascii", errors="strict"))
+        finally:
+            self._ctrl_proto = b""
+            self._msg_event.clear()
 
         return self._decode_data(BMS.FIELDS, self._msg, byteorder="little") | {
             "cell_voltages": BMS._cell_voltages(
