@@ -49,6 +49,9 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
         b"\x30\x30\x30\x30\x30\x32\x46\x33"
     ),
+    0x87: bytearray(
+        b"\x8706340000000000005892010035006300A40B008017B4FC0C020D030D050D00000000000000000000000000000000000000000000000004F0))))))))"
+    ),
     # 0xF6: bytearray(  # Voltium Energy
     #     b"\xf6\x44\x42\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x32\x30\x33\x45"
     #     b"\x30\x30\x30\x30\x30\x31\x30\x30\x36\x33\x30\x30\x43\x43\x30\x42\x33\x35\x30\x44\x32"
@@ -134,6 +137,30 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "power": 0.0,
         "battery_charging": False,
         "temperature": 23.95,
+        "problem": False,
+    },
+    0x87: {
+        "voltage": 13.318,
+        "current": 0.0,
+        "battery_level": 99,
+        "cycle_charge": 103.0,
+        "cycles": 53,
+        "temp_values": [
+            TS(24.85),
+        ],
+        "problem_code": 0,
+        "cell_voltages": [
+            3.324,
+            3.33,
+            3.331,
+            3.333,
+        ],
+        "battery_charging": False,
+        "cell_count": 4,
+        "delta_voltage": 0.009,
+        "temperature": 24.85,
+        "cycle_capacity": 1371.754,
+        "power": 0.0,
         "problem": False,
     },
     # 0xF6: {}
