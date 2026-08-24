@@ -25,5 +25,32 @@
       "source debug log from live device scan",
       "Lithionics Li3 battery advertisement"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "Li3-022724009",
+      "manufacturer_data": {
+        "19784": "a06c65d1b28c"
+      },
+      "service_data": {
+        "0000b000-0000-1000-8000-00805f9b34fb": "00000000"
+      },
+      "service_uuids": [
+        "00001800-0000-1000-8000-00805f9b34fb",
+        "00001801-0000-1000-8000-00805f9b34fb",
+        "0000b000-0000-1000-8000-00805f9b34fb",
+        "0000ffe0-0000-1000-8000-00805f9b34fb"
+      ],
+      "platform_data": [
+        "A0:6C:65:D1:B2:8C"
+      ],
+      "tx_power": 0,
+      "rssi": -86
+    },
+    "type": "lithionics_bms",
+    "_comments": [
+      "source debug log from live device scan",
+      "Lithionics Li3 48 V / 16S pack, firmware 9.0.04, fixed-length stream variant"
+    ]
   }
 ]

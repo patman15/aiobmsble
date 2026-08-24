@@ -25,6 +25,16 @@ class BMS(BaseBMS):
     _HEAD_STATUS: Final[str] = "&,"
     _MIN_FIELDS_PRIMARY: Final[int] = 10
     _MIN_FIELDS_STATUS: Final[int] = 3
+    # Field widths of the zero-padded fixed-length stream variant (selected by
+    # the BMS "Serial Data Format" setting). It has the same field count as the
+    # plain comma-delimited variant but a different field order, so the widths
+    # are what tell them apart.
+    _FIXED_WIDTHS: Final[tuple[int, ...]] = (1, 5, 4, 3, 3, 1, 5, 6, 3, 6)
+    _FIXED_STATUS_FIELDS: Final[int] = 15
+    # Status-code bits that mean an actual fault. The idle value 0x000100 only
+    # reports "AUX contacts closed", i.e. normal operation, and must not be
+    # surfaced as a problem.
+    _PROBLEM_MASK: Final[int] = (0b0110_1000 << 16) | (0b1100_1110 << 8) | 0b0110_0110
 
     def __init__(
         self,
@@ -99,6 +109,52 @@ class BMS(BaseBMS):
             self._frame.clear()
 
     @staticmethod
+    def _is_fixed_length(fields: list[str]) -> bool:
+        """Detect the zero-padded fixed-length stream variant."""
+        return len(fields) == len(BMS._FIXED_WIDTHS) and all(
+            len(field) == width
+            for field, width in zip(fields, BMS._FIXED_WIDTHS, strict=True)
+        )
+
+    @staticmethod
+    def _parse_primary_fixed(fields: list[str]) -> BMSSample:
+        """Parse a fixed-length primary line.
+
+        1,01594,0525,048,048,0,00000,000000,080,000100
+        | |     |    |   |   | |     |      |   `- status flags (3 bytes, hex)
+        | |     |    |   |   | |     |      `----- temperature (degF)
+        | |     |    |   |   | |     `------------ power (1 W/bit)
+        | |     |    |   |   | `------------------ current (0.1 A/bit)
+        | |     |    |   |   `-------------------- 1: charging, 0: discharging
+        | |     |    |   `------------------------ second SoC-like field
+        | |     |    `---------------------------- state of charge (%)
+        | |     `--------------------------------- voltage (0.1 V/bit)
+        | `--------------------------------------- charge remaining (0.1 Ah/bit)
+        `----------------------------------------- battery ID (instance)
+        """
+        charging: Final[bool] = int(fields[5]) == 1
+        sign: Final[int] = 1 if charging else -1
+
+        return {
+            "voltage": int(fields[2]) / 10,
+            "battery_level": int(fields[3]),
+            "cycle_charge": int(fields[1]) / 10,
+            "current": sign * int(fields[6]) / 10,
+            "power": float(sign * int(fields[7])),
+            "battery_charging": charging,
+            "temp_values": [TempSensor(round((int(fields[8]) - 32) * 5 / 9, 3))],
+            "temp_sensors": 1,
+            "problem_code": int(fields[9], 16) & BMS._PROBLEM_MASK,
+        }
+
+    @staticmethod
+    def _parse_status_fixed(fields: list[str]) -> BMSSample:
+        """Parse a fixed-length trace line; it ends with lowest/highest/avg cell."""
+        return {
+            "delta_voltage": round((int(fields[13]) - int(fields[12])) / 100, 3)
+        }
+
+    @staticmethod
     def _parse_primary(fields: list[str]) -> BMSSample:
         # BMS reports temperatures in Fahrenheit.
         temp_values: Final[list[TempSensor]] = [
@@ -130,10 +186,20 @@ class BMS(BaseBMS):
         self._msg_event.clear()
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
+        primary: Final[list[str]] = self._stream_data["primary"]
+        status: Final[list[str]] = self._stream_data["status"]
+
         try:
-            result: BMSSample = BMS._parse_primary(
-                self._stream_data["primary"]
-            ) | BMS._parse_status(self._stream_data["status"])
+            if BMS._is_fixed_length(primary):
+                # The trace line of this variant carries the cell voltage
+                # extremes; shorter ones only repeat data already parsed.
+                result: BMSSample = BMS._parse_primary_fixed(primary) | (
+                    BMS._parse_status_fixed(status)
+                    if len(status) >= BMS._FIXED_STATUS_FIELDS
+                    else {}
+                )
+            else:
+                result = BMS._parse_primary(primary) | BMS._parse_status(status)
         except (IndexError, ValueError) as exc:
             raise ValueError("BMS data incomplete.") from exc
 

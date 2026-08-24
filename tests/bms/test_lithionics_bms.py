@@ -252,3 +252,66 @@ async def test_status_field_variants(
         assert result.get(key) == value
 
     await bms.disconnect()
+
+
+STREAM_DATA_FIXED: Final[bytes] = (
+    b"1,01594,0525,048,048,0,00000,000000,080,000100\r\n"
+    b"&,1,0525,0525,078,2,075845,0576,3300,FF03,0000,00,327,328,328\r\n"
+)
+
+
+def ref_value_fixed() -> BMSSample:
+    """Return reference value for the fixed-length stream variant."""
+    return {
+        "voltage": 52.5,
+        "current": 0.0,
+        "power": 0.0,
+        "battery_level": 48,
+        "battery_charging": False,
+        "cycle_charge": 159.4,
+        "cycle_capacity": 8368.5,
+        "delta_voltage": 0.01,
+        "temp_sensors": 1,
+        "temp_values": [TS(26.667)],
+        "temperature": 26.667,
+        "problem_code": 0,
+        "problem": False,
+    }
+
+
+async def test_update_fixed_length(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+) -> None:
+    """Test the zero-padded fixed-length stream of a 48V/16S pack."""
+    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", STREAM_DATA_FIXED)
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device(name="Li3-022724009"))
+    result: BMSSample = await bms.async_update()
+
+    for key, value in ref_value_fixed().items():
+        assert result.get(key) == value, f"mismatch for {key}"
+
+    await bms.disconnect()
+
+
+async def test_fixed_length_status_code_masked(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+) -> None:
+    """A real fault bit must surface, the benign idle value must not."""
+    monkeypatch.setattr(
+        MockLithionicsBleakClient,
+        "_RESP",
+        STREAM_DATA_FIXED.replace(b",000100\r\n", b",000020\r\n"),
+    )
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device(name="Li3-022724009"))
+    result: BMSSample = await bms.async_update()
+
+    assert result.get("problem_code") == 0x000020  # over-current
+    assert result.get("problem") is True
+
+    await bms.disconnect()
