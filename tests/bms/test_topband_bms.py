@@ -15,8 +15,8 @@ from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 32
 
-_PROTO_DEFS: Final[dict[int, bytearray]] = {
-    0x5E: bytearray(  # Ective
+_PROTO_DEFS: Final[dict[int, bytes]] = {
+    0x5E: (  # Ective
         b"\x36\x46\x32\x00\x5e\x38\x34\x33\x35\x30\x30\x30\x30\x46\x38\x43\x44\x46\x46\x46\x46"
         b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30\x45\x31\x30\x42\x30"
         b"\x30\x30\x30\x30\x30\x30\x30\x35\x45\x30\x44\x37\x31\x30\x44\x36\x35\x30\x44\x35\x45"
@@ -25,7 +25,7 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x39\x34\x46\xaf\x46\x38\x33\x33\x30\x30\x30\x30"
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x00\x00\x00\x00\x00\x00\x00\x00"  # \xaf ... garbage
     ),
-    0x83: bytearray(  # StartCraft
+    0x83: (  # StartCraft
         b"\x83\x36\x32\x33\x34\x30\x30\x30\x30\x37\x36\x46\x45\x46\x46\x46\x46\x38\x38\x38\x41"
         b"\x30\x31\x30\x30\x31\x36\x30\x30\x36\x32\x30\x30\x35\x33\x30\x42\x30\x30\x38\x30\x30"
         b"\x37\x42\x34\x31\x36\x30\x44\x31\x37\x30\x44\x31\x39\x30\x44\x31\x43\x30\x44\x30\x30"
@@ -33,7 +33,7 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
         b"\x30\x30\x30\x30\x30\x37\x43\x32\x11\x11\x11\x11\x11\x11\x11\x11"
     ),
-    0xB0: bytearray(  # KiloVault
+    0xB0: (  # KiloVault
         b"\xb0\x39\x30\x33\x33\x30\x30\x30\x30\x33\x45\x46\x45\x46\x46\x46\x46\x33\x34\x30\x46"
         b"\x30\x33\x30\x30\x37\x44\x30\x30\x35\x45\x30\x30\x39\x31\x30\x42\x30\x30\x30\x31\x30"
         b"\x30\x30\x30\x44\x45\x30\x43\x30\x38\x30\x44\x45\x32\x30\x43\x30\x35\x30\x44\x30\x30"
@@ -41,7 +41,7 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
         b"\x30\x30\x30\x30\x30\x37\x42\x41\x52\x52\x52\x52\x52\x52\x52\x52"
     ),
-    0xE8: bytearray(  # Wattstunde
+    0xE8: (  # Wattstunde
         b"\xe8\x35\x43\x33\x38\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x33\x32\x38\x36"
         b"\x30\x31\x30\x30\x30\x42\x30\x30\x36\x34\x30\x30\x39\x42\x30\x42\x30\x30\x30\x30\x30"
         b"\x30\x30\x30\x31\x45\x30\x45\x31\x43\x30\x45\x31\x45\x30\x45\x30\x31\x30\x45\x30\x30"
@@ -49,7 +49,7 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
         b"\x30\x30\x30\x30\x30\x32\x46\x33"
     ),
-    0x87: bytearray(  # LiFeBlue LB12100-PC 100AH
+    0x87: (  # LiFeBlue LB12100-PC 100AH
         b"\x87\x30\x36\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x35\x38\x39\x32"
         b"\x30\x31\x30\x30\x33\x35\x30\x30\x36\x33\x30\x30\x41\x34\x30\x42\x30\x30\x38\x30\x31"
         b"\x37\x42\x34\x46\x43\x30\x43\x30\x32\x30\x44\x30\x33\x30\x44\x30\x35\x30\x44\x30\x30"
@@ -57,6 +57,7 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
         b"\x30\x30\x30\x30\x30\x34\x46\x30\x29\x29\x29\x29\x29\x29\x29\x29"
     ),
+    # 0xF6: bytes()  # Voltium Energy
 }
 
 _RESULT_DEFS: Final[dict[int, BMSSample]] = {
@@ -179,7 +180,7 @@ class TestBasicBMS(BMSBasicTests):
 class MockTopbandBleakClient(MockBleakClient):
     """Emulate a Topband BMS BleakClient."""
 
-    _RESP: bytearray = _PROTO_DEFS[0x5E]
+    _RESP: bytes = _PROTO_DEFS[0x5E]
 
     def _send_info(self) -> None:
         assert self._notify_callback is not None
@@ -187,7 +188,7 @@ class MockTopbandBleakClient(MockBleakClient):
             self._RESP[i : i + BT_FRAME_SIZE]
             for i in range(0, len(self._RESP), BT_FRAME_SIZE)
         ]:
-            self._notify_callback("MockTopbandBleakClient", notify_data)
+            self._notify_callback("MockTopbandBleakClient", bytearray(notify_data))
 
     @property
     def is_connected(self) -> bool:
@@ -327,7 +328,7 @@ async def test_invalid_response(
     """Test data up date with BMS returning invalid data."""
 
     patch_bms_timeout("topband_bms")
-    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", bytearray(wrong_response))
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", wrong_response)
     patch_bleak_client(MockTopbandBleakClient)
 
     bms = BMS(generate_ble_device())
@@ -344,7 +345,7 @@ async def test_invalid_response(
     name="problem_response",
     params=[
         (
-            bytearray(
+            (
                 b"\x5e\x38\x34\x33\x35\x30\x30\x30\x30\x33\x38\x43\x44\x46\x46\x46\x46"
                 b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30"
                 b"\x45\x31\x30\x42\x30\x31\x30\x30\x30\x30\x30\x30"
@@ -357,7 +358,7 @@ async def test_invalid_response(
             "first_bit",
         ),
         (
-            bytearray(
+            (
                 b"\x5e\x38\x34\x33\x35\x30\x30\x30\x30\x33\x38\x43\x44\x46\x46\x46\x46"
                 b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30"
                 b"\x45\x31\x30\x42\x38\x30\x30\x30\x30\x30\x30\x30"
@@ -372,11 +373,11 @@ async def test_invalid_response(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytes, str]:
     """Return faulty response frame."""
     assert (
         isinstance(request.param, tuple)
-        and isinstance(request.param[0], bytearray)
+        and isinstance(request.param[0], bytes)
         and isinstance(request.param[1], str)
     )
     return request.param
@@ -385,11 +386,11 @@ def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    problem_response: tuple[bytearray, str],
+    problem_response: tuple[bytes, str],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
-    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", bytearray(problem_response[0]))
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", problem_response[0])
 
     patch_bleak_client(MockTopbandBleakClient)
 

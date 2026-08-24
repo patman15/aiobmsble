@@ -30,9 +30,10 @@ class BMS(BaseBMS):
     _HEAD_RSP: Final[tuple[bytes, ...]] = (
         b"\x5e",
         b"\x83",
+        b"\x87",
         b"\xb0",
         b"\xe8",
-        b"\x87",
+        b"\xf6",
     )  # header for responses
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
