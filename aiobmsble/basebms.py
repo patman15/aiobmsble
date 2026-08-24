@@ -779,10 +779,10 @@ def crc8(data: bytes | bytearray) -> int:
 
 
 def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
-    """Calculate the checksum of a frame using a specified size.
+    """Calculate the sum of the frame bytes using the specified size.
 
     Args:
-        frame: The input data for which the checksum is to be calculated.
-        size (int, optional): The size of the checksum in bytes (default is 1).
+        frame: The input data for which the sum is to be calculated.
+        size (int, optional): The size of the sum in bytes (default is 1).
     """
     return sum(frame) & ((1 << (8 * size)) - 1)

@@ -49,17 +49,14 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
         b"\x30\x30\x30\x30\x30\x32\x46\x33"
     ),
-    0x87: bytearray(
-        b"\x8706340000000000005892010035006300A40B008017B4FC0C020D030D050D00000000000000000000000000000000000000000000000004F0))))))))"
+    0x87: bytearray(  # LiFeBlue LB12100-PC 100AH
+        b"\x87\x30\x36\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x35\x38\x39\x32"
+        b"\x30\x31\x30\x30\x33\x35\x30\x30\x36\x33\x30\x30\x41\x34\x30\x42\x30\x30\x38\x30\x31"
+        b"\x37\x42\x34\x46\x43\x30\x43\x30\x32\x30\x44\x30\x33\x30\x44\x30\x35\x30\x44\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x34\x46\x30\x29\x29\x29\x29\x29\x29\x29\x29"
     ),
-    # 0xF6: bytearray(  # Voltium Energy
-    #     b"\xf6\x44\x42\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x32\x30\x33\x45"
-    #     b"\x30\x30\x30\x30\x30\x31\x30\x30\x36\x33\x30\x30\x43\x43\x30\x42\x33\x35\x30\x44\x32"
-    #     b"\x46\x30\x44\x33\x38\x30\x44\x33\x34\x30\x44\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-    #     b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
-    #     b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x35\x41\x31"
-    #     b"\x06\x06\x06\x06\x06\x06\x06\x06"
-    # ),
 }
 
 _RESULT_DEFS: Final[dict[int, BMSSample]] = {
@@ -163,7 +160,6 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "power": 0.0,
         "problem": False,
     },
-    # 0xF6: {}
 }
 
 
@@ -216,21 +212,41 @@ class MockTopbandBleakClient(MockBleakClient):
 async def test_update(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    protocol_type: int,
     keep_alive_fixture: bool,
+) -> None:
+    """Test Topband BMS data update."""
+
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", _PROTO_DEFS[0x5E])
+    patch_bleak_client(MockTopbandBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
+
+    assert await bms.async_update() == _RESULT_DEFS[0x5E]
+
+    # query again to check already connected state
+    await bms.async_update()
+    assert bms.is_connected is keep_alive_fixture
+
+    await bms.disconnect()
+
+
+async def test_proto_variants(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    protocol_type: int,
 ) -> None:
     """Test Topband BMS data update."""
 
     monkeypatch.setattr(MockTopbandBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockTopbandBleakClient)
 
-    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
     await bms.async_update()
-    assert bms.is_connected is keep_alive_fixture
+    assert bms.is_connected is False
 
     await bms.disconnect()
 
