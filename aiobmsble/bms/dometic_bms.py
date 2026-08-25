@@ -43,6 +43,7 @@ class BMS(BaseBMS):
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
     ALIVE_INTERVAL: float | None = 24.0  # seconds
+    _GATHER_TIMEOUT: Final[float] = BLEAK_TIMEOUT
     _UUID_SLC: Final[slice] = slice(4, 8)
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100, 0x2),
@@ -220,17 +221,20 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
+        if self._disconnect_event.is_set():
+            await super().disconnect()
+            if not self._msg_event.is_set():
+                self._data_final.clear()
+                raise ValueError("BMS data incomplete")
+
         if not self._msg_event.is_set():
             self._log.debug("requesting data update")
             self._data_final.clear()
             self._exp_reply = b"MST+DCO="
             await self._await_msg(b"APP+RDN=1")
+            self._msg_event.clear()
 
-        try:
-            await asyncio.wait_for(self._wait_event(), timeout=BLEAK_TIMEOUT)
-        finally:
-            if self._disconnect_event.is_set():
-                await super().disconnect()
+        await asyncio.wait_for(self._wait_event(), timeout=BMS._GATHER_TIMEOUT)
 
         # restore design capacity if not received
         for dev, data in self._data_final.items():
@@ -247,4 +251,5 @@ class BMS(BaseBMS):
             result.setdefault("packs", []).append(pack_result)
 
         self._data_final.clear()
+        self._msg_event.clear()
         return result

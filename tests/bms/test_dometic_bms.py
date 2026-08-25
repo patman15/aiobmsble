@@ -538,7 +538,7 @@ class MockDBBleakClient(MockBleakClient):
 
         try:
             while True:
-                response = self._RESP[self._idx]
+                response: bytes = self._RESP[self._idx]
 
                 for offset in range(0, len(response), BT_FRAME_SIZE):
                     await self._notify(
@@ -751,21 +751,40 @@ async def test_inc_update(
     await bms.disconnect()
 
 
+@pytest.mark.parametrize("complete_set", [True, False])
 async def test_bms_disconnect(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    complete_set: bool,
 ) -> None:
     """Test Dometic Büttner BMS data update."""
 
     monkeypatch.setattr(
         MockDBBleakClient,
         "_RESP",
-        [*_PROTO_DEFS_MIN, b"#\x85\x00\x07\x00\x00\x00\x96", b"+++"],
+        (
+            [*_PROTO_DEFS_MIN, b"#\x85\x00\x07\x00\x00\x00\x96", b"+++"]
+            if complete_set
+            else [*_PROTO_DEFS_MIN[:-1], b"+++"]
+        ),
     )
+    monkeypatch.setattr(BMS, "_GATHER_TIMEOUT", 1e-3)
     patch_bleak_client(MockDBBleakClient)
 
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    assert await bms.async_update() == _RESULT_DEFS_MIN
+    if complete_set:
+        assert await bms.async_update() == _RESULT_DEFS_MIN
+        assert bms.is_connected is True
+        assert (
+            await bms.async_update() == _RESULT_DEFS_MIN
+        )  # BMS disconnects on next call
+    else:
+        with pytest.raises(TimeoutError):
+            await bms.async_update()
+        with pytest.raises(ValueError, match="BMS data incomplete"):
+            await bms.async_update()
+
     assert bms.is_connected is False
 
 
