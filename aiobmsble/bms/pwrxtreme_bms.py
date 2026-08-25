@@ -95,14 +95,14 @@ class BMS(TopbandBMS):
             while True:
                 await asyncio.sleep(BMS._ALIVE_INTERVAL)
                 async with self._op_lock:
-                    # try:
-                    # self._ctrl_proto = b"I"
-                    await self._await_msg(b"<*>", wait_for_notify=False)
-                # except TimeoutError:
-                #     pass
-                # finally:
-                #     self._ctrl_proto = b""
-                #     self._msg_event.clear()
+                    try:
+                        self._ctrl_proto = b"I"
+                        await self._await_msg(b"<I:WA>")
+                    except TimeoutError:
+                        pass
+                    finally:
+                        self._ctrl_proto = b""
+                        self._msg_event.clear()
         except asyncio.CancelledError:
             return
         except Exception as exc:  # noqa: BLE001 - keep-alive must not crash the loop
