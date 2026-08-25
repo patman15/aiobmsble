@@ -2,11 +2,18 @@
 
 Reverse-engineered from a 4S/100A LiFePO4 BMS sold under the local BLE name
 "C4S100IEnnnnn" (app: "E-BMS"), HW module RC6621A (Onmicro HS6621CM,
-transparent BLE-UART bridge). The application-level protocol is plain
-MODBUS RTU (slave id 0x02, function 0x03 - Read Holding Registers) carried
-transparently inside the Nordic UART Service. A single request for the 70
-holding registers starting at address 0x0000 returns the complete telemetry
-set (voltage, signed current, SOC, cell voltages, capacity, cycles, temps).
+transparent BLE-UART bridge). Shares the exact same transport layer and
+Modbus register map as VatrerBMS (slave id 0x02, function 0x03, Read
+Holding Registers over the Nordic UART Service) -- both are built around
+the same RC6621A-style bridge module -- so this implementation derives
+from VatrerBMS to reuse its transport-layer code as-is.
+
+The register *query pattern* differs, though: VatrerBMS reads the table in
+three separate partial requests ((0x0,0x14), (0x34,0x12), (0x15,0x1F)),
+while this device only responds to a single combined read of all 70
+holding registers (0x0, 0x46) -- verified against real hardware: sending
+VatrerBMS's three partial-range requests to this device produced no
+response at all for any of them, only the combined read works.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -14,22 +21,22 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from typing import Final
 
-from bleak.backends.characteristic import BleakGATTCharacteristic
-from bleak.backends.device import BLEDevice
-
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble.bms.vatrer_bms import BMS as VatrerBMS
 
 
-class BMS(BaseBMS):
-    """C4S100-family generic Modbus-over-BLE Smart BMS implementation."""
+class BMS(VatrerBMS):
+    """C4S100-family generic Modbus-over-BLE Smart BMS (derived from VatrerBMS).
+
+    Inherits the transport layer unchanged from VatrerBMS: uuid_services(),
+    uuid_rx(), uuid_tx(), _notification_handler(), _HEAD, _FRAME_LEN, and
+    __init__ are all identical between the two devices.
+    """
 
     INFO: BMSInfo = {
         "default_manufacturer": "Generic",
         "default_model": "C4S100 Smart BMS (RC6621A)",
     }
-    _HEAD: Final[bytes] = b"\x02\x03"  # slave id 0x02, function 0x03 (read holding regs)
-    _FRAME_LEN: Final[int] = 5  # head(2) + byte-count(1) + CRC(2)
     _CELLS: Final[int] = 4  # fixed 4S pack
     _TEMPS: Final[int] = 2  # 2 physical temp sensors (MOS_T, ENV_T); app mirrors
     #  them a second time as TCell1/TCell2 with identical values, not reported here
@@ -39,10 +46,10 @@ class BMS(BaseBMS):
     # BMSDp(key, pos, size, signed, fct, idx)
     # pos = byte offset within the full received frame (0=addr,1=func,2=byte-count,
     # 3.. = register data, big-endian, 2 bytes/register)
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 100, _RESP_LEN),  # reg0
         # reg1 (hi word) + reg2 (lo word): signed 32-bit current, 0.01A,
-        # positive = charging, negative = discharging (matches app & library convention)
+        # positive = charging, negative = discharging
         BMSDp("current", 5, 4, True, lambda x: x / 100, _RESP_LEN),  # reg1+reg2
         BMSDp("battery_level", 9, 2, False, idx=_RESP_LEN),  # reg3, SOC %
         BMSDp("cycle_charge", 11, 2, False, lambda x: x / 100, _RESP_LEN),  # reg4, Ah
@@ -54,18 +61,8 @@ class BMS(BaseBMS):
         BMSDp("delta_voltage", 29, 2, False, lambda x: x / 1000, _RESP_LEN),  # reg13
         BMSDp("cell_count", 45, 2, False, idx=_RESP_LEN),  # reg21
     )
-    _RESPS: Final = frozenset(field.idx for field in _FIELDS)
-    _CMDS: Final[frozenset[tuple[int, int]]] = frozenset({(0x0, _REG_COUNT)})
-
-    def __init__(
-        self,
-        ble_device: BLEDevice,
-        config: BMSConfig | None = None,
-        logger_name: str = "",
-    ) -> None:
-        """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
-        self._msg: dict[int, bytes] = {}
+    _RESPS = frozenset(field.idx for field in _FIELDS)
+    _CMDS: frozenset[tuple[int, int]] = frozenset({(0x0, _REG_COUNT)})
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -77,47 +74,6 @@ class BMS(BaseBMS):
                 "connectable": True,
             }
         ]
-
-    @staticmethod
-    def uuid_services() -> tuple[str, ...]:
-        """Return list of 128-bit UUIDs of services required by BMS."""
-        return ("6e400001-b5a3-f393-e0a9-e50e24dcca9e",)
-
-    @staticmethod
-    def uuid_rx() -> str:
-        """Return 16-bit UUID of characteristic that provides notification/read property."""
-        return "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
-
-    @staticmethod
-    def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
-        return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
-
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
-        """Handle the RX characteristics notify event (new data arrives)."""
-        self._log.debug("RX BLE data: %s", data)
-
-        if not data.startswith(BMS._HEAD):
-            self._log.debug("incorrect SOF")
-            return
-
-        if len(data) < BMS._FRAME_LEN or len(data) != data[2] + BMS._FRAME_LEN:
-            self._log.debug("incorrect frame length")
-            return
-
-        if not self._check_integrity(
-            data,
-            crc_modbus,
-            slice(None, -2),
-            slice(-2, None),
-            "little",
-        ):
-            return
-
-        self._msg[data[2]] = bytes(data)
-        self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

@@ -1,4 +1,4 @@
-"""Test the C4S100-family BMS implementation."""
+"""Test the C4S100-family BMS implementation (derived from VatrerBMS)."""
 
 from collections.abc import Buffer
 from uuid import UUID
