@@ -1,5 +1,6 @@
 """Test the PowerXtreme BMS implementation."""
 
+import asyncio
 from collections.abc import Buffer
 from typing import Final
 from uuid import UUID
@@ -63,7 +64,7 @@ class TestBasicBMS(BMSBasicTests):
 
 
 class MockPwrXtremeBleakClient(MockBleakClient):
-    """Emulate a Topband BMS BleakClient."""
+    """Emulate a PowerXtreme BMS BleakClient."""
 
     _RESP: bytes = _PROTO_DEFS[0x5E]
 
@@ -86,12 +87,19 @@ class MockPwrXtremeBleakClient(MockBleakClient):
             self._notify_callback
         ), "write to characteristics but notification not enabled"
 
-        if bytes(data) == b"<N:NA>":
-            self._notify_callback("MockPwrXtremeBleakClient", b"<N:X210-24092528>")
+        match bytes(data):
+            case b"<N:NA>":
+                self._notify_callback("MockPwrXtremeBleakClient", b"<N:X210-24092528>")
+            case b"<M:SR>":
+                self._notify_callback(
+                    "MockPwrXtremeBleakClient", b"<M:EM01234567890123>"
+                )
+            case b"<B:ST>":
+                self._notify_callback("MockPwrXtremeBleakClient", b"<B:AN>")
+            case b"<H:ST>":
+                self._notify_callback("MockPwrXtremeBleakClient", b"<H:NO>")
 
-        if bytes(data) == b"<M:SR>":
-            self._notify_callback("MockPwrXtremeBleakClient", b"<M:EM01234567890123>")
-
+        await asyncio.sleep(0)
         resp: Final[bytearray] = self._response(char_specifier, data)
         for notify_data in [
             resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
