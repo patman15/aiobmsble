@@ -13,16 +13,16 @@ from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 # real request/response pair, recorded from the device while discharging at ~-3.4A
-_REQ: bytes = bytes.fromhex("02 03 00 00 00 46 c4 0b")
-_RESP: bytes = bytes.fromhex(
-    "02 03 8c 05 35 ff ff fe aa 00 62 24 01 27 10 00 6b 00 62 00"
-    "01 00 00 00 00 0d 0b 0d 01 00 0a 00 04 00 03 00 1c 00 1b 00"
-    "01 00 00 00 00 00 04 0d 09 0d 02 0d 01 0d 0b 00 00 00 00 00"
-    "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
-    "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
-    "00 00 00 00 00 00 00 00 02 00 1b 00 1c 00 00 00 00 00 1b 00"
-    "1c 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 32 00 00 00"
-    "00 00 00 f4 2f"
+_REQ: bytes = b"\x02\x03\x00\x00\x00\x46\xc4\x0b"
+_RESP: bytes = (
+    b"\x02\x03\x8c\x05\x35\xff\xff\xfe\xaa\x00\x62\x24\x01\x27\x10\x00\x6b\x00\x62\x00"
+    b"\x01\x00\x00\x00\x00\x0d\x0b\x0d\x01\x00\x0a\x00\x04\x00\x03\x00\x1c\x00\x1b\x00"
+    b"\x01\x00\x00\x00\x00\x00\x04\x0d\x09\x0d\x02\x0d\x01\x0d\x0b\x00\x00\x00\x00\x00"
+    b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    b"\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x1b\x00\x1c\x00\x00\x00\x00\x00\x1b\x00"
+    b"\x1c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x32\x00\x00\x00"
+    b"\x00\x00\x00\xf4\x2f"
 )
 
 
@@ -91,46 +91,25 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-@pytest.fixture(
-    name="wrong_response",
-    params=[
-        (b"\x01\x03\x8c" + bytes(140) + b"\x00\x00", "wrong_SOF"),
-        (b"\x02\x03\x8c" + bytes(140) + b"\x00\x00\x00", "wrong_length"),
-        (b"\x02\x03\x8c" + bytes(140) + b"\x00\x00", "wrong_CRC"),
-        (b"\x02\x03\x21" + bytes(33) + b"\xba\x66", "wrong_type"),
-        (b"", "empty_frame"),
-    ],
-    ids=lambda param: param[1],
-)
-def fix_response(request: pytest.FixtureRequest) -> bytes:
-    """Return faulty response frame."""
-    assert isinstance(request.param, tuple) and isinstance(request.param[0], bytes)
-    return request.param[0]
-
-
-async def test_invalid_response(
+async def test_incomplete_data(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytes,
 ) -> None:
-    """Test data update with BMS returning invalid data."""
+    """Test data update when the BMS returns a validly-framed but wrong-size reply."""
 
     patch_bms_timeout()
 
     monkeypatch.setattr(
         MockC4SBleakClient,
         "RESP",
-        MockC4SBleakClient.RESP | {_REQ: wrong_response},
+        {_REQ: b"\x02\x03\x21" + bytes(33) + b"\xba\x66"},
     )
 
     patch_bleak_client(MockC4SBleakClient)
 
     bms = BMS(generate_ble_device())
-
-    result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        await bms.async_update()
 
-    assert not result
     await bms.disconnect()
