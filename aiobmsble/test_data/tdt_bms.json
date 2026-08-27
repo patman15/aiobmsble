@@ -44,6 +44,7 @@
   {
     "advertisement": {
       "local_name": "WTaHdAZ2603312531",
+      "platform_data": ["AA:C2:37:00:00:00"],
       "rssi": -69,
       "manufacturer_data": { "49834": "370D2B4A000240000300" },
       "service_uuids": ["0000fff0-0000-1000-8000-00805f9b34fb"]
