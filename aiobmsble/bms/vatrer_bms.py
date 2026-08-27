@@ -21,9 +21,6 @@ class BMS(BaseBMS):
     _FRAME_LEN: Final[int] = 5  # head + len + CRC
     _MAX_CELLS: Final[int] = 0x1F
     _MAX_TEMP: Final[int] = 6
-    # not Final: derived classes (e.g. c4s_bms.py) with a different register
-    # query pattern need to override these, following the precedent set by
-    # RenogyBMS/RenogyProBMS.
     _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 100, 0x28),
         BMSDp("current", 5, 4, True, lambda x: x / 100, 0x28),

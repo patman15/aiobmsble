@@ -39,7 +39,6 @@ def ref_value() -> BMSSample:
         "delta_voltage": 0.01,
         "cell_count": 4,
         "cell_voltages": [3.337, 3.33, 3.329, 3.339],
-        "temp_sensors": 2,
         "temp_values": [TS(28.0, TS.T.MOSFET), TS(27.0, TS.T.AMBIENT)],
         "battery_charging": False,
         "temperature": 27.5,
@@ -109,7 +108,7 @@ async def test_incomplete_data(
     patch_bleak_client(MockC4SBleakClient)
 
     bms = BMS(generate_ble_device())
-    with pytest.raises(TimeoutError):
+    with pytest.raises(ValueError, match="BMS data incomplete."):
         await bms.async_update()
 
     await bms.disconnect()

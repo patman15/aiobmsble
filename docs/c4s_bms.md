@@ -2,7 +2,7 @@
 
 ## Hardware / protocol overview
 
-Reverse-engineered from a 4S/100A LiFePO4 BMS sold under the local BLE name
+Derived from a 4S/100A LiFePO4 BMS sold under the local BLE name
 `C4S100IEnnnnn` (companion app: **E-BMS**). The hardware is built around a
 generic RC6621A module (ShenZhen RF Crazy Technology, Onmicro HS6621CM
 chip), a transparent BLE-UART bridge — the app's traffic over the Nordic
