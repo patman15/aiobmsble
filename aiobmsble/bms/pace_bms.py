@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from enum import Enum
 from functools import lru_cache
 from typing import Final
 
@@ -22,6 +23,14 @@ class BMS(BaseBMS):
         "default_manufacturer": "PeiCheng Technology",
         "default_model": "PACEEX Smart BMS",
     }
+
+    class _Cmd(bytes, Enum):
+        SERIAL = b"\x00\x00\x00\x02\x00\x00"
+        VERSIONS = b"\x00\x00\x00\x01\x00\x00"
+        SYS_INFO = b"\x00\x00\x0a\x00\x00\x00"
+        PACK_INFO = b"\x00\x00\x0a\x01\x00\x00"
+        CELL_INFO = b"\x00\x00\x0a\x02\x00\x00"
+
     _HEAD: Final[bytes] = b"\x9a"
     _TAIL: Final[bytes] = b"\x9d"
     _FRM_TYPE: Final[slice] = slice(1, 7)
@@ -74,10 +83,10 @@ class BMS(BaseBMS):
         _HW_VER_POS: Final[int] = 65
 
         result: BMSInfo = BMSInfo()
-        await self._await_msg(self._cmd(b"\x00\x00\x00\x02\x00\x00"))
+        await self._await_msg(self._cmd(BMS._Cmd.SERIAL))
         length: int = self._msg[8]
         result["serial_number"] = b2str(self._msg[9 : 9 + length])
-        await self._await_msg(self._cmd(b"\x00\x00\x00\x01\x00\x00"))
+        await self._await_msg(self._cmd(BMS._Cmd.VERSIONS))
         if len(self._msg) < _HW_VER_POS:
             raise ValueError("BMS data incomplete.")
         result["sw_version"] = b2str(
@@ -134,14 +143,11 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        # pack level query, answered by every pack; the system level query
-        # (0x0a00) is answered only by the pack acting as master in a parallel
-        # bank, all others reply with an all-zero payload.
-        await self._await_msg(BMS._cmd(b"\x00\x00\x0a\x01\x00\x00", b"\x01\x01"))
+        await self._await_msg(BMS._cmd(BMS._Cmd.PACK_INFO, b"\x01\x01"))
         result: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._msg, byteorder="big", start=8
         )
-        await self._await_msg(BMS._cmd(b"\x00\x00\x0a\x02\x00\x00", b"\x01\x01"))
+        await self._await_msg(BMS._cmd(BMS._Cmd.CELL_INFO, b"\x01\x01"))
         if len(self._msg) < BMS._CELL_POS:
             raise ValueError("BMS data incomplete.")
         result["cell_count"] = self._msg[BMS._CELL_POS - 1]
@@ -159,7 +165,7 @@ class BMS(BaseBMS):
             types=(TempSensor.T.CELL,) * 4
             + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
-        await self._await_msg(BMS._cmd(b"\x00\x00\x0a\x00\x00\x00"))
+        await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
         if pack_count := self._msg[8]:  # zero on all packs except the master
             result["pack_count"] = pack_count
         return result
