@@ -61,5 +61,19 @@
       "the owner sets the BLE name freely; factory default is the serial number",
       "the 'KS-' prefix has been added by the user"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "Vanvolt-180A-24313",
+      "platform_data": ["F2:B9:21:00:00:00"],
+      "rssi": -94,
+      "manufacturer_data": { "123": "02ffff7d" },
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "braunpwr_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/794)",
+      "uses POWERBELY app"
+    ]
   }
 ]

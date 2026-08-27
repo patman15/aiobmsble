@@ -61,7 +61,7 @@ class BMS(BaseBMS):
         super().__init__(ble_device, config, logger_name)
         self._type: str = (
             self.name[9]
-            if len(self.name) >= 10 and set(self.name[10:]).issubset(digits)
+            if len(self.name) > 10 and set(self.name[10:]).issubset(digits)
             else "?"
         )
         self._key: int = (
