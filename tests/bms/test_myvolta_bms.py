@@ -195,7 +195,6 @@ async def test_invalid_response(
     patch_bleak_client(MockMyVoltaBleakClient)
 
     bms = BMS(generate_ble_device())
-    await asyncio.sleep(1e-3)  # wait for notifications to be sent
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()

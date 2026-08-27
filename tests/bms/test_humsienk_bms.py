@@ -28,11 +28,12 @@ _RESULT_DEFS: BMSSample = {
     "runtime": 198657,
     "delta_voltage": 0.011,
     "temperature": 30.5,
-    "temp_values": [TS(35.0, TS.T.MOSFET)]
-    + [TS(v) for v in (26.0, 26.0, 26.0, 44.0, 26.0)],
+    "temp_values": [TS(v, TS.T.CELL) for v in (35.0, 26.0, 26.0, 26.0)]
+    + [TS(44.0, TS.T.MOSFET), TS(26.0, TS.T.AMBIENT)],
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
-    "balancer": False,
+    "heater": False,
+    "balancer": 0,
     "problem_code": 0,
     "problem": False,
 }
@@ -55,7 +56,7 @@ class MockHumsienkBleakClient(MockBleakClient):
         ),  # model: BMC-04S001
         b"\xaa\x20\x00\x20\x00": (
             b"\xaa\x20\x0f\x00\x00\x00\x00\x80\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x2f\x01"
-        ),  # MOSFET status [7], [9], balancer [8]
+        ),  # switch bits: charge [7], heater [8], discharge [9]
         b"\xaa\x21\x00\x21\x00": (
             b"\xaa\x21\x1a\x4a\x33\x00\x00\x82\xfb\xff\xff\x2a\x64\xe4\xf7\x00\x00\xf0\x49\x02\x00"
             b"\x03\x00\x23\x1a\x1a\x1a\x2c\x1a\x91\x08"
@@ -153,6 +154,43 @@ async def test_invalid_response(
         result = await bms.async_update()
 
     assert not result
+    await bms.disconnect()
+
+
+async def test_switch_states(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that switch bits and the cell balancing bitmap are reported correctly.
+
+    operation_status bits 7/15/23 (charge FET, heater, discharge FET) are all set,
+    and cells 1 and 3 are balancing. None of the switch bits may raise a problem.
+    """
+
+    monkeypatch.setattr(
+        MockHumsienkBleakClient,
+        "_RESP",
+        MockHumsienkBleakClient._RESP
+        | {
+            b"\xaa\x20\x00\x20\x00": (
+                b"\xaa\x20\x0f\x00\x00\x00\x00\x80\x80\x80\x00\x05\x00\x00\x00\x00\x00"
+                b"\x00\xb4\x01"
+            )
+        },
+    )
+
+    patch_bleak_client(MockHumsienkBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    assert await bms.async_update() == _RESULT_DEFS | {
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
+        "heater": True,
+        "balancer": 0x5,  # cells 1 and 3
+        "problem_code": 0,
+        "problem": False,
+    }
+
     await bms.disconnect()
 
 

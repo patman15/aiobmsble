@@ -663,6 +663,30 @@ async def test_device_info(
     assert await bms.device_info() == _DEV_DEFS[protocol_type]
 
 
+async def test_invalid_sw_version_defaults_to_zero(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a non-numeric sw_version does not crash init, but defaults to 0."""
+    bad_frames: dict[str, bytearray] = deepcopy(_PROTO_DEFS["JK02_24S"])
+    bad_frames["dev"][30:38] = b"n/a\x00\x00\x00\x00\x00"
+    bad_frames["dev"][-1] = crc_sum(bad_frames["dev"][:-1])
+
+    monkeypatch.setattr(MockJikongBleakClient, "_FRAME", bad_frames)
+    patch_bleak_client(MockJikongBleakClient)
+
+    bms = BMS(generate_ble_device())
+    caplog.clear()
+    await bms.device_info()
+
+    assert bms._sw_version == 0
+    assert bms._prot_offset == -32
+    assert "invalid sw_version" in caplog.text
+
+    await bms.disconnect()
+
+
 async def test_hide_temp_sensors(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client, protocol_type: str
 ) -> None:
