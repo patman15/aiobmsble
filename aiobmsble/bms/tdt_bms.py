@@ -79,7 +79,7 @@ class BMS(BaseBMS):
                 local_name=pattern,
                 connectable=True,
             )
-            for pattern in ("HS02*", "WTDH*")
+            for pattern in ("HS02*", "WTDH*", "WTaHdAZ*")
         ] + [{"manufacturer_id": 54976, "connectable": True}]
 
     @staticmethod
