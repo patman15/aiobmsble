@@ -147,21 +147,8 @@ class BMS(TopbandBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        try:
-            self._ctrl_proto = b"B"
-            await self._await_msg(b"<B:ST>")
-            self._log.debug(
-                "Battery: %s", self._msg[2:].decode("ascii", errors="strict")
-            )
-            self._msg_event.clear()
-            self._ctrl_proto = b"H"
-            await self._await_msg(b"<H:ST>")
-            self._log.debug(
-                "Heater: %s", self._msg[2:].decode("ascii", errors="strict")
-            )
-        finally:
-            self._ctrl_proto = b""
-            self._msg_event.clear()
+        await self._await_msg(b"<B:ST>", wait_for_notify=False)
+        await self._await_msg(b"<H:ST>", wait_for_notify=False)
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
