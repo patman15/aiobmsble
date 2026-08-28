@@ -5,7 +5,8 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from typing import Final, Literal
+from contextlib import suppress
+from typing import Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -27,7 +28,7 @@ class BMS(TopbandBMS):
         for f in TopbandBMS.FIELDS
     )
 
-    _ALIVE_INTERVAL: Final[float] = 3.0  # seconds
+    ALIVE_INTERVAL = 3.0  # seconds
     _ctrl_proto: bytes = b""  # parse control protocol
 
     def __init__(
@@ -89,41 +90,13 @@ class BMS(TopbandBMS):
 
         return bms_info
 
-    async def _alive_loop(self) -> None:
+    async def _alive(self) -> None:
         """Continuously poll the module so it keeps streaming."""
-        try:
-            while True:
-                await asyncio.sleep(BMS._ALIVE_INTERVAL)
-                async with self._op_lock:
-                    try:
-                        self._ctrl_proto = b"I"
-                        await self._await_msg(b"<I:WA>")
-                    except TimeoutError:
-                        pass
-                    finally:
-                        self._ctrl_proto = b""
-                        self._msg_event.clear()
-        except asyncio.CancelledError:
-            return
-        except Exception as exc:  # noqa: BLE001 - keep-alive must not crash the loop
-            self._log.debug("alive loop stopped (%s)", type(exc).__name__)
-
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        """Set up notifications, keep-alive alive, PIN auth and data streaming."""
-        await super()._init_connection(char_notify)
-
-        if self._alive_task is None or self._alive_task.done():
-            self._alive_task = asyncio.create_task(
-                self._alive_loop(), name="BMS keep-alive"
-            )
-
-    async def _disconnect(self, reset: bool) -> None:
-        """Stop the keep-alive alive task, then disconnect."""
-        if self._alive_task is not None:
-            self._alive_task.cancel()
-            self._alive_task = None
+        with suppress(TimeoutError):
+            self._ctrl_proto = b"I"
+            await self._await_msg(b"<I:WA>")
+            self._ctrl_proto = b""
+            self._msg_event.clear()
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray

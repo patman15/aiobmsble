@@ -8,7 +8,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.bms.pwrxtreme_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -47,6 +47,15 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "problem": False,
         "runtime": 238500,
     }
+}
+
+_DEV_INFO_DEFS: Final[BMSInfo] = {
+    "fw_version": "mock_FW_version",
+    "hw_version": "mock_HW_version",
+    "sw_version": "mock_SW_version",
+    "manufacturer": "mock_manufacturer",
+    "model": "X210-24092528",
+    "serial_number": "EM01234567890123",
 }
 
 
@@ -111,14 +120,65 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockPwrXtremeBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "mock_FW_version",
-        "hw_version": "mock_HW_version",
-        "sw_version": "mock_SW_version",
-        "manufacturer": "mock_manufacturer",
-        "model": "X210-24092528",
-        "serial_number": "EM01234567890123",
-    }
+    assert await bms.device_info() == _DEV_INFO_DEFS
+
+
+async def test_device_info_timeout(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that a timeout fetching dynamic device information is ignored."""
+    patch_bleak_client(MockPwrXtremeBleakClient)
+    bms = BMS(generate_ble_device())
+
+    async def await_msg(data: bytes) -> None:
+        if data == b"<M:SR>":
+            raise TimeoutError
+        bms._msg = b"N:X210-24092528"
+
+    monkeypatch.setattr(bms, "_await_msg", await_msg)
+
+    assert await bms.device_info() == _DEV_INFO_DEFS | {"serial_number": "mock_serial_number"}
+
+
+async def test_device_info_decode_error(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that invalid dynamic device information is ignored."""
+    patch_bleak_client(MockPwrXtremeBleakClient)
+    bms = BMS(generate_ble_device())
+
+    async def await_msg(data: bytes) -> None:
+        bms._msg = b"M:\xff" if data == b"<M:SR>" else b"N:X210-24092528"
+
+    monkeypatch.setattr(bms, "_await_msg", await_msg)
+
+    assert await bms.device_info() == _DEV_INFO_DEFS | {"serial_number": "mock_serial_number"}
+
+
+async def test_alive(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the keep-alive request resets its control state."""
+    bms = BMS(generate_ble_device())
+
+    async def await_msg(_data: bytes) -> None:
+        return
+
+    bms._msg_event.set()
+    monkeypatch.setattr(bms, "_await_msg", await_msg)
+    await bms._alive()
+
+    assert bms._ctrl_proto == b""
+    assert not bms._msg_event.is_set()
+
+
+async def test_alive_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a keep-alive timeout is suppressed."""
+    bms = BMS(generate_ble_device())
+
+    async def await_msg(_data: bytes) -> None:
+        raise TimeoutError
+
+    monkeypatch.setattr(bms, "_await_msg", await_msg)
+    await bms._alive()
 
 
 async def test_update(
