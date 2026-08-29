@@ -248,8 +248,8 @@ class BMS(BaseBMS):
         )
         mosfets: Final[int] = self._msg[0x8D][BMS._CELL_POS + idx + 8]
         result |= {
-            "chrg_mosfet": bool(mosfets & 0x4),
-            "dischrg_mosfet": bool(mosfets & 0x2),
+            "chrg_mosfet": bool(mosfets & 0x2),
+            "dischrg_mosfet": bool(mosfets & 0x4),
         }
 
         self._msg.clear()
