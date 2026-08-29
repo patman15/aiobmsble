@@ -632,5 +632,19 @@
       "source advmon (https://github.com/patman15/aiobmsble/issues/771)",
       "SBL Connect 150Ah LiFePO4"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "SJ-480-B240023",
+      "platform_data": ["FE:57:25:00:00:00"],
+      "rssi": -71,
+      "manufacturer_data": { "123": "02ffff7d" },
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/804)",
+      "Supervolt 480 Ah Jumbo"
+    ]
   }
 ]
