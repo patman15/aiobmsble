@@ -618,6 +618,23 @@
   },
   {
     "advertisement": {
+      "local_name": "12150BLH1805",
+      "platform_data": ["04:7F:0E:00:00:00"],
+      "rssi": -55,
+      "manufacturer_data": { "42754": "dc3855a4" },
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb",
+        "6e40ff00-b5a3-f393-e0a9-e50e24dcca9e"
+      ]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/771)",
+      "SBL Connect 150Ah LiFePO4"
+    ]
+  },
+  {
+    "advertisement": {
       "local_name": "SJ-480-B240023",
       "platform_data": ["FE:57:25:00:00:00"],
       "rssi": -71,
