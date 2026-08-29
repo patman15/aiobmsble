@@ -2,9 +2,6 @@
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
-
-This module implements support for Gobel Power BMS devices that use Modbus RTU
-protocol over Bluetooth Low Energy.
 """
 
 from typing import Final
