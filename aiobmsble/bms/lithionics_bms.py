@@ -31,10 +31,7 @@ class BMS(BaseBMS):
     # are what tell them apart.
     _FIXED_WIDTHS: Final[tuple[int, ...]] = (1, 5, 4, 3, 3, 1, 5, 6, 3, 6)
     _FIXED_STATUS_FIELDS: Final[int] = 15
-    # Status-code bits that mean an actual fault. The idle value 0x000100 only
-    # reports "AUX contacts closed", i.e. normal operation, and must not be
-    # surfaced as a problem.
-    _PROBLEM_MASK: Final[int] = (0b0110_1000 << 16) | (0b1100_1110 << 8) | 0b0110_0110
+    _PROBLEM_MASK: Final[int] = 0x68CEFD
 
     def __init__(
         self,
@@ -150,9 +147,7 @@ class BMS(BaseBMS):
     @staticmethod
     def _parse_status_fixed(fields: list[str]) -> BMSSample:
         """Parse a fixed-length trace line; it ends with lowest/highest/avg cell."""
-        return {
-            "delta_voltage": round((int(fields[13]) - int(fields[12])) / 100, 3)
-        }
+        return {"delta_voltage": round((int(fields[13]) - int(fields[12])) / 100, 3)}
 
     @staticmethod
     def _parse_primary(fields: list[str]) -> BMSSample:
