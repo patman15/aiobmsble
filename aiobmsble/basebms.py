@@ -7,10 +7,10 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from contextlib import suppress
 from functools import lru_cache
 from itertools import takewhile
 import logging
-from statistics import fmean
 from types import TracebackType
 from typing import Any, Final, Literal, Self, final
 
@@ -30,14 +30,19 @@ from bleak_retry_connector import (
 )
 
 from aiobmsble import (
+    BMSConfig,
     BMSDp,
     BMSInfo,
+    BMSPDp,
     BMSSample,
     BMSValue,
     MatcherPattern,
+    PackSample,
     TempSensor,
     __version__,
 )
+from aiobmsble._boundedbytearr import BoundedByteArray
+from aiobmsble._sample_calc import derive_missing_fields
 
 
 class BaseBMS(ABC):
@@ -51,11 +56,13 @@ class BaseBMS(ABC):
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
+    _MAX_MSG_LEN: int = 0xFF  # maximum allowed frame length
     _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
     # Hard timeout for the entire connection setup (connect + GATT + notify).
     # Acts as a safety net when BlueZ hangs and bleak_retry_connector's
     # internal timeouts fail to fire.  Not ``Final`` so subclasses can tune.
     _CONNECT_TIMEOUT: Final[float] = MAX_CONNECT_ATTEMPTS * BLEAK_TIMEOUT + 1
+    ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
 
     accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
 
@@ -81,24 +88,19 @@ class BaseBMS(ABC):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize the BMS.
 
-        `_notification_handler`: the callback function used for notifications from `uuid_rx()`
-            characteristic. Not defined as abstract in this base class, as it can be both,
-            a normal or async function
+        Note:
+            Subclasses must define a `_notification_handler` method (normal or async) to handle
+            notifications from the `uuid_rx()` characteristic.
 
         Args:
-            ble_device (BLEDevice): the Bleak device to connect to
-            bms_info (dict[Literal["manufacturer", "model"], str]): default BMS identification
-            keep_alive (bool): if true, the connection will be kept active after each update.
-                Make sure to call `disconnect()` when done using the BMS class or better use
-                `async with` context manager (requires `keep_alive=True`).
-            secret (str): optional secret for authentication, if the BMS accepts it (see `accept_secret`).
-            logger_name (str): name of the logger for the BMS instance, default: module name
+            ble_device (BLEDevice): the Bleak BLE device to connect to
+            config (BMSConfig | None): optional BMS configuration; defaults to `BMSConfig()` if not provided
+            logger_name (str): name of the logger for this BMS instance; defaults to the module name
 
         """
         assert (
@@ -108,8 +110,7 @@ class BaseBMS(ABC):
             self.INFO
         ), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
-        self._keep_alive: Final[bool] = keep_alive
-        self._secret: Final[str] = secret
+        self._cfg: Final[BMSConfig] = config or BMSConfig()
         logger_name = logger_name or self.__class__.__module__
         self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
@@ -131,15 +132,21 @@ class BaseBMS(ABC):
             disconnected_callback=self._on_disconnect,
             services=[*self.uuid_services(), "180a"],
         )
-        self._frame: bytearray = bytearray()
+        self._frame: BoundedByteArray = BoundedByteArray(
+            max(BaseBMS._MAX_MSG_LEN, BaseBMS.BLE_MAX_ATTR_SIZE) * 2
+        )
         self._msg_event: Final[asyncio.Event] = asyncio.Event()
         self._connect_lock: Final[asyncio.Lock] = asyncio.Lock()
+        self._op_lock: Final[asyncio.Lock] = asyncio.Lock()
+        self._alive_task: asyncio.Task[None] | None = None
 
     @final
     async def __aenter__(self) -> Self:
         """Asynchronous context manager to implement `async with` functionality."""
-        if not self._keep_alive:
-            raise ValueError("usage of context manager requires `keep_alive=True`.")
+        if not self._cfg.keep_alive:
+            raise ValueError(
+                "usage of context manager requires `BMSConfig(keep_alive=True)`."
+            )
         await self._connect()
         return self
 
@@ -198,14 +205,15 @@ class BaseBMS(ABC):
         keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
         """
 
-        disconnect: Final[bool] = not self._client.is_connected
-        await self._connect()
-        dev_info: Final[BMSInfo] = await self._fetch_device_info()
-        if disconnect:
-            await self.disconnect()
+        async with self._op_lock:
+            disconnect: Final[bool] = not self._client.is_connected
+            await self._connect()
+            dev_info: Final[BMSInfo] = await self._fetch_device_info()
+            if disconnect:
+                await self.disconnect()
 
-        self._log.debug("BMS info %s", dev_info)
-        return dev_info
+            self._log.debug("BMS info %s", dev_info)
+            return dev_info
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
@@ -247,72 +255,6 @@ class BaseBMS(ABC):
         """
         return frozenset()
 
-    @staticmethod
-    def _calculation_registry(
-        data: BMSSample,
-    ) -> dict[BMSValue, tuple[set[BMSValue], Callable[[], Any]]]:
-        battery_level: Final[int | float] = data.get("battery_level", 0)
-        cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
-        current: Final[float] = data.get("current", 0)
-        design_capacity: Final[float] = data.get("design_capacity", 0)
-
-        return {
-            "voltage": ({"cell_voltages"}, lambda: round(sum(cell_voltages), 3)),
-            "delta_voltage": (
-                {"cell_voltages"},
-                lambda: (
-                    round(max(cell_voltages) - min(cell_voltages), 3)
-                    if len(cell_voltages)
-                    else None
-                ),
-            ),
-            "cycle_charge": (
-                {"design_capacity", "battery_level"},
-                lambda: (design_capacity * battery_level) / 100,
-            ),
-            "battery_level": (
-                {"design_capacity", "cycle_charge"},
-                lambda: round(data.get("cycle_charge", 0) / design_capacity * 100, 1),
-            ),
-            "cell_count": (
-                {"cell_voltages"},
-                lambda: len(cell_voltages),
-            ),
-            "cycle_capacity": (
-                {"voltage", "cycle_charge"},
-                lambda: round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3),
-            ),
-            "cycles": (
-                {"design_capacity", "total_charge"},
-                lambda: data.get("total_charge", 0) // design_capacity,
-            ),
-            "power": (
-                {"voltage", "current"},
-                lambda: round(data.get("voltage", 0) * current, 3),
-            ),
-            "battery_charging": ({"current"}, lambda: current > 0),
-            "runtime": (
-                {"current", "cycle_charge"},
-                lambda: (
-                    int(
-                        data.get("cycle_charge", 0)
-                        / abs(current)
-                        * BaseBMS._HRS_TO_SECS
-                    )
-                    if current < 0
-                    else None
-                ),
-            ),
-            "temperature": (
-                {"temp_values"},
-                lambda: (
-                    round(fmean(data.get("temp_values", [])), 3)
-                    if data.get("temp_values")
-                    else None
-                ),
-            ),
-        }
-
     @final
     @staticmethod
     def _add_missing_values(
@@ -331,24 +273,10 @@ class BaseBMS(ABC):
         if not data:
             return
 
-        def can_calc(value: BMSValue, using: frozenset[BMSValue]) -> bool:
-            """Check value to add is not excluded, does not exist, and needed data is available."""
-            return (
-                (value not in raw_values)
-                and (value not in data)
-                and using.issubset(data)
-            )
+        derive_missing_fields(data, raw_values)
 
-        battery_level: Final[int | float] = data.get("battery_level", 0)
-        calculations: Final = BaseBMS._calculation_registry(data)
+        battery_level: Final[float] = data.get("battery_level", 0)
         cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
-
-        for attr, (required, calc_func) in calculations.items():
-            if (
-                can_calc(attr, frozenset(required))
-                and (value := calc_func()) is not None
-            ):
-                data[attr] = value
 
         # do sanity check on values to set problem state
         data["problem"] = any(
@@ -365,10 +293,46 @@ class BaseBMS(ABC):
         )
 
     @final
-    def _on_disconnect(self, _client: BleakClient) -> None:
+    def _on_disconnect(self, client: BleakClient) -> None:
         """Disconnect callback function."""
 
-        self._log.debug("disconnected from BMS")
+        self._log.debug("disconnected from BMS (id: %#x)", id(client))
+
+    async def _alive(self) -> None:
+        """Override to run periodic actions while `ALIVE_INTERVAL` is set."""
+
+    @final
+    async def _alive_loop(self, interval: float) -> None:
+        """Periodically invoke `_alive()` every `interval` seconds."""
+        while True:
+            await asyncio.sleep(interval)
+            async with self._op_lock:
+                await self._alive()
+
+    @final
+    def _log_alive_loop_exc(self, task: asyncio.Task[None]) -> None:
+        """Log any exception raised by the keep-alive loop."""
+        if task.cancelled():
+            self._log.debug("task '%s' was cancelled", task.get_name())
+            return
+
+        self._log.error(
+            "task '%s' terminated with unexpectedly",
+            task.get_name(),
+            exc_info=task.exception(),
+        )
+
+    @final
+    def _start_alive_task(self) -> None:
+        """Start the periodic keep-alive task if enabled and not already running."""
+        if self.ALIVE_INTERVAL is None or self.ALIVE_INTERVAL < 0:
+            return
+
+        if self._alive_task is None or self._alive_task.done():
+            self._alive_task = asyncio.create_task(
+                self._alive_loop(self.ALIVE_INTERVAL), name="BMS keep-alive"
+            )
+            self._alive_task.add_done_callback(self._log_alive_loop_exc)
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -397,9 +361,12 @@ class BaseBMS(ABC):
 
         try:
             async with asyncio.timeout(self._CONNECT_TIMEOUT):
-                await close_stale_connections(
-                    self._ble_device, only_other_adapters=False
-                )  # ensure no stale connection exists
+                try:
+                    await self._client.disconnect()  # close existing connection
+                except (BleakError, TimeoutError, EOFError) as exc:
+                    self._log.debug(
+                        "failed to disconnect stale connection (%s)", type(exc).__name__
+                    )
 
                 self._client = await establish_connection(
                     client_class=BleakClient,
@@ -418,6 +385,7 @@ class BaseBMS(ABC):
                     )
 
                 await self._init_connection()
+                self._start_alive_task()
 
         except (TimeoutError, BleakError, EOFError, ConnectionError) as exc:
             self._log.info(
@@ -425,6 +393,13 @@ class BaseBMS(ABC):
             )
             await self.disconnect()
             raise
+        except Exception as exc:
+            self._log.info(
+                "unexpected error during BMS connection init (%s)", type(exc).__name__
+            )
+            raise
+
+        self._log.debug("BMS connected (id: %#x)", id(self._client))
 
     def _wr_response(self, char: int | str) -> bool:
         char_tx: Final[BleakGATTCharacteristic | None] = (
@@ -499,6 +474,9 @@ class BaseBMS(ABC):
                 # try next write mode, without reconnecting, as recursion might occur
         raise TimeoutError
 
+    async def _disconnect(self, reset: bool) -> None:
+        """Override if actions in a subclass are required before connection is closed."""
+
     @final
     async def disconnect(self, reset: bool = False) -> None:
         """Disconnect the BMS, includes stopping notifications.
@@ -509,18 +487,32 @@ class BaseBMS(ABC):
             of stale connections. (Default: False)
         """
 
-        self._log.debug("disconnecting BMS (%s)", self._client.is_connected)
-        self._msg_event.clear()
-        try:
-            await self._client.disconnect()
-        except (BleakError, TimeoutError, EOFError) as exc:
-            self._log.warning("disconnect failed! (%s)", type(exc).__name__)
-        if reset:
-            self._log.debug("closing stale BMS connections and resetting write mode")
-            self._inv_wr_mode = None  # reset write mode
-            await close_stale_connections(
-                self._ble_device, only_other_adapters=False
-            )  # ensure all connections are closed
+        async with self._connect_lock:
+            self._log.debug(
+                "disconnecting BMS (id: %#x, connected: %s)",
+                id(self._client),
+                self._client.is_connected,
+            )
+            self._msg_event.clear()
+
+            task, self._alive_task = self._alive_task, None
+            if task and not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+
+            await self._disconnect(reset)
+
+            try:
+                await self._client.disconnect()
+            except (BleakError, TimeoutError, EOFError) as exc:
+                self._log.warning("disconnect failed! (%s)", type(exc).__name__)
+            if reset:
+                self._log.debug("closing stale BMS connections and resetting write mode")
+                self._inv_wr_mode = None  # reset write mode
+                await close_stale_connections(
+                    self._ble_device, only_other_adapters=False
+                )  # ensure all connections are closed
 
     @final
     async def _wait_event(self) -> None:
@@ -544,18 +536,19 @@ class BaseBMS(ABC):
             BMSSample: dictionary with BMS values
 
         """
-        await self._connect()
+        async with self._op_lock:
+            await self._connect()
 
-        data: BMSSample = await self._async_update()
-        if not raw:
-            self._add_missing_values(data, self._raw_values())
+            data: BMSSample = await self._async_update()
+            if not raw:
+                self._add_missing_values(data, self._raw_values())
 
-        if not self._keep_alive:
-            # disconnect after data update to force reconnect next time (slow!)
-            self._log.debug("forced disconnect of BMS after update")
-            await self.disconnect()
+            if not self._cfg.keep_alive:
+                # disconnect after data update to force reconnect next time (slow!)
+                self._log.debug("forced disconnect of BMS after update")
+                await self.disconnect()
 
-        return data
+            return data
 
     @final
     @staticmethod
@@ -602,6 +595,25 @@ class BaseBMS(ABC):
             result[field.key] = field.fct(
                 int.from_bytes(
                     msg[start + field.pos : start + field.pos + field.size],
+                    byteorder=byteorder,
+                    signed=field.signed,
+                )
+            )
+        return result
+
+    @staticmethod
+    def _decode_pack(
+        fields: tuple[BMSPDp, ...],
+        data: bytes,
+        *,
+        byteorder: Literal["little", "big"] = "big",
+        start: int = 0,
+    ) -> PackSample:
+        result: PackSample = {}
+        for field in fields:
+            result[field.key] = field.fct(
+                int.from_bytes(
+                    data[start + field.pos : start + field.pos + field.size],
                     byteorder=byteorder,
                     signed=field.signed,
                 )
@@ -708,7 +720,7 @@ class BaseBMS(ABC):
     @final
     def _check_integrity(
         self,
-        data: bytes | bytearray,
+        data: bytes | bytearray | BoundedByteArray,
         integrity_func: Callable[[bytes | bytearray], int],
         dic_data_slice: slice,
         dic_expected: slice | int,
@@ -820,10 +832,10 @@ def crc8(data: bytes | bytearray) -> int:
 
 
 def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
-    """Calculate the checksum of a frame using a specified size.
+    """Calculate the sum of the frame bytes using the specified size.
 
     Args:
-        frame: The input data for which the checksum is to be calculated.
-        size (int, optional): The size of the checksum in bytes (default is 1).
+        frame: The input data for which the sum is to be calculated.
+        size (int, optional): The size of the sum in bytes (default is 1).
     """
     return sum(frame) & ((1 << (8 * size)) - 1)

@@ -12,7 +12,15 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSMode, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSMode,
+    BMSSample,
+    MatcherPattern,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum, lstr2int
 
 
@@ -45,12 +53,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
         self._char_write_handle: int = -1
         self._sw_version: int = 0
@@ -196,7 +203,11 @@ class BMS(BaseBMS):
 
         # wait for BMS ready (0xC8)
         _bms_info: BMSInfo = await self._fetch_device_info()
-        self._sw_version = lstr2int(_bms_info.get("sw_version", "0"))
+        try:
+            self._sw_version = lstr2int(_bms_info.get("sw_version", "0"))
+        except ValueError:
+            self._log.debug("invalid sw_version '%s', assuming 0", _bms_info.get("sw_version"))
+            self._sw_version = 0
         self._log.debug("device information: %s", _bms_info)
         self._prot_offset = -32 if self._sw_version < 11 else 0
         if not self._bms_ready:

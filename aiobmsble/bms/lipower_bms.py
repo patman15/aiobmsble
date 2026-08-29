@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -18,7 +18,12 @@ class BMS(BaseBMS):
     """LiPower BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Ective", "default_model": "LiPower BMS"}
-    _DEV_IDS: Final[tuple[bytes, ...]] = (b"\x22", b"\x0B", b"\x08")  # alternative device IDs
+    _DEV_IDS: Final[tuple[bytes, ...]] = (
+        b"\x22",
+        b"\x0b",
+        b"\x08",
+        b"\x38",
+    )  # alternative device IDs
     _MIN_LEN: Final[int] = 5  # minimal frame length, including SOF and checksum
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 15, 2, False, lambda x: x / 10),
@@ -40,12 +45,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._heads: tuple[bytes, ...] = BMS._DEV_IDS
         self._msg: bytes = b""
 

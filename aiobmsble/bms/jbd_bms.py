@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum, swap32
 
 
@@ -26,6 +26,7 @@ class BMS(BaseBMS):
     _INIT_LEN: Final[int] = 5  # initialization frame size
     _INFO_LEN: Final[int] = 7  # minimum frame size
     _BASIC_INFO: Final[int] = 23  # basic info data length
+    _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
@@ -37,6 +38,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 23, 1, False),
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x1)),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2)),
+        BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
         BMSDp("temp_sensors", 26, 1, False),  # count is not limited
     )  # general protocol v4
     accept_secret: bool = True
@@ -44,12 +46,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._valid_reply: int = 0x00
         self._msg: bytes = b""
 
@@ -67,11 +68,14 @@ class BMS(BaseBMS):
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery
+                "SJ-???-*", # Supervolt Jumbo
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
                 "SBL-*",  # SBL
                 "OGR-*",  # OGRPHY
                 "TZ-H*",  # CERRNSS battery
+                "12???BL*",  # SBL connect battery
+                "24???BL*",  # SBL connect battery
             )
         ] + [
             MatcherPattern(
@@ -106,11 +110,14 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_cmd_resp(0x05)
-        length: Final[int] = self._msg[3]
-        return {
-            "hw_version": b2str(self._msg[4 : length + 4]),
-        }
+        await self._await_cmd_resp(0x03)
+        result: BMSInfo = {"sw_version": f"{self._msg[22] >> 4}.{self._msg[22] & 0xF}"}
+        try:
+            await self._await_cmd_resp(0x05)
+            result["hw_version"] = b2str(self._msg[4 : self._msg[3] + 4])
+        except TimeoutError:
+            pass
+        return result
 
     def _notify_init_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -139,16 +146,16 @@ class BMS(BaseBMS):
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
-        if self._secret:
+        if self._cfg.secret:
             await self._client.start_notify(BMS.uuid_rx(), self._notify_init_handler)
-            data: Final[bytes] = self._secret.encode(encoding="ASCII")
+            data: Final[bytes] = self._cfg.secret.encode(encoding="ASCII")
             try:
                 await self._await_msg(
                     BMS._HEAD_INIT
                     + b"\x15"
-                    + len(self._secret).to_bytes(1)
+                    + len(self._cfg.secret).to_bytes(1)
                     + data
-                    + ((0x15 + len(self._secret) + sum(data)) & 0xFF).to_bytes(1)
+                    + ((0x15 + len(self._cfg.secret) + sum(data)) & 0xFF).to_bytes(1)
                 )
             except TimeoutError:
                 self._log.warning("Failed to initialize connection with secret")
@@ -169,7 +176,7 @@ class BMS(BaseBMS):
             data.startswith(BMS._HEAD_RSP)
             and len(self._frame) > BMS._INFO_LEN
             and data[1] in (0x03, 0x04, 0x05)
-            and data[2] == 0x00
+            and data[2] in (0x00, 0x80)
             and len(self._frame) >= BMS._INFO_LEN + self._frame[3]
         ):
             self._frame.clear()
@@ -203,8 +210,12 @@ class BMS(BaseBMS):
         if len(self._frame) != BMS._INFO_LEN + self._frame[3]:
             self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
 
-        if self._frame[1] != self._valid_reply:
-            self._log.debug("unexpected response (type 0x%X)", self._frame[1])
+        if self._frame[1] != self._valid_reply or self._frame[2] & 0x80:
+            self._log.debug(
+                "unexpected response (type 0x%X, code: 0x%X)",
+                self._frame[1],
+                self._frame[2],
+            )
             return
 
         self._msg = bytes(self._frame)
@@ -233,12 +244,12 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        data: BMSSample = {}
+        result: BMSSample = {}
         await self._await_cmd_resp(0x03)
-        data = BMS._decode_data(BMS._FIELDS, self._msg)
-        data["temp_values"] = BMS._temp_values(
+        result = BMS._decode_data(BMS._FIELDS, self._msg)
+        result["temp_values"] = BMS._temp_values(
             self._msg,
-            values=data.get("temp_sensors", 0),
+            values=result.get("temp_sensors", 0),
             start=27,
             signed=False,
             offset=2731,
@@ -246,8 +257,8 @@ class BMS(BaseBMS):
         )
 
         await self._await_cmd_resp(0x04)
-        data["cell_voltages"] = BMS._cell_voltages(
-            self._msg, cells=self._msg[3] // 2, start=4, byteorder="big"
+        result["cell_voltages"] = BMS._cell_voltages(
+            self._msg, cells=result.get("cell_count", 0), start=4, byteorder="big"
         )
 
-        return data
+        return result

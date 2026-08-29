@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.ecoworthy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -94,10 +94,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=[0x1, 0x2],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
     assert isinstance(request.param, int)
@@ -144,7 +141,7 @@ class MockECOWBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().start_notify(char_specifier, callback, **kwargs)
 
-        self._task = asyncio.create_task(self._notify())
+        self._task = asyncio.create_task(self._notify(), name="send_loop")
         await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
@@ -186,7 +183,7 @@ class MockECOWStreamBleakClient(MockECOWBleakClient):
 
         self._unlock_cmd.update({bytes(data)[-2:]})  # store CRC of received command
         if {b"\x00\x2d", b"\x65\xef"}.issubset(self._unlock_cmd):
-            self._task = asyncio.create_task(self._notify())
+            self._task = asyncio.create_task(self._notify(), name="send_loop")
             await asyncio.sleep(0)  # yield control to allow task to start
 
 
@@ -201,7 +198,7 @@ async def test_update(
     monkeypatch.setattr(MockECOWBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockECOWBleakClient)
 
-    bms = BMS(generate_ble_device("e2:e7:79:00:00:00"), keep_alive_fixture)
+    bms = BMS(generate_ble_device("e2:e7:79:00:00:00"), BMSConfig(keep_alive_fixture))
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
     await asyncio.sleep(1e-3)
     # query again to check already connected state

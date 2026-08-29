@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
@@ -29,12 +29,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._stream_data: dict[str, list[str]] = {}
 
     @staticmethod
@@ -131,8 +130,11 @@ class BMS(BaseBMS):
         self._msg_event.clear()
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
-        result: BMSSample = BMS._parse_primary(
-            self._stream_data["primary"]
-        ) | BMS._parse_status(self._stream_data["status"])
+        try:
+            result: BMSSample = BMS._parse_primary(
+                self._stream_data["primary"]
+            ) | BMS._parse_status(self._stream_data["status"])
+        except (IndexError, ValueError) as exc:
+            raise ValueError("BMS data incomplete.") from exc
 
         return result

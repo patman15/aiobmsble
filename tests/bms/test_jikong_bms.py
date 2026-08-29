@@ -12,7 +12,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSInfo, BMSMode, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSMode, BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_sum, lstr2int
 from aiobmsble.bms.jikong_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -465,16 +465,7 @@ _DEV_DEFS: Final[dict[str, BMSInfo]] = {
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=[
-        "JK02_24S",
-        "JK02_32S",
-        "JK02_32S_v15",
-        "JK02_32S_v19.05",
-        "JK02_32S_v19.27",
-    ],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
     assert isinstance(request.param, str)
@@ -490,9 +481,9 @@ class TestBasicBMS(BMSBasicTests):
 class MockJikongBleakClient(MockBleakClient):
     """Emulate a Jikong BMS BleakClient."""
 
-    HEAD_CMD: Final = bytearray(b"\xaa\x55\x90\xeb")
-    CMD_INFO: Final = bytearray(b"\x96")
-    DEV_INFO: Final = bytearray(b"\x97")
+    HEAD_CMD: Final = b"\xaa\x55\x90\xeb"
+    CMD_INFO: Final = b"\x96"
+    DEV_INFO: Final = b"\x97"
     _FRAME: dict[str, bytearray] = _PROTO_DEFS["JK02_32S"]
 
     _task: asyncio.Task[None] | None = None
@@ -542,7 +533,7 @@ class MockJikongBleakClient(MockBleakClient):
         if bytes(data).startswith(
             self.HEAD_CMD + self.DEV_INFO
         ):  # JK BMS confirms commands with a command in reply
-            self._task = asyncio.create_task(self._send_confirm())
+            self._task = asyncio.create_task(self._send_confirm(), name="send_confirm")
             await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
@@ -629,12 +620,12 @@ class MockOversizedBleakClient(MockJikongBleakClient):
     ) -> bytearray:
         if char_specifier != 3:
             return bytearray()
-        if bytearray(data)[0:5] == self.HEAD_CMD + self.CMD_INFO:
+        if bytes(data)[0:5] == self.HEAD_CMD + self.CMD_INFO:
             return (  # added AT\r\n command and oversized
-                bytearray(b"\x41\x54\x0d\x0a") + self._FRAME["cell"] + bytearray(6)
+                bytearray(b"\x41\x54\x0d\x0a") + self._FRAME["cell"] + bytes(6)
             )
-        if bytearray(data)[0:5] == self.HEAD_CMD + self.DEV_INFO:
-            return self._FRAME["dev"] + bytearray(6)  # oversized
+        if bytes(data)[0:5] == self.HEAD_CMD + self.DEV_INFO:
+            return self._FRAME["dev"] + bytes(6)  # oversized
 
         return bytearray()
 
@@ -651,7 +642,7 @@ async def test_update(
 
     patch_bleak_client(MockJikongBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
@@ -670,6 +661,30 @@ async def test_device_info(
     patch_bleak_client(MockJikongBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == _DEV_DEFS[protocol_type]
+
+
+async def test_invalid_sw_version_defaults_to_zero(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a non-numeric sw_version does not crash init, but defaults to 0."""
+    bad_frames: dict[str, bytearray] = deepcopy(_PROTO_DEFS["JK02_24S"])
+    bad_frames["dev"][30:38] = b"n/a\x00\x00\x00\x00\x00"
+    bad_frames["dev"][-1] = crc_sum(bad_frames["dev"][:-1])
+
+    monkeypatch.setattr(MockJikongBleakClient, "_FRAME", bad_frames)
+    patch_bleak_client(MockJikongBleakClient)
+
+    bms = BMS(generate_ble_device())
+    caplog.clear()
+    await bms.device_info()
+
+    assert bms._sw_version == 0
+    assert bms._prot_offset == -32
+    assert "invalid sw_version" in caplog.text
+
+    await bms.disconnect()
 
 
 async def test_hide_temp_sensors(
@@ -919,7 +934,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockJikongBleakClient)
 
-    bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device(), BMSConfig(False))
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {
         "problem": True,

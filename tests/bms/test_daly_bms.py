@@ -1,7 +1,7 @@
 """Test the Daly BMS implementation."""
 
 from collections.abc import Buffer
-from typing import Final, cast
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -9,7 +9,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.daly_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -142,7 +142,7 @@ async def test_update(
 
     patch_bleak_client(MockDalyBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == ref_value() | (
         {
@@ -193,7 +193,7 @@ async def test_device_info(patch_bleak_client) -> None:
 async def test_mos_excl(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    test_seq: tuple[tuple[bytearray, tuple[int | float, ...]], ...],
+    test_seq: tuple[tuple[bytearray, tuple[float, ...]], ...],
 ) -> None:
     """Test Daly BMS data update."""
 
@@ -213,7 +213,8 @@ async def test_mos_excl(
         )
         assert await bms.async_update() == ref_value() | {
             "temperature": (sum(expected) + 86) / (len(expected) + 4),
-            "temp_values": [TS(v, TS.T.MOSFET) for v in expected]+ [TS(v) for v in (20.0, 21.0, 22.0, 23.0)],
+            "temp_values": [TS(v, TS.T.MOSFET) for v in expected]
+            + [TS(v) for v in (20.0, 21.0, 22.0, 23.0)],
         }
 
     await bms.disconnect()
@@ -234,9 +235,9 @@ async def test_too_short_frame(patch_bleak_client) -> None:
 @pytest.fixture(
     name="wrong_response",
     params=[
-        (bytearray(b"invalid_value"), "invalid value"),
+        (b"invalid_value", "invalid value"),
         (
-            bytearray(
+            (
                 b"\xd2\x03\x7c\x10\x1f\x10\x29\x10\x33\x10\x3d\x00\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -247,13 +248,13 @@ async def test_too_short_frame(patch_bleak_client) -> None:
             ),
             "wrong CRC",
         ),
-        (bytearray(b"\x00"), "too short"),
+        (b"\x00", "too short"),
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    assert isinstance(request.param[0], bytearray)
+    assert isinstance(request.param[0], bytes)
     return request.param[0]
 
 
@@ -261,14 +262,14 @@ async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data update with BMS returning invalid data."""
 
     patch_bms_timeout()
 
     monkeypatch.setattr(
-        MockDalyBleakClient, "_response", lambda _s, _c, _d: wrong_response
+        MockDalyBleakClient, "_response", lambda _s, _c, _d: bytearray(wrong_response)
     )
 
     patch_bleak_client(MockDalyBleakClient)
@@ -316,7 +317,12 @@ async def test_invalid_response(
 )
 def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
-    return cast(tuple[bytearray, str], request.param)
+    assert (
+        isinstance(request.param, tuple)
+        and isinstance(request.param[0], bytearray)
+        and isinstance(request.param[1], str)
+    )
+    return request.param
 
 
 async def test_problem_response(

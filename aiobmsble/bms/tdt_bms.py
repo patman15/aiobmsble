@@ -9,9 +9,10 @@ from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
+from bleak.exc import BleakCharacteristicNotFoundError
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -41,29 +42,45 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 12, 2, False, idx=0x8C),
         BMSDp("cycles", 8, 2, False, idx=0x8C),
     )  # problem code, switches are not included in the list, but extra
+    _FIELDS_v1: Final[tuple[BMSDp, ...]] = (
+        BMSDp(
+            "current",
+            0,
+            2,
+            False,
+            lambda x: (x & 0x3FFF) * (-1 if x >> 15 else 1),
+            0x8C,
+        ),
+        BMSDp("cycle_charge", 4, 2, False, idx=0x8C),
+    )
+
     _CMDS: Final = frozenset({field.idx for field in _FIELDS} | {0x8D})
 
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: dict[int, bytes] = {}
         self._cmd_heads: set[int] = BMS._CMD_HEADS
         self._valid_reply: int = 0  # expected reply type
         self._exp_len: int = 0
+        self._fields: tuple[BMSDp, ...] = BMS._FIELDS
+        self._crc_fix: bool | None = None  # disable CRC for 0x8D messages (BMS bug!)
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            {"manufacturer_id": 54976, "connectable": True},
-            {"local_name": "HS02*", "connectable": True},
-        ]
+            MatcherPattern(
+                local_name=pattern,
+                connectable=True,
+            )
+            for pattern in ("HS02*", "WTDH*", "WTaHdAZ*")
+        ] + [{"manufacturer_id": 54976, "connectable": True}]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
@@ -100,16 +117,30 @@ class BMS(BaseBMS):
             "serial_number": b2str(self._msg[0x92][48:68]),
         }
 
+    @staticmethod
+    def _merge_fields(
+        base: tuple[BMSDp, ...], overrides: tuple[BMSDp, ...]
+    ) -> tuple[BMSDp, ...]:
+        """Merge overrides into base fields, matching by name."""
+        override_map: dict[str, BMSDp] = {f.key: f for f in overrides}
+        return tuple(override_map.get(f.key, f) for f in base)
+
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
-        await self._await_msg(data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False)
-        if (
-            ret := int.from_bytes(await self._client.read_gatt_char(BMS._UUID_CFG))
-        ) != 0x1:
-            self._log.debug("error unlocking BMS: %X", ret)
+        try:
+            await self._await_msg(data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False)
+            if (
+                ret := int.from_bytes(await self._client.read_gatt_char(BMS._UUID_CFG))
+            ) != 0x1:
+                self._log.debug("error unlocking BMS: %X", ret)
+        except BleakCharacteristicNotFoundError:
+            self._log.debug("skipping unlock step")
 
         await super()._init_connection()
+        _bms_info: BMSInfo = await self._fetch_device_info()
+        if _bms_info.get("sw_version", "").startswith("1."):
+            self._fields = self._merge_fields(BMS._FIELDS, BMS._FIELDS_v1)
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -121,7 +152,9 @@ class BMS(BaseBMS):
             and data[0] == BMS._RSP_HEAD
             and len(self._frame) >= self._exp_len
         ):
-            self._exp_len = BMS._INFO_LEN + int.from_bytes(data[6:8])
+            self._exp_len = min(
+                BMS._INFO_LEN + int.from_bytes(data[6:8]), BMS._MAX_MSG_LEN
+            )
             self._frame.clear()
 
         self._frame.extend(data)
@@ -141,12 +174,8 @@ class BMS(BaseBMS):
             self._log.debug("unknown frame version: V%.1f", self._frame[1] / 10)
             return
 
-        if self._frame[4]:
-            self._log.debug("BMS reported error code: 0x%X", self._frame[4])
-            return
-
-        if self._frame[5] != self._valid_reply:
-            self._log.debug("BMS sent unexpected reply.")
+        if self._frame[4] or self._frame[5] != self._valid_reply:
+            self._log.debug("unexpected BMS reply (error code: 0x%X)", self._frame[4])
             return
 
         if not self._check_integrity(
@@ -156,7 +185,15 @@ class BMS(BaseBMS):
             slice(-3, -1),
             "big",
         ):
-            return
+            if self._crc_fix is False or self._frame[5] != 0x8D:
+                return
+            if self._crc_fix is None:
+                # only 0x8D messages have wrong CRC, which seems to be 1 byte only
+                self._crc_fix = int.from_bytes(self._frame[-3:-1]) <= 0xFF
+                if not self._crc_fix:
+                    return
+                self._log.warning("disabling CRC check, values might be unreliable")
+
         self._msg[self._frame[5]] = bytes(self._frame)
         self._msg_event.set()
 
@@ -212,15 +249,15 @@ class BMS(BaseBMS):
         idx: Final[int] = result.get("cell_count", 0) + result.get("temp_sensors", 0)
 
         result |= BMS._decode_data(
-            BMS._FIELDS, self._msg, start=BMS._CELL_POS + idx * 2 + 2
+            self._fields, self._msg, start=BMS._CELL_POS + idx * 2 + 2
         )
         result["problem_code"] = int.from_bytes(
             self._msg[0x8D][BMS._CELL_POS + idx + 6 : BMS._CELL_POS + idx + 8]
         )
         mosfets: Final[int] = self._msg[0x8D][BMS._CELL_POS + idx + 8]
         result |= {
-            "chrg_mosfet": bool(mosfets & 0x4),
-            "dischrg_mosfet": bool(mosfets & 0x2),
+            "chrg_mosfet": bool(mosfets & 0x2),
+            "dischrg_mosfet": bool(mosfets & 0x4),
         }
 
         self._msg.clear()

@@ -13,7 +13,7 @@ import logging
 from bleak.backends.device import BLEDevice
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -89,7 +89,7 @@ class MockProBMSBleakClient(MockBleakClient):
             # Start streaming data packets
             if not self._streaming_task:
                 self._stop_streaming = False
-                self._streaming_task = asyncio.create_task(self._stream_data())
+                self._streaming_task = asyncio.create_task(self._stream_data(), name="send_loop")
                 await asyncio.sleep(0) # yield control to allow task to start
 
     async def disconnect(self) -> None:
@@ -213,7 +213,7 @@ async def test_async_update_already_streaming(patch_bleak_client) -> None:
     mock_client.set_test_packet(RECORDED_PACKETS["data_charging"])
     patch_bleak_client(lambda *args, **kwargs: mock_client)
 
-    bms = BMS(device, keep_alive=True)
+    bms = BMS(device, BMSConfig(keep_alive=True))
 
     # First update to initialize
     await bms.async_update()
@@ -258,7 +258,7 @@ async def test_async_update_no_data_after_init(
                 self._notify_callback(None, RECORDED_PACKETS["init_response"])
 
             # Store task reference to prevent garbage collection
-            self._streaming_task = asyncio.create_task(send_wrong_packet())
+            self._streaming_task = asyncio.create_task(send_wrong_packet(), name="send wrong packet")
             await asyncio.sleep(0) # yield control to allow task to start
 
     monkeypatch.setattr(MockProBMSBleakClient, "write_gatt_char", mock_write)

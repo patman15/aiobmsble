@@ -9,7 +9,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -21,7 +21,7 @@ class BMS(BaseBMS):
     _FRAME_LEN: Final[int] = 5  # head + len + CRC
     _MAX_CELLS: Final[int] = 0x1F
     _MAX_TEMP: Final[int] = 6
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 100, 0x28),
         BMSDp("current", 5, 4, True, lambda x: x / 100, 0x28),
         BMSDp("battery_level", 9, 2, False, idx=0x28),
@@ -36,20 +36,19 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 32, 1, False, lambda x: bool(x & 0x20), 0x24),
         BMSDp("balancer", 35, 4, False, idx=0x24),
     )
-    _RESPS: Final = frozenset(field.idx for field in _FIELDS)
-    _CMDS: Final[frozenset[tuple[int, int]]] = frozenset(
+    _RESPS = frozenset(field.idx for field in _FIELDS)
+    _CMDS: frozenset[tuple[int, int]] = frozenset(
         {(0x0, 0x14), (0x34, 0x12), (0x15, 0x1F)}
     )
 
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: dict[int, bytes] = {}
 
     @staticmethod
@@ -106,6 +105,7 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
+        self._msg.clear()
         for addr, length in BMS._CMDS:
             await self._await_msg(BMS._cmd_modbus(dev_id=0x2, addr=addr, count=length))
         if not BMS._RESPS.issubset(set(self._msg.keys())):

@@ -8,7 +8,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, PackSample, TempSensor as TS
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -19,17 +19,86 @@ CHAR_UUID = "fff1"
 REF_VALUE: BMSSample = {
     "voltage": 52.34,
     "current": -6.7,
+    "cycle_charge": 134.12,
+    "design_capacity": 280,
+    "pack_count": 2,  # last packet does not report data!
+    "cycles": 9,
     "battery_level": 47.9,
     "battery_health": 99.9,
-    "cycle_charge": 134.12,
-    "cycles": 9,
     "temperature": 24.4,
-    "cycle_capacity": 7019.841,
-    "power": -350.678,
-    "battery_charging": False,
-    "runtime": 72064,
-    "pack_count": 2,  # last packet does not report data!
-    "cell_count": 16,
+    "problem_code": 0,
+    "dischrg_mosfet": True,
+    "chrg_mosfet": True,
+    "heater": False,
+    "balancer": False,
+    "packs": [
+        PackSample(
+            voltage=52.34,
+            current=-7.2,
+            cycle_charge=134.12,
+            design_capacity=280,
+            battery_level=47.9,
+            battery_health=99.9,
+            cycles=9,
+            cell_voltages=[
+                3.272,
+                3.272,
+                3.272,
+                3.271,
+                3.271,
+                3.271,
+                3.271,
+                3.27,
+                3.27,
+                3.271,
+                3.271,
+                3.271,
+                3.271,
+                3.272,
+                3.272,
+                3.272,
+            ],
+            temp_values=(
+                [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
+                + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
+            ),
+            delta_voltage=0.002,
+            cell_count=16,
+        ),
+        PackSample(
+            voltage=52.35,
+            current=-7.19,
+            cycle_charge=134.12,
+            design_capacity=280,
+            battery_level=48.0,
+            battery_health=99.9,
+            cycles=10,
+            cell_voltages=[
+                3.528,
+                3.528,
+                3.528,
+                3.527,
+                3.527,
+                3.527,
+                3.527,
+                3.526,
+                3.526,
+                3.527,
+                3.527,
+                3.527,
+                3.527,
+                3.528,
+                3.528,
+                3.529,
+            ],
+            temp_values=(
+                [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
+                + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
+            ),
+            delta_voltage=0.003,
+            cell_count=16,
+        ),
+    ],
     "cell_voltages": [
         3.272,
         3.272,
@@ -64,23 +133,13 @@ REF_VALUE: BMSSample = {
         3.528,
         3.529,
     ],
+    "cell_count": 16,
     "delta_voltage": 0.003,
-    "temp_values": (
-        [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
-        + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
-    )
-    * 2,
-    "dischrg_mosfet": True,
-    "chrg_mosfet": True,
-    "balancer": False,
-    "heater": False,
-    "pack_battery_levels": [47.9, 48.0],
-    "pack_battery_health": [99.9, 99.9],
-    "pack_currents": [-7.2, -7.19],
-    "pack_cycles": [9, 10],
-    "pack_voltages": [52.34, 52.35],
+    "battery_charging": False,
+    "cycle_capacity": 7019.841,
+    "power": -350.678,
+    "runtime": 72064,
     "problem": False,
-    "problem_code": 0,
 }
 
 
@@ -309,7 +368,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockSeplosBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == REF_VALUE
 

@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
@@ -38,8 +38,8 @@ class BMS(BaseBMS):
             ]
         ]
     ] = [
-        ("voltage", "Batt", lambda x: x[0][0] / 1000),
-        ("current", "Batt", lambda x: x[1][0] / 10),
+        ("voltage", "BattList", lambda x: x[0][0] / 1000),
+        ("current", "BattList", lambda x: x[1][0] / 10),
         ("cycle_charge", "BatsocList", lambda x: (int(x[0][0]) * int(x[0][2])) / 1e7),
         ("battery_level", "BatsocList", lambda x: x[0][0] / 100),
     ]
@@ -47,12 +47,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: dict[str, Any] = {}
 
     @staticmethod
@@ -104,7 +103,7 @@ class BMS(BaseBMS):
             return
 
         try:
-            self._msg = loads(self._frame)
+            self._msg = loads(bytes(self._frame))
         except (JSONDecodeError, UnicodeDecodeError):
             self._log.debug("JSON decode error: %s", self._frame)
             return
@@ -135,13 +134,16 @@ class BMS(BaseBMS):
 
         await self._await_msg(BMS._CMD_PRE + BMS._CMD_RT)
 
-        return (
-            BMS._conv_data(self._msg)
-            | {"temp_values": BMS._conv_temp(self._msg)}
-            | {"cell_voltages": BMS._conv_cells(self._msg)}
-            | {
-                "problem_code": int(
-                    self._msg.get("Bwarn", 0) + self._msg.get("Bfault", 0)
-                )
-            }
-        )
+        try:
+            return (
+                BMS._conv_data(self._msg)
+                | {"temp_values": BMS._conv_temp(self._msg)}
+                | {"cell_voltages": BMS._conv_cells(self._msg)}
+                | {
+                    "problem_code": int(
+                        self._msg.get("Bwarn", 0) + self._msg.get("Bfault", 0)
+                    )
+                }
+            )
+        except (IndexError, TypeError) as exc:
+            raise ValueError("BMS data incomplete.") from exc

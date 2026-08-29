@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -57,12 +57,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
         self._valid_reply: int = BMS._CMD_STAT | 0x10  # valid reply mask
         self._exp_len: int = 0
@@ -108,13 +107,13 @@ class BMS(BaseBMS):
         """Initialize RX/TX characteristics and protocol state."""
         await super()._init_connection(char_notify)
         self._exp_len = 0
-        if self._secret:
+        if self._cfg.secret:
             await self._await_msg(
                 self._cmd(
                     BMS._CMD_AUTH,
                     0x6A01,
-                    len(self._secret),
-                    self._secret.encode("ASCII"),
+                    len(self._cfg.secret),
+                    self._cfg.secret.encode("ASCII"),
                 ),
                 wait_for_notify=False,
             )

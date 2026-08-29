@@ -1,4 +1,4 @@
-"""Module to support Ective BMS.
+"""Module to support Topband BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -12,23 +12,29 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    MatcherPattern,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class BMS(BaseBMS):
-    """Ective BMS implementation."""
+    """Topband BMS implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Topband", "default_model": "smart BMS"}
-    _HEAD_RSP: Final[tuple[bytes, ...]] = (
-        b"\x5e",
-        b"\x83",
-        b"\xb0",
-    )  # header for responses
+    _HEAD_RSP: Final[frozenset[int]] = frozenset(  # header for responses
+        {0x5E, 0x83, 0x87, 0xB0, 0xE8, 0xF6}
+    )
+    _HEAD_RSP_BYTES: Final[bytes] = bytes(_HEAD_RSP)  # precomputed for strip()
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 0, 4, False, lambda x: x / 1000),
         BMSDp("current", 4, 4, True, lambda x: x / 1000),
         BMSDp("battery_level", 14, 2, False),
@@ -41,12 +47,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
@@ -82,9 +87,7 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if (
-            start := next(
-                (i for i, b in enumerate(data) if bytes([b]) in BMS._HEAD_RSP), -1
-            )
+            start := next((i for i, b in enumerate(data) if b in BMS._HEAD_RSP), -1)
         ) != -1:  # check for beginning of frame
             data = data[start:]
             self._frame.clear()
@@ -100,7 +103,7 @@ class BMS(BaseBMS):
         del self._frame[BMS._INFO_LEN :]  # cut off exceeding data
 
         if not (
-            self._frame.startswith(BMS._HEAD_RSP)
+            self._frame[0] in BMS._HEAD_RSP
             and set(self._frame.decode(errors="replace")[1:]).issubset(hexdigits)
         ):
             self._log.debug("incorrect frame coding: %s", self._frame)
@@ -108,7 +111,7 @@ class BMS(BaseBMS):
             return
 
         _dec: Final[bytes] = bytes.fromhex(
-            self._frame.strip(b"".join(BMS._HEAD_RSP)).decode()
+            self._frame.strip(BMS._HEAD_RSP_BYTES).decode()
         )
 
         if not self._check_integrity(
@@ -124,7 +127,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
-        return self._decode_data(BMS._FIELDS, self._msg, byteorder="little") | {
+        return self._decode_data(BMS.FIELDS, self._msg, byteorder="little") | {
             "cell_voltages": BMS._cell_voltages(
                 self._msg, cells=BMS._MAX_CELLS, start=22, byteorder="little"
             )
