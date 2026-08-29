@@ -266,14 +266,13 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_invalid_bms_type(patch_bleak_client) -> None:
+@pytest.mark.parametrize("local_name", ["SmartBat-C12294", "SmartBat-A"])
+async def test_invalid_bms_type(patch_bleak_client, local_name: str) -> None:
     """Test BMS with invalid type 'C'."""
 
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-C12294"), BMSConfig(True)
-    )
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", local_name), BMSConfig(True))
 
     result: BMSSample = await bms.async_update()
     assert not result
