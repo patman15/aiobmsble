@@ -109,8 +109,7 @@ class Mock123SmartBleakClient(MockBleakClient):
 @pytest.fixture(autouse=True)
 def _fast_timings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Speed up ping/warm-up/cycle timings for tests."""
-    monkeypatch.setattr(BMS, "_WARMUP", 0.0)
-    monkeypatch.setattr(BMS, "_PING_INTERVAL", 0.01)
+    monkeypatch.setattr(BMS, "ALIVE_INTERVAL", 0.01)
     monkeypatch.setattr(BMS, "_CYCLE_TIMEOUT", 2.0)
     monkeypatch.setattr(BMS, "_CMD_TIMEOUT", 2.0)
 

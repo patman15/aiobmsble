@@ -26,8 +26,7 @@ class BMS(BaseBMS):
     accept_secret: bool = True  # requires a 4-digit PIN for authentication
 
     _PING: Final[bytes] = b"$"
-    _PING_INTERVAL: float = 0.33  # s, keep-alive poll rate (app uses 330 ms)
-    _WARMUP: float = 1.5  # s, poll warm-up before the first command
+    ALIVE_INTERVAL = 0.33  # s, keep-alive poll rate (app uses 330 ms)
     _CMD_TIMEOUT: float = 4.0  # s, wait for OK/NA reply
     _CYCLE_TIMEOUT: float = 15.0  # s, wait for a full data cycle
 
@@ -42,7 +41,6 @@ class BMS(BaseBMS):
         self._buffer: bytearray = bytearray()
         self._last_reply: str = ""  # last "OK"/"NA"/"WRONG" style reply
         self._reply_event: Final[asyncio.Event] = asyncio.Event()
-        self._ping_task: asyncio.Task[None] | None = None
         self._cells: dict[int, tuple[float, float]] = {}  # idx -> (volt, temp)
         self._cell_total: int = 0
         self._values: BMSSample = {}
@@ -89,19 +87,8 @@ class BMS(BaseBMS):
         """Convert a raw temperature field to degrees Celsius."""
         return BMS._to_int(field) - 276
 
-    async def _ping_loop(self) -> None:
-        """Continuously poll the module so it keeps streaming."""
-        try:
-            while True:
-                async with self._op_lock:
-                    await self._client.write_gatt_char(
-                        self.uuid_tx(), BMS._PING, response=False
-                    )
-                await asyncio.sleep(BMS._PING_INTERVAL)
-        except asyncio.CancelledError:
-            return
-        except Exception as exc:  # noqa: BLE001 - keep-alive must not crash the loop
-            self._log.debug("ping loop stopped (%s)", type(exc).__name__)
+    async def _alive(self) -> None:
+        await self._client.write_gatt_char(self.uuid_tx(), BMS._PING, response=False)
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -169,24 +156,12 @@ class BMS(BaseBMS):
         self._values = {}
         await super()._init_connection(char_notify)
 
-        # start keep-alive polling first; the module only replies while polled
-        if self._ping_task is None or self._ping_task.done():
-            self._ping_task = asyncio.create_task(self._ping_loop())
-        await asyncio.sleep(BMS._WARMUP)  # let a few polls warm up before first command
-
         if self._cfg.secret:
-            await self._cmd_expect_ok(
-                f"PW{self._cfg.secret}!"
-            )  # authenticate (4-digit PIN)
-        await self._cmd_expect_ok(
-            "E!"
-        )  # enable live data streaming (fails if not authorized)
+            # authenticate (4-digit PIN)
+            await self._cmd_expect_ok(f"PW{self._cfg.secret}!")
 
-    async def _disconnect(self, reset: bool) -> None:
-        """Stop the keep-alive ping task, then disconnect."""
-        if self._ping_task is not None:
-            self._ping_task.cancel()
-            self._ping_task = None
+        # enable live data streaming (fails if not authorized)
+        await self._cmd_expect_ok("E!")
 
     async def _async_update(self) -> BMSSample:
         """Return the latest known values.
@@ -214,7 +189,6 @@ class BMS(BaseBMS):
                 self._cell_total,
                 "battery_level" in self._values,
                 sorted(self._values),
-                self._ping_task is not None and not self._ping_task.done(),
             )
 
         sample: BMSSample = self._values.copy()
