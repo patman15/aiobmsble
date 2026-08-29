@@ -62,6 +62,18 @@ class MockJBDBleakClient(MockBleakClient):
     REQUIRE_PASS = False
     UNLOCKED = False
     DEFAULT_SECRET = b"000000"
+    RESP: dict[bytes, bytes] = {
+        CMD_INFO: (
+            b"\xdd\x03\x00\x1d\x06\x18\xfe\xe1\x01\xf2\x01\xf4\x00\x2a\x2c\x7c\x00\x00\x00"
+            b"\x00\x00\x00\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x84\x77"
+        ),  # {'voltage': 15.6, 'current': -2.87, 'battery_level': 100, 'cycle_charge': 4.98, 'cycles': 42, 'temperature': 22.133333333333347}
+        CMD_CELL: (
+            b"\xdd\x04\x00\x08\x0d\x66\x0d\x61\x0d\x68\x0d\x59\xfe\x3c\x77"
+        ),  # {'cell#0': 3.43, 'cell#1': 3.425, 'cell#2': 3.432, 'cell#3': 3.417}
+        HW_INFO: (
+            b"\xdd\x05\x00\x0a\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\xfd\xe9\x77"
+        ),  # hardware version 0123456789
+    }
 
     _tasks: set[asyncio.Task[None]] = set()
 
@@ -80,7 +92,7 @@ class MockJBDBleakClient(MockBleakClient):
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
-    ) -> bytearray:
+    ) -> bytes:
 
         _msg: Final[bytes] = bytes(data)
         if (
@@ -90,7 +102,7 @@ class MockJBDBleakClient(MockBleakClient):
             and not self.UNLOCKED
         ):
             self.UNLOCKED = True
-            return bytearray(
+            return (
                 MockJBDBleakClient.ACK_MSG
                 if sum(_msg[2:-1]) & 0xFF == _msg[-1]
                 and _msg[4:-1] == self.DEFAULT_SECRET
@@ -103,21 +115,8 @@ class MockJBDBleakClient(MockBleakClient):
             and _msg[0] == self.HEAD_CMD
             and self.REQUIRE_PASS == self.UNLOCKED
         ):
-            match _msg[1:3]:
-                case self.CMD_INFO:
-                    return bytearray(
-                        b"\xdd\x03\x00\x1d\x06\x18\xfe\xe1\x01\xf2\x01\xf4\x00\x2a\x2c\x7c\x00\x00\x00"
-                        b"\x00\x00\x00\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x84\x77"
-                    )  # {'voltage': 15.6, 'current': -2.87, 'battery_level': 100, 'cycle_charge': 4.98, 'cycles': 42, 'temperature': 22.133333333333347}
-                case self.CMD_CELL:
-                    return bytearray(
-                        b"\xdd\x04\x00\x08\x0d\x66\x0d\x61\x0d\x68\x0d\x59\xfe\x3c\x77"
-                    )  # {'cell#0': 3.43, 'cell#1': 3.425, 'cell#2': 3.432, 'cell#3': 3.417}
-                case self.HW_INFO:
-                    return bytearray(
-                        b"\xdd\x05\x00\x0a\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\xfd\xe9\x77"
-                    )  # hardware version 0123456789
-        return bytearray()
+            return self.RESP.get(_msg[1:3], b"")
+        return b""
 
     async def _send_data(self, char_specifier, data) -> None:
         assert (
@@ -132,7 +131,7 @@ class MockJBDBleakClient(MockBleakClient):
             for notify_data in [
                 resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
             ]:
-                self._notify_callback("MockJBDBleakClient", notify_data)
+                self._notify_callback("MockJBDBleakClient", bytearray(notify_data))
             await asyncio.sleep(0)
 
     async def write_gatt_char(
@@ -144,7 +143,7 @@ class MockJBDBleakClient(MockBleakClient):
         """Issue write command to GATT."""
 
         _task: asyncio.Task[None] = asyncio.create_task(
-            self._send_data(char_specifier, data)
+            self._send_data(char_specifier, data), name="send_loop"
         )
         self._tasks.add(_task)
         _task.add_done_callback(self._tasks.discard)
@@ -158,27 +157,20 @@ class MockJBDBleakClient(MockBleakClient):
 class MockOversizedBleakClient(MockJBDBleakClient):
     """Emulate a JBD BMS BleakClient returning wrong data length."""
 
-    def _response(
-        self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
-    ) -> bytearray:
-        if (
-            isinstance(char_specifier, str)
-            and normalize_uuid_str(char_specifier) == normalize_uuid_str("ff02")
-            and bytearray(data)[0] == self.HEAD_CMD
-        ):
-            if bytearray(data)[1:3] == self.CMD_INFO:
-                return bytearray(
-                    b"\xdd\x03\x00\x1d\x06\x18\xfe\xe1\x01\xf2\x01\xf4\x00\x2a\x2c\x7c\x00\x00\x00"
-                    b"\x00\x00\x00\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x84\x77"
-                    b"\00\00\00\00\00\00"  # oversized response
-                )  # {'voltage': 15.6, 'current': -2.87, 'battery_level': 100, 'cycle_charge': 4.98, 'cycles': 42, 'temperature': 22.133333333333347}
-            if bytearray(data)[1:3] == self.CMD_CELL:
-                return bytearray(
-                    b"\xdd\x04\x00\x08\x0d\x66\x0d\x61\x0d\x68\x0d\x59\xfe\x3c\x77"
-                    b"\00\00\00\00\00\00\00\00\00\00\00\00"  # oversized response
-                )  # {'cell#0': 3.43, 'cell#1': 3.425, 'cell#2': 3.432, 'cell#3': 3.417}
-
-        return bytearray()
+    RESP: dict[bytes, bytes] = {
+        MockJBDBleakClient.CMD_INFO: (
+            b"\xdd\x03\x00\x1d\x06\x18\xfe\xe1\x01\xf2\x01\xf4\x00\x2a\x2c\x7c\x00\x00\x00"
+            b"\x00\x00\x00\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x84\x77"
+            b"\00\00\00\00\00\00"  # oversized response
+        ),  # {'voltage': 15.6, 'current': -2.87, 'battery_level': 100, 'cycle_charge': 4.98, 'cycles': 42, 'temperature': 22.133333333333347}
+        MockJBDBleakClient.CMD_CELL: (
+            b"\xdd\x04\x00\x08\x0d\x66\x0d\x61\x0d\x68\x0d\x59\xfe\x3c\x77"
+            b"\00\00\00\00\00\00\00\00\00\00\00\00"  # oversized response
+        ),  # {'cell#0': 3.43, 'cell#1': 3.425, 'cell#2': 3.432, 'cell#3': 3.417}
+        MockJBDBleakClient.HW_INFO: (
+            b"\xdd\x05\x80\x00\xff\x80\x77"
+        ),  # hardware version not available
+    }
 
     async def disconnect(self) -> None:
         """Mock disconnect to raise BleakError."""
@@ -256,11 +248,21 @@ async def test_invalid_init(
     await bms.disconnect()
 
 
-async def test_device_info(patch_bleak_client) -> None:
+@pytest.mark.parametrize("client", [MockJBDBleakClient, MockOversizedBleakClient])
+async def test_device_info(
+    patch_bleak_client, patch_bms_timeout, client: object
+) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    patch_bleak_client(MockJBDBleakClient)
+    patch_bms_timeout()
+    patch_bleak_client(client)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {"hw_version": "0123456789", "sw_version": "8.0"}
+    if client == MockJBDBleakClient:
+        assert await bms.device_info() == {
+            "hw_version": "0123456789",
+            "sw_version": "8.0",
+        }
+    else:
+        assert await bms.device_info() == {"sw_version": "8.0"}
 
 
 @pytest.fixture(

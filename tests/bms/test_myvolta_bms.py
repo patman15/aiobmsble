@@ -50,7 +50,6 @@ class MockMyVoltaBleakClient(MockBleakClient):
         b"\x01\x03\x05\x07\x13\x01\x03\x05\x07\x01\x03\x05\x01\x03\x01"
     )
     _RESP: bytes = _PROTO_DEFS
-    _task: asyncio.Task[None] | None = None
 
     def __init__(
         self,
@@ -63,6 +62,7 @@ class MockMyVoltaBleakClient(MockBleakClient):
         super().__init__(
             address_or_ble_device, disconnected_callback, services, **kwargs
         )
+        self._task: asyncio.Task[None] | None = None
         self._iterator: int = 0
         self._pos: int = 0
 
@@ -90,7 +90,7 @@ class MockMyVoltaBleakClient(MockBleakClient):
     ) -> None:
         """Mock start_notify."""
         await super().start_notify(char_specifier, callback, **kwargs)
-        self._task = asyncio.create_task(self._stream_data())
+        self._task = asyncio.create_task(self._stream_data(), name="send_loop")
         await asyncio.sleep(0)
 
     async def disconnect(self) -> None:
@@ -195,7 +195,6 @@ async def test_invalid_response(
     patch_bleak_client(MockMyVoltaBleakClient)
 
     bms = BMS(generate_ble_device())
-    await asyncio.sleep(1e-3)  # wait for notifications to be sent
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()

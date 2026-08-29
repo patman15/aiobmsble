@@ -146,6 +146,29 @@ class DataTestBMS(MinTestBMS):
         }
 
 
+class AliveTestBMS(MinTestBMS):
+    """BMS exercising the periodic keep-alive task in the base class."""
+
+    ALIVE_INTERVAL: float | None = 0.0
+
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        config: BMSConfig | None = None,
+        logger_name: str = "",
+    ) -> None:
+        """Initialize the AliveTestBMS."""
+        super().__init__(ble_device, config, logger_name)
+        self.alive_calls: int = 0
+        self.alive_raise: bool = False
+
+    async def _alive(self) -> None:
+        """Record each periodic invocation, optionally failing the loop."""
+        self.alive_calls += 1
+        if self.alive_raise:
+            raise RuntimeError("keep-alive failure")
+
+
 class OpGuardTestBMS(MinTestBMS):
     """BMS to verify that public operations do not overlap."""
 
@@ -343,6 +366,7 @@ class BMSBasicTests:
 
         bms: BaseBMS = self.bms_class(generate_ble_device())
         result: BMSSample = await bms.async_update()
+        await bms.disconnect()
 
         hints: dict[str, Any] = get_type_hints(BMSSample)
         assert isinstance(
@@ -1257,3 +1281,72 @@ async def test_get_gatt_profile_error(
     )
 
     assert "mock error" in await bms.get_GATT_profile()
+
+
+async def test_alive_loop_running(
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify the periodic keep-alive loop invokes `_alive` and is cancelled on disconnect."""
+    patch_bleak_client()
+    bms: AliveTestBMS = AliveTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
+
+    await bms.async_update()
+    assert bms.is_connected is True
+
+    for _ in range(3):
+        await asyncio.sleep(0)
+    assert bms.alive_calls > 0
+
+    with caplog.at_level(DEBUG):
+        await bms.disconnect()
+    assert bms.is_connected is False
+    assert "task 'BMS keep-alive' was cancelled" in caplog.text
+
+
+async def test_alive_loop_exception(
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify an exception in the keep-alive loop is logged via the done callback."""
+    patch_bleak_client()
+    bms: AliveTestBMS = AliveTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
+    bms.alive_raise = True
+
+    with caplog.at_level(DEBUG):
+        await bms.async_update()
+        for _ in range(10):
+            await asyncio.sleep(0)
+            if "terminated with unexpectedly" in caplog.text:
+                break
+
+    assert "task 'BMS keep-alive' terminated with unexpectedly" in caplog.text
+    await bms.disconnect()  # task already done -> no cancellation needed
+
+
+async def test_alive_task_disabled(patch_bleak_client: Callable[..., None]) -> None:
+    """Verify no keep-alive task is started when `ALIVE_INTERVAL` is None."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
+
+    await bms.async_update()
+    assert bms._alive_task is None
+    await bms.disconnect()
+
+
+async def test_reconnect_with_running_alive_task(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify `_start_alive_task` skips creating a new task when one is running."""
+    patch_bleak_client()
+
+    bms: AliveTestBMS = AliveTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
+    await bms.async_update()  # first update: keep-alive task created
+    task: Final = bms._alive_task
+    assert task is not None and not task.done()
+
+    await bms._client.disconnect()  # silent transport drop, task keeps running
+    await bms.async_update()  # reconnect: running task is reused, not recreated
+    assert bms._alive_task is task
+
+    await bms.disconnect()  # cleanup cancels the task
