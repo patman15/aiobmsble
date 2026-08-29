@@ -6,7 +6,7 @@ from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
-from bleak.exc import BleakDeviceNotFoundError
+from bleak.exc import BleakCharacteristicNotFoundError, BleakDeviceNotFoundError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
@@ -289,6 +289,15 @@ class MockTDTBleakClient(MockBleakClient):
 
         return bytearray()
 
+    def _handle_auth_char(self, char_specifier, data) -> bool:
+        if isinstance(char_specifier, str) and normalize_uuid_str(
+            char_specifier
+        ) == normalize_uuid_str("fffa"):
+            if data == b"HiLink":
+                self._char_fffa = 0x1
+            return True
+        return False
+
     async def write_gatt_char(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
@@ -298,11 +307,7 @@ class MockTDTBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().write_gatt_char(char_specifier, data)
 
-        if isinstance(char_specifier, str) and normalize_uuid_str(
-            char_specifier
-        ) == normalize_uuid_str("fffa"):
-            if data == b"HiLink":
-                self._char_fffa = 0x1
+        if self._handle_auth_char(char_specifier, data):
             return
 
         assert (
@@ -351,6 +356,32 @@ async def test_update(
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
+
+    await bms.disconnect()
+
+
+async def test_update_wo_auth(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bms_timeout,
+    patch_bleak_client,
+) -> None:
+    """Test TDT BMS data update."""
+
+    def _unavail_auth_char(self, char_specifier, data) -> bool:
+        if isinstance(char_specifier, str) and normalize_uuid_str(
+            char_specifier
+        ) == normalize_uuid_str("fffa"):
+            raise BleakCharacteristicNotFoundError("MockTDTBleakClient")
+        return False
+
+    patch_bms_timeout()
+    monkeypatch.setattr(MockTDTBleakClient, "_handle_auth_char", _unavail_auth_char)
+    monkeypatch.setattr(MockTDTBleakClient, "RESP", _PROTO_DEFS["4S4Tv0.0"])
+    patch_bleak_client(MockTDTBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig())
+
+    assert await bms.async_update() == ref_value()["4S4Tv0.0"]
 
     await bms.disconnect()
 
