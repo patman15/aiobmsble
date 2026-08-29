@@ -248,7 +248,7 @@ class MockStreamBleakClient(MockNeeyBleakClient):
         if bytearray(data).startswith(
             self.HEAD_CMD + self.DEV_INFO
         ):  # send all responses as a series
-            self._task = asyncio.create_task(self._send_all())
+            self._task = asyncio.create_task(self._send_all(), name="send all msgs")
             await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
