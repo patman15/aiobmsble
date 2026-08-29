@@ -35,7 +35,6 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "current": -3.0,
         "battery_level": 99,
         "problem_code": 0,
-        "temp_sensors": 2,
         "cell_count": 4,
         "cell_voltages": [3.5, 3.5, 3.5, 3.49],
         "temp_values": [TS(12.778), TS(8.889)],
@@ -170,6 +169,16 @@ def fixture_invalid_stream(request: pytest.FixtureRequest) -> bytes:
     """Return invalid stream data payload."""
     assert isinstance(request.param, bytes)
     return request.param
+
+
+# def test_decode_data_stream_fields() -> None:
+#     """Test the Lithionics stream field decoder for primary and status data."""
+#     primary = ["1399", "350", "350", "350", "349", "55", "48", "-3", "99", "000000"]
+#     status = ["&,", "1", "319", "006391", "0136", "2300", "FF05", "8700"]
+
+#     assert BMS._decode_data(BMS._FIELDS, {0: primary})["voltage"] == 13.99
+#     assert BMS._decode_data(BMS._FIELDS, {1: status})["cycle_charge"] == 319.0
+#     assert BMS._decode_data(BMS._FIELDS, {1: status})["total_charge"] == 6391
 
 
 async def test_invalid_response(

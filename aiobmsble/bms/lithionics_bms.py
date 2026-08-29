@@ -5,13 +5,13 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from typing import Final
+from typing import Any, Final, Literal, cast
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
@@ -28,6 +28,62 @@ class BMS(BaseBMS):
     _FIXED_WIDTHS: Final[tuple[int, ...]] = (1, 5, 4, 3, 3, 1, 5, 6, 3, 6)
     _FIXED_STATUS_FIELDS: Final[int] = 15
     _PROBLEM_MASK: Final[int] = 0x68CEFD
+
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 0, 1, False, lambda x: int(str(x)) / 100, 0),
+        BMSDp(
+            "cell_voltages",
+            1,
+            4,
+            False,
+            lambda values: [
+                int(value) / 100 for value in cast(list[str], values)
+            ],
+            0,
+        ),
+        BMSDp(
+            "temp_values",
+            5,
+            2,
+            False,
+            lambda values: [
+                TempSensor(round((int(value) - 32) * 5 / 9, 3))
+                for value in cast(list[str], values)
+            ],
+            0,
+        ),
+        BMSDp("current", 7, 1, False, lambda x: float(str(x)), 0),
+        BMSDp("battery_level", 8, 1, False, lambda x: int(str(x)), 0),
+        BMSDp(
+            "problem_code",
+            9,
+            1,
+            False,
+            lambda x: int(str(x), 16) & BMS._PROBLEM_MASK,
+            0,
+        ),
+        BMSDp("cycle_charge", 2, 1, False, lambda x: float(str(x)), 1),
+        BMSDp("total_charge", 3, 1, False, lambda x: int(str(x)), 1),
+    )
+    _FIELDS_FIXED: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 2, 1, False, lambda x: int(str(x)) / 10, 0),
+        BMSDp("battery_level", 3, 1, False, int, 0),
+        BMSDp("cycle_charge", 1, 1, False, lambda x: int(str(x)) / 10, 0),
+        BMSDp("current", 6, 1, False, lambda x: float(str(x)) / 10, 0),
+        BMSDp("power", 7, 1, False, lambda x: float(str(x)), 0),
+        BMSDp("battery_charging", 5, 1, False, lambda x: int(str(x)) == 1, 0),
+        BMSDp(
+            "temp_values",
+            8,
+            1,
+            False,
+            lambda x: [TempSensor(round((int(str(x)) - 32) * 5 / 9, 3))],
+            0,
+        ),
+        BMSDp("temp_sensors", 8, 1, False, lambda x: 1, 0),
+        BMSDp("problem_code", 9, 1, False, lambda x: int(str(x), 16) & BMS._PROBLEM_MASK, 0),
+        BMSDp("delta_voltage", 13, 1, False, lambda x: 0.0, 1),
+    )
 
     def __init__(
         self,
@@ -109,52 +165,39 @@ class BMS(BaseBMS):
         )
 
     @staticmethod
-    def _parse_primary_fixed(fields: list[str]) -> BMSSample:
-        """Parse a fixed-length primary line."""
-        charging: Final[bool] = int(fields[5]) == 1
-        sign: Final[int] = 1 if charging else -1
+    def _decode_data(
+        fields: tuple[BMSDp, ...],
+        data: bytes | dict[int, bytes],
+        *,
+        byteorder: Literal["little", "big"] = "big",
+        start: int = 0,
+    ) -> BMSSample:
+        """Decode a CSV stream payload using the shared field definition format."""
+        del byteorder
+        result: BMSSample = {}
+        for field in fields:
+            msg: bytes | list[str]
+            if isinstance(data, dict):
+                if field.idx not in data:
+                    continue
+                msg = cast(bytes | list[str], data[field.idx])
+            else:
+                msg = data
 
-        return {
-            "voltage": int(fields[2]) / 10,
-            "battery_level": int(fields[3]),
-            "cycle_charge": int(fields[1]) / 10,
-            "current": sign * int(fields[6]) / 10,
-            "power": float(sign * int(fields[7])),
-            "battery_charging": charging,
-            "temp_values": [TempSensor(round((int(fields[8]) - 32) * 5 / 9, 3))],
-            "temp_sensors": 1,
-            "problem_code": int(fields[9], 16) & BMS._PROBLEM_MASK,
-        }
+            idx: int = start + field.pos
+            if idx >= len(msg):
+                continue
 
-    @staticmethod
-    def _parse_status_fixed(fields: list[str]) -> BMSSample:
-        """Parse a fixed-length trace line; it ends with lowest/highest/avg cell."""
-        return {"delta_voltage": round((int(fields[13]) - int(fields[12])) / 100, 3)}
+            value: Any
+            if field.size == 1:
+                value = msg[idx]
+            else:
+                end: int = idx + field.size
+                if end > len(msg):
+                    continue
+                value = msg[idx:end]
 
-    @staticmethod
-    def _parse_primary(fields: list[str]) -> BMSSample:
-        # BMS reports temperatures in Fahrenheit.
-        temp_values: Final[list[TempSensor]] = [
-            TempSensor(round((int(fields[idx]) - 32) * 5 / 9, 3)) for idx in (5, 6)
-        ]
-
-        return {
-            "voltage": int(fields[0]) / 100,
-            "cell_voltages": [int(value) / 100 for value in fields[1:5]],
-            "temp_values": temp_values,
-            "temp_sensors": 2,
-            "current": float(fields[7]),
-            "battery_level": int(fields[8]),
-            "problem_code": int(fields[9], 16),
-        }
-
-    @staticmethod
-    def _parse_status(fields: list[str]) -> BMSSample:
-
-        result: BMSSample = {"cycle_charge": float(fields[2])}
-        if len(fields) > 3:
-            result["total_charge"] = int(fields[3])
-
+            result[field.key] = field.fct(value)
         return result
 
     async def _async_update(self) -> BMSSample:
@@ -167,16 +210,19 @@ class BMS(BaseBMS):
         status: Final[list[str]] = self._stream_data["status"]
 
         try:
+            _msg: dict[int, bytes] = cast(dict[int, bytes], {0: primary, 1: status})
             if BMS._is_fixed_length(primary):
                 # The trace line of this variant carries the cell voltage
                 # extremes; shorter ones only repeat data already parsed.
-                result: BMSSample = BMS._parse_primary_fixed(primary) | (
-                    BMS._parse_status_fixed(status)
-                    if len(status) >= BMS._FIXED_STATUS_FIELDS
-                    else {}
-                )
+
+                result = BMS._decode_data(BMS._FIELDS_FIXED, _msg)
+                if len(status) >= BMS._FIXED_STATUS_FIELDS:
+                    result["delta_voltage"] = round(
+                        (int(status[13]) - int(status[12])) / 100,
+                        3,
+                    )
             else:
-                result = BMS._parse_primary(primary) | BMS._parse_status(status)
+                result = BMS._decode_data(BMS._FIELDS, _msg)
         except (IndexError, ValueError) as exc:
             raise ValueError("BMS data incomplete.") from exc
 
