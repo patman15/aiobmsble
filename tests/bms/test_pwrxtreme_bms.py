@@ -137,7 +137,9 @@ async def test_device_info_timeout(
 
     monkeypatch.setattr(bms, "_await_msg", await_msg)
 
-    assert await bms.device_info() == _DEV_INFO_DEFS | {"serial_number": "mock_serial_number"}
+    assert await bms.device_info() == _DEV_INFO_DEFS | {
+        "serial_number": "mock_serial_number"
+    }
 
 
 async def test_device_info_decode_error(
@@ -152,7 +154,9 @@ async def test_device_info_decode_error(
 
     monkeypatch.setattr(bms, "_await_msg", await_msg)
 
-    assert await bms.device_info() == _DEV_INFO_DEFS | {"serial_number": "mock_serial_number"}
+    assert await bms.device_info() == _DEV_INFO_DEFS | {
+        "serial_number": "mock_serial_number"
+    }
 
 
 async def test_alive(monkeypatch: pytest.MonkeyPatch) -> None:
