@@ -30,7 +30,7 @@
     "advertisement": {
       "local_name": "Li3-022724009",
       "manufacturer_data": {
-        "19784": "a06c65d1b28c"
+        "19784": "a06c65000000"
       },
       "service_data": {
         "0000b000-0000-1000-8000-00805f9b34fb": "00000000"
@@ -42,7 +42,7 @@
         "0000ffe0-0000-1000-8000-00805f9b34fb"
       ],
       "platform_data": [
-        "A0:6C:65:D1:B2:8C"
+        "A0:6C:65:00:00:00"
       ],
       "tx_power": 0,
       "rssi": -86

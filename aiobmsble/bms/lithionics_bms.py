@@ -25,10 +25,6 @@ class BMS(BaseBMS):
     _HEAD_STATUS: Final[str] = "&,"
     _MIN_FIELDS_PRIMARY: Final[int] = 10
     _MIN_FIELDS_STATUS: Final[int] = 3
-    # Field widths of the zero-padded fixed-length stream variant (selected by
-    # the BMS "Serial Data Format" setting). It has the same field count as the
-    # plain comma-delimited variant but a different field order, so the widths
-    # are what tell them apart.
     _FIXED_WIDTHS: Final[tuple[int, ...]] = (1, 5, 4, 3, 3, 1, 5, 6, 3, 6)
     _FIXED_STATUS_FIELDS: Final[int] = 15
     _PROBLEM_MASK: Final[int] = 0x68CEFD
@@ -47,7 +43,6 @@ class BMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            # Seen on Lithionics Li3 packs: "Li3-061322094"
             MatcherPattern(
                 local_name="Li[0-9]-*",
                 service_uuid=BMS.uuid_services()[0],
@@ -115,20 +110,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _parse_primary_fixed(fields: list[str]) -> BMSSample:
-        """Parse a fixed-length primary line.
-
-        1,01594,0525,048,048,0,00000,000000,080,000100
-        | |     |    |   |   | |     |      |   `- status flags (3 bytes, hex)
-        | |     |    |   |   | |     |      `----- temperature (degF)
-        | |     |    |   |   | |     `------------ power (1 W/bit)
-        | |     |    |   |   | `------------------ current (0.1 A/bit)
-        | |     |    |   |   `-------------------- 1: charging, 0: discharging
-        | |     |    |   `------------------------ second SoC-like field
-        | |     |    `---------------------------- state of charge (%)
-        | |     `--------------------------------- voltage (0.1 V/bit)
-        | `--------------------------------------- charge remaining (0.1 Ah/bit)
-        `----------------------------------------- battery ID (instance)
-        """
+        """Parse a fixed-length primary line."""
         charging: Final[bool] = int(fields[5]) == 1
         sign: Final[int] = 1 if charging else -1
 
