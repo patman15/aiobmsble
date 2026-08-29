@@ -17,16 +17,20 @@ from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
 
-STREAM_DATA: Final[bytes] = (
-    b"ERROR\r\n"
-    b"1399,350,350,350,349,55,48,-3,99,000000\r\n"
-    b"&,1,319,006391,0136,2300,FF05,8700\r\n"
-)
+_PROTO_DEFS: Final[dict[str, bytes]] = {
+    "stream": (
+        b"ERROR\r\n"
+        b"1399,350,350,350,349,55,48,-3,99,000000\r\n"
+        b"&,1,319,006391,0136,2300,FF05,8700\r\n"
+    ),
+    "fixed_stream": (
+        b"1,01594,0525,048,048,0,00000,000000,080,000100\r\n"
+        b"&,1,0525,0525,078,2,075845,0576,3300,FF03,0000,00,327,328,328\r\n"
+    ),
+}
 
-
-def ref_value() -> BMSSample:
-    """Return reference value for mock Lithionics BMS."""
-    return {
+_RESULT_DEFS: Final[dict[str, BMSSample]] = {
+    "stream": {
         "voltage": 13.99,
         "current": -3.0,
         "battery_level": 99,
@@ -44,7 +48,23 @@ def ref_value() -> BMSSample:
         "battery_charging": False,
         "runtime": 382800,
         "problem": False,
-    }
+    },
+    "fixed_stream": {
+        "voltage": 52.5,
+        "current": 0.0,
+        "power": 0.0,
+        "battery_level": 48,
+        "battery_charging": False,
+        "cycle_charge": 159.4,
+        "cycle_capacity": 8368.5,
+        "delta_voltage": 0.01,
+        "temp_sensors": 1,
+        "temp_values": [TS(26.667)],
+        "temperature": 26.667,
+        "problem_code": 0,
+        "problem": False,
+    },
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -56,7 +76,7 @@ class TestBasicBMS(BMSBasicTests):
 class MockLithionicsBleakClient(MockBleakClient):
     """Emulate a Lithionics BMS BleakClient."""
 
-    _RESP: bytes = STREAM_DATA
+    _RESP: bytes = _PROTO_DEFS["stream"]
     _task: asyncio.Task[None] | None = None
 
     async def _notify(self) -> None:
@@ -97,16 +117,26 @@ class MockLithionicsBleakClient(MockBleakClient):
         await super().disconnect()
 
 
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
+def fixture_protocol_type(request: pytest.FixtureRequest) -> str:
+    """Return each supported Lithionics protocol variant."""
+    return request.param
+
+
 async def test_update(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, keep_alive_fixture: bool
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    keep_alive_fixture: bool,
+    protocol_type: str,
 ) -> None:
-    """Test Lithionics BMS data update."""
-    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", STREAM_DATA)
+    """Test Lithionics BMS data update for both stream variants."""
+    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockLithionicsBleakClient)
 
-    bms = BMS(generate_ble_device(name="Lithionics"), BMSConfig(keep_alive_fixture))
+    device_name = "Lithionics" if protocol_type == "stream" else "Li3-022724009"
+    bms = BMS(generate_ble_device(name=device_name), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
     await bms.async_update()
@@ -254,48 +284,6 @@ async def test_status_field_variants(
     await bms.disconnect()
 
 
-STREAM_DATA_FIXED: Final[bytes] = (
-    b"1,01594,0525,048,048,0,00000,000000,080,000100\r\n"
-    b"&,1,0525,0525,078,2,075845,0576,3300,FF03,0000,00,327,328,328\r\n"
-)
-
-
-def ref_value_fixed() -> BMSSample:
-    """Return reference value for the fixed-length stream variant."""
-    return {
-        "voltage": 52.5,
-        "current": 0.0,
-        "power": 0.0,
-        "battery_level": 48,
-        "battery_charging": False,
-        "cycle_charge": 159.4,
-        "cycle_capacity": 8368.5,
-        "delta_voltage": 0.01,
-        "temp_sensors": 1,
-        "temp_values": [TS(26.667)],
-        "temperature": 26.667,
-        "problem_code": 0,
-        "problem": False,
-    }
-
-
-async def test_update_fixed_length(
-    monkeypatch: pytest.MonkeyPatch,
-    patch_bleak_client,
-) -> None:
-    """Test the zero-padded fixed-length stream of a 48V/16S pack."""
-    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", STREAM_DATA_FIXED)
-    patch_bleak_client(MockLithionicsBleakClient)
-
-    bms = BMS(generate_ble_device(name="Li3-022724009"))
-    result: BMSSample = await bms.async_update()
-
-    for key, value in ref_value_fixed().items():
-        assert result.get(key) == value, f"mismatch for {key}"
-
-    await bms.disconnect()
-
-
 async def test_fixed_length_status_code_masked(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
@@ -304,7 +292,7 @@ async def test_fixed_length_status_code_masked(
     monkeypatch.setattr(
         MockLithionicsBleakClient,
         "_RESP",
-        STREAM_DATA_FIXED.replace(b",000100\r\n", b",000020\r\n"),
+        _PROTO_DEFS["fixed_stream"].replace(b",000100\r\n", b",000020\r\n"),
     )
     patch_bleak_client(MockLithionicsBleakClient)
 
