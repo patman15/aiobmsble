@@ -20,15 +20,9 @@ class BMS(EJBMS):
         "default_model": "battery",
     }
     _FIELDS: tuple[BMSDp, ...] = (
-        # BMSDp(
-        #     "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
-        # ),
         BMSDp("battery_level", 69, 1, False),
         BMSDp("current", 54, 4, True, lambda x: x / 1000),
         # BMSDp("cycle_charge", 7, 2, False, lambda x: x / 10, Cmd.CAP),
-        # BMSDp(
-        #     "temp_values", 48, 1, False, lambda x: [TempSensor(x - 40)], Cmd.RT
-        # ),  # only 1st sensor relevant
         BMSDp("cycles", 67, 2, False),
         BMSDp("design_capacity", 70, 4, False, lambda x: x // 1000),
         BMSDp("voltage", 62, 2, False, lambda x: x / 1000),
@@ -39,7 +33,6 @@ class BMS(EJBMS):
         # BMSDp("chrg_mosfet", 52, 1, False, lambda x: bool(x & 0x20), Cmd.RT),
         # BMSDp("balancer", 55, 2, False, int, idx=Cmd.RT),
         # BMSDp("heater", 54, 1, False, bool, Cmd.RT),
-        # BMSDp("design_capacity", 66, 2, False, lambda x: x // 10, Cmd.RT),
     )
 
     @staticmethod
@@ -143,10 +136,9 @@ class BMS(EJBMS):
 
         # query real-time information and capacity
         await self._await_msg(b":015150000EFE~")
-
-        return self._decode_data(BMS._FIELDS, self._msg) | {
+        return self._decode_data(self._FIELDS, self._msg) | {
             "cell_voltages": BMS._cell_voltages(
-                self._msg, cells=BMS._MAX_CELLS, start=BMS._CELL_POS
+                self._msg, cells=self._MAX_CELLS, start=self._CELL_POS
             ),
             "temp_values": BMS._temp_values(
                 self._msg, start=48, values=4, size=1, signed=False, offset=40
