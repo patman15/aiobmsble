@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from enum import Enum
 from functools import lru_cache
 from typing import Final
 
@@ -18,27 +19,31 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 class BMS(BaseBMS):
     """PACEEX BMS implementation."""
 
-    # TODO: implement multi battery pack
-
     INFO: BMSInfo = {
         "default_manufacturer": "PeiCheng Technology",
         "default_model": "PACEEX Smart BMS",
     }
+
+    class _Cmd(bytes, Enum):
+        SERIAL = b"\x00\x00\x00\x02\x00\x00"
+        VERSIONS = b"\x00\x00\x00\x01\x00\x00"
+        SYS_INFO = b"\x00\x00\x0a\x00\x00\x00"
+        PACK_INFO = b"\x00\x00\x0a\x01\x00\x00"
+        CELL_INFO = b"\x00\x00\x0a\x02\x00\x00"
+
     _HEAD: Final[bytes] = b"\x9a"
     _TAIL: Final[bytes] = b"\x9d"
     _FRM_TYPE: Final[slice] = slice(1, 7)
     _MIN_LEN: Final[int] = 11  # minimal frame length
     _CELL_POS: Final[int] = 12  # position of first cell voltage
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("current", 1, 4, True, lambda x: x / 100),
-        BMSDp("voltage", 5, 4, False, lambda x: x / 100),
-        BMSDp("cycle_charge", 9, 4, False, lambda x: x / 100),
-        BMSDp("design_capacity", 13, 4, False, lambda x: x // 100),
-        BMSDp("battery_level", 21, 1, False),
-        BMSDp("battery_health", 22, 1, False),
-        BMSDp("pack_count", 0, 1, False),
-        BMSDp("cycles", 23, 4, False),
-        # BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (  # pack values, 0x0a01 reply
+        BMSDp("current", 1, 2, True, lambda x: x / 100),
+        BMSDp("voltage", 3, 2, False, lambda x: x / 100),
+        BMSDp("cycle_charge", 5, 2, False, lambda x: x / 100),
+        BMSDp("design_capacity", 9, 2, False, lambda x: x // 100),
+        BMSDp("battery_level", 11, 1, False),
+        BMSDp("battery_health", 12, 1, False),
+        BMSDp("cycles", 13, 2, False),
     )
 
     def __init__(
@@ -78,10 +83,10 @@ class BMS(BaseBMS):
         _HW_VER_POS: Final[int] = 65
 
         result: BMSInfo = BMSInfo()
-        await self._await_msg(self._cmd(b"\x00\x00\x00\x02\x00\x00"))
+        await self._await_msg(self._cmd(BMS._Cmd.SERIAL))
         length: int = self._msg[8]
         result["serial_number"] = b2str(self._msg[9 : 9 + length])
-        await self._await_msg(self._cmd(b"\x00\x00\x00\x01\x00\x00"))
+        await self._await_msg(self._cmd(BMS._Cmd.VERSIONS))
         if len(self._msg) < _HW_VER_POS:
             raise ValueError("BMS data incomplete.")
         result["sw_version"] = b2str(
@@ -138,11 +143,11 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(BMS._cmd(b"\x00\x00\x0a\x00\x00\x00"))
+        await self._await_msg(BMS._cmd(BMS._Cmd.PACK_INFO, b"\x01\x01"))
         result: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._msg, byteorder="big", start=8
         )
-        await self._await_msg(BMS._cmd(b"\x00\x00\x0a\x02\x00\x00", b"\x01\x01"))
+        await self._await_msg(BMS._cmd(BMS._Cmd.CELL_INFO, b"\x01\x01"))
         if len(self._msg) < BMS._CELL_POS:
             raise ValueError("BMS data incomplete.")
         result["cell_count"] = self._msg[BMS._CELL_POS - 1]
@@ -160,4 +165,7 @@ class BMS(BaseBMS):
             types=(TempSensor.T.CELL,) * 4
             + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
+        await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
+        if pack_count := self._msg[8]:  # zero on all packs except the master
+            result["pack_count"] = pack_count
         return result
