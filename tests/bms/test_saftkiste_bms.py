@@ -33,7 +33,7 @@ _PROTO_DEFS: Final[dict[bytes, bytearray]] = {
     b"\xf0\xff\x10\x41\x42\x43\x31\x32\x33\x00\xe7\x80\x69\x48": bytearray(  # correct password response
         b"\xf0\xff\x00\xe0\x93\x04\x00\x97\x8d\x04\x00\x2c\x01\xa8\x34\xb8\xff\x2f\x0d\x24\x0d\x2d"
         b"\x0d\x28\x0d\x21\x00\x47\x05\xc2\x05\x00\x01\x00\x00\x00\x04\x0e\x6a"
-    ),  # wrong password: bytearray(b'\xf0\xff\x10\x00\x07')
+    ),
     b"\xf0\xff\x43\x01\x01\xe7\x80\x69\x96": bytearray(
         b"\xf0\xff\x43\x01\x01\xe7\x80\x69\x6f\x23\x27\x23\xe1\x22\x9a\x22\x53\x22\x0d\x22\xc6\x21"
         b"\x7f\x21\x37\x21\xef\x20\xa6\x20\x5d\x20\x14\x20\xcb\x1f\x84\x1f\x46\x1f\x0d\x1f\xf1\x1e"
@@ -76,7 +76,9 @@ class MockSaftkisteBleakClient(MockBleakClient):
     """Emulate a Saftkiste BMS BleakClient."""
 
     _RESP: Final[dict[bytes, bytearray]] = _PROTO_DEFS
-    PASS: Final[str] = "f0ff1041424331323300e7806948"
+    _PASS_CMD: Final[str] = "f0ff1041424331323300e7806948"
+    _AUTH_PREFIX: Final[bytes] = b"\xf0\xff\x10"
+    _AUTH_FAIL_MSG: Final[bytearray] = bytearray(_AUTH_PREFIX + b"\x00\x07")
 
     async def write_gatt_char(
         self,
@@ -88,8 +90,14 @@ class MockSaftkisteBleakClient(MockBleakClient):
         await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
 
+        data_b: Final[bytes] = bytes(data)
+        if data_b.startswith(self._AUTH_PREFIX) and data_b != bytes.fromhex(
+            self._PASS_CMD
+        ):
+            self._notify_callback("MockSaftkisteBleakClient", self._AUTH_FAIL_MSG)
+            return
         self._notify_callback(
-            "MockSaftkisteBleakClient", self._RESP.get(bytes(data), bytearray())
+            "MockSaftkisteBleakClient", self._RESP.get(data_b, bytearray())
         )
 
 
@@ -100,7 +108,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(
         generate_ble_device(),
-        BMSConfig(keep_alive=keep_alive_fixture, secret=MockSaftkisteBleakClient.PASS),
+        BMSConfig(keep_alive=keep_alive_fixture, secret=MockSaftkisteBleakClient._PASS_CMD),
     )
 
     assert await bms.async_update() == _RESULT_DEFS
@@ -143,11 +151,53 @@ async def test_invalid_response(
     )
     patch_bleak_client(MockSaftkisteBleakClient)
 
-    bms = BMS(generate_ble_device(), BMSConfig(secret=MockSaftkisteBleakClient.PASS))
+    bms = BMS(generate_ble_device(), BMSConfig(secret=MockSaftkisteBleakClient._PASS_CMD))
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()
 
     assert not result
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("secret", "exception"),
+    [
+        ("invalid_hex", ValueError),
+        ("f0ff1041424332333300e7806948", ConnectionRefusedError),
+    ],
+    ids=["invalid_secret", "wrong_password"],
+)
+async def test_invalid_secret(
+    patch_bleak_client,
+    secret: str,
+    exception: type[Exception],
+) -> None:
+    """Test that an invalid or wrong secret is handled correctly."""
+
+    patch_bleak_client(MockSaftkisteBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(secret=secret))
+
+    result: BMSSample = {}
+    with pytest.raises(exception):
+        result = await bms.async_update()
+
+    assert not result
+    await bms.disconnect()
+
+
+async def test_missing_secret(
+    patch_bleak_client, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test that a missing secret only logs a warning but continues."""
+
+    patch_bleak_client(MockSaftkisteBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    assert await bms.async_update() == _RESULT_DEFS
+    assert "no passwod provided" in caplog.text
+
     await bms.disconnect()
