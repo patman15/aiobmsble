@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -39,12 +39,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: dict[int, bytes] = {}
 
     @staticmethod
@@ -86,15 +85,18 @@ class BMS(BaseBMS):
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         await super()._init_connection(char_notify)
-        self._log.debug("send password")
-        try:
-            # await self._await_msg(BMS._cmd(0x10) + BMS._PASS[:6] + b"\x00\xe7\x80\x69\x48")
-            await self._await_msg(bytes.fromhex(self._secret))
-        except ValueError:
-            self._log.error("Secret needs to be a pure HEX string!")
-            raise
-        if 0x0 not in self._msg:
-            raise ConnectionRefusedError("authentication failed")
+        if self._cfg.secret:
+            self._log.debug("sending password")
+            try:
+                # await self._await_msg(BMS._cmd(0x10) + BMS._PASS[:6] + b"\x00\xe7\x80\x69\x48")
+                await self._await_msg(bytes.fromhex(self._cfg.secret))
+            except ValueError:
+                self._log.error("Secret needs to be a pure HEX string!")
+                raise
+            if 0x0 not in self._msg:
+                raise ConnectionRefusedError("authentication failed")
+        else:
+            self._log.warning("no passwod provided")
         await self._await_msg(BMS._cmd(0x43) + b"\x01\x01\xe7\x80\x69\x96")
 
     def _notification_handler(
