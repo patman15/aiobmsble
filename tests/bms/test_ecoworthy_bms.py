@@ -141,7 +141,7 @@ class MockECOWBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().start_notify(char_specifier, callback, **kwargs)
 
-        self._task = asyncio.create_task(self._notify())
+        self._task = asyncio.create_task(self._notify(), name="send_loop")
         await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
@@ -183,7 +183,7 @@ class MockECOWStreamBleakClient(MockECOWBleakClient):
 
         self._unlock_cmd.update({bytes(data)[-2:]})  # store CRC of received command
         if {b"\x00\x2d", b"\x65\xef"}.issubset(self._unlock_cmd):
-            self._task = asyncio.create_task(self._notify())
+            self._task = asyncio.create_task(self._notify(), name="send_loop")
             await asyncio.sleep(0)  # yield control to allow task to start
 
 
