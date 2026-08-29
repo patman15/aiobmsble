@@ -12,6 +12,7 @@ authors = [
   {name = "@patman15"},
   {name = "@daubman"},
   {name = "@krahabb"},
+  {name = "@KrzysztofHajdamowicz"},
 ]
 maintainers = [
   {name = "Patrick Loschmidt"}

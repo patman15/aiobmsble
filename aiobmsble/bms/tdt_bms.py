@@ -132,8 +132,7 @@ class BMS(BaseBMS):
 
         await super()._init_connection()
         _bms_info: BMSInfo = await self._fetch_device_info()
-        if _bms_info.get("sw_version", "") == "1.1":
-            # too general? https://github.com/patman15/BMS_BLE-HA/issues/728#issuecomment-5099308860
+        if _bms_info.get("sw_version", "").startswith("1."):
             self._fields = self._merge_fields(BMS._FIELDS, BMS._FIELDS_v1)
 
     def _notification_handler(
@@ -248,8 +247,8 @@ class BMS(BaseBMS):
         )
         mosfets: Final[int] = self._msg[0x8D][BMS._CELL_POS + idx + 8]
         result |= {
-            "chrg_mosfet": bool(mosfets & 0x4),
-            "dischrg_mosfet": bool(mosfets & 0x2),
+            "chrg_mosfet": bool(mosfets & 0x2),
+            "dischrg_mosfet": bool(mosfets & 0x4),
         }
 
         self._msg.clear()
