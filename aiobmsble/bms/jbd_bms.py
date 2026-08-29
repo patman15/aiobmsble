@@ -41,7 +41,6 @@ class BMS(BaseBMS):
         BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
         BMSDp("temp_sensors", 26, 1, False),  # count is not limited
     )  # general protocol v4
-
     accept_secret: bool = True
 
     def __init__(
