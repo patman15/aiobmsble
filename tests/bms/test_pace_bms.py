@@ -7,13 +7,50 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.pace_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 200
+
+_RESULT_DEFS: BMSSample = {
+    "voltage": 53.02,
+    "current": -3.84,
+    "battery_level": 74,
+    "battery_health": 100,
+    "cycle_charge": 74.23,
+    "design_capacity": 100,
+    "cycle_capacity": 3935.675,
+    "delta_voltage": 0.004,
+    "cycles": 239,
+    "cell_count": 16,
+    "cell_voltages": [
+        3.31,
+        3.308,
+        3.31,
+        3.311,
+        3.311,
+        3.31,
+        3.311,
+        3.311,
+        3.311,
+        3.312,
+        3.311,
+        3.31,
+        3.31,
+        3.311,
+        3.31,
+        3.308,
+    ],
+    "temp_values": [TS(t, TS.T.CELL) for t in (22.2, 22.4, 22.7, 22.4)],
+    "temperature": 22.425,
+    "battery_charging": False,
+    "runtime": 69590,
+    "power": -203.597,
+    "problem": False,
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -140,49 +177,13 @@ async def test_device_info(patch_bleak_client) -> None:
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
-    """Test Dummy BMS data update."""
+    """Test Pace BMS main data update."""
 
     patch_bleak_client(MockPaceBleakClient)
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == {
-        "pack_count": 1,
-        "voltage": 53.01,
-        "current": -4.23,
-        "battery_level": 74,
-        "battery_health": 100,
-        "cycle_charge": 74.0,
-        "design_capacity": 100,
-        "cycle_capacity": 3922.74,
-        "delta_voltage": 0.004,
-        "cycles": 239,
-        "cell_count": 16,
-        "cell_voltages": [
-            3.31,
-            3.308,
-            3.31,
-            3.311,
-            3.311,
-            3.31,
-            3.311,
-            3.311,
-            3.311,
-            3.312,
-            3.311,
-            3.31,
-            3.31,
-            3.311,
-            3.31,
-            3.308,
-        ],
-        "temp_values": [22.2, 22.4, 22.7, 22.4],
-        "temperature": 22.425,
-        "battery_charging": False,
-        "runtime": 62978,
-        "power": -224.232,
-        "problem": False,
-    }
+    assert await bms.async_update() == _RESULT_DEFS | {"pack_count": 1}
 
     # query again to check already connected state
     await bms.async_update()
@@ -211,7 +212,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
     ids=["wrong_SOF", "wrong_CRC", "wrong_len", "wrong_response", "empty"],
 )
 async def test_invalid_response(
-    monkeypatch, patch_bleak_client, patch_bms_timeout, wrong_response: bytes
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -234,7 +238,9 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_device_info_incomplete(monkeypatch, patch_bleak_client) -> None:
+async def test_device_info_incomplete(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
     """Test that a truncated (but CRC-valid) sw/hw version response raises ValueError."""
     monkeypatch.setattr(
         MockPaceBleakClient,
@@ -256,7 +262,9 @@ async def test_device_info_incomplete(monkeypatch, patch_bleak_client) -> None:
     await bms.disconnect()
 
 
-async def test_cell_block_incomplete(monkeypatch, patch_bleak_client) -> None:
+async def test_cell_block_incomplete(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
     """Test that a truncated (but CRC-valid) cell block response raises ValueError."""
     monkeypatch.setattr(
         MockPaceBleakClient,
@@ -274,5 +282,27 @@ async def test_cell_block_incomplete(monkeypatch, patch_bleak_client) -> None:
 
     with pytest.raises(ValueError, match="BMS data incomplete"):
         await bms.async_update()
+
+    await bms.disconnect()
+
+
+async def test_pack_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test Pace BMS pack data update."""
+
+    monkeypatch.setattr(
+        MockPaceBleakClient,
+        "_RESP",
+        MockPaceBleakClient._RESP
+        | {
+            b"\x9a\x00\x00\x0a\x00\x00\x00\x00\x19\x51\x9d": bytearray(
+                b"\x9a\x00\x00\x0a\x00\x00\x00\x33" + bytes(51) + b"\x48\xde\x9d"
+            )
+        },
+    )
+    patch_bleak_client(MockPaceBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig())
+
+    assert await bms.async_update() == _RESULT_DEFS
 
     await bms.disconnect()
