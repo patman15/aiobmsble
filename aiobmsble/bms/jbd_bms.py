@@ -69,11 +69,14 @@ class BMS(BaseBMS):
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery
+                "SJ-???-*", # Supervolt Jumbo
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
                 "SBL-*",  # SBL
                 "OGR-*",  # OGRPHY
                 "TZ-H*",  # CERRNSS battery
+                "12???BL*",  # SBL connect battery
+                "24???BL*",  # SBL connect battery
             )
         ] + [
             MatcherPattern(
