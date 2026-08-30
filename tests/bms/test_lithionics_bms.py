@@ -56,8 +56,6 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "battery_charging": False,
         "cycle_charge": 159.4,
         "cycle_capacity": 8368.5,
-        "delta_voltage": 0.01,
-        "temp_sensors": 1,
         "temp_values": [TS(26.667)],
         "temperature": 26.667,
         "problem_code": 0,
