@@ -4,6 +4,8 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import asyncio
+import contextlib
 from functools import lru_cache
 from typing import Final
 
@@ -118,6 +120,7 @@ class BMS(BaseBMS):
             result["hw_version"] = b2str(self._msg[4 : self._msg[3] + 4])
         except TimeoutError:
             pass
+
         return result
 
     def _notify_init_handler(
@@ -168,6 +171,11 @@ class BMS(BaseBMS):
             await self._client.stop_notify(BMS.uuid_rx())
 
         await super()._init_connection(char_notify)
+        with contextlib.suppress(TimeoutError):
+            await self._await_msg(BMS._cmd(0xFF, b"\xFF\xFF\xFF\xFF\xFF\xFF"))
+            await asyncio.sleep(0.5)
+            await self._await_msg(BMS._cmd(0x08))
+
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
