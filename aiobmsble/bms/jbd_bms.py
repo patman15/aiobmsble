@@ -4,7 +4,6 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-import asyncio
 import contextlib
 from functools import lru_cache
 from typing import Final
@@ -71,7 +70,7 @@ class BMS(BaseBMS):
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery
-                "SJ-???-*", # Supervolt Jumbo
+                "SJ-???-*",  # Supervolt Jumbo
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
                 "SBL-*",  # SBL
@@ -172,10 +171,8 @@ class BMS(BaseBMS):
 
         await super()._init_connection(char_notify)
         with contextlib.suppress(TimeoutError):
-            await self._await_msg(BMS._cmd(0xFF, b"\xFF\xFF\xFF\xFF\xFF\xFF"))
-            await asyncio.sleep(0.5)
-            await self._await_msg(BMS._cmd(0x08))
-
+            await self._await_cmd_resp(0xFF, b"\xff\xff\xff\xff\xff\xff")
+            await self._await_cmd_resp(0x08)
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -249,8 +246,8 @@ class BMS(BaseBMS):
 
         return frame + BMS._crc(frame[2:]).to_bytes(2, "big") + BMS._TAIL.to_bytes(1)
 
-    async def _await_cmd_resp(self, cmd: int) -> None:
-        msg: Final[bytes] = BMS._cmd(cmd)
+    async def _await_cmd_resp(self, cmd: int, data: bytes = b"") -> None:
+        msg: Final[bytes] = BMS._cmd(cmd, data)
         self._valid_reply = msg[2]
         await self._await_msg(msg)
         self._valid_reply = 0x00
