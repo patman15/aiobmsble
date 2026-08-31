@@ -181,7 +181,7 @@ class BMS(BaseBMS):
         if (
             data.startswith(BMS._HEAD_RSP)
             and len(self._frame) > BMS._INFO_LEN
-            and data[1] in (0x03, 0x04, 0x05)
+            and data[1] in (0x03, 0x04, 0x05, 0x08, 0xFF)
             and data[2] in (0x00, 0x80)
             and len(self._frame) >= BMS._INFO_LEN + self._frame[3]
         ):
