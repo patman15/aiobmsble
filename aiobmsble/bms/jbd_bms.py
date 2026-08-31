@@ -22,12 +22,13 @@ class BMS(BaseBMS):
     _HEAD_INIT: Final[bytes] = b"\xff\xaa"  # header for initialization
     _HEAD_RSP: Final[bytes] = b"\xdd"  # header for responses
     _HEAD_CMD: Final[bytes] = b"\xdd\xa5"  # read header for commands
+    _VALID_CMD: frozenset[int] = frozenset({0x03, 0x04, 0x05})
     _TAIL: Final[int] = 0x77  # tail for command
     _INIT_LEN: Final[int] = 5  # initialization frame size
     _INFO_LEN: Final[int] = 7  # minimum frame size
     _BASIC_INFO: Final[int] = 23  # basic info data length
     _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),
@@ -65,11 +66,10 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in (
-                "DWF*",  # Daren BMS, Docan battery
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery
-                "SJ-???-*", # Supervolt Jumbo
+                "SJ-???-*",  # Supervolt Jumbo
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
                 "SBL-*",  # SBL
@@ -176,7 +176,7 @@ class BMS(BaseBMS):
         if (
             data.startswith(BMS._HEAD_RSP)
             and len(self._frame) > BMS._INFO_LEN
-            and data[1] in (0x03, 0x04, 0x05)
+            and data[1] in BMS._VALID_CMD
             and data[2] in (0x00, 0x80)
             and len(self._frame) >= BMS._INFO_LEN + self._frame[3]
         ):
@@ -209,7 +209,11 @@ class BMS(BaseBMS):
             return
 
         if len(self._frame) != BMS._INFO_LEN + self._frame[3]:
-            self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
+            self._log.debug(
+                "wrong data length (%i != %i)",
+                len(self._frame),
+                self._frame[3] + BMS._INFO_LEN,
+            )
 
         if self._frame[1] != self._valid_reply or self._frame[2] & 0x80:
             self._log.debug(
@@ -237,8 +241,8 @@ class BMS(BaseBMS):
 
         return frame + BMS._crc(frame[2:]).to_bytes(2, "big") + BMS._TAIL.to_bytes(1)
 
-    async def _await_cmd_resp(self, cmd: int) -> None:
-        msg: Final[bytes] = BMS._cmd(cmd)
+    async def _await_cmd_resp(self, cmd: int, data: bytes = b"") -> None:
+        msg: Final[bytes] = BMS._cmd(cmd, data)
         self._valid_reply = msg[2]
         await self._await_msg(msg)
         self._valid_reply = 0x00
