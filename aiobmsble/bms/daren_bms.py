@@ -38,7 +38,7 @@ class BMS(JBDBMS):
         BMSDp("battery_health", 39, 1, False),
         BMSDp("cycle_charge", 43, 2, False, lambda x: x / 10),
         BMSDp("design_capacity", 45, 2, False, lambda x: x / 10),
-        BMSDp("current", 47, 4, True, lambda x: x / 10),
+        BMSDp("current", 49, 2, True, lambda x: x / 10),
     )
 
     accept_secret: bool = True
