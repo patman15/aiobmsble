@@ -218,8 +218,5 @@ class BMS(BaseBMS):
                 raw_data[BMS.Cmd.RT], cells=BMS._MAX_CELLS, start=BMS._CELL_POS
             )
         )
-        # design_capacity only available in single-frame (140-byte) variants
-        if not result.get("design_capacity"):
-            result.pop("design_capacity")
 
         return result
