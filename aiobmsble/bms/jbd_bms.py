@@ -180,12 +180,13 @@ class BMS(BaseBMS):
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
-        # check if answer is a heading of basic info (0x3) or cell block info (0x4)
+        """Handle the RX characteristics notify event (new data arrives)."""
         if (
-            data.startswith(BMS._HEAD_RSP)
-            and len(self._frame) > BMS._INFO_LEN
+            len(data) >= 3
+            and data.startswith(BMS._HEAD_RSP)
             and data[1] in self._VALID_CMD
             and data[2] in (0x00, 0x80)
+            and len(self._frame) > BMS._INFO_LEN
             and len(self._frame) >= BMS._INFO_LEN + self._frame[3]
         ):
             self._frame.clear()
@@ -195,8 +196,7 @@ class BMS(BaseBMS):
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        # verify that data is long enough
-        if (
+        if (  # verify that data is long enough
             len(self._frame) < BMS._INFO_LEN
             or len(self._frame) < BMS._INFO_LEN + self._frame[3]
         ):
@@ -231,7 +231,7 @@ class BMS(BaseBMS):
             )
             return
 
-        self._msg = bytes(self._frame)
+        self._msg = bytes(self._frame[:frame_end-2])
         self._msg_event.set()
 
     @staticmethod
