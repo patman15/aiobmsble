@@ -11,7 +11,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    MatcherPattern,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum, swap32
 
 
@@ -28,6 +35,7 @@ class BMS(BaseBMS):
     _INFO_LEN: Final[int] = 7  # minimum frame size
     _BASIC_INFO: Final[int] = 23  # basic info data length
     _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
+    _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4
     _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
@@ -176,7 +184,7 @@ class BMS(BaseBMS):
         if (
             data.startswith(BMS._HEAD_RSP)
             and len(self._frame) > BMS._INFO_LEN
-            and data[1] in BMS._VALID_CMD
+            and data[1] in self._VALID_CMD
             and data[2] in (0x00, 0x80)
             and len(self._frame) >= BMS._INFO_LEN + self._frame[3]
         ):
@@ -251,7 +259,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         result: BMSSample = {}
         await self._await_cmd_resp(0x03)
-        result = BMS._decode_data(BMS._FIELDS, self._msg)
+        result = BMS._decode_data(self._FIELDS, self._msg)
         result["temp_values"] = BMS._temp_values(
             self._msg,
             values=result.get("temp_sensors", 0),
@@ -259,6 +267,7 @@ class BMS(BaseBMS):
             signed=False,
             offset=2731,
             divider=10,
+            types=self._TEMP_TYPES,
         )
 
         await self._await_cmd_resp(0x04)

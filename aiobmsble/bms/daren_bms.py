@@ -9,7 +9,7 @@ from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 
-from aiobmsble import BMSDp, BMSInfo, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, MatcherPattern, TempSensor as TS
 from aiobmsble.basebms import b2str, swap32
 from aiobmsble.bms.jbd_bms import BMS as JBDBMS
 
@@ -19,6 +19,8 @@ class BMS(JBDBMS):
 
     INFO: BMSInfo = {"default_manufacturer": "Daren", "default_model": "smart BMS"}
     _VALID_CMD: frozenset[int] = frozenset({0x03, 0x04, 0x05, 0x08, 0xFF})
+    _MAX_TEMP_COUNT: Final[int] = 4
+    _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4 + (TS.T.MOSFET, TS.T.AMBIENT)
     _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
@@ -31,8 +33,13 @@ class BMS(JBDBMS):
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x1)),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2)),
         BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
-        BMSDp("temp_sensors", 26, 1, False),  # count is not limited
-    )  # general protocol v4
+        BMSDp("temp_sensors", 26, 1, False, lambda x: min(x, BMS._MAX_TEMP_COUNT) + 2),
+        # extended frame fields, overwrite previous fields
+        BMSDp("battery_health", 39, 1, False),
+        BMSDp("cycle_charge", 43, 2, False, lambda x: x / 10),
+        BMSDp("design_capacity", 45, 2, False, lambda x: x / 10),
+        BMSDp("current", 47, 4, True, lambda x: x / 10),
+    )
 
     accept_secret: bool = True
 
