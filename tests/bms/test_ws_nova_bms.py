@@ -51,6 +51,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     ],
     "cell_count": 4,
     "cycle_capacity": 1442.7,
+    "heater": False,
     "problem": False,
     "problem_code": 0,
 }
