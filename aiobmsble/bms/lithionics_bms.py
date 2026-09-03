@@ -5,26 +5,78 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from typing import Final
+from enum import IntEnum, auto
+from typing import Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Lithionics BMS implementation (ASCII stream protocol)."""
 
+    class _Msg(IntEnum):
+        prim = auto()
+        stat = auto()
+
     INFO: BMSInfo = {
         "default_manufacturer": "Lithionics",
         "default_model": "NeverDie smart BMS",
     }
-    _HEAD_STATUS: Final[str] = "&,"
-    _MIN_FIELDS_PRIMARY: Final[int] = 10
-    _MIN_FIELDS_STATUS: Final[int] = 3
+    _HEAD_STAT: Final[bytes] = b"&,"
+    _MIN_FIELDS_PRIM: Final[int] = 10
+    _MIN_FIELDS_STAT: Final[int] = 3
+    _FIXED_LEN_PRIM: Final[int] = 46
+    _FIELDS_STAT: Final[int] = 15
+    _PROBLEM_MASK: Final[int] = 0x68CEFD
+
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 0, 1, False, lambda x: x / 100, _Msg.prim),
+        BMSDp("cell_voltages", 1, 4, False, lambda x: x / 100, _Msg.prim),
+        BMSDp(
+            "temp_values",
+            5,
+            2,
+            False,
+            lambda x: round((x - 32) * 5 / 9, 3),
+            _Msg.prim,
+        ),
+        BMSDp("current", 7, 1, False, float, _Msg.prim),
+        BMSDp("battery_level", 8, 1, False, lambda x: x, _Msg.prim),
+        BMSDp(
+            "problem_code",
+            9,
+            1,
+            False,
+            lambda x: int(str(x), 16) & BMS._PROBLEM_MASK,
+            _Msg.prim,
+        ),
+        BMSDp("cycle_charge", 2, 1, False, lambda x: x, _Msg.stat),
+        BMSDp("total_charge", 3, 1, False, lambda x: x, _Msg.stat),
+    )
+    _FIELDS_FIXED: Final[tuple[BMSDp, ...]] = (
+        BMSDp("voltage", 2, 1, False, lambda x: x / 10, _Msg.prim),
+        BMSDp("battery_level", 3, 1, False, int, _Msg.prim),
+        BMSDp("cycle_charge", 1, 1, False, lambda x: x / 10, _Msg.prim),
+        BMSDp("current", 6, 1, False, lambda x: x / 10, _Msg.prim),
+        BMSDp("power", 7, 1, False, lambda x: x, _Msg.prim),
+        BMSDp("battery_charging", 5, 1, False, lambda x: x == 1, _Msg.prim),
+        BMSDp(
+            "temp_values", 8, 1, False, lambda x: round((x - 32) * 5 / 9, 3), _Msg.prim
+        ),
+        BMSDp(
+            "problem_code",
+            9,
+            1,
+            False,
+            lambda x: int(str(x), 16) & BMS._PROBLEM_MASK,
+            _Msg.prim,
+        ),
+    )
 
     def __init__(
         self,
@@ -34,13 +86,12 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
-        self._stream_data: dict[str, list[str]] = {}
+        self._msg: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            # Seen on Lithionics Li3 packs: "Li3-061322094"
             MatcherPattern(
                 local_name="Li[0-9]-*",
                 service_uuid=BMS.uuid_services()[0],
@@ -71,70 +122,92 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         self._frame.extend(data)
+
         while (idx := self._frame.find(b"\r\n")) >= 0:
-            line: str = self._frame[:idx].decode("ascii", errors="ignore").strip()
+            line = bytes(self._frame[:idx])
             del self._frame[: idx + 2]
 
             if not line:
                 continue
 
-            if line == "ERROR":
+            if line == b"ERROR":
                 self._log.debug("ignoring command response: %s", line)
                 continue
 
-            fields: list[str] = line.split(",")
-            if (
-                line.startswith(BMS._HEAD_STATUS)
-                and len(fields) >= BMS._MIN_FIELDS_STATUS
-            ):
-                self._stream_data["status"] = fields
-            elif line[0].isdigit() and len(fields) >= BMS._MIN_FIELDS_PRIMARY:
-                self._stream_data["primary"] = fields
+            fields: int = line.count(b",") + 1
 
-            if self._stream_data.keys() >= {"primary", "status"}:
-                self._msg_event.set()
+            if line.startswith(BMS._HEAD_STAT) and fields >= BMS._MIN_FIELDS_STAT:
+                self._msg[BMS._Msg.stat] = line
+            elif line[:1].isdigit() and fields >= BMS._MIN_FIELDS_PRIM:
+                self._msg[BMS._Msg.prim] = line
+
+        if self._msg.keys() >= {m.value for m in BMS._Msg}:
+            self._msg_event.set()
 
         if len(self._frame) > BMS.BLE_MAX_ATTR_SIZE:
             self._log.debug("invalid frame")
             self._frame.clear()
 
     @staticmethod
-    def _parse_primary(fields: list[str]) -> BMSSample:
-        # BMS reports temperatures in Fahrenheit.
-        temp_values: Final[list[TempSensor]] = [
-            TempSensor(round((int(fields[idx]) - 32) * 5 / 9, 3)) for idx in (5, 6)
-        ]
-
-        return {
-            "voltage": int(fields[0]) / 100,
-            "cell_voltages": [int(value) / 100 for value in fields[1:5]],
-            "temp_values": temp_values,
-            "temp_sensors": 2,
-            "current": float(fields[7]),
-            "battery_level": int(fields[8]),
-            "problem_code": int(fields[9], 16),
-        }
-
-    @staticmethod
-    def _parse_status(fields: list[str]) -> BMSSample:
-
-        result: BMSSample = {"cycle_charge": float(fields[2])}
-        if len(fields) > 3:
-            result["total_charge"] = int(fields[3])
-
-        return result
+    def _is_fixed_length(msg: bytes) -> bool:
+        """Detect the zero-padded fixed-length stream variant."""
+        # check number of fields and battery ID < 10 as comma separated has voltage as first field
+        return len(msg) == BMS._FIXED_LEN_PRIM and msg.find(b",") == 1
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        self._stream_data.clear()
+        self._msg.clear()
         self._msg_event.clear()
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
         try:
-            result: BMSSample = BMS._parse_primary(
-                self._stream_data["primary"]
-            ) | BMS._parse_status(self._stream_data["status"])
+            if BMS._is_fixed_length(self._msg[BMS._Msg.prim]):
+                result = BMS._decode_data(BMS._FIELDS_FIXED, self._msg)
+                # TODO: status: list[bytes] = self._msg[BMS._Msg.stat].split(b",")
+                # if len(status) >= BMS._FIELDS_STAT:
+                #     result["delta_voltage"] = round(
+                #         (int(status[13]) - int(status[12])) / 100,
+                #         3,
+                #     )
+            else:
+                result = BMS._decode_data(BMS._FIELDS, self._msg)
         except (IndexError, ValueError) as exc:
             raise ValueError("BMS data incomplete.") from exc
+
+        return result
+
+    @staticmethod
+    def _decode_data(
+        fields: tuple[BMSDp, ...],
+        data: bytes | dict[int, bytes],
+        *,
+        byteorder: Literal["little", "big"] = "big",
+        start: int = 0,
+    ) -> BMSSample:
+        """Decode a CSV stream payload using the shared field definition format."""
+        assert isinstance(data, dict)
+
+        msg_dict: dict[int, list[str]] = {}
+        for line, raw in data.items():
+            msg_dict[line] = raw.decode("ascii").strip().split(",")
+
+        result: BMSSample = {}
+        for field in fields:
+            end: int = start + field.pos + field.size
+            msg: list[str] = msg_dict[field.idx]
+            if end > len(msg):
+                continue
+
+            if field.key == "cell_voltages":
+                result[field.key] = [
+                    field.fct(int(msg[i])) for i in range(start + field.pos, end)
+                ]
+            elif field.key == "temp_values":
+                result[field.key] = [
+                    TempSensor(field.fct(int(msg[i])))
+                    for i in range(start + field.pos, end)
+                ]
+            else:  # assumes field.size == 1
+                result[field.key] = field.fct(int(msg[start + field.pos]))
 
         return result
