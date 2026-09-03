@@ -11,7 +11,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    MatcherPattern,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum, swap32
 
 
@@ -22,12 +29,14 @@ class BMS(BaseBMS):
     _HEAD_INIT: Final[bytes] = b"\xff\xaa"  # header for initialization
     _HEAD_RSP: Final[bytes] = b"\xdd"  # header for responses
     _HEAD_CMD: Final[bytes] = b"\xdd\xa5"  # read header for commands
+    _VALID_CMD: frozenset[int] = frozenset({0x03, 0x04, 0x05})
     _TAIL: Final[int] = 0x77  # tail for command
     _INIT_LEN: Final[int] = 5  # initialization frame size
     _INFO_LEN: Final[int] = 7  # minimum frame size
     _BASIC_INFO: Final[int] = 23  # basic info data length
     _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4
+    _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),
@@ -65,11 +74,10 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in (
-                "DWF*",  # Daren BMS, Docan battery
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery
-                "SJ-???-*", # Supervolt Jumbo
+                "SJ-???-*",  # Supervolt Jumbo
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
                 "SBL-*",  # SBL
@@ -172,12 +180,13 @@ class BMS(BaseBMS):
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
-        # check if answer is a heading of basic info (0x3) or cell block info (0x4)
+        """Handle the RX characteristics notify event (new data arrives)."""
         if (
-            data.startswith(BMS._HEAD_RSP)
-            and len(self._frame) > BMS._INFO_LEN
-            and data[1] in (0x03, 0x04, 0x05)
+            len(data) >= 3
+            and data.startswith(BMS._HEAD_RSP)
+            and data[1] in self._VALID_CMD
             and data[2] in (0x00, 0x80)
+            and len(self._frame) > BMS._INFO_LEN
             and len(self._frame) >= BMS._INFO_LEN + self._frame[3]
         ):
             self._frame.clear()
@@ -187,8 +196,7 @@ class BMS(BaseBMS):
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        # verify that data is long enough
-        if (
+        if (  # verify that data is long enough
             len(self._frame) < BMS._INFO_LEN
             or len(self._frame) < BMS._INFO_LEN + self._frame[3]
         ):
@@ -209,7 +217,11 @@ class BMS(BaseBMS):
             return
 
         if len(self._frame) != BMS._INFO_LEN + self._frame[3]:
-            self._log.debug("wrong data length (%i): %s", len(self._frame), self._frame)
+            self._log.debug(
+                "wrong data length (%i != %i)",
+                len(self._frame),
+                self._frame[3] + BMS._INFO_LEN,
+            )
 
         if self._frame[1] != self._valid_reply or self._frame[2] & 0x80:
             self._log.debug(
@@ -219,7 +231,7 @@ class BMS(BaseBMS):
             )
             return
 
-        self._msg = bytes(self._frame)
+        self._msg = bytes(self._frame[:frame_end-2])
         self._msg_event.set()
 
     @staticmethod
@@ -237,8 +249,8 @@ class BMS(BaseBMS):
 
         return frame + BMS._crc(frame[2:]).to_bytes(2, "big") + BMS._TAIL.to_bytes(1)
 
-    async def _await_cmd_resp(self, cmd: int) -> None:
-        msg: Final[bytes] = BMS._cmd(cmd)
+    async def _await_cmd_resp(self, cmd: int, data: bytes = b"") -> None:
+        msg: Final[bytes] = BMS._cmd(cmd, data)
         self._valid_reply = msg[2]
         await self._await_msg(msg)
         self._valid_reply = 0x00
@@ -247,7 +259,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         result: BMSSample = {}
         await self._await_cmd_resp(0x03)
-        result = BMS._decode_data(BMS._FIELDS, self._msg)
+        result = BMS._decode_data(self._FIELDS, self._msg)
         result["temp_values"] = BMS._temp_values(
             self._msg,
             values=result.get("temp_sensors", 0),
@@ -255,6 +267,7 @@ class BMS(BaseBMS):
             signed=False,
             offset=2731,
             divider=10,
+            types=self._TEMP_TYPES,
         )
 
         await self._await_cmd_resp(0x04)

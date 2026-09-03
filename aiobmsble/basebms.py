@@ -776,7 +776,7 @@ class BaseBMS(ABC):
 
 def b2str(b: bytes) -> str:
     """Decode a bytearray to string, stopping at the first non-printable character."""
-    s: Final[str] = b.decode("utf-8", errors="ignore")
+    s: Final[str] = b.decode("ascii", errors="ignore")
     for i, c in enumerate(s):
         if not c.isprintable():
             return s[:i].strip()
