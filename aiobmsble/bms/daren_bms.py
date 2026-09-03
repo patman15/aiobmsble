@@ -4,10 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-import contextlib
 from typing import Final
-
-from bleak.backends.characteristic import BleakGATTCharacteristic
 
 from aiobmsble import BMSDp, BMSInfo, MatcherPattern, TempSensor as TS
 from aiobmsble.basebms import b2str, swap32
@@ -41,7 +38,7 @@ class BMS(JBDBMS):
         BMSDp("current", 49, 2, True, lambda x: x / 10),
     )
 
-    accept_secret: bool = True
+    accept_secret: bool = False
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -57,47 +54,11 @@ class BMS(JBDBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_cmd_resp(0x03)
-        result: BMSInfo = {"sw_version": f"{self._msg[22] >> 4}.{self._msg[22] & 0xF}"}
-        try:
-            await self._await_cmd_resp(0x05)
-            result["hw_version"] = b2str(self._msg[4 : self._msg[3] + 4])
-        except TimeoutError:
-            pass
+        await self._await_cmd_resp(0x08)
+        result: BMSInfo = {
+            "fw_version": b2str(self._msg[177:197]),
+            "hw_version": b2str(self._msg[117:127]),
+            "sw_version": b2str(self._msg[127:157]),
+            "model": b2str(self._msg[64:94]),
+        }
         return result
-
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        if self._cfg.secret:
-            await self._client.start_notify(BMS.uuid_rx(), self._notify_init_handler)
-            data: Final[bytes] = self._cfg.secret.encode(encoding="ASCII")
-            try:
-                await self._await_msg(
-                    BMS._HEAD_INIT
-                    + b"\x15"
-                    + len(self._cfg.secret).to_bytes(1)
-                    + data
-                    + ((0x15 + len(self._cfg.secret) + sum(data)) & 0xFF).to_bytes(1)
-                )
-            except TimeoutError:
-                self._log.warning("Failed to initialize connection with secret")
-                raise
-            if self._msg[4] != 0x00:
-                self._log.warning("incorrect secret")
-                raise PermissionError("Incorrect secret.")
-
-            await self._client.stop_notify(BMS.uuid_rx())
-
-        self._frame.clear()
-        self._msg_event.clear()
-
-        self._log.debug(
-            "start notify on RX characteristic %s", str(char_notify or self.uuid_rx())
-        )
-        await self._client.start_notify(
-            char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
-        )
-        with contextlib.suppress(TimeoutError):
-            await self._await_cmd_resp(0xFF, b"\xff\xff\xff\xff\xff\xff")
-            await self._await_cmd_resp(0x08)
