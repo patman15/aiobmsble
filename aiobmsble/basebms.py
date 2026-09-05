@@ -559,8 +559,8 @@ class BaseBMS(ABC):
         """Assemble a MODBUS command.
 
         Args:
-            dev_id (int): 8-bit slave device id (default: 0)
-            fct (int): 8-bit function code (default: 3, read registers)
+            dev_id (int): 8-bit slave device id (default: 0x0)
+            fct (int): 8-bit function code (default: 0x3, read registers)
             addr (int): 16-bit start address (default: 0x0)
             count (int): 16-bit number of elements (default: 1)
 
