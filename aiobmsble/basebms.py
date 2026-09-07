@@ -592,12 +592,14 @@ class BaseBMS(ABC):
             if isinstance(data, dict) and field.idx not in data:
                 continue
             msg: bytes = data[field.idx] if isinstance(data, dict) else data
+
+            pos: int = start + field.pos
+            end: int = pos + field.size
+            if pos < 0 or end > len(msg):
+                continue  # slice out of range, skip this field
+
             result[field.key] = field.fct(
-                int.from_bytes(
-                    msg[start + field.pos : start + field.pos + field.size],
-                    byteorder=byteorder,
-                    signed=field.signed,
-                )
+                int.from_bytes(msg[pos:end], byteorder=byteorder, signed=field.signed)
             )
         return result
 

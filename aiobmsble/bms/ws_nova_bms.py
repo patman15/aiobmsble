@@ -39,7 +39,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 25, 1, False),
         BMSDp("design_capacity", 26, 4, False, lambda x: x // 1000),
         BMSDp("cycle_charge", 30, 4, False, lambda x: x / 1000),
-        BMSDp("heater", 115, 4, False, bool),
+        BMSDp("heater", 64, 4, False, bool),
         BMSDp("problem_code", 0, 2, False, lambda x: x & 0x0FFC),
     )
 
