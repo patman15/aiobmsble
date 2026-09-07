@@ -70,6 +70,9 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 # ruff settings from HA 2025.9.0
+[tool.ruff]
+line-length = 100
+
 [tool.ruff.lint]
 select = [
     "A001",   # Variable {name} is shadowing a Python builtin

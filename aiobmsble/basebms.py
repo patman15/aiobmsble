@@ -17,11 +17,7 @@ from typing import Any, Final, Literal, Self, final
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.exc import (
-    BleakCharacteristicNotFoundError,
-    BleakDeviceNotFoundError,
-    BleakError,
-)
+from bleak.exc import BleakCharacteristicNotFoundError, BleakDeviceNotFoundError, BleakError
 from bleak_retry_connector import (
     BLEAK_TIMEOUT,
     MAX_CONNECT_ATTEMPTS,

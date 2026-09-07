@@ -18,15 +18,7 @@ from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import (
-    BMSConfig,
-    BMSDp,
-    BMSInfo,
-    BMSSample,
-    BMSValue,
-    MatcherPattern,
-    TempSensor,
-)
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.basebms import (
     BaseBMS,
     b2str,
