@@ -25,6 +25,12 @@ _PROTO_DEFS: Final[dict[int, bytes]] = {
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x39\x34\x46\xaf\x46\x38\x33\x33\x30\x30\x30\x30"
         b"\x30\x30\x30\x30\x30\x30\x30\x30\x00\x00\x00\x00\x00\x00\x00\x00"  # \xaf ... garbage
     ),
+    0x6F: (  # Enerdrive B-TEC EPL-200BT-12V G2
+        b"\x6fC934000000000000E80A03001E00630"
+        b"02D0B000000003E0D200D380D310D000"
+        b"00000000000000000000000000000000"
+        b"000000000000003A6\x11\x11\x11\x11\x11\x11\x11\x11"
+    ),
     0x83: (  # StartCraft
         b"\x83\x36\x32\x33\x34\x30\x30\x30\x30\x37\x36\x46\x45\x46\x46\x46\x46\x38\x38\x38\x41"
         b"\x30\x31\x30\x30\x31\x36\x30\x30\x36\x32\x30\x30\x35\x33\x30\x42\x30\x30\x38\x30\x30"
@@ -75,6 +81,23 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cycle_capacity": 2669.582,
         "power": -175.47,
         "runtime": 54770,
+        "battery_charging": False,
+        "problem": False,
+        "problem_code": 0,
+    },
+    0x6F: {
+        "voltage": 13.513,
+        "current": 0.0,
+        "battery_level": 99,
+        "cycles": 30,
+        "cycle_charge": 199.4,
+        "cell_count": 4,
+        "cell_voltages": [3.39, 3.36, 3.384, 3.377],
+        "delta_voltage": 0.03,
+        "temperature": 12.95,
+        "temp_values": [TS(12.95)],
+        "cycle_capacity": 2694.492,
+        "power": 0.0,
         "battery_charging": False,
         "problem": False,
         "problem_code": 0,
