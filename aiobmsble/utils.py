@@ -221,9 +221,9 @@ class StreamParser:
         result_frame: bytes | None = None
 
         # Cache instance variables in locals for better performance
-        DLE: Final[int] = self.DLE
-        STX: Final[int] = self.STX
-        ETX: Final[int] = self.ETX
+        dle: Final[int] = self.DLE
+        stx: Final[int] = self.STX
+        etc: Final[int] = self.ETX
         max_size: Final[int] = self.MAX_SIZE
         in_frame: bool = self._in_frame
         escaped: bool = self._escaped
@@ -232,26 +232,26 @@ class StreamParser:
         for b in data:
             if not in_frame:
                 # Look for escaped STX to start a frame
-                if escaped and b == STX:
+                if escaped and b == stx:
                     in_frame = True
                     buffer.clear()
                     escaped = False
                     continue
-                escaped = b in (DLE, STX, ETX)
+                escaped = b in (dle, stx, etc)
                 continue
 
             # Inside a frame
             if escaped:
                 escaped = False
-                if b in (DLE, STX):
+                if b in (dle, stx):
                     buffer.append(b)
-                if b == ETX:
+                if b == etc:
                     in_frame = False
                     result_frame = bytes(buffer)
                     buffer.clear()
                 continue
 
-            if b in (DLE, ETX):
+            if b in (dle, etc):
                 escaped = True
                 continue
 

@@ -1050,6 +1050,7 @@ def test_lstr2int(data: str, expected: int) -> None:
 # Connection timeout wrapper tests
 # ---------------------------------------------------------------------------
 
+TEST_TIMEOUT = 0.01  # very short timeout
 
 async def test_connect_timeout_fires(
     monkeypatch: pytest.MonkeyPatch,
@@ -1057,8 +1058,6 @@ async def test_connect_timeout_fires(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Verify hard timeout fires when establish_connection hangs."""
-
-    TEST_TIMEOUT = 0.01  # very short timeout
 
     async def _hang(**kwargs: Any) -> None:
         await asyncio.sleep(TEST_TIMEOUT * 10)
@@ -1095,8 +1094,6 @@ async def test_connect_timeout_cleanup(
 ) -> None:
     """Verify cleanup disconnect is attempted when timeout fires."""
     disconnect_called: list[bool] = []
-
-    TEST_TIMEOUT = 0.01  # very short timeout
 
     async def _hang(**kwargs: Any) -> None:
         await asyncio.sleep(TEST_TIMEOUT * 10)
