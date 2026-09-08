@@ -128,18 +128,11 @@ class BMS(BaseBMS):
         except (ValueError, IndexError):
             self._log.debug("could not parse line: %s", line)
 
-    async def _write_cmd(self, command: str) -> None:
-        r"""Send an ASCII command terminated by '\\r'."""
-        async with self._op_lock:
-            await self._client.write_gatt_char(
-                self.uuid_tx(), (command + "\r").encode("ascii"), response=True
-            )
-
     async def _cmd_expect_ok(self, command: str) -> None:
         """Send a command and wait for an 'OK' reply, raise otherwise."""
         self._last_reply = ""
         self._reply_event.clear()
-        await self._write_cmd(command)
+        await self._await_msg((command + "\r").encode("ascii"), wait_for_notify=False)
         try:
             await asyncio.wait_for(self._reply_event.wait(), BMS._CMD_TIMEOUT)
         except TimeoutError as exc:
