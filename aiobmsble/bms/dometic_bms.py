@@ -13,7 +13,14 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 from bleak_retry_connector import BLEAK_TIMEOUT
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    MatcherPattern,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import BaseBMS
 
 
