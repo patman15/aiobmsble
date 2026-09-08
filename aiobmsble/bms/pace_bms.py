@@ -55,10 +55,7 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [
-            {"local_name": pattern, "connectable": True}
-            for pattern in ("PC-????", "LLM_*")
-        ]
+        return [{"local_name": "PC-????", "connectable": True}]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
