@@ -12,14 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import (
-    BMSConfig,
-    BMSDp,
-    BMSInfo,
-    BMSSample,
-    MatcherPattern,
-    TempSensor as TS,
-)
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor as TS
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -28,7 +21,7 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"default_manufacturer": "Topband", "default_model": "smart BMS"}
     _HEAD_RSP: Final[frozenset[int]] = frozenset(  # header for responses
-        {0x5E, 0x83, 0x87, 0xB0, 0xE8, 0xF6}
+        {0x5E, 0x6F, 0x83, 0x87, 0xB0, 0xE8, 0xF6}
     )
     _HEAD_RSP_BYTES: Final[bytes] = bytes(_HEAD_RSP)  # precomputed for strip()
     _MAX_CELLS: Final[int] = 16
