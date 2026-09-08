@@ -18,27 +18,58 @@ class BMS(BaseBMS):
     """Daly smart BMS class implementation."""
 
     INFO: BMSInfo = {"default_manufacturer": "Daly", "default_model": "smart BMS"}
-    _HEAD_READ: Final[bytes] = b"\xd2\x03"
+    _FCT_RD: Final[int] = 0x03
     _HEAD_LEN: Final[int] = 3
     _CRC_LEN: Final[int] = 2
     _MAX_CELLS: Final[int] = 32
     _MAX_TEMP: Final[int] = 8
     _INFO_LEN: Final[int] = 84 + _HEAD_LEN + _CRC_LEN + _MAX_CELLS + _MAX_TEMP
     _MOSTEMP_POS: Final[int] = _HEAD_LEN + 8
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("voltage", 80, 2, False, lambda x: x / 10),
-        BMSDp("current", 82, 2, False, lambda x: (x - 30000) / 10),
-        BMSDp("battery_level", 84, 2, False, lambda x: x / 10),
-        BMSDp("cycle_charge", 96, 2, False, lambda x: x / 10),
-        BMSDp("cell_count", 98, 2, False, lambda x: min(x, BMS._MAX_CELLS)),
-        BMSDp("temp_sensors", 100, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
-        BMSDp("cycles", 102, 2, False),
-        BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
-        BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
-        BMSDp("balancer", 104, 2, False),
-        BMSDp("chrg_mosfet", 106, 2, False, bool),
-        BMSDp("dischrg_mosfet", 108, 2, False, bool),
-    )
+
+    _CMDS: Final[dict[int, dict[str, tuple[int, int, int]]]] = {
+        0xD2: {
+            "resp": (0xD2, 0, 0),
+            "rt1": (_FCT_RD, 0x0, 62),
+            "mos": (_FCT_RD, 0x3E, 0x9),
+            "info": (_FCT_RD, 0xA9, 32),
+        },
+        0x81: {
+            "resp": (0x51, 0, 0),
+            "rt1": (_FCT_RD, 0x0, 64),
+            "rt2": (_FCT_RD, 0x41, 62),
+            "info": (_FCT_RD, 0x178, 74),
+        },
+    }
+    _FIELDS: Final[dict[int, tuple[BMSDp, ...]]] = {
+        0xD2: (
+            BMSDp("voltage", 80, 2, False, lambda x: x / 10),
+            BMSDp("current", 82, 2, False, lambda x: (x - 30000) / 10),
+            BMSDp("battery_level", 84, 2, False, lambda x: x / 10),
+            BMSDp("cycle_charge", 96, 2, False, lambda x: x / 10),
+            BMSDp("cell_count", 98, 2, False, lambda x: min(x, BMS._MAX_CELLS)),
+            BMSDp("temp_sensors", 100, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
+            BMSDp("cycles", 102, 2, False),
+            BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
+            BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
+            BMSDp("balancer", 104, 2, False),
+            BMSDp("chrg_mosfet", 106, 2, False, bool),
+            BMSDp("dischrg_mosfet", 108, 2, False, bool),
+        ),
+        # 0x51: (
+        #     BMSDp("voltage", 112, 2, False, lambda x: x / 10),
+        #     BMSDp("current", 114, 2, False, lambda x: (x - 30000) / 10),
+        #     BMSDp("battery_level", 116, 2, False, lambda x: x / 10),
+        #     BMSDp("cycle_charge", 150, 2, False, lambda x: x / 10),
+        #     BMSDp("cell_count", 120, 2, False, lambda x: min(x, BMS._MAX_CELLS)),
+        #     BMSDp("temp_sensors", 122, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
+        # #     BMSDp("cycles", 102, 2, False),
+        # #     BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
+        # #     BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
+        # #     BMSDp("balancer", 104, 2, False),
+        # #     BMSDp("chrg_mosfet", 106, 2, False, bool),
+        # #     BMSDp("dischrg_mosfet", 108, 2, False, bool),
+        # )
+    }
 
     def __init__(
         self,
@@ -48,6 +79,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
+        self._proto: int = 0xD2
         self._msg: bytes = b""
         self._mos_avail: bool | None = None
 
@@ -85,12 +117,37 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_msg(BMS._cmd_modbus(dev_id=0xD2, addr=0xA9, count=32))
+        await self._await_msg(
+            BMS._cmd_modbus(self._proto, *BMS._CMDS[self._proto]["info"])
+        )
+        if self._msg[0] == BMS._CMDS[0x81]["resp"][0]:
+            return {
+                "sw_version": b2str(self._msg[3:31]),
+                "hw_version": b2str(self._msg[31:45]),
+                "serial_number": b2str(self._msg[45:59]),
+            }
         return {
             "sw_version": b2str(self._msg[3:19]),
             "hw_version": b2str(self._msg[19:35]),
             # "manuf.date": barr2str(self._msg[35:51]),
         }
+
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        await super()._init_connection(char_notify)
+        for self._proto in BMS._CMDS:
+            try:
+                await self._await_msg(
+                    BMS._cmd_modbus(self._proto, *BMS._CMDS[self._proto]["rt1"])
+                )
+                self._log.debug("detected protocol: 0x%X", self._proto)
+                break
+            except TimeoutError:
+                ...  # try next protocol
+        else:
+            self._proto = next(iter(BMS._CMDS))  # fallback to first protocol
+            raise TimeoutError
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -99,8 +156,9 @@ class BMS(BaseBMS):
 
         if (
             len(data) < BMS._HEAD_LEN
-            or data[0:2] != BMS._HEAD_READ
-            or data[2] + 1 != len(data) - len(BMS._HEAD_READ) - BMS._CRC_LEN
+            or data[0] != BMS._CMDS[self._proto]["resp"][0]
+            or data[1] != BMS._FCT_RD
+            or data[2] != len(data) - BMS._HEAD_LEN - BMS._CRC_LEN
         ):
             self._log.debug("response data is invalid")
             return
@@ -123,7 +181,9 @@ class BMS(BaseBMS):
         if self._mos_avail in (True, None):
             try:
                 # request MOS temperature (possible: response, stuck response, no response)
-                await self._await_msg(BMS._cmd_modbus(dev_id=0xD2, addr=0x3E, count=9))
+                await self._await_msg(
+                    BMS._cmd_modbus(self._proto, *BMS._CMDS[self._proto]["mos"])
+                )
 
                 if self._mos_avail is None and self._msg[
                     BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2
@@ -146,13 +206,17 @@ class BMS(BaseBMS):
                 self._log.debug("MOS temperature read failed, deactivating")
                 self._mos_avail = False
 
-        await self._await_msg(BMS._cmd_modbus(dev_id=0xD2, addr=0x0, count=62))
+        await self._await_msg(
+            BMS._cmd_modbus(self._proto, *BMS._CMDS[self._proto]["rt1"])
+        )
 
         if len(self._msg) != BMS._INFO_LEN:
             self._log.debug("incorrect frame length: %i", len(self._msg))
             return {}
 
-        result |= BMS._decode_data(BMS._FIELDS, self._msg, start=BMS._HEAD_LEN)
+        result |= BMS._decode_data(
+            BMS._FIELDS[self._proto], self._msg, start=BMS._HEAD_LEN
+        )
 
         # add temperature sensors
         result.setdefault("temp_values", []).extend(
