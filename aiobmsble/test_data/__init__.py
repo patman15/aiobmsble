@@ -9,7 +9,7 @@ from functools import lru_cache
 from importlib import resources
 import json
 from string import hexdigits
-from typing import Any, Final, Literal
+from typing import Any, Literal
 
 from bleak.backends.scanner import AdvertisementData
 
@@ -18,7 +18,7 @@ type BmsAdvSample = tuple[AdvertisementData, str, str, list[str]]
 
 def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
     """Generate an AdvertisementData instance from a JSON dictionary."""
-    advertisement_data_defaults: Final[dict[str, Any]] = {
+    ADVERTISEMENT_DATA_DEFAULTS: dict[str, Any] = {
         "local_name": None,
         "manufacturer_data": {},
         "service_data": {},
@@ -50,12 +50,10 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
         ), "first entry of platform_data only accepts MAC addresses"
         val_dict["platform_data"] = tuple(pdata)
 
-    return AdvertisementData(**(advertisement_data_defaults | val_dict))
+    return AdvertisementData(**(ADVERTISEMENT_DATA_DEFAULTS | val_dict))
 
 
-def parse_adv_from_json(
-    entry: dict[str, Any], text_key: Literal["type", "reason"]
-) -> BmsAdvSample:
+def parse_adv_from_json(entry: dict[str, Any], text_key: Literal['type', 'reason']) -> BmsAdvSample:
     """Parse a JSON string into an AdvertisementData instance."""
     assert isinstance(entry, dict)
     assert {"advertisement", text_key, "_comments"}.issubset(entry.keys())
@@ -75,7 +73,6 @@ def parse_adv_from_json(
     assert all(isinstance(c, str) for c in comments)
 
     return (adv, mac_addr, bms_type, comments)
-
 
 @lru_cache(maxsize=32)
 def bms_advertisements(bms_filter: str | None = None) -> tuple[BmsAdvSample, ...]:
@@ -104,14 +101,11 @@ def bms_advertisements(bms_filter: str | None = None) -> tuple[BmsAdvSample, ...
                 assert isinstance(raw_data, list)
 
                 for entry in raw_data:
-                    adv, mac_addr, bms_type, comments = parse_adv_from_json(
-                        entry, "type"
-                    )
+                    adv, mac_addr, bms_type, comments= parse_adv_from_json(entry, "type")
                     assert resource.name == f"{bms_type}.json"
                     yield (adv, mac_addr, bms_type, comments)
 
     return tuple(generate_entries())
-
 
 def ignore_advertisements() -> tuple[BmsAdvSample, ...]:
     """Provide a list of advertisements that shall not be identified as a valid BMS.
@@ -123,7 +117,6 @@ def ignore_advertisements() -> tuple[BmsAdvSample, ...]:
         and a list of comments, i.e. list[tuple[AdvertisementData, str, str, list[str]]]
 
     """
-
     def generate_entries() -> Generator[BmsAdvSample, Any, None]:
         with (
             resources.files(__package__)
@@ -134,7 +127,7 @@ def ignore_advertisements() -> tuple[BmsAdvSample, ...]:
             assert isinstance(raw_data, list)
 
             for entry in raw_data:
-                adv, mac_addr, reason, comments = parse_adv_from_json(entry, "reason")
+                adv, mac_addr, reason, comments= parse_adv_from_json(entry, "reason")
                 yield (adv, mac_addr, reason, comments)
 
     return tuple(generate_entries())

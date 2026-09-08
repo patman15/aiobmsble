@@ -136,9 +136,9 @@ class BMS(BaseBMS):
             divider=10,
         )
 
-        for idx, sensor_t in ((9, TempSensor.T.AMBIENT), (11, TempSensor.T.MOSFET)):
+        for idx, T in ((9, TempSensor.T.AMBIENT), (11, TempSensor.T.MOSFET)):
             result["temp_values"] += BMS._temp_values(
-                self._msg[0x83], start=idx, divider=10, types=(sensor_t,)
+                self._msg[0x83], start=idx, divider=10, types=(T,)
             )
 
         return result

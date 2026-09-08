@@ -121,8 +121,8 @@ def test_load_bms_plugins_continue_paths(
                 "invalid": object,
             }.get(kind, object)
 
-            bms = type("BMS", (bms_cls_type,), {})
-            setattr(module, "BMS", bms)
+            BMS = type("BMS", (bms_cls_type,), {})
+            setattr(module, "BMS", BMS)
 
         # if kind is None -> no BMS attribute needed (won't be imported)
         fake_modules[name] = module
