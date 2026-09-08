@@ -35,7 +35,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "runtime": 6246,
     "cell_count": 4,
     "cell_voltages": [3.43, 3.425, 3.432, 3.417],
-    "temp_values": [TS(22.4), TS(22.3), TS(21.7)],
+    "temp_values": [TS(t, TS.T.CELL) for t in (22.4, 22.3, 21.7)],
     "delta_voltage": 0.015,
     "problem": False,
     "problem_code": 0,
@@ -276,6 +276,7 @@ async def test_device_info(
             "wrong end",
         ),
         (bytearray(b"\xdd\x04\x00\x1d" + b"\x00" * 31 + b"\x77"), "wrong CRC"),
+        (bytearray(b"\xdd"), "too short"),
     ],
     ids=lambda param: param[1],
 )
