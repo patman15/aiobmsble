@@ -7,6 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable, MutableMapping
+from contextlib import suppress
 from functools import lru_cache
 from itertools import takewhile
 import logging
@@ -16,11 +17,7 @@ from typing import Any, Final, Literal, Self, final
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.exc import (
-    BleakCharacteristicNotFoundError,
-    BleakDeviceNotFoundError,
-    BleakError,
-)
+from bleak.exc import BleakCharacteristicNotFoundError, BleakDeviceNotFoundError, BleakError
 from bleak_retry_connector import (
     BLEAK_TIMEOUT,
     MAX_CONNECT_ATTEMPTS,
@@ -61,6 +58,7 @@ class BaseBMS(ABC):
     # Acts as a safety net when BlueZ hangs and bleak_retry_connector's
     # internal timeouts fail to fire.  Not ``Final`` so subclasses can tune.
     _CONNECT_TIMEOUT: Final[float] = MAX_CONNECT_ATTEMPTS * BLEAK_TIMEOUT + 1
+    ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
 
     accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
 
@@ -136,6 +134,7 @@ class BaseBMS(ABC):
         self._msg_event: Final[asyncio.Event] = asyncio.Event()
         self._connect_lock: Final[asyncio.Lock] = asyncio.Lock()
         self._op_lock: Final[asyncio.Lock] = asyncio.Lock()
+        self._alive_task: asyncio.Task[None] | None = None
 
     @final
     async def __aenter__(self) -> Self:
@@ -295,6 +294,42 @@ class BaseBMS(ABC):
 
         self._log.debug("disconnected from BMS (id: %#x)", id(client))
 
+    async def _alive(self) -> None:
+        """Override to run periodic actions while `ALIVE_INTERVAL` is set."""
+
+    @final
+    async def _alive_loop(self, interval: float) -> None:
+        """Periodically invoke `_alive()` every `interval` seconds."""
+        while True:
+            await asyncio.sleep(interval)
+            async with self._op_lock:
+                await self._alive()
+
+    @final
+    def _log_alive_loop_exc(self, task: asyncio.Task[None]) -> None:
+        """Log any exception raised by the keep-alive loop."""
+        if task.cancelled():
+            self._log.debug("task '%s' was cancelled", task.get_name())
+            return
+
+        self._log.error(
+            "task '%s' terminated with unexpectedly",
+            task.get_name(),
+            exc_info=task.exception(),
+        )
+
+    @final
+    def _start_alive_task(self) -> None:
+        """Start the periodic keep-alive task if enabled and not already running."""
+        if self.ALIVE_INTERVAL is None or self.ALIVE_INTERVAL < 0:
+            return
+
+        if self._alive_task is None or self._alive_task.done():
+            self._alive_task = asyncio.create_task(
+                self._alive_loop(self.ALIVE_INTERVAL), name="BMS keep-alive"
+            )
+            self._alive_task.add_done_callback(self._log_alive_loop_exc)
+
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
@@ -318,48 +353,49 @@ class BaseBMS(ABC):
                 self._log.debug("BMS already connected")
                 return
 
-        self._log.debug("connecting BMS")
+            self._log.debug("connecting BMS")
 
-        try:
-            async with asyncio.timeout(self._CONNECT_TIMEOUT):
-                try:
-                    await self._client.disconnect()  # close existing connection
-                except (BleakError, TimeoutError, EOFError) as exc:
-                    self._log.debug(
-                        "failed to disconnect stale connection (%s)", type(exc).__name__
+            try:
+                async with asyncio.timeout(self._CONNECT_TIMEOUT):
+                    try:
+                        await self._client.disconnect()  # close existing connection
+                    except (BleakError, TimeoutError, EOFError) as exc:
+                        self._log.debug(
+                            "failed to disconnect stale connection (%s)", type(exc).__name__
+                        )
+
+                    self._client = await establish_connection(
+                        client_class=BleakClient,
+                        device=self._ble_device,
+                        name=self._ble_device.address,
+                        disconnected_callback=self._on_disconnect,
+                        services=[*self.uuid_services(), "180a"],
                     )
 
-                self._client = await establish_connection(
-                    client_class=BleakClient,
-                    device=self._ble_device,
-                    name=self._ble_device.address,
-                    disconnected_callback=self._on_disconnect,
-                    services=[*self.uuid_services(), "180a"],
+                    if self._log.isEnabledFor(logging.DEBUG):
+                        gatt: str = await self.get_GATT_profile()
+                        self._log.debug(
+                            "GATT profile for request %s:\n %s",
+                            self.uuid_services(),
+                            gatt,
+                        )
+
+                    await self._init_connection()
+                    self._start_alive_task()
+
+            except (TimeoutError, BleakError, EOFError, ConnectionError) as exc:
+                self._log.info(
+                    "failed to initialize BMS connection (%s)", type(exc).__name__
                 )
+                await self._disconnect_impl()
+                raise
+            except Exception as exc:
+                self._log.info(
+                    "unexpected error during BMS connection init (%s)", type(exc).__name__
+                )
+                raise
 
-                if self._log.isEnabledFor(logging.DEBUG):
-                    gatt: str = await self.get_GATT_profile()
-                    self._log.debug(
-                        "GATT profile for request %s:\n %s",
-                        self.uuid_services(),
-                        gatt,
-                    )
-
-                await self._init_connection()
-
-        except (TimeoutError, BleakError, EOFError, ConnectionError) as exc:
-            self._log.info(
-                "failed to initialize BMS connection (%s)", type(exc).__name__
-            )
-            await self.disconnect()
-            raise
-        except Exception as exc:
-            self._log.info(
-                "unexpected error during BMS connection init (%s)", type(exc).__name__
-            )
-            raise
-
-        self._log.debug("BMS connected (id: %#x)", id(self._client))
+            self._log.debug("BMS connected (id: %#x)", id(self._client))
 
     def _wr_response(self, char: int | str) -> bool:
         char_tx: Final[BleakGATTCharacteristic | None] = (
@@ -434,15 +470,13 @@ class BaseBMS(ABC):
                 # try next write mode, without reconnecting, as recursion might occur
         raise TimeoutError
 
-    @final
-    async def disconnect(self, reset: bool = False) -> None:
-        """Disconnect the BMS, includes stopping notifications.
+    async def _disconnect(self, reset: bool) -> None:
+        """Override if actions in a subclass are required before connection is closed."""
 
-        Args:
-            reset (bool): if true, the write mode is reset to default and all connections are
-            closed to ensure a clean state for the next connection. This should be used in case
-            of stale connections. (Default: False)
-        """
+    @final
+    async def _disconnect_impl(self, reset: bool = False) -> None:
+        # Tear down the BLE connection (caller must already hold `_connect_lock`).
+        assert self._connect_lock.locked(), "caller must hold _connect_lock to disconnect"
 
         self._log.debug(
             "disconnecting BMS (id: %#x, connected: %s)",
@@ -450,6 +484,15 @@ class BaseBMS(ABC):
             self._client.is_connected,
         )
         self._msg_event.clear()
+
+        task, self._alive_task = self._alive_task, None
+        if task and not task.done():
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
+        await self._disconnect(reset)
+
         try:
             await self._client.disconnect()
         except (BleakError, TimeoutError, EOFError) as exc:
@@ -460,6 +503,19 @@ class BaseBMS(ABC):
             await close_stale_connections(
                 self._ble_device, only_other_adapters=False
             )  # ensure all connections are closed
+
+    @final
+    async def disconnect(self, reset: bool = False) -> None:
+        """Disconnect the BMS, includes stopping notifications.
+
+        Args:
+            reset (bool): if true, the write mode is reset to default and all connections are
+            closed to ensure a clean state for the next connection. This should be used in case
+            of stale connections. (Default: False)
+        """
+        async with self._connect_lock:
+            await self._disconnect_impl(reset)
+
 
     @final
     async def _wait_event(self) -> None:
@@ -539,12 +595,14 @@ class BaseBMS(ABC):
             if isinstance(data, dict) and field.idx not in data:
                 continue
             msg: bytes = data[field.idx] if isinstance(data, dict) else data
+
+            pos: int = start + field.pos
+            end: int = pos + field.size
+            if pos < 0 or end > len(msg):
+                continue  # slice out of range, skip this field
+
             result[field.key] = field.fct(
-                int.from_bytes(
-                    msg[start + field.pos : start + field.pos + field.size],
-                    byteorder=byteorder,
-                    signed=field.signed,
-                )
+                int.from_bytes(msg[pos:end], byteorder=byteorder, signed=field.signed)
             )
         return result
 
@@ -779,10 +837,10 @@ def crc8(data: bytes | bytearray) -> int:
 
 
 def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
-    """Calculate the checksum of a frame using a specified size.
+    """Calculate the sum of the frame bytes using the specified size.
 
     Args:
-        frame: The input data for which the checksum is to be calculated.
-        size (int, optional): The size of the checksum in bytes (default is 1).
+        frame: The input data for which the sum is to be calculated.
+        size (int, optional): The size of the sum in bytes (default is 1).
     """
     return sum(frame) & ((1 << (8 * size)) - 1)

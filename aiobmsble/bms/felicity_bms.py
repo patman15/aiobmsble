@@ -38,8 +38,8 @@ class BMS(BaseBMS):
             ]
         ]
     ] = [
-        ("voltage", "Batt", lambda x: x[0][0] / 1000),
-        ("current", "Batt", lambda x: x[1][0] / 10),
+        ("voltage", "BattList", lambda x: x[0][0] / 1000),
+        ("current", "BattList", lambda x: x[1][0] / 10),
         ("cycle_charge", "BatsocList", lambda x: (int(x[0][0]) * int(x[0][2])) / 1e7),
         ("battery_level", "BatsocList", lambda x: x[0][0] / 100),
     ]

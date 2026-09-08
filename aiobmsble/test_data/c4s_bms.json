@@ -1,0 +1,16 @@
+[
+  {
+    "advertisement": {
+      "local_name": "C4S100IE06007",
+      "rssi": -74,
+      "service_uuids": [
+        "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+      ]
+    },
+    "type": "c4s_bms",
+    "_comments": [
+      "captured via bluetoothctl (BlueZ) from a real 4S/100A LiFePO4 BMS",
+      "random MAC, app: E-BMS, HW module: RC6621A (Onmicro HS6621CM)"
+    ]
+  }
+]

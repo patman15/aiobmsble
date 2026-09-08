@@ -21,7 +21,7 @@ class BMS(BaseBMS):
     _FRAME_LEN: Final[int] = 5  # head + len + CRC
     _MAX_CELLS: Final[int] = 0x1F
     _MAX_TEMP: Final[int] = 6
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 100, 0x28),
         BMSDp("current", 5, 4, True, lambda x: x / 100, 0x28),
         BMSDp("battery_level", 9, 2, False, idx=0x28),
@@ -36,8 +36,8 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 32, 1, False, lambda x: bool(x & 0x20), 0x24),
         BMSDp("balancer", 35, 4, False, idx=0x24),
     )
-    _RESPS: Final = frozenset(field.idx for field in _FIELDS)
-    _CMDS: Final[frozenset[tuple[int, int]]] = frozenset(
+    _RESPS = frozenset(field.idx for field in _FIELDS)
+    _CMDS: frozenset[tuple[int, int]] = frozenset(
         {(0x0, 0x14), (0x34, 0x12), (0x15, 0x1F)}
     )
 

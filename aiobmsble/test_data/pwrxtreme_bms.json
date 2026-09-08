@@ -1,0 +1,21 @@
+[
+  {
+    "advertisement": {
+      "local_name": "Moby",
+      "platform_data": ["DC:0D:30:00:00:00"],
+      "rssi": -79,
+      "manufacturer_data": {
+        "76": "0215fda50693a4e24fb1afcfc6eb07647825275165c1c6"
+      },
+      "service_uuids": [
+        "0000fef5-0000-1000-8000-00805f9b34fb",
+        "0000fff0-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "pwrxtreme_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/739)",
+      "value: MAC address"
+    ]
+  }
+]

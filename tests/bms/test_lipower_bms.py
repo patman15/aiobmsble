@@ -25,6 +25,9 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
     0x08: bytearray(
         b"\x08\x03\x10\x00\x76\x00\x63\x05\xcf\x00\x16\x00\x01\x00\x08\x00\x89\x00\x01\x8e\xd1"
     ),
+    0x38: bytearray(
+        b"\x38\x03\x12\x00\x8e\x00\x2f\x00\x2b\x00\x22\x00\x01\x01\x46\x00\x83\x00\x2a\x00\x02\xff\xa3"
+    ),
 }
 
 _RESULT_DEFS: Final[dict[int, BMSSample]] = {
@@ -59,6 +62,17 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "power": -1.096,
         "runtime": 5354520,
         "battery_charging": False,
+        "problem": False,
+    },
+    0x38: {
+        "voltage": 13.1,
+        "current": -3.26,
+        "battery_level": 47,
+        "runtime": 156840,
+        "cycle_charge": 142,
+        "battery_charging": False,
+        "cycle_capacity": 1860.2,
+        "power": -42.706,
         "problem": False,
     },
 }

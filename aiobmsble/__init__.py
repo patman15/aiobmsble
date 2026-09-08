@@ -27,6 +27,7 @@ type CommonValue = Literal[
     "cell_count",
     "cell_voltages",
     "current",
+    "cycle_capacity",
     "cycle_charge",
     "cycles",
     "delta_voltage",
@@ -41,7 +42,6 @@ type BMSValue = CommonValue | Literal[
     "battery_mode",
     "power",
     "temperature",
-    "cycle_capacity",
     "total_charge",
     "problem",
     "runtime",
@@ -119,6 +119,7 @@ class BatterySample(TypedDict, total=False):
     current: float  # [A]
     cycles: int  # [#]
     cycle_charge: int | float  # [Ah]
+    cycle_capacity: int | float  # [Wh]
     delta_voltage: float  # [V]
     design_capacity: int  # [Ah]
     temp_sensors: int  # [#]
@@ -138,7 +139,6 @@ class BMSSample(BatterySample, total=False):
     battery_mode: BMSMode  # BMS charging mode
     power: float  # [W] (positive: charging)
     temperature: int | float  # [°C]
-    cycle_capacity: int | float  # [Wh]
     problem: bool  # True: problem detected
     runtime: int  # [s]
 

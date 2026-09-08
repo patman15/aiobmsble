@@ -180,6 +180,7 @@ class MockBleakClient(BleakClient):
 
         LOGGER.debug("MockBleakClient disconnecting %s", self._ble_device.address)
         self._connected = False
+        self._enabled_notify.clear()
         if self._disconnect_callback is not None:
             self._disconnect_callback(self)
 

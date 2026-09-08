@@ -16,24 +16,28 @@ from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 35
 
-RESP_VALUE: Final[dict[str, bytearray]] = {
-    "dat": bytearray(
+RESP_VALUE: Final[dict[str, bytes]] = {
+    "dat": (
         b'{"CommVer":1,"wifiSN":"F100011002424470238","iotType":3,"dateTime":"20210101010459",'
         b'"timeZMin":480}'
     ),
-    "rt": bytearray(
-        b'{"CommVer":1,"wifiSN":"F100011002424470238","modID":1,"date":"20210101010501",'
-        b'"DevSN":"100011002424470238","Type":112,"SubType":7300,"Estate":960,"Bfault":0,'
-        b'"Bwarn":0,"Bstate":960,"BBfault":0,"BBwarn":0,"BTemp":[[130,130],[256,256]],"Batt":'
-        b'[[52800],[-1],[null]],"Batsoc":[[3300,1000,300000]],"Templist":[[130,130],[0,0],'
-        b'[65535,65535],[65535,65535]],"BattList":[[52750,65535],[-1,-1]],"BatsocList":'
-        b'[[3300,1000,300000]],"BatcelList":[[3296,3296,3297,3297,3297,3297,3297,3297,3297,'
-        b"3297,3296,3297,3297,3297,3297,3297],[65535,65535,65535,65535,65535,65535,65535,"
-        b'65535,65535,65535,65535,65535,65535,65535,65535,65535]],"EMSpara":[[1,2]],"BMaxMin":'
-        b'[[3297,3296],[2,0]],"LVolCur":[[576,480],[1500,1500]],"BMSpara":[[1,2]],"BLVolCu":'
-        b'[[576,480],[1500,1500]],"BtemList":[[130,130,130,130,32767,32767,32767,32767]]}'
+    "rt": (
+        b'{"CommVer":1,"wifiSN":"F075704831426030796","modID":3,'
+        b'"date":"20260813120925","DevSN":"075704831426030796","Type":112,'
+        b'"SubType":7353,"Estate":9152,"Bfault":0,"Bwarn":0,"Bstate":9152,'
+        b'"BBfault":0,"BBwarn":0,"BTemp":[[340,330],[256,514]],'
+        b'"Batt":[[54100],[1977],[null]],"Batsoc":[[7860,943,1050000]],'
+        b'"Templist":[[340,340],[0,0],[65535,65535],[65535,65535]],'
+        b'"BattList":[[54070,65535],[647,-1]],"BatsocList":[[7800,1000,350000]],'
+        b'"BatcelList":[[3378,3380,3379,3380,3379,3380,3380,3382,3389,3381,'
+        b"3380,3381,3380,3380,3379,3380],[65535,65535,65535,65535,65535,65535,"
+        b"65535,65535,65535,65535,65535,65535,65535,65535,65535,65535]],"
+        b'"EMSpara":[[3,14]],"BMaxMin":[[3389,3378],[8,0]],'
+        b'"LVolCur":[[576,480],[4320,4800]],"BMSpara":[[3,14]],'
+        b'"BLVolCu":[[576,480],[1600,1600]],'
+        b'"BtemList":[[340,340,340,340,32767,32767,32767,32767]]}'
     ),
-    "bas": bytearray(
+    "bas": (
         b'{"CommVer":1,"version":"2.06","wifiSN":"F100011002424470238","COM":3,"iotType":3,'
         b'"modID":1,"DevSN":"100011002424470238","Type":112,"SubType":7300,"DSwVer":65535,'
         b'"M1SwVer":519,"M2SwVer":16,"DHwVer":0,"CtHwVer":0,"PwHwVer":65535}'
@@ -44,36 +48,35 @@ RESP_VALUE: Final[dict[str, bytearray]] = {
 def ref_value() -> BMSSample:
     """Return reference value for mock Seplos BMS."""
     return {
-        "voltage": 52.8,
-        "current": -0.1,
-        "battery_level": 33.0,
-        "cycle_charge": 99.0,
-        "temperature": 13.0,
-        "cycle_capacity": 5227.2,
-        "power": -5.28,
-        "battery_charging": False,
+        "voltage": 54.07,
+        "current": 64.7,
+        "battery_level": 78.0,
+        "cycle_charge": 273.0,
+        "temperature": 34.0,
+        "cycle_capacity": 14761.11,
+        "power": 3498.329,
+        "battery_charging": True,
         "cell_count": 16,
         "cell_voltages": [
-            3.296,
-            3.296,
-            3.297,
-            3.297,
-            3.297,
-            3.297,
-            3.297,
-            3.297,
-            3.297,
-            3.297,
-            3.296,
-            3.297,
-            3.297,
-            3.297,
-            3.297,
-            3.297,
+            3.378,
+            3.38,
+            3.379,
+            3.38,
+            3.379,
+            3.38,
+            3.38,
+            3.382,
+            3.389,
+            3.381,
+            3.38,
+            3.381,
+            3.38,
+            3.38,
+            3.379,
+            3.38,
         ],
-        "temp_values": [TS(13.0)] * 4,
-        "delta_voltage": 0.001,
-        "runtime": 3564000,
+        "temp_values": [TS(34.0)] * 4,
+        "delta_voltage": 0.011,
         "problem": False,
         "problem_code": 0,
     }
@@ -95,20 +98,20 @@ class MockFelicityBleakClient(MockBleakClient):
         "bas": b"wifilocalMonitor:get dev basice infor",
         "rt": b"wifilocalMonitor:get dev real infor",
     }
-    RESP: Final[dict[str, bytearray]] = RESP_VALUE
+    RESP: Final[dict[str, bytes]] = RESP_VALUE
 
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
-    ) -> bytearray:
+    ) -> bytes:
 
         if isinstance(char_specifier, str) and normalize_uuid_str(
             char_specifier
         ) == normalize_uuid_str("49535258-184d-4bd9-bc61-20c647249616"):
             for k, v in self.CMDS.items():
-                if bytearray(data).startswith(v):
+                if bytes(data).startswith(v):
                     return self.RESP[k]
 
-        return bytearray()
+        return b""
 
     async def write_gatt_char(
         self,
@@ -123,14 +126,14 @@ class MockFelicityBleakClient(MockBleakClient):
             self._notify_callback
         ), "write to characteristics but notification not enabled"
 
-        resp: bytearray = self._response(char_specifier, data)
+        resp: bytes = self._response(char_specifier, data)
         for notify_data in [
             resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
-            self._notify_callback("MockFelicityBleakClient", notify_data)
+            self._notify_callback("MockFelicityBleakClient", bytearray(notify_data))
 
 
-async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
+async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Felicity BMS data update."""
 
     patch_bleak_client(MockFelicityBleakClient)
@@ -163,8 +166,10 @@ async def test_problem_response(
 ) -> None:
     """Test Felicity BMS data update with problem response."""
 
-    prb_resp: dict[str, bytearray] = RESP_VALUE.copy()
-    prb_resp["rt"][146:166] = b'"Bfault":1,"Bwarn":10'  # patch problem codes
+    prb_resp: dict[str, bytes] = RESP_VALUE.copy()
+    prb_resp["rt"] = RESP_VALUE["rt"].replace(
+        b'"Bfault":0,"Bwarn":0', b'"Bfault":1,"Bwarn":10'
+    )  # patch problem codes
 
     patch_bleak_client(MockFelicityBleakClient)
 
@@ -224,9 +229,9 @@ async def test_malformed_json_raises_value_error(
 ) -> None:
     """Test that structurally invalid (but valid JSON) data raises the documented ValueError."""
 
-    bad_resp: dict[str, bytearray] = RESP_VALUE.copy()
-    bad_resp["rt"] = bytearray(
-        RESP_VALUE["rt"].replace(b'"Batt":[[52800],[-1],[null]]', b'"Batt":[]')
+    bad_resp: dict[str, bytes] = RESP_VALUE.copy()
+    bad_resp["rt"] = RESP_VALUE["rt"].replace(
+        b'"BattList":[[54070,65535],[647,-1]]', b'"BattList":[]'
     )
 
     patch_bleak_client(MockFelicityBleakClient)
