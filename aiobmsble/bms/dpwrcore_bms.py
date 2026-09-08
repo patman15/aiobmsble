@@ -111,9 +111,6 @@ class BMS(BaseBMS):
             self._log.debug("ignoring ACK message")
             return
 
-        # acknowledge received frame
-        await self._await_msg(bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False)
-
         page: Final[int] = data[1] >> 4
         if page == 1:
             self._frame.clear()
@@ -121,6 +118,9 @@ class BMS(BaseBMS):
         self._frame.extend(data[2 : data[0] + 2])
 
         self._log.debug("(%s): %s", "start" if page == 1 else "cnt.", data)
+
+        # acknowledge received frame
+        await self._await_msg(bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False)
 
         if page == data[1] & 0xF:  # check if last page
             if not self._check_integrity(
