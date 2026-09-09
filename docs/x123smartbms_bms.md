@@ -38,7 +38,7 @@ The BMS is not directly BLE-addressable; it is accessed via a BLE UART bridge
 * Data frames (underscore separated, hex fields):  
       `U_<packV>_<inA>_<packA>_<outA>`       pack voltage (`*0.005 V`), current (`*0.05 A`)  
       `C_<idx>_<n>_<cellV>_<cellT>_<..>_<>`  per-cell voltage (`*0.005 V`), temp (raw)  
-      `E_<inWh>_<packWh>_<outWh>_<soc>`      state of charge (hex `%`)  
+      `E_<inWh>_<storedWh>_<outWh>_<soc>`    state of charge (hex `%`)  
       `T / V / M / B / H`                    min/max temp, min/max volt, power, capacity, history  
 
 The BMS pushes one 58 byte status frame per second, big-endian. The last byte is

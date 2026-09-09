@@ -5,13 +5,13 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from typing import Final
+from typing import Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
@@ -26,9 +26,30 @@ class BMS(BaseBMS):
     accept_secret: bool = True  # requires a 4-digit PIN for authentication
 
     _PING: Final[bytes] = b"$"
-    ALIVE_INTERVAL = 0.33  # s, keep-alive poll rate (app uses 330 ms)
-    _CMD_TIMEOUT: float = 4.0  # s, wait for OK/NA reply
-    _CYCLE_TIMEOUT: float = 15.0  # s, wait for a full data cycle
+    _CR: Final[bytes] = b"\r"
+    _REPLIES: Final[frozenset[bytes]] = frozenset({b"OK", b"NA", b"WRONG", b"KO"})
+    _LMSG: Final[int] = -1  # last message index
+    _V_SCALE: Final[float] = 0.005  # voltage scale factor
+    _T_OFFS: Final[int] = 0x114  # temperature offset
+    _MSG_FMT: Final[dict[str, int]] = {
+        "U": 5,
+        "T": 5,
+        "M": 4,
+        "V": 6,
+        "C": 6,
+        "E": 5,
+        "H": 7,
+        "B": 5,
+    }
+    _TAGS: set[str] = set(_MSG_FMT.keys())
+    ALIVE_INTERVAL = 1.0  # s, keep-alive poll rate (app uses 330 ms)
+    _FIELDS: tuple[BMSDp, ...] = (
+        BMSDp("voltage", 1, 1, False, lambda x: x * BMS._V_SCALE, ord("U") << 8),
+        BMSDp("current", 3, 1, False, lambda x: x * 0.05, ord("U") << 8),
+        BMSDp("battery_level", 4, 1, False, idx=ord("E") << 8),
+        # BMSDp("battery_health", 1, 1, False, idx=ord("H") << 8), # no sample data available
+    )
+    _RESPS: frozenset[int] = frozenset(field.idx for field in _FIELDS)
 
     def __init__(
         self,
@@ -38,22 +59,18 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
-        self._buffer: bytearray = bytearray()
-        self._last_reply: str = ""  # last "OK"/"NA"/"WRONG" style reply
-        self._reply_event: Final[asyncio.Event] = asyncio.Event()
-        self._cells: dict[int, tuple[float, float]] = {}  # idx -> (volt, temp)
-        self._cell_total: int = 0
-        self._values: BMSSample = {}
+        self._msg: dict[int, bytes] = {}
+        self._cell_count: int = 0
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            {
-                "local_name": "123\\SmartBMS",
-                "service_uuid": BMS.uuid_services()[0],
-                "connectable": True,
-            }
+            MatcherPattern(
+                local_name="123\\SmartBMS",
+                service_uuid=BMS.uuid_services()[0],
+                connectable=True,
+            )
         ]
 
     @staticmethod
@@ -72,126 +89,151 @@ class BMS(BaseBMS):
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
     @staticmethod
-    def _to_int(field: str) -> int:
-        """Parse a hex field; 'X...' (unavailable) yields 0."""
-        return 0 if not field or field[0] in "Xx" else int(field, 16)
+    def _parse_int(hex_str: str) -> int:
+        if hex_str[0] == "X":
+            return 0
 
-    @staticmethod
-    def _to_sint(field: str) -> int:
-        """Parse a signed hex field (leading + or -)."""
-        sign: int = -1 if field[:1] == "-" else 1
-        return sign * BMS._to_int(field.lstrip("+-"))
+        num: Literal[-1, 1] = 1
+        if hex_str[0] == "+" or hex_str[0] == "-":
+            num = -1 if hex_str[0] == "-" else 1
+            hex_str = hex_str[1:]
 
-    @staticmethod
-    def _to_temp(field: str) -> int:
-        """Convert a raw temperature field to degrees Celsius."""
-        return BMS._to_int(field) - 276
+        try:
+            result = int(hex_str, 16)
+            return result * num
+        except ValueError:
+            return 0
 
     async def _alive(self) -> None:
-        await self._client.write_gatt_char(self.uuid_tx(), BMS._PING, response=False)
+        """Send the keep-alive ping while connected."""
+        await self._await_msg(BMS._PING, wait_for_notify=False)
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
-        r"""Handle notifications: split '\r'-terminated ASCII lines."""
-        self._buffer += data
-        while b"\r" in self._buffer:
-            raw, _, self._buffer = self._buffer.partition(b"\r")
-            line: str = raw.decode("ascii", "ignore").strip()
-            if line:
-                self._process_line(line)
+        """Handle notifications: split CR-terminated ASCII lines."""
+        self._log.debug("RX BLE data: %s", data)
+        self._frame.extend(data)
+        while (pos := self._frame.find(BMS._CR)) != -1:
+            line = bytes(self._frame[:pos])
+            del self._frame[: pos + 1]
+            if line in BMS._REPLIES:
+                self._msg[BMS._LMSG] = line
+                self._msg_event.set()
+                return
 
-    def _process_line(self, line: str) -> None:
-        """Parse a single protocol line into internal state."""
-        self._log.debug("RX %s", line)
-        if line in ("OK", "NA", "WRONG", "KO"):
-            self._last_reply = line
-            self._reply_event.set()
-            return
+            msg_t: str = chr(line[0])
+            if msg_t not in self._TAGS or line[1:2] != b"_":
+                self._log.debug("invalid message type '%s'", msg_t)
+                continue
+            if line.count(b"_") + 1 < BMS._MSG_FMT.get(msg_t, 0xFF):
+                self._log.debug("invalid message format: %s", line)
+                continue
+            if msg_t == "C":
+                self._msg[line[0] << 8 + int(line[2:4])] = bytes(line)
+                self._cell_count = int(line[5:7])
+            else:
+                self._msg[line[0] << 8] = bytes(line)
+        if BMS._RESPS.issubset(self._msg.keys()):
+            self._msg_event.set()
 
-        parts: list[str] = line.split("_")
-        tag: str = parts[0]
-        try:
-            if tag == "U" and len(parts) >= 5:
-                self._values["voltage"] = round(BMS._to_int(parts[1]) * 0.005, 3)
-                self._values["current"] = round(BMS._to_sint(parts[3]) * 0.05, 2)
-            elif tag == "E" and len(parts) >= 5:
-                self._values["battery_level"] = BMS._to_int(parts[4])
-            elif tag == "C" and len(parts) >= 5:
-                idx: int = BMS._to_int(parts[1])
-                self._cell_total = BMS._to_int(parts[2])
-                if 1 <= idx <= max(self._cell_total, idx):
-                    self._cells[idx] = (
-                        round(BMS._to_int(parts[3]) * 0.005, 3),
-                        BMS._to_temp(parts[4]),
-                    )
-        except (ValueError, IndexError):
-            self._log.debug("could not parse line: %s", line)
-
-    async def _cmd_expect_ok(self, command: str) -> None:
+    async def _cmd_expect_ok(self, cmd: bytes) -> None:
         """Send a command and wait for an 'OK' reply, raise otherwise."""
-        self._last_reply = ""
-        self._reply_event.clear()
-        await self._await_msg((command + "\r").encode("ascii"), wait_for_notify=False)
+        cmd_str: Final[str] = cmd.decode("ascii")
         try:
-            await asyncio.wait_for(self._reply_event.wait(), BMS._CMD_TIMEOUT)
+            await self._await_msg(cmd + BMS._CR)
         except TimeoutError as exc:
-            raise TimeoutError(f"no reply to '{command}'") from exc
-        if self._last_reply != "OK":
-            raise ConnectionError(f"'{command}' rejected ({self._last_reply})")
+            raise TimeoutError(f"no reply to '{cmd_str}'") from exc
+        if self._msg[BMS._LMSG] != b"OK":
+            raise ConnectionRefusedError(
+                f"'{cmd_str}' rejected ({self._msg[BMS._LMSG].decode('ascii')})"
+            )
+        self._msg_event.clear()
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         """Set up notifications, keep-alive ping, PIN auth and data streaming."""
-        self._buffer.clear()
-        self._cells.clear()
-        self._values = {}
         await super()._init_connection(char_notify)
 
         if self._cfg.secret:
             # authenticate (4-digit PIN)
-            await self._cmd_expect_ok(f"PW{self._cfg.secret}!")
+            await self._cmd_expect_ok(f"PW{self._cfg.secret}!".encode("ascii"))
 
-        # enable live data streaming (fails if not authorized)
-        await self._cmd_expect_ok("E!")
+        # enable live data streaming (fails if not authorized) and ping once
+        await self._cmd_expect_ok(b"E!")
+        await self._await_msg(BMS._PING, wait_for_notify=False)
 
     async def _async_update(self) -> BMSSample:
-        """Return the latest known values.
-
-        Cell data trickles in over several poll cycles on a congested BLE
-        adapter, so values are accumulated (not cleared each update): once a
-        full set has been seen, every update returns fresh values immediately.
-        """
-
-        async def _complete() -> None:
-            while not (
-                "battery_level" in self._values
-                and self._cell_total
-                and len(self._cells) >= self._cell_total
-            ):
-                await asyncio.sleep(0.1)
+        """Update battery status information."""
 
         try:
-            await asyncio.wait_for(_complete(), BMS._CYCLE_TIMEOUT)
-        except TimeoutError:
-            self._log.warning(
-                "incomplete cycle after %.0fs: %i/%i cells, soc=%s, keys=%s, ping_alive=%s",
-                BMS._CYCLE_TIMEOUT,
-                len(self._cells),
-                self._cell_total,
-                "battery_level" in self._values,
-                sorted(self._values),
-            )
+            await asyncio.wait_for(self._msg_event.wait(), timeout=BMS.TIMEOUT)
+        except TimeoutError as exc:
+            raise ValueError("BMS data incomplete.") from exc
+        self._msg_event.clear()
 
-        sample: BMSSample = self._values.copy()
-        if self._cells:
-            ordered: list[tuple[float, float]] = [
-                self._cells[i] for i in sorted(self._cells)
-            ]
-            sample["cell_voltages"] = [v for v, _ in ordered]
-            sample["temp_values"] = [
-                TempSensor(t, TempSensor.T.CELL) for _, t in ordered
-            ]
-            sample["cell_count"] = len(ordered)
-        return sample
+        result: BMSSample = (
+            BMS._decode_data(BMS._FIELDS, self._msg)
+            | BMS._parse_cells(self._msg, cells=self._cell_count)
+            | {"cell_count": self._cell_count}
+        )
+        self._msg.clear()
+
+        return result
+
+    @staticmethod
+    def _decode_data(
+        fields: tuple[BMSDp, ...],
+        data: bytes | dict[int, bytes],
+        *,
+        byteorder: Literal["little", "big"] = "big",
+        start: int = 0,
+    ) -> BMSSample:
+        result: BMSSample = {}
+        for field in fields:
+            if isinstance(data, dict) and field.idx not in data:
+                continue
+            msg: bytes = data[field.idx] if isinstance(data, dict) else data
+
+            elements: list[bytes] = msg.split(b"_")
+            pos: int = start + field.pos
+            if pos < 0 or pos > len(elements):
+                continue  # slice out of range, skip this field
+
+            result[field.key] = field.fct(
+                BMS._parse_int(elements[pos].decode("ascii", errors="ignore"))
+            )
+        return result
+
+    @staticmethod
+    def _parse_cells(
+        data: dict[int, bytes],
+        cells: int,
+    ) -> BMSSample:
+        """Parse cell voltages from message."""
+        cell_v: list[float] = []
+        cell_t: list[TempSensor] = []
+        cell_s: int = 0
+
+        for cell in range(cells):
+            elements: list[str] = (
+                data[ord("C") << 8 + cell + 1]
+                .decode("ascii", errors="ignore")
+                .split("_")
+            )
+            cell_v.append(BMS._parse_int(elements[3]) * BMS._V_SCALE)
+            cell_t.append(
+                TempSensor(BMS._parse_int(elements[4]) - BMS._T_OFFS, TempSensor.T.CELL)
+            )
+            cell_s |= BMS._parse_int(elements[5])
+            if len(elements) >= 7:
+                cell_s |= BMS._parse_int(elements[6]) << 8
+
+        return {
+            "cell_voltages": cell_v,
+            "temp_values": cell_t,
+            "chrg_mosfet": bool(cell_s & 0x1),
+            "dischrg_mosfet": bool(cell_s & 0x1),
+            "problem_code": cell_s & 0x0EFC,
+        }

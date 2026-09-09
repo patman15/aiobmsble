@@ -16,10 +16,10 @@ from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
-# one full data cycle of a 4s pack (4 cells @ 3.5 V, 25.0 C, SoC 100 %)
+# one full data cycle of a 4s pack (4 cells @ 3.5 V, 24.0 C, SoC 100 %)
 _FRAME: Final[bytes] = (
     b"U_0AF0_+0014_+0014_+000A\r"  # pack 14.0 V, current 1.0 A
-    b"C_01_04_2BC_12C_03_30\r"  # cell 1: 3.5 V, 25.0 C
+    b"C_01_04_2BC_12C_03_30\r"  # cell 1: 3.5 V, 24.0 C
     b"C_02_04_2BC_12C_03_30\r"
     b"C_03_04_2BC_12C_03_30\r"
     b"C_04_04_2BC_12C_03_30\r"
@@ -27,14 +27,17 @@ _FRAME: Final[bytes] = (
 )
 
 _RESULT_DEFS: Final[BMSSample] = {
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
+    "problem_code": 0,
     "voltage": 14.0,
     "current": 1.0,
     "battery_level": 100,
     "cell_count": 4,
     "cell_voltages": [3.5, 3.5, 3.5, 3.5],
-    "temp_values": [TS(25.0, TS.T.CELL)] * 4,
+    "temp_values": [TS(24.0, TS.T.CELL)] * 4,
     "delta_voltage": 0.0,
-    "temperature": 25.0,
+    "temperature": 24.0,
     "power": 14.0,
     "battery_charging": True,
     "problem": False,
@@ -109,9 +112,9 @@ class Mock123SmartBleakClient(MockBleakClient):
 @pytest.fixture(autouse=True)
 def _fast_timings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Speed up ping/warm-up/cycle timings for tests."""
-    monkeypatch.setattr(BMS, "ALIVE_INTERVAL", 0.01)
-    monkeypatch.setattr(BMS, "_CYCLE_TIMEOUT", 2.0)
-    monkeypatch.setattr(BMS, "_CMD_TIMEOUT", 2.0)
+    monkeypatch.setattr(BMS, "ALIVE_INTERVAL", 0.001)
+    # monkeypatch.setattr(BMS, "_CYCLE_TIMEOUT", 2.0)
+    # monkeypatch.setattr(BMS, "_CMD_TIMEOUT", 2.0)
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
@@ -121,7 +124,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture, secret="8182"))
 
     assert await bms.async_update() == _RESULT_DEFS
-
+    await asyncio.sleep(bms.ALIVE_INTERVAL or 0)  # wait for keep-alive ping to be sent
     await bms.async_update()  # second query to cover already-connected path
     assert bms.is_connected is keep_alive_fixture
 
