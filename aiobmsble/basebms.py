@@ -539,9 +539,9 @@ class BaseBMS(ABC):
             BMSSample: dictionary with BMS values
 
         """
-        async with self._op_lock:
-            await self._connect()
+        await self._connect()
 
+        async with self._op_lock:
             data: BMSSample = await self._async_update()
             if not raw:
                 self._add_missing_values(data, self._raw_values())
