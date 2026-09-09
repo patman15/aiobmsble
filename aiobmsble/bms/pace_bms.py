@@ -36,6 +36,8 @@ class BMS(BaseBMS):
     _FRM_TYPE: Final[slice] = slice(1, 7)
     _MIN_LEN: Final[int] = 11  # minimal frame length
     _CELL_POS: Final[int] = 12  # position of first cell voltage
+    _HWV_POS: Final[int] = 65
+    _SWV_POS: Final[int] = 10
     _FIELDS: Final[tuple[BMSDp, ...]] = (  # pack values, 0x0a01 reply
         BMSDp("current", 1, 2, True, lambda x: x / 100),
         BMSDp("voltage", 3, 2, False, lambda x: x / 100),
@@ -79,21 +81,19 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        _SW_VER_POS: Final[int] = 10
-        _HW_VER_POS: Final[int] = 65
 
         result: BMSInfo = BMSInfo()
         await self._await_msg(self._cmd(BMS._Cmd.SERIAL))
         length: int = self._msg[8]
         result["serial_number"] = b2str(self._msg[9 : 9 + length])
         await self._await_msg(self._cmd(BMS._Cmd.VERSIONS))
-        if len(self._msg) < _HW_VER_POS:
+        if len(self._msg) < BMS._HWV_POS:
             raise ValueError("BMS data incomplete.")
         result["sw_version"] = b2str(
-            self._msg[_SW_VER_POS : _SW_VER_POS + self._msg[_SW_VER_POS - 1]]
+            self._msg[BMS._SWV_POS : BMS._SWV_POS + self._msg[BMS._SWV_POS - 1]]
         )
         result["hw_version"] = b2str(
-            self._msg[_HW_VER_POS : _HW_VER_POS + self._msg[_HW_VER_POS - 1]]
+            self._msg[BMS._HWV_POS : BMS._HWV_POS + self._msg[BMS._HWV_POS - 1]]
         )
         return result
 

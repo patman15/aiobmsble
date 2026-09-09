@@ -17,11 +17,7 @@ from typing import Any, Final, Literal, Self, final
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.exc import (
-    BleakCharacteristicNotFoundError,
-    BleakDeviceNotFoundError,
-    BleakError,
-)
+from bleak.exc import BleakCharacteristicNotFoundError, BleakDeviceNotFoundError, BleakError
 from bleak_retry_connector import (
     BLEAK_TIMEOUT,
     MAX_CONNECT_ATTEMPTS,
@@ -357,49 +353,49 @@ class BaseBMS(ABC):
                 self._log.debug("BMS already connected")
                 return
 
-        self._log.debug("connecting BMS")
+            self._log.debug("connecting BMS")
 
-        try:
-            async with asyncio.timeout(self._CONNECT_TIMEOUT):
-                try:
-                    await self._client.disconnect()  # close existing connection
-                except (BleakError, TimeoutError, EOFError) as exc:
-                    self._log.debug(
-                        "failed to disconnect stale connection (%s)", type(exc).__name__
+            try:
+                async with asyncio.timeout(self._CONNECT_TIMEOUT):
+                    try:
+                        await self._client.disconnect()  # close existing connection
+                    except (BleakError, TimeoutError, EOFError) as exc:
+                        self._log.debug(
+                            "failed to disconnect stale connection (%s)", type(exc).__name__
+                        )
+
+                    self._client = await establish_connection(
+                        client_class=BleakClient,
+                        device=self._ble_device,
+                        name=self._ble_device.address,
+                        disconnected_callback=self._on_disconnect,
+                        services=[*self.uuid_services(), "180a"],
                     )
 
-                self._client = await establish_connection(
-                    client_class=BleakClient,
-                    device=self._ble_device,
-                    name=self._ble_device.address,
-                    disconnected_callback=self._on_disconnect,
-                    services=[*self.uuid_services(), "180a"],
+                    if self._log.isEnabledFor(logging.DEBUG):
+                        gatt: str = await self.get_GATT_profile()
+                        self._log.debug(
+                            "GATT profile for request %s:\n %s",
+                            self.uuid_services(),
+                            gatt,
+                        )
+
+                    await self._init_connection()
+                    self._start_alive_task()
+
+            except (TimeoutError, BleakError, EOFError, ConnectionError) as exc:
+                self._log.info(
+                    "failed to initialize BMS connection (%s)", type(exc).__name__
                 )
+                await self._disconnect_impl()
+                raise
+            except Exception as exc:
+                self._log.info(
+                    "unexpected error during BMS connection init (%s)", type(exc).__name__
+                )
+                raise
 
-                if self._log.isEnabledFor(logging.DEBUG):
-                    gatt: str = await self.get_GATT_profile()
-                    self._log.debug(
-                        "GATT profile for request %s:\n %s",
-                        self.uuid_services(),
-                        gatt,
-                    )
-
-                await self._init_connection()
-                self._start_alive_task()
-
-        except (TimeoutError, BleakError, EOFError, ConnectionError) as exc:
-            self._log.info(
-                "failed to initialize BMS connection (%s)", type(exc).__name__
-            )
-            await self.disconnect()
-            raise
-        except Exception as exc:
-            self._log.info(
-                "unexpected error during BMS connection init (%s)", type(exc).__name__
-            )
-            raise
-
-        self._log.debug("BMS connected (id: %#x)", id(self._client))
+            self._log.debug("BMS connected (id: %#x)", id(self._client))
 
     def _wr_response(self, char: int | str) -> bool:
         char_tx: Final[BleakGATTCharacteristic | None] = (
@@ -478,6 +474,37 @@ class BaseBMS(ABC):
         """Override if actions in a subclass are required before connection is closed."""
 
     @final
+    async def _disconnect_impl(self, reset: bool = False) -> None:
+        # Tear down the BLE connection (caller must already hold `_connect_lock`).
+        assert self._connect_lock.locked(), "caller must hold _connect_lock to disconnect"
+
+        self._log.debug(
+            "disconnecting BMS (id: %#x, connected: %s)",
+            id(self._client),
+            self._client.is_connected,
+        )
+        self._msg_event.clear()
+
+        task, self._alive_task = self._alive_task, None
+        if task and not task.done():
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
+        await self._disconnect(reset)
+
+        try:
+            await self._client.disconnect()
+        except (BleakError, TimeoutError, EOFError) as exc:
+            self._log.warning("disconnect failed! (%s)", type(exc).__name__)
+        if reset:
+            self._log.debug("closing stale BMS connections and resetting write mode")
+            self._inv_wr_mode = None  # reset write mode
+            await close_stale_connections(
+                self._ble_device, only_other_adapters=False
+            )  # ensure all connections are closed
+
+    @final
     async def disconnect(self, reset: bool = False) -> None:
         """Disconnect the BMS, includes stopping notifications.
 
@@ -486,33 +513,9 @@ class BaseBMS(ABC):
             closed to ensure a clean state for the next connection. This should be used in case
             of stale connections. (Default: False)
         """
-
         async with self._connect_lock:
-            self._log.debug(
-                "disconnecting BMS (id: %#x, connected: %s)",
-                id(self._client),
-                self._client.is_connected,
-            )
-            self._msg_event.clear()
+            await self._disconnect_impl(reset)
 
-            task, self._alive_task = self._alive_task, None
-            if task and not task.done():
-                task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await task
-
-            await self._disconnect(reset)
-
-            try:
-                await self._client.disconnect()
-            except (BleakError, TimeoutError, EOFError) as exc:
-                self._log.warning("disconnect failed! (%s)", type(exc).__name__)
-            if reset:
-                self._log.debug("closing stale BMS connections and resetting write mode")
-                self._inv_wr_mode = None  # reset write mode
-                await close_stale_connections(
-                    self._ble_device, only_other_adapters=False
-                )  # ensure all connections are closed
 
     @final
     async def _wait_event(self) -> None:
@@ -592,12 +595,14 @@ class BaseBMS(ABC):
             if isinstance(data, dict) and field.idx not in data:
                 continue
             msg: bytes = data[field.idx] if isinstance(data, dict) else data
+
+            pos: int = start + field.pos
+            end: int = pos + field.size
+            if pos < 0 or end > len(msg):
+                continue  # slice out of range, skip this field
+
             result[field.key] = field.fct(
-                int.from_bytes(
-                    msg[start + field.pos : start + field.pos + field.size],
-                    byteorder=byteorder,
-                    signed=field.signed,
-                )
+                int.from_bytes(msg[pos:end], byteorder=byteorder, signed=field.signed)
             )
         return result
 
