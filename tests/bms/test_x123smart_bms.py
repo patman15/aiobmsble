@@ -175,12 +175,13 @@ async def test_update_secret(
     ("wrong_response", "expected_exc"),
     [
         (b"", TimeoutError),
-        (b"U", TimeoutError),
+        (b"\r", TimeoutError),
+        (b"U\r", TimeoutError),
         (b"X" + _PROTO_DEFS[1:], ValueError),
         (b"U." + _PROTO_DEFS[2:], ValueError),
         (_PROTO_DEFS[:18] + _PROTO_DEFS[24:], ValueError),
     ],
-    ids=["empty", "minimal", "wrong_TAG", "wrong_fmt", "invalid_fmt"],
+    ids=["empty", "empty_line", "minimal", "wrong_TAG", "wrong_fmt", "invalid_fmt"],
 )
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,

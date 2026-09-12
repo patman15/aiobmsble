@@ -119,7 +119,7 @@ class BMS(BaseBMS):
                 self._msg_event.set()
                 return
 
-            msg_t: str = chr(line[0])
+            msg_t: str = chr(line[0]) if line else ""
             if msg_t not in self._TAGS or line[1:2] != b"_":
                 self._log.debug("invalid message type '%s'", msg_t)
                 continue
