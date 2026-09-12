@@ -25,12 +25,15 @@ class BMS(BaseBMS):
 
     accept_secret: bool = True  # requires a 4-digit PIN for authentication
 
-    _PING: Final[bytes] = b"$"
+    ALIVE_INTERVAL = 1.0  # s, keep-alive poll rate (app uses 330 ms)
     _CR: Final[bytes] = b"\r"
-    _REPLIES: Final[frozenset[bytes]] = frozenset({b"OK", b"NA", b"WRONG", b"KO"})
+    _FIELDS: tuple[BMSDp, ...] = (
+        BMSDp("voltage", 1, 1, False, lambda x: x * BMS._V_SCALE, ord("U") << 8),
+        BMSDp("current", 3, 1, False, lambda x: x * 0.05, ord("U") << 8),
+        BMSDp("battery_level", 4, 1, False, idx=ord("E") << 8),
+        BMSDp("battery_health", 1, 1, False, idx=ord("H") << 8), # no sample data available
+    )
     _LMSG: Final[int] = -1  # last message index
-    _V_SCALE: Final[float] = 0.005  # voltage scale factor
-    _T_OFFS: Final[int] = 0x114  # temperature offset
     _MSG_FMT: Final[dict[str, int]] = {
         "U": 5,
         "T": 5,
@@ -41,15 +44,12 @@ class BMS(BaseBMS):
         "H": 7,
         "B": 5,
     }
-    _TAGS: set[str] = set(_MSG_FMT.keys())
-    ALIVE_INTERVAL = 1.0  # s, keep-alive poll rate (app uses 330 ms)
-    _FIELDS: tuple[BMSDp, ...] = (
-        BMSDp("voltage", 1, 1, False, lambda x: x * BMS._V_SCALE, ord("U") << 8),
-        BMSDp("current", 3, 1, False, lambda x: x * 0.05, ord("U") << 8),
-        BMSDp("battery_level", 4, 1, False, idx=ord("E") << 8),
-        # BMSDp("battery_health", 1, 1, False, idx=ord("H") << 8), # no sample data available
-    )
+    _PING: Final[bytes] = b"$"
+    _REPLIES: Final[frozenset[bytes]] = frozenset({b"OK", b"NA", b"WRONG", b"KO"})
     _RESPS: frozenset[int] = frozenset(field.idx for field in _FIELDS)
+    _T_OFFS: Final[int] = 0x114  # temperature offset
+    _TAGS: set[str] = set(_MSG_FMT.keys())
+    _V_SCALE: Final[float] = 0.005  # voltage scale factor
 
     def __init__(
         self,
@@ -139,10 +139,7 @@ class BMS(BaseBMS):
 
     async def _cmd_expect_ok(self, cmd: bytes) -> None:
         """Send a command and wait for an 'OK' reply, raise otherwise."""
-        try:
-            await self._await_msg(cmd + BMS._CR)
-        except TimeoutError as exc:
-            raise TimeoutError("no reply to command") from exc
+        await self._await_msg(cmd + BMS._CR)
         if self._msg[BMS._LMSG] != b"OK":
             raise ConnectionRefusedError(
                 f"command rejected ({self._msg[BMS._LMSG].decode('ascii')})"
@@ -194,13 +191,11 @@ class BMS(BaseBMS):
     ) -> BMSSample:
         result: BMSSample = {}
         for field in fields:
-            if isinstance(data, dict) and field.idx not in data:
-                continue
-            msg: bytes = data[field.idx] if isinstance(data, dict) else data
+            assert isinstance(data, dict) and field.idx in data, "Invalid field index."
 
-            elements: list[bytes] = msg.split(b"_")
+            elements: list[bytes] = data[field.idx].split(b"_")
             pos: int = start + field.pos
-            if pos < 0 or pos > len(elements):
+            if pos < 0 or pos >= len(elements):
                 continue  # slice out of range, skip this field
 
             result[field.key] = field.fct(

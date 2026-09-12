@@ -10,20 +10,21 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSDp, BMSSample, TempSensor as TS
 from aiobmsble.bms.x123smart_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 # one full data cycle of a 4s pack (4 cells @ 3.5 V, 24.0 C, SoC 100 %)
-_FRAME: Final[bytes] = (
+_PROTO_DEFS: Final[bytes] = (
     b"U_0AF0_+0014_+0014_+000A\r"  # pack 14.0 V, current 1.0 A
     b"C_01_04_2BC_12C_03_30\r"  # cell 1: 3.5 V, 24.0 C
     b"C_02_04_2BC_12C_03_30\r"
     b"C_03_04_2BC_12C_03_30\r"
     b"C_04_04_2BC_12C_03_30\r"
     b"E_000000_000000_000000_64\r"  # SoC 100 %
+    b"H_5F_08E8_08FC_63_0005E9_0005DE\r"  # health 95 %
 )
 
 _RESULT_DEFS: Final[BMSSample] = {
@@ -33,6 +34,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 14.0,
     "current": 1.0,
     "battery_level": 100,
+    "battery_health": 95,
     "cell_count": 4,
     "cell_voltages": [3.5, 3.5, 3.5, 3.5],
     "temp_values": [TS(24.0, TS.T.CELL)] * 4,
@@ -53,8 +55,10 @@ class TestBasicBMS(BMSBasicTests):
 class Mock123SmartBleakClient(MockBleakClient):
     r"""Emulate a 123\\SmartBMS gen3 BleakClient (Nordic UART, ping-driven stream)."""
 
-    SECRET: bytes = b"8182"
+    SECRET: Final[str] = "1234"
     REQUIRE_PASS: bool = False  # if True, streaming requires a valid PIN first
+    FRAME: bytes = _PROTO_DEFS
+    DISABLE_E_RESP: Final[bool] = False  # if True, E! command returns NA instead of OK
 
     _tasks: set[asyncio.Task[None]] = set()
 
@@ -75,13 +79,13 @@ class Mock123SmartBleakClient(MockBleakClient):
     def _reply(self, data: bytes) -> bytes:
         """Return the notification payload for a given write."""
         if data == b"$":  # keep-alive poll -> stream data (only once authorized)
-            return _FRAME if self._authorized else b""
+            return self.FRAME if self._authorized else b""
         if data.startswith(b"PW") and data.endswith(b"!\r"):
-            if data[2:-2] == self.SECRET:
+            if data[2:-2].decode("ascii") == self.SECRET:
                 self._authorized = True
                 return b"OK\r"
             return b"NA\r"
-        if data == b"E!\r":
+        if data == b"E!\r" and not self.DISABLE_E_RESP:
             return b"OK\r" if self._authorized else b"NA\r"
         return b""
 
@@ -113,15 +117,16 @@ class Mock123SmartBleakClient(MockBleakClient):
 def _fast_timings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Speed up ping/warm-up/cycle timings for tests."""
     monkeypatch.setattr(BMS, "ALIVE_INTERVAL", 0.001)
-    # monkeypatch.setattr(BMS, "_CYCLE_TIMEOUT", 2.0)
-    # monkeypatch.setattr(BMS, "_CMD_TIMEOUT", 2.0)
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     r"""Test 123\\SmartBMS data update."""
     patch_bleak_client(Mock123SmartBleakClient)
 
-    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture, secret="8182"))
+    bms = BMS(
+        generate_ble_device(),
+        BMSConfig(keep_alive_fixture, secret=Mock123SmartBleakClient.SECRET),
+    )
 
     assert await bms.async_update() == _RESULT_DEFS
     await asyncio.sleep(bms.ALIVE_INTERVAL or 0)  # wait for keep-alive ping to be sent
@@ -132,7 +137,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
 
 @pytest.mark.parametrize(
-    "secret", ["8182", "0000", ""], ids=["correct", "wrong", "missing"]
+    "secret", ["1234", "0000", ""], ids=["correct", "wrong", "missing"]
 )
 async def test_update_secret(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client, secret: str
@@ -142,10 +147,111 @@ async def test_update_secret(
     patch_bleak_client(Mock123SmartBleakClient)
 
     bms = BMS(generate_ble_device(), BMSConfig(secret=secret))
-    if secret == "8182":
+    if secret == Mock123SmartBleakClient.SECRET:
         assert await bms.async_update() == _RESULT_DEFS
     else:
         with pytest.raises((ConnectionError, TimeoutError)):
             await bms.async_update()
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("wrong_response", "expected_exc"),
+    [
+        (b"", TimeoutError),
+        (b"U", TimeoutError),
+        (b"X" + _PROTO_DEFS[1:], ValueError),
+        (b"U." + _PROTO_DEFS[2:], ValueError),
+        (_PROTO_DEFS[:18] + _PROTO_DEFS[24:], ValueError),
+    ],
+    ids=["empty", "minimal", "wrong_TAG", "wrong_fmt", "invalid_fmt"],
+)
+async def test_invalid_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
+    expected_exc: type[Exception],
+) -> None:
+    r"""Test 123\\SmartBMS data update with invalid data."""
+
+    monkeypatch.setattr(Mock123SmartBleakClient, "FRAME", wrong_response)
+    patch_bms_timeout("x123smart_bms")
+    patch_bleak_client(Mock123SmartBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(secret=Mock123SmartBleakClient.SECRET))
+
+    result: BMSSample = {}
+    with pytest.raises(expected_exc):
+        result = await bms.async_update()
+
+    assert not result
+    await bms.disconnect()
+
+
+async def test_no_cmd_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bms_timeout,
+    patch_bleak_client,
+) -> None:
+    r"""Test 123\\SmartBMS does not crash if command is ignored."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(Mock123SmartBleakClient, "DISABLE_E_RESP", True)
+    patch_bleak_client(Mock123SmartBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(secret=Mock123SmartBleakClient.SECRET))
+
+    result: BMSSample = {}
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
+
+    assert not result
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("wrong_response", "result"),
+    [
+        (b"U_XXXX" + _PROTO_DEFS[6:], BMSSample(voltage=0, power=0, problem=True)),
+        (b"U_123X" + _PROTO_DEFS[6:], BMSSample(voltage=0, power=0, problem=True)),
+        (_PROTO_DEFS[:43] + _PROTO_DEFS[46:], BMSSample()),
+    ],
+    ids=["no_number", "inv_hex", "short_cell"],
+)
+async def test_number_range(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    wrong_response: bytes,
+    result: BMSSample,
+) -> None:
+    r"""Test 123\\SmartBMS data update with invalid data."""
+
+    monkeypatch.setattr(Mock123SmartBleakClient, "FRAME", wrong_response)
+    patch_bleak_client(Mock123SmartBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(secret=Mock123SmartBleakClient.SECRET))
+
+    assert await bms.async_update() == _RESULT_DEFS | result
+
+    await bms.disconnect()
+
+
+async def test_msg_too_short(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bms_timeout,
+    patch_bleak_client,
+) -> None:
+    r"""Test 123\\SmartBMS does not crash if a field is outside the message length."""
+
+    patch_bms_timeout("x123smart_bms")
+    patch_bleak_client(Mock123SmartBleakClient)
+    monkeypatch.setattr(  # index 5 is longer than the "E" message, so it will be skipped
+        BMS, "_FIELDS", (*BMS._FIELDS, BMSDp("heater", 5, 1, False, idx=ord("E") << 8))
+    )
+    bms = BMS(generate_ble_device(), BMSConfig(secret=Mock123SmartBleakClient.SECRET))
+
+    assert "heater" not in await bms.async_update()
 
     await bms.disconnect()
