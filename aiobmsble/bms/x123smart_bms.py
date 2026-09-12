@@ -28,6 +28,7 @@ class BMS(BaseBMS):
 
     ALIVE_INTERVAL = 1.0  # s, keep-alive poll rate (app uses 330 ms)
     _CR: Final[bytes] = b"\r"
+    _SEP: Final[bytes] = b"_"
     _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 1, 1, False, lambda x: x * BMS._V_SCALE, ord("U") << 8),
         BMSDp("current", 3, 1, False, lambda x: x * 0.05, ord("U") << 8),
@@ -125,21 +126,23 @@ class BMS(BaseBMS):
         while (pos := self._frame.find(BMS._CR)) != -1:
             line = bytes(self._frame[:pos])
             del self._frame[: pos + 1]
+            if not line:
+                continue
 
             msg_t: str = chr(line[0])
             if (line in BMS._REPLIES) or (
-                line[1] != ord("_")
-                and (msg_t in BMS.HEX_UPPER)
+                all(chr(c) in (BMS.HEX_UPPER + "+-_") for c in line)
+                and line[1:2] != BMS._SEP
                 and self._crc_sum(line[:-2]) == int(line[-2:], 16)
             ):
                 self._msg[BMS._LMSG] = line
                 self._msg_event.set()
                 return
 
-            if msg_t not in self._TAGS or line[1:2] != b"_":
+            if msg_t not in self._TAGS or line[1:2] != BMS._SEP:
                 self._log.debug("invalid message type '%s'", msg_t)
                 continue
-            if line.count(b"_") + 1 < BMS._MSG_FMT.get(msg_t, 0xFF):
+            if line.count(BMS._SEP) + 1 < BMS._MSG_FMT.get(msg_t, 0xFF):
                 self._log.debug("invalid message format: %s", line)
                 continue
             if msg_t == "C":
@@ -210,7 +213,7 @@ class BMS(BaseBMS):
         for field in fields:
             assert isinstance(data, dict) and field.idx in data, "Invalid field index."
 
-            elements: list[bytes] = data[field.idx].split(b"_")
+            elements: list[bytes] = data[field.idx].split(BMS._SEP)
             pos: int = start + field.pos
             if pos < 0 or pos >= len(elements):
                 continue  # slice out of range, skip this field

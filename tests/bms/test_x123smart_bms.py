@@ -185,11 +185,13 @@ async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
         (b"", TimeoutError),
         (b"\r", TimeoutError),
         (b"U\r", TimeoutError),
+        (b"A\x00", TimeoutError),
+        (b"A\r", TimeoutError),
         (b"X" + _PROTO_DEFS[1:], ValueError),
         (b"U." + _PROTO_DEFS[2:], ValueError),
         (_PROTO_DEFS[:18] + _PROTO_DEFS[24:], ValueError),
     ],
-    ids=["empty", "empty_line", "minimal", "wrong_TAG", "wrong_fmt", "invalid_fmt"],
+    ids=["empty", "empty_line", "minimal", "wrong_enc", "too_short", "wrong_TAG", "wrong_fmt", "invalid_fmt"],
 )
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
