@@ -139,15 +139,15 @@ class BMS(BaseBMS):
 
     async def _cmd_expect_ok(self, cmd: bytes) -> None:
         """Send a command and wait for an 'OK' reply, raise otherwise."""
-        cmd_str: Final[str] = cmd.decode("ascii")
         try:
             await self._await_msg(cmd + BMS._CR)
         except TimeoutError as exc:
-            raise TimeoutError(f"no reply to '{cmd_str}'") from exc
+            raise TimeoutError("no reply to command") from exc
         if self._msg[BMS._LMSG] != b"OK":
             raise ConnectionRefusedError(
-                f"'{cmd_str}' rejected ({self._msg[BMS._LMSG].decode('ascii')})"
+                f"command rejected ({self._msg[BMS._LMSG].decode('ascii')})"
             )
+        self._msg.clear()
         self._msg_event.clear()
 
     async def _init_connection(
