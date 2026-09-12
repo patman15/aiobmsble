@@ -90,9 +90,6 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _parse_int(hex_str: str) -> int:
-        if hex_str[0] == "X":
-            return 0
-
         num: Literal[-1, 1] = 1
         if hex_str[0] == "+" or hex_str[0] == "-":
             num = -1 if hex_str[0] == "-" else 1
