@@ -31,7 +31,7 @@ class BMS(BaseBMS):
         BMSDp("voltage", 1, 1, False, lambda x: x * BMS._V_SCALE, ord("U") << 8),
         BMSDp("current", 3, 1, False, lambda x: x * 0.05, ord("U") << 8),
         BMSDp("battery_level", 4, 1, False, idx=ord("E") << 8),
-        BMSDp("battery_health", 1, 1, False, idx=ord("H") << 8), # no sample data available
+        BMSDp("battery_health", 1, 1, False, idx=ord("H") << 8),
     )
     _LMSG: Final[int] = -1  # last message index
     _MSG_FMT: Final[dict[str, int]] = {

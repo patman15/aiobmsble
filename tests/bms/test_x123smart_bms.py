@@ -24,7 +24,7 @@ _PROTO_DEFS: Final[bytes] = (
     b"C_03_04_2BC_12C_03_30\r"
     b"C_04_04_2BC_12C_03_30\r"
     b"E_000000_000000_000000_64\r"  # SoC 100 %
-    b"H_5F_08E8_08FC_63_0005E9_0005DE\r"  # health 95 %
+    b"H_5F_08E8_08FC_63_0005E9_0005DE\r"  # health 95 % (not recorded)
 )
 
 _RESULT_DEFS: Final[BMSSample] = {
@@ -59,7 +59,6 @@ class Mock123SmartBleakClient(MockBleakClient):
     REQUIRE_PASS: bool = False  # if True, streaming requires a valid PIN first
     FRAME: bytes = _PROTO_DEFS
     DISABLE_E_RESP: Final[bool] = False  # if True, E! command returns NA instead of OK
-
     _tasks: set[asyncio.Task[None]] = set()
 
     def __init__(
@@ -74,20 +73,36 @@ class Mock123SmartBleakClient(MockBleakClient):
             address_or_ble_device, disconnected_callback, services, **kwargs
         )
         self._services = ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
+        self._stream: bool = False
         self._authorized: bool = not self.REQUIRE_PASS
 
     def _reply(self, data: bytes) -> bytes:
         """Return the notification payload for a given write."""
-        if data == b"$":  # keep-alive poll -> stream data (only once authorized)
-            return self.FRAME if self._authorized else b""
-        if data.startswith(b"PW") and data.endswith(b"!\r"):
+        result: bytes = b""
+
+        if data == b"$":
+            result = self.FRAME if self._authorized and self._stream else b""
+
+        elif data.startswith(b"PW") and data.endswith(b"!\r"):
             if data[2:-2].decode("ascii") == self.SECRET:
                 self._authorized = True
-                return b"OK\r"
-            return b"NA\r"
-        if data == b"E!\r" and not self.DISABLE_E_RESP:
-            return b"OK\r" if self._authorized else b"NA\r"
-        return b""
+                result = b"OK\r"
+            else:
+                result = b"NA\r"
+
+        elif data in (b"E!\r", b"D!\r", b"V@\r"):
+            if not self._authorized:
+                result = b"NA\r"
+            elif data == b"E!\r" and not self.DISABLE_E_RESP:
+                self._stream = True
+                result = b"OK\r"
+            elif data == b"D!\r":
+                self._stream = False
+                result = b"OK\r"
+            elif data == b"V@\r":
+                result = b"333_03_05_03_DBB_EF\r"
+
+        return result
 
     async def _send(self, data: bytes) -> None:
         assert self._notify_callback, "write before notifications enabled"
