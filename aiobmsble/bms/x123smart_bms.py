@@ -170,7 +170,9 @@ class BMS(BaseBMS):
         try:
             await asyncio.wait_for(self._msg_event.wait(), timeout=BMS.TIMEOUT)
         except TimeoutError as exc:
-            raise ValueError("BMS data incomplete.") from exc
+            if len(self._msg):
+                raise ValueError("BMS data incomplete.") from exc
+            raise
         self._msg_event.clear()
 
         result: BMSSample = (
