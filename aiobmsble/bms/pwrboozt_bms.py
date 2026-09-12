@@ -1,4 +1,8 @@
-"""Module to support PowerBoozt Batteries."""
+"""Module to support PowerBoozt Batteries.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from string import hexdigits
 from typing import Final

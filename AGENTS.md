@@ -175,6 +175,14 @@ A typical plugin contains:
 Keep protocol details inside the plugin. Reuse parsing, conversion, checksum,
 and connection facilities from `BaseBMS` rather than duplicating them.
 
+For line-oriented or tag-oriented protocols, keep the line parsing in
+`_notification_handler()` rather than introducing a separate `_process_line()`
+pass-through. Store parsed lines in a `_msg` dictionary keyed by the line's
+identifier when multiple line types contribute to one update. Define a
+`_FIELDS: tuple[BMSDp, ...]` for the fields that can be declaratively decoded,
+and use `BaseBMS._decode_data()` in `_async_update()`; only retain custom
+parsing for values or framing that `BMSDp` cannot represent.
+
 ### Discovery and UUIDs
 
 - Return normalized service UUIDs using `normalize_uuid_str()`.
@@ -235,6 +243,9 @@ Important rules:
 - Log rejection reasons at debug level without logging them as operational
   errors.
 - Convert mutable notification data to `bytes` before retaining it.
+- For ASCII line protocols, split complete lines in `_notification_handler()`
+  and store them by their line identifier in `_msg`; avoid a separate helper that
+  only forwards each line for parsing.
 
 ### Update and decoding flow
 
@@ -247,6 +258,9 @@ Important rules:
 - Reject incomplete datasets rather than returning misleading partial data,
   unless the protocol explicitly defines a field or response as optional.
 - Decode scalar fields through `_decode_data()` when possible.
+- Prefer a class-level `_FIELDS` tuple of `BMSDp` definitions for scalar
+  values, including scaling and signedness, and pass the relevant tagged
+  message from `_msg` to `_decode_data()`.
 - Decode cell voltages and temperatures using shared helpers where their data
   layout is compatible.
 - Return a `BMSSample` using the project's canonical field names.
