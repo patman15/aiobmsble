@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from string import ascii_uppercase, digits
 from typing import Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -33,6 +34,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 4, 1, False, idx=ord("E") << 8),
         BMSDp("battery_health", 1, 1, False, idx=ord("H") << 8),
     )
+    HEX_UPPER: Final[str] = digits + ascii_uppercase[:6]  # hex characters in upper case
     _LMSG: Final[int] = -1  # last message index
     _MSG_FMT: Final[dict[str, int]] = {
         "U": 5,
@@ -88,6 +90,15 @@ class BMS(BaseBMS):
         """Return UUID of characteristic that accepts writes (RX of the module)."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        await self._cmd_expect_ok(b"D!")
+        await self._await_msg(b"V@" + BMS._CR)
+        ver: Final[str] = self._msg[BMS._LMSG].decode("ascii").split("_", 1)[0]
+        build: Final[str] = ver[2:]
+        await self._cmd_expect_ok(b"E!")
+        return {"fw_version": f"{int(ver[0],16)}.{int(ver[1],16)}.{int(build,16)}"}
+
     @staticmethod
     def _parse_int(hex_str: str) -> int:
         num: Literal[-1, 1] = 1
@@ -114,12 +125,17 @@ class BMS(BaseBMS):
         while (pos := self._frame.find(BMS._CR)) != -1:
             line = bytes(self._frame[:pos])
             del self._frame[: pos + 1]
-            if line in BMS._REPLIES:
+
+            msg_t: str = chr(line[0])
+            if (line in BMS._REPLIES) or (
+                line[1] != ord("_")
+                and (msg_t in BMS.HEX_UPPER)
+                and self._crc_sum(line[:-2]) == int(line[-2:], 16)
+            ):
                 self._msg[BMS._LMSG] = line
                 self._msg_event.set()
                 return
 
-            msg_t: str = chr(line[0]) if line else ""
             if msg_t not in self._TAGS or line[1:2] != b"_":
                 self._log.debug("invalid message type '%s'", msg_t)
                 continue
@@ -157,6 +173,10 @@ class BMS(BaseBMS):
         # enable live data streaming (fails if not authorized) and ping once
         await self._cmd_expect_ok(b"E!")
         await self._await_msg(BMS._PING, wait_for_notify=False)
+
+    @staticmethod
+    def _crc_sum(data: bytes | bytearray) -> int:
+        return (sum(data) - data.count(0x5F) * 0x5F) & 0xFF
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

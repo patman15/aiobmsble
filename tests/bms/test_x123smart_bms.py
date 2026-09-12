@@ -100,7 +100,7 @@ class Mock123SmartBleakClient(MockBleakClient):
                 self._stream = False
                 result = b"OK\r"
             elif data == b"V@\r":
-                result = b"333_03_05_03_DBB_EF\r"
+                result = b"3235_03_05_03_DBB_C0\r"
 
         return result
 
@@ -169,6 +169,14 @@ async def test_update_secret(
             await bms.async_update()
 
     await bms.disconnect()
+
+
+async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that the BMS returns initialized dynamic device information."""
+    patch_bleak_client(Mock123SmartBleakClient)
+
+    bms = BMS(generate_ble_device())
+    assert await bms.device_info() == {"fw_version": "3.2.53"}
 
 
 @pytest.mark.parametrize(

@@ -35,6 +35,8 @@ The BMS is not directly BLE-addressable; it is accessed via a BLE UART bridge
       `PW<pin>!`         -> `OK`
 * Streaming of live values is enabled with:  
       `E!`               -> `OK`, afterwards the device pushes data frames
+* Streaming of live values is disabled with:  
+      `D!`               -> `OK`
 * Data frames (underscore separated, hex fields):  
       `U_<packV>_<inA>_<packA>_<outA>`       pack voltage (`*0.005 V`), current (`*0.05 A`)  
       `C_<idx>_<n>_<cellV>_<cellT>_<..>_<>`  per-cell voltage (`*0.005 V`), temp (raw)  
