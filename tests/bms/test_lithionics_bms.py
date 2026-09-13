@@ -57,10 +57,21 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "battery_charging": False,
         "cycle_charge": 159.4,
         "cycle_capacity": 8368.5,
+        "cell_count": 4,
+        "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+        "delta_voltage": 0.08,
         "temp_values": [TS(26.667)],
         "temperature": 26.667,
         "problem_code": 0,
         "problem": False,
+        "packs": [
+            {
+                "cell_count": 4,
+                "temp_values": [TS(25.4), TS(27.1)],
+                "delta_voltage": 0.08,
+                "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+            }
+        ],
     },
 }
 
@@ -139,6 +150,45 @@ async def test_update(
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize("cell_count", [True, False], ids=["correct", "wrong_cell"])
+async def test_module_info_sorted(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    cell_count: bool,
+) -> None:
+    """Test that module information is returned in module ID order."""
+    module_2: bytes = (
+        b"#,1,2,0000,0000,4,30.0,31.0,329,337,333,0005,0102,330,331,332"
+        + (b",333\r\n" if cell_count else b"\r\n")
+    )
+    monkeypatch.setattr(
+        MockLithionicsBleakClient,
+        "_RESP",
+        module_2 + _PROTO_DEFS["fixed_stream"],
+    )
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device(name="Li3-022724009"))
+    result: BMSSample = await bms.async_update()
+
+    assert result.get("packs") == [
+        {
+            "cell_count": 4,
+            "temp_values": [TS(25.4), TS(27.1)],
+            "delta_voltage": 0.08,
+            "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+        },
+        {
+            "cell_count": 4,
+            "temp_values": [TS(30.0), TS(31.0)],
+            "delta_voltage": 0.08,
+        }
+        | ({"cell_voltages": [3.30, 3.31, 3.32, 3.33]} if cell_count else {}),
+    ]
 
     await bms.disconnect()
 

@@ -12,7 +12,16 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPDp,
+    BMSSample,
+    MatcherPattern,
+    PackSample,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS
 
 
@@ -30,6 +39,7 @@ class BMS(BaseBMS):
     _HEAD_STAT: Final[bytes] = b"&,"
     _MIN_FIELDS_PRIM: Final[int] = 10
     _MIN_FIELDS_STAT: Final[int] = 3
+    _MIN_FIELDS_MOD: Final[int] = 13
     _FIXED_LEN_PRIM: Final[int] = 46
     _FIELDS_STAT: Final[int] = 15
     _PROBLEM_MASK: Final[int] = 0x68CEFD
@@ -76,6 +86,11 @@ class BMS(BaseBMS):
             lambda x: int(str(x), 16) & BMS._PROBLEM_MASK,
             _Msg.prim,
         ),
+    )
+    _PFIELDS: Final[tuple[BMSPDp, ...]] = (
+        BMSPDp("cell_count", 5, 1, False, int),
+        BMSPDp("temp_values", 6, 2, False),
+        BMSPDp("delta_voltage", 8, 2, False),
     )
 
     def __init__(
@@ -136,7 +151,10 @@ class BMS(BaseBMS):
 
             fields: int = line.count(b",") + 1
 
-            if line.startswith(BMS._HEAD_STAT) and fields >= BMS._MIN_FIELDS_STAT:
+            if line.startswith(b"#,") and fields >= BMS._MIN_FIELDS_MOD:
+                module_id = int(line.split(b",", 3)[2])  # cannot raise
+                self._msg[module_id << 8] = line
+            elif line.startswith(BMS._HEAD_STAT) and fields >= BMS._MIN_FIELDS_STAT:
                 self._msg[BMS._Msg.stat] = line
             elif line[:1].isdigit() and fields >= BMS._MIN_FIELDS_PRIM:
                 self._msg[BMS._Msg.prim] = line
@@ -154,12 +172,29 @@ class BMS(BaseBMS):
         # check number of fields and battery ID < 10 as comma separated has voltage as first field
         return len(msg) == BMS._FIXED_LEN_PRIM and msg.find(b",") == 1
 
+    @staticmethod
+    def _decode_module(data: bytes) -> PackSample:
+        """Decode a module information CSV line."""
+        fields: Final[list[str]] = data.decode("ascii").split(",")
+        result: PackSample = {}
+        for field in BMS._PFIELDS:
+            values: list[str] = fields[field.pos : field.pos + field.size]
+            if field.key == "temp_values":
+                result[field.key] = [TempSensor(float(value)) for value in values]
+            elif field.key == "delta_voltage":
+                result[field.key] = (int(values[1]) - int(values[0])) / 100
+            else:
+                result[field.key] = field.fct(int(values[0]))
+
+        cell_count: int = result.get("cell_count", 0)
+        cell_values: list[str] = fields[13 : 13 + cell_count]
+        if len(cell_values) == cell_count:
+            result["cell_voltages"] = [int(value) / 100 for value in cell_values]
+        return result
+
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        self._msg.clear()
-        self._msg_event.clear()
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
-
         try:
             fields: tuple[BMSDp, ...] = (
                 BMS._FIELDS_FIXED
@@ -169,6 +204,15 @@ class BMS(BaseBMS):
             result: BMSSample = BMS._decode_data(fields, self._msg)
         except (IndexError, ValueError) as exc:
             raise ValueError("BMS data incomplete.") from exc
+
+        module_keys: Final[list[int]] = sorted(key for key in self._msg if key >= 0x100)
+        if module_keys:
+            result["packs"] = [
+                BMS._decode_module(self._msg[module_key]) for module_key in module_keys
+            ]
+
+        self._msg.clear()
+        self._msg_event.clear()
 
         return result
 
