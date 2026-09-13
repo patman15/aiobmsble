@@ -35,10 +35,6 @@ _PROTO_DEFS: Final[dict[int, dict[bytes, bytes]]] = {
             b"\xd2\x03\x12\x00\x00\x00\x00\x75\x30\x00\x00\x00\x4e\xff\xff\xff\xff\xff\xff\xff"
             b"\xff\x0b\x4e"
         ),
-        # MOS_INFO: (
-        #     b"\xd2\x03\x12\x00\x00\x00\x00\x75\x30\x00\x00\x00\x4e\xff\xff\xff\xff\xff\xff\xff"
-        #     b"\xff\x0b\x4e"
-        # ),
         b"\xd2\x03\x00\xa9\x00\x20\x87\x91": (
             b"\xd2\x03\x40\x54\x30\x30\x4b\x5f\x33\x32\x31\x30\x34\x32\x5f\x31\x31\x00\x00\x48"
             b"\x32\x2e\x30\x5f\x31\x30\x33\x52\x5f\x33\x30\x39\x46\x39\x46\x32\x30\x32\x34\x30"
@@ -97,7 +93,33 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "chrg_mosfet": False,
         "dischrg_mosfet": True,
         "balancer": True,
-    }
+        "temperature": 24.8,
+        "temp_values": [
+            TS(38.0, TS.T.MOSFET),
+            TS(20.0, TS.T.GENERIC),
+            TS(21.0, TS.T.GENERIC),
+            TS(22.0, TS.T.GENERIC),
+            TS(23.0, TS.T.GENERIC),
+        ],
+    },
+    0x81: {
+        "voltage": 13.0,
+        "current": -0.8,
+        "battery_level": 11.2,
+        "cell_count": 4,
+        "temp_sensors": 2,
+        "temp_values": [],
+        "cell_voltages": [
+            3.281,
+            3.216,
+            3.235,
+            3.284,
+        ],
+        "battery_charging": False,
+        "delta_voltage": 0.068,
+        "power": -10.4,
+        "problem": False,
+    },
 }
 
 _DEV_DEFS: Final[dict[int, BMSInfo]] = {
@@ -183,44 +205,44 @@ class MockInvalidBleakClient(MockDalyBleakClient):
         raise BleakError
 
 
-@pytest.mark.parametrize("mos_sensor_avail", [True, False])
 async def test_update(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    mos_sensor_avail: bool,
+    protocol_type: int,
     keep_alive_fixture: bool,
 ) -> None:
     """Test Daly BMS data update."""
 
-    monkeypatch.setattr(  # patch recoginiation of MOS request to fail
-        MockDalyBleakClient, "MOS_AVAIL", mos_sensor_avail
-    )
-
+    monkeypatch.setattr(MockDalyBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockDalyBleakClient)
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS[0xD2] | (
-        {
-            "temperature": 24.8,
-            "temp_values": [
-                TS(38.0, TS.T.MOSFET),
-                TS(20.0, TS.T.GENERIC),
-                TS(21.0, TS.T.GENERIC),
-                TS(22.0, TS.T.GENERIC),
-                TS(23.0, TS.T.GENERIC),
-            ],
-        }
-        if mos_sensor_avail
-        else {
-            "temperature": 21.5,
-            "temp_values": [20.0, 21.0, 22.0, 23.0],
-        }
-    )
+    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
+
+    await bms.disconnect()
+
+
+async def test_update_nomos(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+) -> None:
+    """Test Daly BMS data update."""
+
+    monkeypatch.setattr(MockDalyBleakClient, "MOS_AVAIL", False)
+
+    patch_bleak_client(MockDalyBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig())
+
+    assert await bms.async_update() == _RESULT_DEFS[0xD2] | {
+        "temperature": 21.5,
+        "temp_values": [20.0, 21.0, 22.0, 23.0],
+    }
 
     await bms.disconnect()
 

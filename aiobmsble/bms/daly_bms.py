@@ -21,9 +21,8 @@ class BMS(BaseBMS):
     _FCT_RD: Final[int] = 0x03
     _HEAD_LEN: Final[int] = 3
     _CRC_LEN: Final[int] = 2
-    _MAX_CELLS: Final[int] = 32
+    _MAX_CELLS: Final[dict[int, int]] = {0xD2: 32, 0x81: 48}
     _MAX_TEMP: Final[int] = 8
-    _INFO_LEN: Final[int] = 84 + _HEAD_LEN + _CRC_LEN + _MAX_CELLS + _MAX_TEMP
     _MOSTEMP_POS: Final[int] = _HEAD_LEN + 8
 
     _CMDS: Final[dict[int, dict[str, tuple[int, int, int]]]] = {
@@ -46,7 +45,7 @@ class BMS(BaseBMS):
             BMSDp("current", 82, 2, False, lambda x: (x - 30000) / 10),
             BMSDp("battery_level", 84, 2, False, lambda x: x / 10),
             BMSDp("cycle_charge", 96, 2, False, lambda x: x / 10),
-            BMSDp("cell_count", 98, 2, False, lambda x: min(x, BMS._MAX_CELLS)),
+            BMSDp("cell_count", 98, 2, False, lambda x: min(x, BMS._MAX_CELLS[0xD2])),
             BMSDp("temp_sensors", 100, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
             BMSDp("cycles", 102, 2, False),
             BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
@@ -55,20 +54,20 @@ class BMS(BaseBMS):
             BMSDp("chrg_mosfet", 106, 2, False, bool),
             BMSDp("dischrg_mosfet", 108, 2, False, bool),
         ),
-        # 0x51: (
-        #     BMSDp("voltage", 112, 2, False, lambda x: x / 10),
-        #     BMSDp("current", 114, 2, False, lambda x: (x - 30000) / 10),
-        #     BMSDp("battery_level", 116, 2, False, lambda x: x / 10),
-        #     BMSDp("cycle_charge", 150, 2, False, lambda x: x / 10),
-        #     BMSDp("cell_count", 120, 2, False, lambda x: min(x, BMS._MAX_CELLS)),
-        #     BMSDp("temp_sensors", 122, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
-        # #     BMSDp("cycles", 102, 2, False),
-        # #     BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
-        # #     BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
-        # #     BMSDp("balancer", 104, 2, False),
-        # #     BMSDp("chrg_mosfet", 106, 2, False, bool),
-        # #     BMSDp("dischrg_mosfet", 108, 2, False, bool),
-        # )
+        0x81: (
+            BMSDp("voltage", 112, 2, False, lambda x: x / 10),
+            BMSDp("current", 114, 2, False, lambda x: (x - 30000) / 10),
+            BMSDp("battery_level", 116, 2, False, lambda x: x / 10),
+            BMSDp("cycle_charge", 150, 2, False, lambda x: x / 10),
+            BMSDp("cell_count", 120, 2, False, lambda x: min(x, BMS._MAX_CELLS[0x81])),
+            BMSDp("temp_sensors", 122, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
+            #     BMSDp("cycles", 102, 2, False), # TODO
+            #     BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
+            #     BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
+            #     BMSDp("balancer", 104, 2, False),
+            #     BMSDp("chrg_mosfet", 106, 2, False, bool),
+            #     BMSDp("dischrg_mosfet", 108, 2, False, bool),
+        ),
     }
 
     def __init__(
@@ -142,6 +141,8 @@ class BMS(BaseBMS):
                     BMS._cmd_modbus(self._proto, *BMS._CMDS[self._proto]["rt1"])
                 )
                 self._log.debug("detected protocol: 0x%X", self._proto)
+                if "mos" not in BMS._CMDS[self._proto]:
+                    self._mos_avail = False
                 break
             except TimeoutError:
                 ...  # try next protocol
@@ -210,7 +211,10 @@ class BMS(BaseBMS):
             BMS._cmd_modbus(self._proto, *BMS._CMDS[self._proto]["rt1"])
         )
 
-        if len(self._msg) != BMS._INFO_LEN:
+        if (
+            len(self._msg)
+            != BMS._CMDS[self._proto]["rt1"][2] * 2 + BMS._HEAD_LEN + BMS._CRC_LEN
+        ):
             self._log.debug("incorrect frame length: %i", len(self._msg))
             return {}
 
@@ -223,7 +227,7 @@ class BMS(BaseBMS):
             BMS._temp_values(
                 self._msg,
                 values=result.get("temp_sensors", 0),
-                start=64 + BMS._HEAD_LEN,
+                start=BMS._MAX_CELLS[self._proto] + BMS._HEAD_LEN,
                 offset=40,
             )
         )
