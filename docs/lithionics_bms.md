@@ -44,6 +44,29 @@ The trace line ends with lowest/highest/average cell voltage, giving
                                               low ^   ^   ^ avg
 ```
 
+### Module info
+
+```text
+#,1,3,0000,0000,4,25.4,27.1,329,337,333,0005,0102,329,331,337,325\r\n
+```
+
+| Field | Meaning | Interpretation |
+|---:|---|---|
+| 0 | Identifier | `#` |
+| 1 | Battery ID | Decimal |
+| 2 | Module ID | Decimal |
+| 3 | Module status | Hexadecimal |
+| 4 | Last error code | Hexadecimal |
+| 5 | Number of cells | Decimal |
+| 6 | Cell temperature | Decimal |
+| 7 | BMS temperature | Decimal |
+| 8 | Lowest cell voltage | Integer / 100 |
+| 9 | Highest cell voltage | Integer / 100 |
+| 10 | Average cell voltage | Integer / 100 |
+| 11 | Balancing bitmap | Hexadecimal |
+| 12 | Firmware version | Hexadecimal |
+| 13 ff. | Cell voltages | each Integer / 100 |
+
 ### Verified against the vendor app
 
 Every value was cross-checked against the Lithionics app reading the same pack
