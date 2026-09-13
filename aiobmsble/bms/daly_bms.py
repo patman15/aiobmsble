@@ -65,17 +65,17 @@ class BMS(BaseBMS):
             BMSDp("voltage", 112, 2, False, lambda x: x / 10, 64),
             BMSDp("current", 114, 2, False, lambda x: (x - 30000) / 10, 64),
             BMSDp("battery_level", 116, 2, False, lambda x: x / 10, 64),
-            BMSDp("cycle_charge", 150, 2, False, lambda x: x / 10, 64),
             BMSDp(
                 "cell_count", 120, 2, False, lambda x: min(x, BMS._MAX_CELLS[0x81]), 64
             ),
+            BMSDp("cycle_charge", 20, 2, False, lambda x: x / 10, 62),
             BMSDp("temp_sensors", 122, 2, False, lambda x: min(x, BMS._MAX_TEMP), 64),
-            #     BMSDp("cycles", 102, 2, False), # TODO
-            #     BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
-            #     BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
-            #     BMSDp("balancer", 104, 2, False),
-            #     BMSDp("chrg_mosfet", 106, 2, False, bool),
-            #     BMSDp("dischrg_mosfet", 108, 2, False, bool),
+            BMSDp("cycles", 22, 2, False, idx=62),
+            BMSDp("problem_code", 88, 4, False, idx=62),
+            BMSDp("balancer", 24, 2, False, idx=62),
+            BMSDp("chrg_mosfet", 34, 2, False, bool, 62),
+            BMSDp("dischrg_mosfet", 36, 2, False, bool, 62),
+            BMSDp("heater", 40, 2, False, bool, 62),
         ),
     }
 

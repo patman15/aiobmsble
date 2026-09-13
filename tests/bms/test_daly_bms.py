@@ -120,6 +120,15 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "delta_voltage": 0.068,
         "power": -10.4,
         "problem": False,
+        "balancer": 0,
+        "chrg_mosfet": True,
+        "cycle_capacity": 261.3,
+        "cycle_charge": 20.1,
+        "cycles": 0,
+        "dischrg_mosfet": True,
+        "heater": False,
+        "problem_code": 0,
+        "runtime": 90450,
     },
 }
 
