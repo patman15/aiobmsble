@@ -161,16 +161,12 @@ class BMS(BaseBMS):
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
         try:
-            if BMS._is_fixed_length(self._msg[BMS._Msg.prim]):
-                result = BMS._decode_data(BMS._FIELDS_FIXED, self._msg)
-                # TODO: status: list[bytes] = self._msg[BMS._Msg.stat].split(b",")
-                # if len(status) >= BMS._FIELDS_STAT:
-                #     result["delta_voltage"] = round(
-                #         (int(status[13]) - int(status[12])) / 100,
-                #         3,
-                #     )
-            else:
-                result = BMS._decode_data(BMS._FIELDS, self._msg)
+            fields: tuple[BMSDp, ...] = (
+                BMS._FIELDS_FIXED
+                if BMS._is_fixed_length(self._msg[BMS._Msg.prim])
+                else BMS._FIELDS
+            )
+            result: BMSSample = BMS._decode_data(fields, self._msg)
         except (IndexError, ValueError) as exc:
             raise ValueError("BMS data incomplete.") from exc
 
