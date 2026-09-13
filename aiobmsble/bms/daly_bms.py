@@ -4,7 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from typing import Final
+from typing import Final, NamedTuple
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -25,42 +25,51 @@ class BMS(BaseBMS):
     _MAX_TEMP: Final[int] = 8
     _MOSTEMP_POS: Final[int] = _HEAD_LEN + 8
 
-    _CMDS: Final[dict[int, dict[str, tuple[int, int, int]]]] = {
+    class _dcmd(NamedTuple):
+        fct: int
+        adr: int
+        length: int
+
+    _CMDS: Final[dict[int, dict[str, _dcmd]]] = {
         0xD2: {
-            "resp": (0xD2, 0, 0),
-            "rt1": (_FCT_RD, 0x0, 62),
-            "mos": (_FCT_RD, 0x3E, 0x9),
-            "info": (_FCT_RD, 0xA9, 32),
+            "resp": _dcmd(0xD2, 0, 0),
+            "rt1": _dcmd(_FCT_RD, 0x0, 62),
+            "mos": _dcmd(_FCT_RD, 0x3E, 0x9),
+            "info": _dcmd(_FCT_RD, 0xA9, 32),
         },
         0x81: {
-            "resp": (0x51, 0, 0),
-            "rt1": (_FCT_RD, 0x0, 64),
-            "rt2": (_FCT_RD, 0x41, 62),
-            "info": (_FCT_RD, 0x178, 74),
+            "resp": _dcmd(0x51, 0, 0),
+            "rt1": _dcmd(_FCT_RD, 0x0, 64),
+            "rt2": _dcmd(_FCT_RD, 0x41, 62),
+            "info": _dcmd(_FCT_RD, 0x178, 74),
         },
     }
     _FIELDS: Final[dict[int, tuple[BMSDp, ...]]] = {
         0xD2: (
-            BMSDp("voltage", 80, 2, False, lambda x: x / 10),
-            BMSDp("current", 82, 2, False, lambda x: (x - 30000) / 10),
-            BMSDp("battery_level", 84, 2, False, lambda x: x / 10),
-            BMSDp("cycle_charge", 96, 2, False, lambda x: x / 10),
-            BMSDp("cell_count", 98, 2, False, lambda x: min(x, BMS._MAX_CELLS[0xD2])),
-            BMSDp("temp_sensors", 100, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
-            BMSDp("cycles", 102, 2, False),
-            BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
-            BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
-            BMSDp("balancer", 104, 2, False),
-            BMSDp("chrg_mosfet", 106, 2, False, bool),
-            BMSDp("dischrg_mosfet", 108, 2, False, bool),
+            BMSDp("voltage", 80, 2, False, lambda x: x / 10, 62),
+            BMSDp("current", 82, 2, False, lambda x: (x - 30000) / 10, 62),
+            BMSDp("battery_level", 84, 2, False, lambda x: x / 10, 62),
+            BMSDp("cycle_charge", 96, 2, False, lambda x: x / 10, 62),
+            BMSDp(
+                "cell_count", 98, 2, False, lambda x: min(x, BMS._MAX_CELLS[0xD2]), 62
+            ),
+            BMSDp("temp_sensors", 100, 2, False, lambda x: min(x, BMS._MAX_TEMP), 62),
+            BMSDp("cycles", 102, 2, False, idx=62),
+            BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000, 62),
+            BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64, 62),
+            BMSDp("balancer", 104, 2, False, idx=62),
+            BMSDp("chrg_mosfet", 106, 2, False, bool, 62),
+            BMSDp("dischrg_mosfet", 108, 2, False, bool, 62),
         ),
         0x81: (
-            BMSDp("voltage", 112, 2, False, lambda x: x / 10),
-            BMSDp("current", 114, 2, False, lambda x: (x - 30000) / 10),
-            BMSDp("battery_level", 116, 2, False, lambda x: x / 10),
-            BMSDp("cycle_charge", 150, 2, False, lambda x: x / 10),
-            BMSDp("cell_count", 120, 2, False, lambda x: min(x, BMS._MAX_CELLS[0x81])),
-            BMSDp("temp_sensors", 122, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
+            BMSDp("voltage", 112, 2, False, lambda x: x / 10, 64),
+            BMSDp("current", 114, 2, False, lambda x: (x - 30000) / 10, 64),
+            BMSDp("battery_level", 116, 2, False, lambda x: x / 10, 64),
+            BMSDp("cycle_charge", 150, 2, False, lambda x: x / 10, 64),
+            BMSDp(
+                "cell_count", 120, 2, False, lambda x: min(x, BMS._MAX_CELLS[0x81]), 64
+            ),
+            BMSDp("temp_sensors", 122, 2, False, lambda x: min(x, BMS._MAX_TEMP), 64),
             #     BMSDp("cycles", 102, 2, False), # TODO
             #     BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000),
             #     BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64),
@@ -79,6 +88,7 @@ class BMS(BaseBMS):
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
         self._proto: int = 0xD2
+        self._rt_cmds: tuple[BMS._dcmd, ...] = ()
         self._msg: bytes = b""
         self._mos_avail: bool | None = None
 
@@ -143,6 +153,11 @@ class BMS(BaseBMS):
                 self._log.debug("detected protocol: 0x%X", self._proto)
                 if "mos" not in BMS._CMDS[self._proto]:
                     self._mos_avail = False
+                self._rt_cmds = tuple(
+                    cmd
+                    for name, cmd in BMS._CMDS[self._proto].items()
+                    if name.startswith("rt")
+                )
                 break
             except TimeoutError:
                 ...  # try next protocol
@@ -207,34 +222,35 @@ class BMS(BaseBMS):
                 self._log.debug("MOS temperature read failed, deactivating")
                 self._mos_avail = False
 
-        await self._await_msg(
-            BMS._cmd_modbus(self._proto, *BMS._CMDS[self._proto]["rt1"])
-        )
+        rt_msgs: dict[int, bytes] = {}
+        for cmd in self._rt_cmds:
+            await self._await_msg(BMS._cmd_modbus(self._proto, *cmd))
+            if self._msg[2] // 2 != cmd.length:
+                self._log.debug("incorrect response %i", self._msg[2])
+                break
+            rt_msgs[cmd.length] = self._msg
 
-        if (
-            len(self._msg)
-            != BMS._CMDS[self._proto]["rt1"][2] * 2 + BMS._HEAD_LEN + BMS._CRC_LEN
-        ):
-            self._log.debug("incorrect frame length: %i", len(self._msg))
-            return {}
+        if len(rt_msgs) != len(self._rt_cmds):
+            raise ValueError("BMS data incomplete.")
 
         result |= BMS._decode_data(
-            BMS._FIELDS[self._proto], self._msg, start=BMS._HEAD_LEN
+            BMS._FIELDS[self._proto], rt_msgs, start=BMS._HEAD_LEN
         )
 
+        rt1_msg: Final[bytes] = next(iter(rt_msgs.values()))
         # add temperature sensors
         result.setdefault("temp_values", []).extend(
             BMS._temp_values(
-                self._msg,
+                rt1_msg,
                 values=result.get("temp_sensors", 0),
-                start=BMS._MAX_CELLS[self._proto] + BMS._HEAD_LEN,
+                start=BMS._MAX_CELLS[self._proto] * 2 + BMS._HEAD_LEN,
                 offset=40,
             )
         )
 
         # get cell voltages
         result["cell_voltages"] = BMS._cell_voltages(
-            self._msg, cells=result.get("cell_count", 0), start=BMS._HEAD_LEN
+            rt1_msg, cells=result.get("cell_count", 0), start=BMS._HEAD_LEN
         )
 
         return result

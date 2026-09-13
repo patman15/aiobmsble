@@ -108,13 +108,14 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_level": 11.2,
         "cell_count": 4,
         "temp_sensors": 2,
-        "temp_values": [],
         "cell_voltages": [
             3.281,
             3.216,
             3.235,
             3.284,
         ],
+        "temp_values": [TS(215.0, TS.T.GENERIC), TS(215.0, TS.T.GENERIC)],
+        "temperature": 215.0,
         "battery_charging": False,
         "delta_voltage": 0.068,
         "power": -10.4,
@@ -208,11 +209,13 @@ class MockInvalidBleakClient(MockDalyBleakClient):
 async def test_update(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
+    patch_bms_timeout,
     protocol_type: int,
     keep_alive_fixture: bool,
 ) -> None:
     """Test Daly BMS data update."""
 
+    patch_bms_timeout()
     monkeypatch.setattr(MockDalyBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockDalyBleakClient)
 
@@ -306,8 +309,8 @@ async def test_too_short_frame(patch_bleak_client) -> None:
     patch_bleak_client(MockInvalidBleakClient)
 
     bms: BMS = BMS(generate_ble_device())
-
-    assert not await bms.async_update()
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.async_update()
 
     await bms.disconnect()
 
