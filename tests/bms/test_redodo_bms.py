@@ -233,7 +233,7 @@ async def test_temp_sensor_detection(
 ) -> None:
     """Test data up date with BMS returning protection flags."""
 
-    _FRAME: bytearray = bytearray(MockRedodoBleakClient._RESP)
+    _frame: bytearray = bytearray(MockRedodoBleakClient._RESP)
 
     patch_bleak_client(MockRedodoBleakClient)
     bms = BMS(generate_ble_device())
@@ -246,9 +246,9 @@ async def test_temp_sensor_detection(
         (b"\x15\x00".rjust(10, b"\x00"), (5, [0, 0, 0, 0, 21])),  # all sensors present
         (b"", (5, [0, 0, 0, 0, 0])),  # all sensors still present
     ):
-        _FRAME[52:62] = response.ljust(10, b"\x00")  # set temp values
-        _FRAME[-1] = crc_sum(_FRAME[:-1])  # update frame CRC
-        monkeypatch.setattr(MockRedodoBleakClient, "_RESP", bytes(_FRAME))
+        _frame[52:62] = response.ljust(10, b"\x00")  # set temp values
+        _frame[-1] = crc_sum(_frame[:-1])  # update frame CRC
+        monkeypatch.setattr(MockRedodoBleakClient, "_RESP", bytes(_frame))
 
         assert await bms.async_update() == _RESULT_DEFS | {
             "temp_sensors": expected[0],
