@@ -4,7 +4,8 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from contextlib import suppress
 from dataclasses import dataclass
 from functools import lru_cache
 from statistics import fmean
@@ -182,16 +183,35 @@ def derive_from_packs(data: BMSSample) -> None:
         ]
     if _can_calc("cell_count") and len(set(_pvalues("cell_count"))) == 1:
         data["cell_count"] = _pvalues("cell_count")[0]
-    if _can_calc("current"):
-        data["current"] = sum(_pvalues("current"))
-    if _can_calc("cycle_charge"):
-        data["cycle_charge"] = sum(_pvalues("cycle_charge"))
-    if _can_calc("delta_voltage"):
-        data["delta_voltage"] = max(_pvalues("delta_voltage"))
-    if _can_calc("design_capacity"):
-        data["design_capacity"] = sum(_pvalues("design_capacity"))
+
+    calculations: Final[dict[BMSpackvalue, Callable[[Iterable[float | int]], Any]]] = {
+        "battery_health": min,
+        "current": sum,
+        "cycle_charge": sum,
+        "cycle_capacity": sum,
+        "design_capacity": sum,
+        "cycles": max,
+        "delta_voltage": max,
+    }
+    for field, calculate in calculations.items():
+        if _can_calc(field):
+            data[field] = calculate(_pvalues(field))
+
+    if _can_calc("battery_level") and data.get("design_capacity"):
+        with suppress(ValueError):
+            data["battery_level"] = sum(
+                [
+                    lev * cap
+                    for lev, cap in zip(
+                        _pvalues("battery_level"),
+                        _pvalues("design_capacity"),
+                        strict=True,
+                    )
+                ]
+            ) / data.get("design_capacity", 0)
+
     if _can_calc("voltage"):
-        data["voltage"] = fmean(_pvalues("voltage"))
+        data["voltage"] = round(fmean(_pvalues("voltage")), 3)
 
 
 def derive_missing_fields(

@@ -170,17 +170,25 @@ def test_derive_from_packs_aggregate_values() -> None:
     data: BMSSample = {
         "packs": [
             {
+                "battery_health": 99.0,
+                "battery_level": 73.0,
                 "cell_voltages": [3.1, 3.3],
-                "current": 1.0,
+                "current": -1.0,
                 "cycle_charge": 10.0,
+                "cycle_capacity": 73.1,
+                "cycles": 42,
                 "design_capacity": 100,
                 "voltage": 12.0,
             },
             {
+                "battery_health": 98.0,
+                "battery_level": 42.0,
                 "cell_voltages": [3.0, 3.4],
-                "current": 2.0,
+                "current": -2.0,
                 "cycle_charge": 15.0,
-                "design_capacity": 100,
+                "cycle_capacity": 42.0,
+                "cycles": 123,
+                "design_capacity": 150,
                 "voltage": 12.4,
             },
         ]
@@ -190,30 +198,42 @@ def test_derive_from_packs_aggregate_values() -> None:
     assert data == {
         "packs": [
             {
+                "battery_health": 99.0,
+                "battery_level": 73.0,
                 "cell_voltages": [3.1, 3.3],
-                "current": 1.0,
+                "current": -1.0,
                 "cycle_charge": 10.0,
+                "cycle_capacity": 73.1,
+                "cycles": 42,
                 "design_capacity": 100,
                 "voltage": 12.0,
                 "delta_voltage": 0.2,
                 "cell_count": 2,
             },
             {
+                "battery_health": 98.0,
+                "battery_level": 42.0,
                 "cell_voltages": [3.0, 3.4],
-                "current": 2.0,
+                "current": -2.0,
                 "cycle_charge": 15.0,
-                "design_capacity": 100,
+                "cycle_capacity": 42.0,
+                "cycles": 123,
+                "design_capacity": 150,
                 "voltage": 12.4,
                 "delta_voltage": 0.4,
                 "cell_count": 2,
             },
         ],
-        "cell_count": 2,
+        "battery_health": 98.0,
+        "battery_level": 54.4,
         "cell_voltages": [3.1, 3.3, 3.0, 3.4],
-        "current": 3.0,
+        "cell_count": 2,
+        "current": -3.0,
         "cycle_charge": 25.0,
+        "cycle_capacity": 115.1,
+        "design_capacity": 250,
+        "cycles": 123,
         "delta_voltage": 0.4,
-        "design_capacity": 200,
         "voltage": 12.2,
     }
 
@@ -358,6 +378,7 @@ def test_derive_from_packs_single_pack() -> None:
         "design_capacity": 100,
         "voltage": 12.0,
     }
+
 
 def test_battery_level_missing_design_capacity() -> None:
     """Check battery_level is not derived when design_capacity is absent."""

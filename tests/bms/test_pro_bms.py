@@ -89,7 +89,7 @@ class MockProBMSBleakClient(MockBleakClient):
             # Start streaming data packets
             if not self._streaming_task:
                 self._stop_streaming = False
-                self._streaming_task = asyncio.create_task(self._stream_data())
+                self._streaming_task = asyncio.create_task(self._stream_data(), name="send_loop")
                 await asyncio.sleep(0) # yield control to allow task to start
 
     async def disconnect(self) -> None:
@@ -258,7 +258,7 @@ async def test_async_update_no_data_after_init(
                 self._notify_callback(None, RECORDED_PACKETS["init_response"])
 
             # Store task reference to prevent garbage collection
-            self._streaming_task = asyncio.create_task(send_wrong_packet())
+            self._streaming_task = asyncio.create_task(send_wrong_packet(), name="send wrong packet")
             await asyncio.sleep(0) # yield control to allow task to start
 
     monkeypatch.setattr(MockProBMSBleakClient, "write_gatt_char", mock_write)
