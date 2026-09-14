@@ -82,8 +82,8 @@ class MinTestBMS(BaseBMS):
     """Minimal Test BMS implementation."""
 
     INFO: BMSInfo = {
-        "default_manufacturer": "Test Manufacturer",
-        "default_model": "minimal BMS for test",
+        "manufacturer": "Test Manufacturer",
+        "model": "minimal BMS for test",
     }
 
     @staticmethod

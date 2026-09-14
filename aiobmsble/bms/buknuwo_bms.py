@@ -17,10 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """Buknuwo BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Buknuwo",
-        "default_model": "smart battery",
-    }
+    INFO: BMSInfo = {"manufacturer": "Buknuwo", "model": "smart battery"}
     _HEAD: Final[bytes] = b"\x01\x03"  # dev, read (0x03)
     _MIN_LEN: Final[int] = 5  # length of frame, including SOF and checksum
     _MAX_TEMP: Final[int] = 10  # maximum number of cell temperatures

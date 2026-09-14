@@ -41,8 +41,8 @@ class BMS(BaseBMS):
     """MyVolta BMS implementation."""
 
     INFO: BMSInfo = {
-        "default_manufacturer": "Voltagen Power Solutions",
-        "default_model": "MyVolta BLE HW",
+        "manufacturer": "Voltagen Power Solutions",
+        "model": "MyVolta BLE HW",
     }
     _PRB_MASK: Final[int] = 0xFF00FFFF  # mask to extract problem code (byte 3 unused)
     _FIELDS: Final[tuple[BMSDp, ...]] = (

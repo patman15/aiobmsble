@@ -17,10 +17,7 @@ from aiobmsble.basebms import BaseBMS, b2str
 class BMS(BaseBMS):
     """Braun Power BMS class implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Braun Power",
-        "default_model": "smart BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "Braun Power", "model": "smart BMS"}
     _HEAD: Final[bytes] = b"\x7b"  # header for responses
     _TAIL: Final[int] = 0x7D  # tail for command
     _MIN_LEN: Final[int] = 4  # minimum frame size

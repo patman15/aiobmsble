@@ -15,10 +15,10 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Dummy BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Dummy Manufacturer",
-        "default_model": "dummy model",
-    }  # TODO: fill correct manufacturer/model
+    INFO: BMSInfo = {  # TODO: fill correct manufacturer/model
+        "manufacturer": "Dummy Manufacturer",
+        "model": "dummy model",
+    }
     # _HEAD: Final[bytes] = b"\x55"  # beginning of frame
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
@@ -57,7 +57,7 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         return BMSInfo(
-            default_manufacturer="Dummy manufacturer", default_model="Dummy BMS"
+            manufacturer="Dummy manufacturer", model="Dummy BMS"
         )  # TODO: implement query code or remove function to query service 0x180A
 
     # @staticmethod

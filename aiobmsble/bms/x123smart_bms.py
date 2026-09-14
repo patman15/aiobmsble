@@ -18,10 +18,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     r"""123\\SmartBMS gen3 implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "123electric",
-        "default_model": "123\\SmartBMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "123electric", "model": "123\\SmartBMS"}
 
     accept_secret: bool = True  # requires a 4-digit PIN for authentication
 

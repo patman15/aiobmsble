@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 class BMS(BaseBMS):
     """Pylontech RT series BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Pylontech", "default_model": "RT series"}
+    INFO: BMSInfo = {"manufacturer": "Pylontech", "model": "RT series"}
     _DEV_ID: Final[int] = 1
     _REG_SN: Final[tuple[int, int]] = (0x2000, 8)
     # Contiguous block 0x1016-0x1022 = 13 registers

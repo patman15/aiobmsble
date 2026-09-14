@@ -44,7 +44,7 @@ from aiobmsble._sample_calc import derive_missing_fields
 class BaseBMS(ABC):
     """Abstract base class for battery management system."""
 
-    INFO: BMSInfo  # static BMS info, set "default_" keys in subclass
+    INFO: BMSInfo  # static BMS info
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
     BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value
@@ -102,7 +102,7 @@ class BaseBMS(ABC):
         assert (
             getattr(self, "_notification_handler", None) is not None
         ), "BMS class must define `_notification_handler` method"
-        assert {"default_manufacturer", "default_model"}.issubset(
+        assert {"manufacturer", "model"}.issubset(
             self.INFO
         ), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
@@ -177,7 +177,7 @@ class BaseBMS(ABC):
     @classmethod
     def bms_id(cls) -> str:
         """Return static BMS information as string."""
-        return f"{cls.INFO.get('default_manufacturer', 'unknown')} {cls.INFO.get('default_model', 'unknown')}"
+        return f"{cls.INFO.get('manufacturer', 'unknown')} {cls.INFO.get('model', 'unknown')}"
 
     @staticmethod
     @abstractmethod
@@ -515,7 +515,6 @@ class BaseBMS(ABC):
         """
         async with self._connect_lock:
             await self._disconnect_impl(reset)
-
 
     @final
     async def _wait_event(self) -> None:

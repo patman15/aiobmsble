@@ -19,7 +19,7 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_sum, lstr2int
 class BMS(BaseBMS):
     """Jikong smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Jikong", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"manufacturer": "Jikong", "model": "smart BMS"}
     _HEAD_RSP: Final = b"\x55\xaa\xeb\x90"  # header for responses
     _HEAD_CMD: Final = b"\xaa\x55\x90\xeb"  # cmd header (endianness!)
     _READY_MSG: Final = _HEAD_CMD + b"\xc8\x01\x01" + bytes(12) + b"\x44"

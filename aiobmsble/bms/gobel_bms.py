@@ -16,7 +16,7 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 class BMS(BaseBMS):
     """Gobel Power BLE BMS class implementation using Modbus RTU over BLE."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Gobel Power", "default_model": "BLE BMS"}
+    INFO: BMSInfo = {"manufacturer": "Gobel Power", "model": "BLE BMS"}
 
     # Modbus constants
     _SLAVE_ADDR: Final[int] = 0x01

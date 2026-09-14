@@ -19,10 +19,7 @@ from aiobmsble.bms.topband_bms import BMS as TopbandBMS
 class BMS(TopbandBMS):
     """PowerXtreme BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "PowerXtreme",
-        "default_model": "smart BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "PowerXtreme", "model": "smart BMS"}
     FIELDS: tuple[BMSDp, ...] = tuple(
         f._replace(fct=lambda x: x / 10) if f.key == "current" else f
         for f in TopbandBMS.FIELDS

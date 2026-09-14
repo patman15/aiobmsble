@@ -19,10 +19,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Felicity BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Felicity Solar",
-        "default_model": "LiFePo4 battery",
-    }
+    INFO: BMSInfo = {"manufacturer": "Felicity Solar", "model": "LiFePo4 battery"}
     _HEAD: Final[bytes] = b"{"
     _TAIL: Final[bytes] = b"}"
     _CMD_PRE: Final[bytes] = b"wifilocalMonitor:"  # CMD prefix
@@ -127,7 +124,11 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _conv_temp(data: dict[str, Any]) -> list[TempSensor]:
-        return [TempSensor(value / 10) for value in data.get("BtemList", [])[0] if value != 0x7FFF]
+        return [
+            TempSensor(value / 10)
+            for value in data.get("BtemList", [])[0]
+            if value != 0x7FFF
+        ]
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
