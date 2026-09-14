@@ -15,7 +15,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
-    """Dummy BMS implementation."""
+    """Buknuwo BMS implementation."""
 
     INFO: BMSInfo = {
         "default_manufacturer": "Buknuwo",

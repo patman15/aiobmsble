@@ -70,7 +70,7 @@ class MockBuknuwoBleakClient(MockBleakClient):
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
-    """Test Dummy BMS data update."""
+    """Test Buknuwo BMS data update."""
 
     patch_bleak_client(MockBuknuwoBleakClient)
 
