@@ -102,11 +102,11 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize RX/TX characteristics and protocol state."""
         await super()._init_connection(char_notify)
-        if self._secret:
-            if len(self._secret) != 8:
+        if self._cfg.secret:
+            if len(self._cfg.secret) != 8:
                 raise ValueError("Secret must be 8 characters long")
 
-            _pwd: Final[bytes] = self._secret.encode("ascii")
+            _pwd: Final[bytes] = self._cfg.secret.encode("ascii")
             for i in range(4):
                 value: int = int.from_bytes(_pwd[i * 2 : i * 2 + 2], "big")
                 await self._await_msg(
