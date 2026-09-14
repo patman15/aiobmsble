@@ -539,9 +539,9 @@ class BaseBMS(ABC):
             BMSSample: dictionary with BMS values
 
         """
-        async with self._op_lock:
-            await self._connect()
+        await self._connect()
 
+        async with self._op_lock:
             data: BMSSample = await self._async_update()
             if not raw:
                 self._add_missing_values(data, self._raw_values())
@@ -562,8 +562,8 @@ class BaseBMS(ABC):
         """Assemble a MODBUS command.
 
         Args:
-            dev_id (int): 8-bit slave device id (default: 0)
-            fct (int): 8-bit function code (default: 3, read registers)
+            dev_id (int): 8-bit slave device id (default: 0x0)
+            fct (int): 8-bit function code (default: 0x3, read registers)
             addr (int): 16-bit start address (default: 0x0)
             count (int): 16-bit number of elements (default: 1)
 
