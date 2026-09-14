@@ -11,5 +11,19 @@
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/621)"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "MEY-12320-A00898",
+      "platform_data": ["82:FF:00:00:00:00"],
+      "rssi": -52,
+      "manufacturer_data": { "65535": "4e" },
+      "service_data": { "0000180a-0000-1000-8000-00805f9b34fb": "" }
+    },
+    "type": "buknuwo_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/816)",
+      "MEYULMOL 12.8v 300ah 200A BMS"
+    ]
   }
 ]

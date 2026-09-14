@@ -15,7 +15,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
-    """Dummy BMS implementation."""
+    """Buknuwo BMS implementation."""
 
     INFO: BMSInfo = {
         "default_manufacturer": "Buknuwo",
@@ -52,7 +52,10 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [{"local_name": "CDZG*", "connectable": True}]
+        return [
+            {"local_name": "CDZG*", "connectable": True},
+            {"local_name": "MEY-?????-*", "connectable": True},
+        ]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
