@@ -4,14 +4,14 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -54,12 +54,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: dict[int, bytes] = {}
         self._exp_len: int = 0
 
@@ -68,12 +67,12 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
+                "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": manufacturer_id,
                 "connectable": True,
             }
-            for manufacturer_id in (0x01A8, 0x0B31, 0x8AFB, 0x8849, 0xCB73)
-        ]
+            for pattern in (" [BS]12*", " [BS]24*", " UT*")
+        ]  # OUI "12:" is private
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
@@ -89,8 +88,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
-
-    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -123,16 +120,16 @@ class BMS(BaseBMS):
 
         end_idx: Final[int] = BMS._MIN_LEN + self._exp_len - 1
         if self._frame[end_idx] != BMS._TAIL:
-            self._log.debug("incorrect EOF: %s", self._frame)
+            self._log.debug("incorrect EOF")
             self._frame.clear()
             return
 
-        if (crc := BMS._crc(self._frame[len(BMS._HEAD) : end_idx - 1])) != self._frame[
-            end_idx - 1
-        ]:
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X", self._frame[end_idx - 1], crc
-            )
+        if not self._check_integrity(
+            self._frame,
+            BMS._crc,
+            slice(len(BMS._HEAD), end_idx - 1),
+            slice(end_idx - 1, end_idx),
+        ):
             self._frame.clear()
             return
 
@@ -149,7 +146,7 @@ class BMS(BaseBMS):
         return crc
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a RoyPow BMS command."""
         data: Final[bytes] = bytes([len(cmd) + 2, *cmd])
@@ -164,7 +161,7 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(bytes([0xFF, cmd])))
 
         if not BMS._CMDS.issubset(self._msg.keys()):
-            self._log.debug("Incomplete data set %s", self._msg.keys())
+            self._log.debug("incomplete data set %s", self._msg.keys())
             raise ValueError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)

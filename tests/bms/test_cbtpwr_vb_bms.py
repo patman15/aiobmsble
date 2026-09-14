@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.cbtpwr_vb_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -29,7 +29,7 @@ def ref_value() -> BMSSample:
         "cell_voltages": [3.328, 3.326, 3.326, 3.326],
         "delta_voltage": 0.002,
         "design_capacity": 200,
-        "temp_values": [6.2, 7.3],
+        "temp_values": [TS(6.2), TS(7.3)],
         "temp_sensors": 2,
         "temperature": 6.75,
         "cycle_capacity": 2553.6,
@@ -105,7 +105,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockCBTpwrVBBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == ref_value()
 

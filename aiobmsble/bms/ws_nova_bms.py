@@ -4,7 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
+from functools import lru_cache
 from string import hexdigits
 from typing import Final
 
@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, b2str
 
 
@@ -39,30 +39,28 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 25, 1, False),
         BMSDp("design_capacity", 26, 4, False, lambda x: x // 1000),
         BMSDp("cycle_charge", 30, 4, False, lambda x: x / 1000),
-        BMSDp("heater", 115, 4, False, bool),
+        BMSDp("heater", 64, 4, False, bool),
         BMSDp("problem_code", 0, 2, False, lambda x: x & 0x0FFC),
     )
 
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            {
-                "manufacturer_id": 28256,
-                "manufacturer_data_start": [0x41],
-                "connectable": True,
-            }
+            MatcherPattern(
+                oui=pattern, service_uuid=BMS.uuid_services()[0], connectable=True
+            )
+            for pattern in ("60:6E:41", "10:23:81")
         ]
 
     @staticmethod
@@ -102,7 +100,15 @@ class BMS(BaseBMS):
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
-        if not (self._frame.startswith(BMS._HEAD) and self._frame.endswith(BMS._TAIL)):
+        if (
+            not self._frame.startswith(BMS._HEAD)
+            or len(self._frame) > BMS.BLE_MAX_ATTR_SIZE
+        ):
+            self._log.debug("invalid frame")
+            self._frame.clear()
+            return
+
+        if not self._frame.endswith(BMS._TAIL):
             return
 
         if len(self._frame) % 2 or len(self._frame) < BMS._MIN_LEN:
@@ -110,7 +116,7 @@ class BMS(BaseBMS):
             return
 
         if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
-            self._log.debug("incorrect frame encoding.")
+            self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
 
@@ -119,7 +125,7 @@ class BMS(BaseBMS):
         # incoming frames seem to have invalid checksum, thus not checked here
 
         if not _dec.startswith(b"\x01\x54"):
-            self._log.debug("incorrect frame type.")
+            self._log.debug("incorrect frame type")
             self._frame.clear()
             return
 
@@ -127,7 +133,7 @@ class BMS(BaseBMS):
         self._msg_event.set()
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a Wattstunde Nova BMS command frame."""
         return BMS._HEAD + cmd + BMS._TAIL

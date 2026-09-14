@@ -7,7 +7,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.saihang_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -43,12 +43,12 @@ class MockSaihangBleakClient(MockBleakClient):
 
         await super().write_gatt_char(char_specifier, data, response)
 
+        if bytes(data) != b"\xa5\xa5\x00\x03\x00\x00\x00\x48\x44\x2d":
+            return
+
         assert (
             self._notify_callback
         ), "write to characteristics but notification not enabled"
-
-        if bytes(data) != b"\xa5\xa5\x00\x03\x00\x00\x00\x48\x44\x2d":
-            return
 
         self._notify_callback("MockRoyPowBleakClient", self._RESP)
 
@@ -58,19 +58,24 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockSaihangBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == {
         "voltage": 27.28,
-        "temperature": 15.35,
+        "temperature": 18.275,
         "battery_charging": False,
         "battery_health": 100,
         "battery_level": 96,
         "cell_count": 8,
         "current": 0.0,
         "cycles": 2,
-        "temp_sensors": 2,
-        "temp_values": [15.2, 15.5],
+        "temp_sensors": 4,
+        "temp_values": [
+            TS(15.3, TS.T.CELL),
+            TS(15.6, TS.T.CELL),
+            TS(17.2, TS.T.MOSFET),
+            TS(25.0, TS.T.AMBIENT),
+        ],
         "cell_voltages": [
             3.497,
             3.434,
@@ -84,7 +89,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "cycle_capacity": 2629.246,
         "cycle_charge": 96.38,
         "delta_voltage": 0.129,
-        "design_capacity": 100,
+        "design_capacity": 100.0,
+        "balancer": 0,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
         "problem": False,
         "problem_code": 0,
         "power": 0.0,

@@ -9,21 +9,21 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.ecoworthy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
-_PROTO_DEFS: Final[dict[int, dict[int, bytearray]]] = {
+_PROTO_DEFS: Final[dict[int, dict[int, bytes]]] = {
     0x1: {  # protocol version 1
-        0xA1: bytearray(
+        0xA1: (
             b"\xa1\x00\x00\x00\x65\x00\x00\x00\x00\x00\x18\x01\x03\x44\x00\x18\x00\x48\x00\x64\x05"
             b"\x31\xff\x8e\x00\x00\x27\x10\x00\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01"
             b"\x00\x02\x00\x00\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x21\x86"
         ),
-        0xA2: bytearray(  # 4 cells, 3 temp sensors
+        0xA2: (  # 4 cells, 3 temp sensors
             b"\xa2\x00\x00\x00\x65\x00\x00\x00\x00\x00\x18\x01\x03\x56\x00\x04\x0c\xfb\x0c\xfd\x0c"
             b"\xfb\x0c\xfa\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
             b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
@@ -32,13 +32,13 @@ _PROTO_DEFS: Final[dict[int, dict[int, bytearray]]] = {
         ),
     },
     0x2: {  # protocol version 2, MAC in front
-        0xA1: bytearray(
+        0xA1: (
             b"\xe2\xe7\x79\x00\x00\x00\xa1\x00\x00\x08\x03\x44\x00\x08\x00\x62\x00\x64\x05\x30\xff"
             b"\xc4\x00\x00\x27\x10\x00\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x02"
             b"\x00\x00\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xd3\xf6"
         ),
-        0xA2: bytearray(  # 4 cells, 2 temp sensors
+        0xA2: (  # 4 cells, 2 temp sensors
             b"\xe2\xe7\x79\x00\x00\x00\xa2\x00\x00\x08\x03\x56\x00\x04\x0c\xfb\x0c\xfc\x0c\xfb\x0c"
             b"\xf5\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
             b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
@@ -65,7 +65,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "power": -15.151,
         "battery_charging": False,
         "cell_voltages": [3.323, 3.325, 3.323, 3.322],
-        "temp_values": [20.5, 19.2, 19.0],
+        "temp_values": [TS(20.5), TS(19.2), TS(19.0)],
         "delta_voltage": 0.003,
         "runtime": 227368,
         "problem": False,
@@ -85,7 +85,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "power": -79.68,
         "battery_charging": False,
         "cell_voltages": [3.323, 3.324, 3.323, 3.317],
-        "temp_values": [22.0, 21.4],
+        "temp_values": [TS(22.0), TS(21.4)],
         "delta_voltage": 0.007,
         "problem": False,
         "problem_code": 0,
@@ -94,10 +94,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=[0x1, 0x2],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
     assert isinstance(request.param, int)
@@ -113,11 +110,11 @@ class TestBasicBMS(BMSBasicTests):
 class MockECOWBleakClient(MockBleakClient):
     """Emulate a ECO-WORTHY BMS BleakClient."""
 
-    CMDS: Final[dict[int, bytearray]] = {
-        0xA1: bytearray(b"\x00\x01\x03\x00\x8c\x00\x00\x99\x42"),
-        0xA2: bytearray(b"\x00\x01\x03\x00\x8d\x00\x00\x59\x13"),
+    CMDS: Final[dict[int, bytes]] = {
+        0xA1: b"\x00\x01\x03\x00\x8c\x00\x00\x99\x42",
+        0xA2: b"\x00\x01\x03\x00\x8d\x00\x00\x59\x13",
     }
-    RESP: Final[dict[int, bytearray]] = {}
+    RESP: Final[dict[int, bytes]] = _PROTO_DEFS[0x1]
 
     _task: asyncio.Task[None] | None = None
 
@@ -130,8 +127,8 @@ class MockECOWBleakClient(MockBleakClient):
 
         while True:
             for msg in self.RESP.values():
-                self._notify_callback("MockECOWBleakClient", msg)
-                await asyncio.sleep(1e-6)
+                self._notify_callback("MockECOWBleakClient", bytearray(msg))
+                await asyncio.sleep(0)
 
     async def start_notify(
         self,
@@ -144,7 +141,8 @@ class MockECOWBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().start_notify(char_specifier, callback, **kwargs)
 
-        self._task = asyncio.create_task(self._notify())
+        self._task = asyncio.create_task(self._notify(), name="send_loop")
+        await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
@@ -158,7 +156,7 @@ class MockECOWBleakClient(MockBleakClient):
 class MockECOWStreamBleakClient(MockECOWBleakClient):
     """Emulate a ECO-WORTHY BMS BleakClient that does not stream without unlocking."""
 
-    _unlock_cmd: set = set()
+    _unlock_cmd: set[bytes] = set()
 
     async def start_notify(
         self,
@@ -185,7 +183,8 @@ class MockECOWStreamBleakClient(MockECOWBleakClient):
 
         self._unlock_cmd.update({bytes(data)[-2:]})  # store CRC of received command
         if {b"\x00\x2d", b"\x65\xef"}.issubset(self._unlock_cmd):
-            self._task = asyncio.create_task(self._notify())
+            self._task = asyncio.create_task(self._notify(), name="send_loop")
+            await asyncio.sleep(0)  # yield control to allow task to start
 
 
 async def test_update(
@@ -199,7 +198,7 @@ async def test_update(
     monkeypatch.setattr(MockECOWBleakClient, "RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockECOWBleakClient)
 
-    bms = BMS(generate_ble_device("e2:e7:79:00:00:00"), keep_alive_fixture)
+    bms = BMS(generate_ble_device("e2:e7:79:00:00:00"), BMSConfig(keep_alive_fixture))
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
     await asyncio.sleep(1e-3)
     # query again to check already connected state
@@ -215,7 +214,9 @@ async def test_unlock_update(
 ) -> None:
     """Test ECO-WORTHY BMS data update."""
 
-    monkeypatch.setattr(MockECOWStreamBleakClient, "RESP", next(reversed(_PROTO_DEFS.values())))
+    monkeypatch.setattr(
+        MockECOWStreamBleakClient, "RESP", next(reversed(_PROTO_DEFS.values()))
+    )
     patch_bleak_client(MockECOWStreamBleakClient)
 
     bms = BMS(generate_ble_device("e2:e7:79:00:00:00"))
@@ -232,7 +233,7 @@ async def test_unlock_update(
     name="wrong_response",
     params=[
         (
-            bytearray(
+            (
                 b"\xa3\x00\x00\x00\x65\x00\x00\x00\x00\x00\x18\x01\x03\x44\x00\x18\x00\x48\x00\x64"
                 b"\x05\x31\xff\x8e\x00\x00\x27\x10\x00\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x01\x00\x02\x00\x00\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -242,7 +243,7 @@ async def test_unlock_update(
             "wrong_type",
         ),
         (
-            bytearray(
+            (
                 b"\xa2\x00\x00\x00\x65\x00\x00\x00\x00\x00\x18\x01\x03\x56\x00\x04\x0c\xfb\x0c\xfd"
                 b"\x0c\xfb\x0c\xfa\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
                 b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
@@ -253,7 +254,8 @@ async def test_unlock_update(
             "single_type_sent",
         ),
         (
-            bytearray(  # correct CRC: 0x2186
+            # correct CRC: 0x2186
+            (
                 b"\xa1\x00\x00\x00\x65\x00\x00\x00\x00\x00\x18\x01\x03\x44\x00\x18\x00\x48\x00\x64"
                 b"\x05\x31\xff\x8e\x00\x00\x27\x10\x00\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x01\x00\x02\x00\x00\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -262,16 +264,13 @@ async def test_unlock_update(
             ),
             "wrong_CRC",
         ),
-        (
-            bytearray(b""),
-            "empty_response",
-        ),
+        (b"", "empty_response"),
     ],
     ids=lambda param: param[1],
 )
-def response(request: pytest.FixtureRequest) -> bytearray:
+def response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    return request.param[0]
+    return bytes(request.param[0])
 
 
 async def test_invalid_response(
@@ -279,7 +278,7 @@ async def test_invalid_response(
     patch_bleak_client,
     patch_bms_timeout,
     protocol_type: int,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 

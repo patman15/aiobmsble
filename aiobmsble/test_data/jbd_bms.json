@@ -578,14 +578,61 @@
   },
   {
     "advertisement": {
-      "local_name": "DWF3C8A1F7C1235",
-      "platform_data": ["3C:8A:1F:00:00:00"],
-      "rssi": -79,
+      "local_name": "SP08S025L8S200A",
+      "platform_data": ["A5:C2:3A:00:00:00"],
+      "rssi": -63,
       "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"]
     },
     "type": "jbd_bms",
     "_comments": [
-      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/604)"
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/683)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "LSG-48100Y250930-113",
+      "platform_data": ["BB:30:00:05:31:35"],
+      "rssi": -59,
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb",
+        "00000001-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/199)",
+      "Lossigy 48V 100Ah LiFePO4"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "12150BLH1805",
+      "platform_data": ["04:7F:0E:00:00:00"],
+      "rssi": -55,
+      "manufacturer_data": { "42754": "dc3855a4" },
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb",
+        "6e40ff00-b5a3-f393-e0a9-e50e24dcca9e"
+      ]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/771)",
+      "SBL Connect 150Ah LiFePO4"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "SJ-480-B240023",
+      "platform_data": ["FE:57:25:00:00:00"],
+      "rssi": -71,
+      "manufacturer_data": { "123": "02ffff7d" },
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/804)",
+      "Supervolt 480 Ah Jumbo"
     ]
   }
 ]

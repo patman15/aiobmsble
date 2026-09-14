@@ -7,7 +7,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.lipower_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -22,6 +22,12 @@ _PROTO_DEFS: Final[dict[int, bytearray]] = {
     0x0B: bytearray(
         b"\x0b\x03\x12\x00\x70\x00\x5e\x00\x35\x00\x2d\x00\x01\x00\xc9\x00\x85\x00\x1a\x00\x02\x47\x16"
     ),  # 13.3V, 94%, 193500s, -2.01A, -26W, protocol version 0x02
+    0x08: bytearray(
+        b"\x08\x03\x10\x00\x76\x00\x63\x05\xcf\x00\x16\x00\x01\x00\x08\x00\x89\x00\x01\x8e\xd1"
+    ),
+    0x38: bytearray(
+        b"\x38\x03\x12\x00\x8e\x00\x2f\x00\x2b\x00\x22\x00\x01\x01\x46\x00\x83\x00\x2a\x00\x02\xff\xa3"
+    ),
 }
 
 _RESULT_DEFS: Final[dict[int, BMSSample]] = {
@@ -47,13 +53,32 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_charging": False,
         "problem": False,
     },
+    0x08: {
+        "voltage": 13.7,
+        "current": -0.08,
+        "battery_level": 99,
+        "cycle_charge": 118,
+        "cycle_capacity": 1616.6,
+        "power": -1.096,
+        "runtime": 5354520,
+        "battery_charging": False,
+        "problem": False,
+    },
+    0x38: {
+        "voltage": 13.1,
+        "current": -3.26,
+        "battery_level": 47,
+        "runtime": 156840,
+        "cycle_charge": 142,
+        "battery_charging": False,
+        "cycle_capacity": 1860.2,
+        "power": -42.706,
+        "problem": False,
+    },
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=[0x22, 0x0B],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> int:
     """Protocol fixture."""
     assert isinstance(request.param, int)
@@ -111,7 +136,7 @@ async def test_update(
     monkeypatch.setattr(MockLiPwrBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockLiPwrBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 

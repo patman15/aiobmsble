@@ -6,7 +6,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.vatrer_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -27,7 +27,8 @@ def ref_value() -> BMSSample:
         "cell_count": 16,
         "runtime": 28814,
         "temp_sensors": 4,
-        "temp_values": [18.0, 20.0, 19.0, 20.0, 20.0, 20.0],
+        "temp_values": [TS(v) for v in (18.0, 20.0, 19.0, 20.0, 20.0)]
+        + [TS(20.0, TS.T.MOSFET)],
         "temperature": 19.5,
         "battery_charging": False,
         "power": -261.243,
@@ -65,17 +66,17 @@ class TestBasicBMS(BMSBasicTests):
 class MockVatrerBleakClient(MockBleakClient):
     """Emulate a Vatrer BMS BleakClient."""
 
-    RESP: dict[bytes, bytearray] = {
-        b"\x02\x03\x00\x34\x00\x12\x84\x3a": bytearray(
+    RESP: dict[bytes, bytes] = {
+        b"\x02\x03\x00\x34\x00\x12\x84\x3a": (
             b"\x02\x03\x24\x00\x04\x00\x12\x00\x14\x00\x13\x00\x14\x00\x14\x00\x14\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x34\x02\x40\x00\x00\x00\x00\x46\x43"
         ),  # temp info
-        b"\x02\x03\x00\x00\x00\x14\x45\xf6": bytearray(
+        b"\x02\x03\x00\x00\x00\x14\x45\xf6": (
             b"\x02\x03\x28\x14\x93\xff\xff\xfe\x10\x00\x28\x0f\x82\x27\x10\x00\x1b\x00\x64\x00\x01"
             b"\x00\x00\x00\x01\x0c\xe0\x0c\xdd\x00\x03\x00\x0f\x00\x10\x00\x14\x00\x12\x00\x02\x00"
             b"\x04\xe4\xe5"
         ),  # status info
-        b"\x02\x03\x00\x15\x00\x1f\x15\xf5": bytearray(
+        b"\x02\x03\x00\x15\x00\x1f\x15\xf5": (
             b"\x02\x03\x3e\x00\x10\x0c\xdf\x0c\xdf\x0c\xe0\x0c\xe0\x0c\xe0\x0c\xe0\x0c\xe0\x0c\xe0"
             b"\x0c\xe0\x0c\xe0\x0c\xe0\x0c\xe0\x0c\xe0\x0c\xe0\x0c\xe0\x0c\xdd\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -93,7 +94,7 @@ class MockVatrerBleakClient(MockBleakClient):
         await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
         self._notify_callback(
-            "MockVatrerBleakClient", self.RESP.get(bytes(data), bytearray())
+            "MockVatrerBleakClient", bytearray(self.RESP.get(bytes(data), b""))
         )
 
 
@@ -102,7 +103,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockVatrerBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == ref_value()
 
@@ -116,17 +117,17 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 @pytest.fixture(
     name="wrong_response",
     params=[
-        (bytearray(b"\x01\x03\x24" + bytes(36) + b"\x7b\xa1"), "wrong_SOF"),
-        (bytearray(b"\x02\x03\x24" + bytes(36) + b"\x60\x15\x00"), "wrong_length"),
-        (bytearray(b"\x02\x03\x24" + bytes(36) + b"\x60\x16"), "wrong_CRC"),
-        (bytearray(b"\x02\x03\x21" + bytes(33) + b"\xba\x66"), "wrong_type"),
-        (bytearray(), "empty_frame"),
+        (b"\x01\x03\x24" + bytes(36) + b"\x7b\xa1", "wrong_SOF"),
+        (b"\x02\x03\x24" + bytes(36) + b"\x60\x15\x00", "wrong_length"),
+        (b"\x02\x03\x24" + bytes(36) + b"\x60\x16", "wrong_CRC"),
+        (b"\x02\x03\x21" + bytes(33) + b"\xba\x66", "wrong_type"),
+        (b"", "empty_frame"),
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    assert isinstance(request.param[0], bytearray)
+    assert isinstance(request.param, tuple) and isinstance(request.param[0], bytes)
     return request.param[0]
 
 
@@ -134,7 +135,7 @@ async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -181,6 +182,11 @@ async def test_invalid_response(
 )
 def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert (
+        isinstance(request.param, tuple)
+        and isinstance(request.param[0], bytearray)
+        and isinstance(request.param[1], str)
+    )
     return request.param
 
 

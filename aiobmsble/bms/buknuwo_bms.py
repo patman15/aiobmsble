@@ -4,19 +4,18 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
-    """Dummy BMS implementation."""
+    """Buknuwo BMS implementation."""
 
     INFO: BMSInfo = {
         "default_manufacturer": "Buknuwo",
@@ -42,19 +41,21 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._exp_len: int = 0
         self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [{"local_name": "CDZG*", "connectable": True}]
+        return [
+            {"local_name": "CDZG*", "connectable": True},
+            {"local_name": "MEY-?????-*", "connectable": True},
+        ]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
@@ -82,7 +83,7 @@ class BMS(BaseBMS):
             and len(self._frame) >= self._exp_len
         ):
             self._exp_len = BMS._MIN_LEN + data[2]
-            self._frame = bytearray()
+            self._frame.clear()
 
         self._frame.extend(data)
         self._log.debug(
@@ -92,46 +93,39 @@ class BMS(BaseBMS):
         if len(self._frame) < 3 or len(self._frame) < self._frame[2] + BMS._MIN_LEN:
             return
 
-        if (crc := crc_modbus(self._frame[:-2])) != int.from_bytes(
-            self._frame[-2:], byteorder="little"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(None, -2),
+            slice(-2, None),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[-2:], "little"),
-                crc,
-            )
             return
 
         self._msg = bytes(self._frame)
         self._msg_event.set()
 
-    @staticmethod
-    @cache
-    def _cmd(addr: int, words: int) -> bytes:
-        """Assemble a Buknuwo BMS command."""
-        frame: bytearray = (
-            bytearray(BMS._HEAD)
-            + addr.to_bytes(2, byteorder="big")
-            + words.to_bytes(2, byteorder="big")
-        )
-        frame.extend(crc_modbus(frame).to_bytes(2, "little"))
-        return bytes(frame)
-
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(BMS._cmd(0x0, 0xD))
+        await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x0, count=0xD))
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
-        await self._await_msg(BMS._cmd(0x39, 1))
+        await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x39, count=0x1))
         result["temp_values"] = BMS._temp_values(
-            self._msg, values=1, start=3, divider=10
+            self._msg, start=3, divider=10, types=(TempSensor.T.MOSFET,)
         )
 
-        await self._await_msg(BMS._cmd(0x2E, BMS._MAX_TEMP + 1))
+        await self._await_msg(
+            BMS._cmd_modbus(dev_id=0x1, addr=0x2E, count=BMS._MAX_TEMP + 1)
+        )
         result["temp_sensors"] = int.from_bytes(self._msg[3:5], "big")
         result["temp_values"].extend(
             BMS._temp_values(
-                self._msg, values=result.get("temp_sensors", 0), start=5, divider=10
+                self._msg,
+                values=result.get("temp_sensors", 0),
+                start=5,
+                divider=10,
+                types=(TempSensor.T.CELL,) * result.get("temp_sensors", 0),
             )
         )
 

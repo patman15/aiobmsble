@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.superb_v2_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -72,8 +72,8 @@ class MockSuperBv2BleakClient(MockBleakClient):
 
     @property
     def is_connected(self) -> bool:
-        """Mock connected."""
-        if self._connected:
+        """Mock connected to retrigger frame transmission in MockClient."""
+        if self._connected and self._notify_callback is not None:
             self._send_info()  # patch to provide data when not reconnecting
         return self._connected
 
@@ -114,7 +114,7 @@ async def test_update(
 
     patch_bleak_client(MockSuperBv2BleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS
 

@@ -4,14 +4,13 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
-from typing import Final
+from typing import Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -36,7 +35,9 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 55, 6, False),
         BMSDp("balancer", 79, 2, False),
     )
-    _OPT_FIELDS: Final[tuple[BMSValue, ...]] = (
+    _OPT_FIELDS: Final[
+        tuple[Literal["cycle_charge", "cycles", "design_capacity"], ...]
+    ] = (
         "cycle_charge",
         "cycles",
         "design_capacity",
@@ -45,12 +46,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
         self._exp_len: int = 0
 
@@ -61,8 +61,14 @@ class BMS(BaseBMS):
             {
                 "service_uuid": BMS.uuid_services()[0],
                 "manufacturer_id": 0x6F80,
+                "manufacturer_data_start": [0xB0],
                 "connectable": True,
-            }
+            },
+            {
+                "manufacturer_id": 0x45CC,
+                "manufacturer_data_start": [0xA5],
+                "connectable": True,
+            },
         ]
 
     @staticmethod
@@ -91,7 +97,7 @@ class BMS(BaseBMS):
             and len(self._frame) >= self._exp_len
         ):
             self._exp_len = BMS._MIN_LEN + data[2]
-            self._frame = bytearray()
+            self._frame.clear()
 
         self._frame.extend(data)
         self._log.debug(
@@ -104,33 +110,22 @@ class BMS(BaseBMS):
 
         del self._frame[self._exp_len :]
 
-        if (crc := crc_modbus(self._frame[:-2])) != int.from_bytes(
-            self._frame[-2:], byteorder="little"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(None, -2),
+            slice(-2, None),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[-2:], byteorder="little"),
-                crc,
-            )
             return
 
         self._msg = bytes(self._frame)
         self._msg_event.set()
 
-    @staticmethod
-    @cache
-    def _cmd(address: int, count: int) -> bytes:
-        """Assemble a EG4 BMS command."""
-        frame: bytearray = bytearray(BMS._HEAD)
-        frame.extend(int.to_bytes(address, 2, byteorder="big"))
-        frame.extend(int.to_bytes(count, 2, byteorder="big"))
-        frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
-        return bytes(frame)
-
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await self._await_msg(BMS._cmd(0x0, 0x27))
+        await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x0, count=0x27))
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
         for field in BMS._OPT_FIELDS:
@@ -141,6 +136,12 @@ class BMS(BaseBMS):
             self._msg, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
         )
         result["temp_values"] = BMS._temp_values(
-            self._msg, values=BMS._MAX_TEMP, start=69, size=1
+            self._msg, values=1, start=39, types=(TempSensor.T.PCB,)
+        ) + BMS._temp_values(
+            self._msg,
+            values=BMS._MAX_TEMP,
+            start=69,
+            size=1,
+            types=(TempSensor.T.CELL,) * BMS._MAX_TEMP,
         )
         return result

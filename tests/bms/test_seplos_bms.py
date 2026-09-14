@@ -8,7 +8,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample, PackSample, TempSensor as TS
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -19,17 +19,86 @@ CHAR_UUID = "fff1"
 REF_VALUE: BMSSample = {
     "voltage": 52.34,
     "current": -6.7,
+    "cycle_charge": 134.12,
+    "design_capacity": 280,
+    "pack_count": 2,  # last packet does not report data!
+    "cycles": 9,
     "battery_level": 47.9,
     "battery_health": 99.9,
-    "cycle_charge": 134.12,
-    "cycles": 9,
     "temperature": 24.4,
-    "cycle_capacity": 7019.841,
-    "power": -350.678,
-    "battery_charging": False,
-    "runtime": 72064,
-    "pack_count": 2,  # last packet does not report data!
-    "cell_count": 16,
+    "problem_code": 0,
+    "dischrg_mosfet": True,
+    "chrg_mosfet": True,
+    "heater": False,
+    "balancer": False,
+    "packs": [
+        PackSample(
+            voltage=52.34,
+            current=-7.2,
+            cycle_charge=134.12,
+            design_capacity=280,
+            battery_level=47.9,
+            battery_health=99.9,
+            cycles=9,
+            cell_voltages=[
+                3.272,
+                3.272,
+                3.272,
+                3.271,
+                3.271,
+                3.271,
+                3.271,
+                3.27,
+                3.27,
+                3.271,
+                3.271,
+                3.271,
+                3.271,
+                3.272,
+                3.272,
+                3.272,
+            ],
+            temp_values=(
+                [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
+                + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
+            ),
+            delta_voltage=0.002,
+            cell_count=16,
+        ),
+        PackSample(
+            voltage=52.35,
+            current=-7.19,
+            cycle_charge=134.12,
+            design_capacity=280,
+            battery_level=48.0,
+            battery_health=99.9,
+            cycles=10,
+            cell_voltages=[
+                3.528,
+                3.528,
+                3.528,
+                3.527,
+                3.527,
+                3.527,
+                3.527,
+                3.526,
+                3.526,
+                3.527,
+                3.527,
+                3.527,
+                3.527,
+                3.528,
+                3.528,
+                3.529,
+            ],
+            temp_values=(
+                [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
+                + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
+            ),
+            delta_voltage=0.003,
+            cell_count=16,
+        ),
+    ],
     "cell_voltages": [
         3.272,
         3.272,
@@ -64,19 +133,13 @@ REF_VALUE: BMSSample = {
         3.528,
         3.529,
     ],
+    "cell_count": 16,
     "delta_voltage": 0.003,
-    "temp_values": [25.0, 23.8, 23.9, 24.9, 25.0, 23.8, 23.9, 24.9],
-    "dischrg_mosfet": True,
-    "chrg_mosfet": True,
-    "balancer": False,
-    "heater": False,
-    "pack_battery_levels": [47.9, 48.0],
-    "pack_battery_health": [99.9, 99.9],
-    "pack_currents": [-7.2, -7.19],
-    "pack_cycles": [9, 10],
-    "pack_voltages": [52.34, 52.35],
+    "battery_charging": False,
+    "cycle_capacity": 7019.841,
+    "power": -350.678,
+    "runtime": 72064,
     "problem": False,
-    "problem_code": 0,
 }
 
 
@@ -132,7 +195,7 @@ class MockSeplosBleakClient(MockBleakClient):
         + bytearray(54),
     }
 
-    def _crc16(self, data: bytearray) -> int:
+    def _crc16(self, data: bytes | bytearray) -> int:
         """Calculate CRC-16-CCITT XMODEM (ModBus)."""
 
         crc: int = 0xFFFF
@@ -144,17 +207,17 @@ class MockSeplosBleakClient(MockBleakClient):
 
     def _response(self, data: Buffer) -> bytearray:
 
-        req = bytearray(data)
+        req = bytes(data)
 
         assert int.from_bytes(req[-2:]) == self._crc16(req[:-2])  # check CRC of request
         assert req[1] in [0x01, 0x04]  # check if read command
 
-        device, start, length = [
-            int(req[0]),
+        device, start, length = (
+            req[0],
             int.from_bytes(req[2:4], byteorder="big"),
             int.from_bytes(req[4:6], byteorder="big") * (2 if req[1] == 0x4 else 0.125)
             + self.PKT_FRAME,
-        ]
+        )
 
         if device == 0x00:  # EMS device
             if start == 0x2000:
@@ -278,12 +341,34 @@ class MockOversizedBleakClient(MockSeplosBleakClient):
             self._notify_callback("MockOversizedBleakClient", notify_data)
 
 
+class MockRedundantMessageBleakClient(MockSeplosBleakClient):
+    """Emulate a Seplos BMS BleakClient returning incomplete set if message types."""
+
+    patch_main: bool = False
+    patch_pkg: bool = False
+
+    def _response(self, data: Buffer) -> bytearray:
+        req = bytes(data)
+
+        device: int = req[0]
+        start: int = int.from_bytes(req[2:4], byteorder="big")
+
+        if self.patch_main and device == 0x00:  # EMS device
+            if start & 0xF000 == 0x2000:
+                return self.RESP["EIA"].copy()
+        if self.patch_pkg and device and device <= 0x10:  # BMS battery packs
+            if start & 0xF000 == 0x1000:
+                return self.RESP[f"PIA{device}"].copy()
+
+        return super()._response(data)
+
+
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Seplos BMS data update."""
 
     patch_bleak_client(MockSeplosBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == REF_VALUE
 
@@ -352,6 +437,36 @@ async def test_invalid_message(patch_bleak_client, patch_bms_timeout) -> None:
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
+        result = await bms.async_update()
+
+    assert not result
+
+    await bms.disconnect()
+
+
+async def test_redundant_response(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
+) -> None:
+    """Test data update with BMS returning not full set of response frames, answering wrong types."""
+
+    patch_bms_timeout()
+    patch_bleak_client(MockRedundantMessageBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    monkeypatch.setattr(MockRedundantMessageBleakClient, "patch_main", True)
+    monkeypatch.setattr(MockRedundantMessageBleakClient, "patch_pkg", False)
+
+    result: BMSSample = {}
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        result = await bms.async_update()
+
+    assert not result
+
+    monkeypatch.setattr(MockRedundantMessageBleakClient, "patch_main", False)
+    monkeypatch.setattr(MockRedundantMessageBleakClient, "patch_pkg", True)
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
         result = await bms.async_update()
 
     assert not result

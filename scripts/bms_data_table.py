@@ -7,6 +7,7 @@ A "✓" means that the data is natively available.
 A "." means that the data is not natively available, but all required fields for its calculation are available.
 Empty means that the data is not available at all.
 """
+
 import csv
 from importlib import import_module
 from pathlib import Path
@@ -14,8 +15,8 @@ import re
 from types import ModuleType
 from typing import Any, Final
 
-from aiobmsble import BMSSample, BMSValue
-from aiobmsble.basebms import BaseBMS
+from aiobmsble import BMSValue
+from aiobmsble._sample_calc import BMSSample_Calc_registry
 
 ALWAYS_CALC: Final[frozenset[str]] = frozenset({"problem"})
 ROOT: Final[Path] = Path(__file__).parents[1]
@@ -92,8 +93,6 @@ def main() -> None:
     )
     rows: list[list[str]] = []
 
-    calculations: Final = BaseBMS._calculation_registry(BMSSample())  # noqa: SLF001
-
     for f in bms_files:
         manufacturer, model = get_bms_info(f)
         bms_name: str = (
@@ -109,11 +108,11 @@ def main() -> None:
         available_fields: list[BMSValue] = [
             field for field in fields if file_has_field(f, field)
         ]
-        for field, (required_fields, _calc_func) in calculations.items():
-            if required_fields.issubset(available_fields):
+        for calc in BMSSample_Calc_registry():
+            if calc.requires.issubset(available_fields):
                 # If all required fields for a calculated field are available,
                 # we consider the calculated field as available too
-                available_fields.append(field)
+                available_fields.append(calc.output)
 
         for field, mark in zip(fields, marks, strict=True):
             if mark:
@@ -127,7 +126,7 @@ def main() -> None:
 
         rows.append([bms_name, *marks])
 
-    rows_sorted: Final = sorted(rows, key = lambda row: (row[0], row[1][1:-1]))
+    rows_sorted: Final = sorted(rows, key=lambda row: (row[0], row[1][1:-1]))
 
     with Path.open(CSV_FILE, "w", encoding="UTF-8", newline="") as csvfile:
         writer = csv.writer(csvfile)

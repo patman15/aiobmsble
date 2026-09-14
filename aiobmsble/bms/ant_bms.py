@@ -4,14 +4,14 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -33,7 +33,7 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 38, 2, False, lambda x: x / 100),
         BMSDp("current", 40, 2, True, lambda x: x / 10),
-        BMSDp("design_capacity", 50, 4, False, lambda x: x // 1e6),
+        BMSDp("design_capacity", 50, 4, False, lambda x: x // 10**6),
         BMSDp("battery_level", 42, 2, False),
         BMSDp("battery_health", 44, 2, False),
         BMSDp(
@@ -57,12 +57,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
         self._valid_reply: int = BMS._CMD_STAT | 0x10  # valid reply mask
         self._exp_len: int = 0
@@ -72,10 +71,10 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "ANT?BLE[23]*",
+                "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
-            }
+            } for pattern in ("ANT?BLE24*", "ANT?BLE3*")
         ]
 
     @staticmethod
@@ -108,13 +107,13 @@ class BMS(BaseBMS):
         """Initialize RX/TX characteristics and protocol state."""
         await super()._init_connection(char_notify)
         self._exp_len = 0
-        if self._secret:
+        if self._cfg.secret:
             await self._await_msg(
                 self._cmd(
                     BMS._CMD_AUTH,
                     0x6A01,
-                    len(self._secret),
-                    self._secret.encode("ASCII"),
+                    len(self._cfg.secret),
+                    self._cfg.secret.encode("ASCII"),
                 ),
                 wait_for_notify=False,
             )
@@ -129,7 +128,7 @@ class BMS(BaseBMS):
             and len(self._frame) >= self._exp_len
             and len(data) >= BMS._MIN_LEN
         ):
-            self._frame = bytearray()
+            self._frame.clear()
             self._exp_len = data[5] + BMS._MIN_LEN
 
         self._frame.extend(data)
@@ -152,28 +151,29 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.endswith(BMS._TAIL):
-            self._log.debug("invalid frame end")
+            self._log.debug("invalid EOF")
             return
 
-        if (crc := crc_modbus(self._frame[1 : self._exp_len - 4])) != int.from_bytes(
-            self._frame[self._exp_len - 4 : self._exp_len - 2], "little"
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(1, self._exp_len - 4),
+            slice(self._exp_len - 4, self._exp_len - 2),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(
-                    self._frame[self._exp_len - 4 : self._exp_len - 2], "little"
-                ),
-                crc,
-            )
             return
 
         self._msg = bytes(self._frame)
         self._msg_event.set()
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: int, adr: int, length: int, data: bytes = b"") -> bytes:
         """Assemble an ANT BMS command."""
+        assert 0 <= cmd <= 0xFF
+        assert 0 <= adr <= 0xFFFF
+        assert 0 <= length <= 0xFF
+
         frame: bytearray = (
             bytearray([*BMS._HEAD, cmd & 0xFF])
             + adr.to_bytes(2, "little")
@@ -182,13 +182,6 @@ class BMS(BaseBMS):
         )
         frame.extend(int.to_bytes(crc_modbus(frame[1:]), 2, "little"))
         return bytes(frame) + BMS._TAIL
-
-    @staticmethod
-    def _temp_sensors(data: bytes, sensors: int, offs: int) -> list[float]:
-        return [
-            float(int.from_bytes(data[idx : idx + 2], byteorder="little", signed=True))
-            for idx in range(offs, offs + sensors * 2, 2)
-        ]
 
     async def _await_msg(
         self,
@@ -216,10 +209,13 @@ class BMS(BaseBMS):
             byteorder="little",
         )
         result["temp_sensors"] = min(self._msg[BMS._TEMP_POS], BMS._MAX_TEMPS)
-        result["temp_values"] = BMS._temp_sensors(
+        result["temp_values"] = BMS._temp_values(
             self._msg,
-            result["temp_sensors"] + 2,  # + MOSFET, balancer temperature
-            BMS._CELL_POS + result["cell_count"] * 2,
+            values=result["temp_sensors"] + 2,  # + MOSFET, balancer temperature
+            start=BMS._CELL_POS + result["cell_count"] * 2,
+            byteorder="little",
+            types=(TempSensor.T.GENERIC,) * result["temp_sensors"]
+            + (TempSensor.T.MOSFET, TempSensor.T.BALANCER),
         )
         result.update(
             BMS._decode_data(

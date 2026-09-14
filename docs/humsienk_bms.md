@@ -30,7 +30,7 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 |--------|-------------|
 | `0x50` | Charge FET control (data: `[0x00]`=off, `[0x01]`=on) |
 | `0x51` | Discharge FET control (data: `[0x00]`=off, `[0x01]`=on) |
-| `0x52` | Balance control (data: `[0x00]`=off, `[0x01]`=on) |
+| `0x52` | Heater control (data: `[0x00]`=off, `[0x01]`=on) |
 | `0x53` | Clear error/protection status |
 
 ## 0x21 — Battery Info (26 data bytes)
@@ -51,7 +51,7 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 | 24 | 1 | s8 | MOS temp | MOSFET temperature in °C |
 | 25 | 1 | s8 | env temp | Environment temperature in °C |
 
-## 0x20 — Operating Status (14–15 data bytes)
+## 0x20 — Operating Status (15 data bytes)
 
 | Offset | Size | Type | Field | Description |
 |--------|------|------|-------|-------------|
@@ -61,6 +61,7 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 | 4 | 4 | u32 LE | operation_status | Alarm/protection/FET flags (see below) |
 | 8 | 3 | u24 LE | cell_balance | Bitmap of cells being balanced |
 | 11 | 3 | u24 LE | cell_disconnect | Bitmap of disconnected cells |
+| 14 | 1 | u8 | *unknown* | Purpose unconfirmed; reads 0 on every recorded frame |
 
 > **Note:** Uptime fields (bytes 0–3) are not parsed by the driver. The framework's
 > `runtime` field means "time remaining until empty" (derived from `cycle_charge / current`),
@@ -73,32 +74,48 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 | 0 | Charge overcurrent protection |
 | 1 | Charge over-temperature protection |
 | 2 | Charge under-temperature protection |
+| 3 | Cell overvoltage protection |
 | 4 | Pack overvoltage protection |
+| 5 | Analogue front end error |
+| 6 | Charging stopped |
 | 7 | Charge FET status (1 = on) |
 | 8 | Charge overcurrent warning |
 | 9 | Charge over-temperature warning |
 | 10 | Charge under-temperature warning |
+| 11 | Cell overvoltage warning |
 | 12 | Pack overvoltage warning |
-| 15 | Balance active (1 = yes) |
+| 13 | Voltage-difference warning |
+| 14 | Voltage difference too large |
+| 15 | Heater status (1 = on) |
 | 16 | Discharge overcurrent protection |
 | 17 | Discharge over-temperature protection |
 | 18 | Discharge under-temperature protection |
+| 19 | Cell undervoltage protection |
 | 20 | Short circuit protection |
 | 21 | Pack undervoltage protection |
+| 22 | Discharging stopped |
 | 23 | Discharge FET status (1 = on) |
 | 24 | Discharge overcurrent warning |
 | 25 | Discharge over-temperature warning |
 | 26 | Discharge under-temperature warning |
+| 27 | Cell undervoltage warning |
 | 28 | Pack undervoltage warning |
 | 29 | MOS over-temperature warning |
 | 30 | MOS over-temperature protection |
+| 31 | Pre-discharge FET on |
+
+> **Note:** Bits 7, 15 and 23 form a coherent set of switch states (charge FET,
+> heater, discharge FET) rather than alarms, and are masked out of `problem_code`
+> by `_ALARM_MASK`. Balancing is *not* reported here — see `cell_balance` below.
 
 ### cell_balance / cell_disconnect bitmaps
 
 Each is a 24-bit bitmap where bit 0 = cell 1, bit 1 = cell 2, etc.
 
 - **cell_balance**: a set bit means that cell is actively being balanced.
-  Exposed as a scalar `balancer` bool.
+  Exposed directly as the `balancer` bit mask. Note this reports which cells are
+  balancing *at this instant*; whether balancing is enabled is not reported by
+  the BMS.
 - **cell_disconnect**: a set bit indicates a physically disconnected cell
   (broken wire, faulty connection). Any non-zero value triggers `problem=True`
   in the driver.
@@ -107,9 +124,25 @@ Each is a 24-bit bitmap where bit 0 = cell 1, bit 1 = cell 2, etc.
 
 Up to 24 cells, 2 bytes each (unsigned 16-bit LE, millivolts).
 
-## 0x58 — Configuration (44 data bytes)
+## 0x58 — Configuration (48 data bytes)
 
-All fields are 2-byte unsigned LE unless noted.
+All fields are 2-byte unsigned LE unless noted, giving 24 values.
+
+> **Warning:** These are **protection trip points**. They do not track the
+> operating envelope, in either direction, and must not be fed to a charge
+> controller as operating limits.
+>
+> Measured on a 12 V 640 Ah pack, against its
+> [datasheet](https://www.humsienk.com/collections/12v-batteries/products/12v-640ah-bluetooth-lifepo4-battery)
+> rating of 250 A maximum continuous and a 0–45 °C charge range:
+>
+> | Field | BMS reports | Datasheet | |
+> |---|---|---|---|
+> | `charge_ocp` | 300.0 A | 250 A continuous | higher |
+> | `discharge_ocp1` / `ocp2` | 300.0 A / 455.0 A | 250 A continuous | higher |
+> | `charge_high_temp` | 55 °C | 45 °C | higher |
+> | `discharge_high_temp` | 60 °C | 65 °C | **lower** |
+> | `rated_capacity` | 628 Ah | 640 Ah | **lower** |
 
 | Offset | Field | Description |
 |--------|-------|-------------|
@@ -135,5 +168,14 @@ All fields are 2-byte unsigned LE unless noted.
 | 38 | discharge_high_temp_recovery | Discharge high temp recovery |
 | 40 | discharge_low_temp | Discharge low temp threshold (deciKelvin) |
 | 42 | discharge_low_temp_recovery | Discharge low temp recovery |
+| 44 | *unknown* | Purpose unconfirmed; reads 3450 on a 4S LiFePO4 pack |
+| 46 | *unknown* | Purpose unconfirmed; reads 30 on a 4S LiFePO4 pack |
 
 Temperature conversion: `°C = (raw - 2731) / 10`
+
+> **Note:** The delay fields are in unconfirmed units. A recorded pack reports
+> `ovp_delay` 4, `uvp_delay` 4, `charge_ocp_delay` 16, `discharge_ocp1_delay` 160
+> and `discharge_ocp2_delay` 20480, which is not consistent with seconds across
+> all of them — and OCP2 guards a higher current than OCP1, so it would be
+> expected to trip sooner, not later. Treat the raw values as opaque until
+> confirmed.

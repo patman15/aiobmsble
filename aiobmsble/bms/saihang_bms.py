@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -34,6 +34,9 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 25, 4, False, lambda x: x // 100),
         BMSDp("cycles", 29, 2, False),
         BMSDp("problem_code", 31, 2, False, lambda x: ~x & 0xFFFF),
+        BMSDp("chrg_mosfet", 37, 2, False, lambda x: bool(x & 0x0200)),
+        BMSDp("dischrg_mosfet", 37, 2, False, lambda x: bool(x & 0x0400)),
+        BMSDp("balancer", 41, 2, False),
         BMSDp("cell_count", 43, 2, False, lambda x: min(x, BMS._MAX_CELLS)),
         BMSDp("temp_sensors", 85, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
     )
@@ -41,12 +44,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
@@ -89,14 +91,13 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length %d", len(data))
             return
 
-        if (crc := crc_modbus(data[2:-2])) != int.from_bytes(
-            data[-2:], byteorder="little"
+        if not self._check_integrity(
+            data,
+            crc_modbus,
+            slice(2, -2),
+            slice(-2, None),
+            "little",
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(data[-2:], byteorder="little"),
-                crc,
-            )
             return
 
         self._msg = bytes(data)
@@ -104,7 +105,7 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(BMS._HEAD + b"\x00\x03\x00\x00\x00\x48\x44\x2d")
+        await self._await_msg(BMS._HEAD + BMS._cmd_modbus(count=0x48))
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
         result["cell_voltages"] = BMS._cell_voltages(
@@ -114,8 +115,17 @@ class BMS(BaseBMS):
             self._msg,
             values=result.get("temp_sensors", 0),
             start=87,
-            offset=2731,
+            offset=2730,
             divider=10,
+            types=(TempSensor.T.CELL,) * result.get("temp_sensors", 0),
+        ) + BMS._temp_values(
+            self._msg,
+            values=2,
+            start=107,
+            offset=2730,
+            divider=10,
+            types=(TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
+        result["temp_sensors"] = len(result["temp_values"])
 
         return result
