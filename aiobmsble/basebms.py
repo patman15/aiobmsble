@@ -44,7 +44,7 @@ from aiobmsble._sample_calc import derive_missing_fields
 class BaseBMS(ABC):
     """Abstract base class for battery management system."""
 
-    INFO: BMSInfo  # static BMS info
+    INFO: BMSInfo  # static BMS info (available before connect)
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
     BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value
