@@ -15,12 +15,15 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
  2. Add a new file to the `bms` folder called, e.g. `my_bms.py`.
  3. Populate the file with a class called `BMS` derived from `BaseBMS` (see `basebms.py`).
     A working template is available at [`aiobmsble/bms/dummy_bms.py`](aiobmsble/bms/dummy_bms.py).
+    If the device speaks a protocol that an existing plugin already implements, derive
+    from that plugin's `BMS` class instead (it transitively derives from `BaseBMS`) and
+    override only what differs — see [Deriving from an existing plugin](#deriving-from-an-existing-plugin).
  4. The `BMS` class **must** define the following:
     - `INFO: BMSInfo` — class-level attribute with at minimum `default_manufacturer` and `default_model`.
     - `matcher_dict_list()` — list of [`MatcherPattern`](aiobmsble/__init__.py) dicts used for BLE auto-detection. The pattern **must** be unique across all plugins.
     - `uuid_services()` — tuple of 128-bit UUIDs of the BLE services required by the BMS.
-    - `uuid_rx()` — 16-bit UUID of the characteristic that provides notifications (incoming data).
-    - `uuid_tx()` — 16-bit UUID of the characteristic used to send commands.
+    - `uuid_rx()` — 16/32/128-bit UUID of the characteristic that provides notifications (incoming data).
+    - `uuid_tx()` — 16/32/128-bit UUID of the characteristic used to send commands.
     - `_notification_handler()` — callback invoked when a BLE notification arrives; validates the frame and sets `self._msg_event` when a complete, valid frame is available.
     - `_async_update()` — sends command(s) to the BMS, parses the response, and returns a `BMSSample`.
  5. Make sure that the `BMSSample` returned by `_async_update()` contains at minimum the keys listed before the *detailed information* comment in the [`BMSSample`](aiobmsble/__init__.py) class.
@@ -49,6 +52,15 @@ The template also shows optional overrides as comments:
 - `accept_secret` — set to `True` if the BMS requires a password/secret for authentication.
 - `_fetch_device_info()` — override to query device information from the BMS directly instead of reading BLE standard service `0x180A`.
 
+### Deriving from an existing plugin
+
+When the target device speaks a protocol that an existing plugin already implements, derive from that plugin's `BMS` class (which itself derives from `BaseBMS`) rather than from `BaseBMS` directly. The criterion is reuse of the parent's *wire protocol*: framing, notification assembly, command construction, checksum/CRC, and connection flow. Derive directly from `BaseBMS` only when introducing genuinely new framing, notification handling, command building, or integrity handling. There are two common patterns:
+
+- **OEM rebrand / twin** (identical protocol and field layout): override only device identity and BLE addressing, i.e. `INFO`, `matcher_dict_list()`, and `uuid_services()`/`uuid_rx()`/`uuid_tx()`. See `ag_bms.py` (from `ej_bms.py`) and `eleksol_bms.py` (from `jbd_bms.py`).
+- **Protocol variant** (same transport, different data map or a narrow behavioural tweak): additionally override the declarative field map (`_FIELDS`/`FIELDS`), protocol constants, scaling, and at most a small hook such as `_notification_handler()`, `_async_update()`, `_fetch_device_info()`, or `_init_connection()`. See `pwrboozt_bms.py` (from `ej_bms.py`), `c4s_bms.py` (from `vatrer_bms.py`), `daren_bms.py` (from `jbd_bms.py`), `pwrxtreme_bms.py` (from `topband_bms.py`), and `renogy_pro_bms.py` (from `renogy_bms.py`).
+
+Do not duplicate a parent's notification handler, command builder, or integrity logic in the child; override only what genuinely differs. When writing a plugin intended to be subclassed, expose the field tuple as a plain (non-`Final`) class attribute so a child can replace it or patch entries with `BMSDp._replace()` without touching protocol code.
+
 ### Any contributions you make will be under the Apache-2.0 License
 
 In short, when you submit code changes, your submissions are understood to be under the same [Apache-2.0](LICENSE) that covers the project. Feel free to contact the maintainers if that's a concern.
@@ -71,7 +83,8 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
 - This library is about Bluetooth Low Energy (BLE) [battery management systems](#how-to-qualify-as-a-bms). No other device categories are included in order to keep the interface clean.
 - The BT pattern matcher (`matcher_dict_list()`) shall return patterns unique to the target device to enable reliable auto-detection.
 - Frame parsing shall validate each frame according to the protocol specification (e.g. CRC, length, allowed message types). Invalid frames shall be discarded.
-- All plugin classes shall inherit from `BaseBMS` and use its helper methods before overriding or replacing behaviour.
+- All plugin classes shall inherit from `BaseBMS`—directly, or via an existing plugin's `BMS` class when reusing that protocol (see [Deriving from an existing plugin](#deriving-from-an-existing-plugin))—and use its helper methods before overriding or replacing behaviour.
+- Prefer declarative field decoding: describe scalar values with [`BMSDp`](aiobmsble/__init__.py) entries in a `_FIELDS: tuple[BMSDp, ...]` class attribute and decode them via `BaseBMS._decode_data()` before writing manual parsing. Use per-variant `_FIELDS_*` tuples when the protocol has more than one frame layout.
 - If available, data shall be read directly from the device. `BaseBMS._add_missing_values()` is only used to ensure consistent data across all BMS types.
 - Where possible, use the utility functions provided by `BaseBMS` (e.g. `_decode_data()`, `_cell_voltages()`, `_temp_values()`, `_check_integrity()`, `_cmd_modbus()`).
 - Tests shall use recorded frames from a real device (stored in `aiobmsble/test_data/`) to allow new parsed values to be added at a later point.
