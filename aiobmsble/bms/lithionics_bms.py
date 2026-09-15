@@ -32,10 +32,7 @@ class BMS(BaseBMS):
         prim = auto()
         stat = auto()
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Lithionics",
-        "default_model": "NeverDie smart BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "Lithionics", "model": "NeverDie smart BMS"}
     _HEAD_STAT: Final[bytes] = b"&,"
     _MIN_FIELDS_PRIM: Final[int] = 10
     _MIN_FIELDS_STAT: Final[int] = 3

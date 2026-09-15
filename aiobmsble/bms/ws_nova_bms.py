@@ -19,10 +19,7 @@ from aiobmsble.basebms import BaseBMS, b2str
 class BMS(BaseBMS):
     """Wattstunde Nova Core BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Wattstunde",
-        "default_model": "Nova Core",
-    }
+    INFO: BMSInfo = {"manufacturer": "Wattstunde", "model": "Nova Core"}
     _HEAD: Final[bytes] = b"\x3a"  # beginning of frame
     _TAIL: Final[bytes] = b"\x7e"  # end of frame
     _MIN_LEN: Final[int] = 238  # heater*2 + tail

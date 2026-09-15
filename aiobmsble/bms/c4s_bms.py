@@ -13,10 +13,7 @@ from aiobmsble.bms.vatrer_bms import BMS as VatrerBMS
 class BMS(VatrerBMS):
     """C4S100-family generic Modbus-over-BLE Smart BMS (derived from VatrerBMS)."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Generic",
-        "default_model": "C4S100 Smart BMS (RC6621A)",
-    }
+    INFO: BMSInfo = {"manufacturer": "Generic", "model": "C4S100 Smart BMS (RC6621A)"}
     _TEMPS: Final[int] = 2  # 2 physical temp sensors (MOS_T, ENV_T), see docs
     _REG_COUNT: Final[int] = 0x46  # 70 holding registers polled in one request
 

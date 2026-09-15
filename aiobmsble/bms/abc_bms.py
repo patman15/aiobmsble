@@ -19,10 +19,7 @@ from aiobmsble.basebms import BaseBMS, b2str, crc8
 class BMS(BaseBMS):
     """ABC BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Chunguang Song",
-        "default_model": "ABC-BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "Chunguang Song", "model": "ABC-BMS"}
     _HEAD_CMD: Final[int] = 0xEE
     _HEAD_RESP: Final[bytes] = b"\xcc"
     _INFO_LEN: Final[int] = 0x14

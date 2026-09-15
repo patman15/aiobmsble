@@ -18,7 +18,7 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 class BMS(BaseBMS):
     """CBT Power smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "CBT Power", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"manufacturer": "CBT Power", "model": "smart BMS"}
     _HEAD: Final[bytes] = b"\xaa\x55"
     _TAIL_RX: Final[bytes] = b"\x0d\x0a"
     _TAIL_TX: Final[bytes] = b"\x0a\x0d"

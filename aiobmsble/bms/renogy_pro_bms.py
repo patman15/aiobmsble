@@ -15,10 +15,7 @@ from aiobmsble.bms.renogy_bms import BMS as RenogyBMS
 class BMS(RenogyBMS):
     """Renogy Pro battery class implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Renogy",
-        "default_model": "BT battery pro",
-    }
+    INFO: BMSInfo = {"manufacturer": "Renogy", "model": "BT battery pro"}
     _HEAD: bytes = b"\xff\x03"  # SOP, read fct (x03)
     FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),

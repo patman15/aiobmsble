@@ -28,7 +28,7 @@ class Proto(IntEnum):
 class BMS(BaseBMS):
     """Daly smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Daly", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"manufacturer": "Daly", "model": "smart BMS"}
     _FCT_RD: Final[int] = 0x03
     _HEAD_LEN: Final[int] = 3
     _CRC_LEN: Final[int] = 2

@@ -14,7 +14,7 @@ from aiobmsble.bms.jbd_bms import BMS as JBDBMS
 class BMS(JBDBMS):
     """Daren smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Daren", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"manufacturer": "Daren", "model": "smart BMS"}
     _VALID_CMD: frozenset[int] = frozenset({0x03, 0x04, 0x05, 0x08, 0xFF})
     _MAX_TEMP_COUNT: Final[int] = 4
     _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4 + (TS.T.MOSFET, TS.T.AMBIENT)

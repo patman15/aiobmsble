@@ -18,10 +18,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Offgridtec LiFePO4 Smart Pro type A and type B BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Offgridtec",
-        "default_model": "LiFePo4 Smart Pro",
-    }
+    INFO: BMSInfo = {"manufacturer": "Offgridtec", "model": "LiFePo4 Smart Pro"}
     # magic crypt sequence of length 16
     _CRY_SEQ: Final[tuple[int, ...]] = (2, 5, 4, 3, 1, 4, 1, 6, 8, 3, 7, 2, 5, 8, 9, 3)
     # Fields for type A: register -> BMSDp
