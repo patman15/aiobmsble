@@ -2,6 +2,7 @@ BMS,battery charging,battery mode,battery level,battery health,current,power,tem
 AG Automotive (AG Power Lithium),.,,✓,,✓,,.,,,✓,,.,.,✓,,,,✓,,✓,,,✓,✓,✓,✓,✓,,,,,
 ANT (legacy smart BMS),.,,✓,,✓,.,.,✓,.,.,.,.,✓,✓,,✓,✓,✓,✓,✓,,,✓,✓,✓,✓,,,,,,
 ANT (smart BMS),✓,,✓,✓,✓,✓,.,✓,.,.,✓,.,.,✓,,✓,✓,✓,✓,✓,,✓,✓,✓,✓,✓,,,,,,
+Batterieschmiede (Saftkiste BMS),.,,.,,✓,.,,✓,.,✓,.,.,.,,,.,✓,✓,,✓,,,,,,,,,,,,
 Braun Power (smart BMS),.,,✓,✓,✓,.,.,✓,.,✓,.,.,.,✓,,✓,✓,✓,,✓,,✓,✓,✓,,,,,,,,
 Buknuwo (smart battery),.,,✓,✓,✓,.,.,✓,.,✓,,.,.,,,,,✓,,✓,,✓,✓,✓,✓,✓,,,,,,
 CBT Power (smart BMS),.,,✓,,✓,.,.,✓,.,✓,.,.,✓,,,.,✓,.,,✓,,,✓,✓,,,,,,,,
