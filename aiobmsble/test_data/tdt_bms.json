@@ -55,5 +55,23 @@
       "SKU: WT12V314AH200MINIBTS, Model: 12V314AH",
       "Date: 2026/04/01, Manufacturer: Shenzhen Washi Energy Co., Ltd."
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "WTbFcBG2621080",
+      "platform_data": ["63:A1:00:00:00:00"],
+      "rssi": -68,
+      "manufacturer_data": { "31526": "88a063a100000000" },
+      "service_data": {},
+      "service_uuids": [
+        "0000ffe0-0000-1000-8000-00805f9b34fb",
+        "0000ffe1-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "tdt_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/290)",
+      "WattCycle 50A 48V LiFePO4 battery Firmware CLY-5673-V1.3, HW 22/0001"
+    ]
   }
 ]

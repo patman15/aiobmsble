@@ -74,13 +74,25 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [
-            MatcherPattern(
-                local_name=pattern,
-                connectable=True,
-            )
-            for pattern in ("HS02*", "WTDH*", "WTaHdAZ*")
-        ] + [{"manufacturer_id": 54976, "connectable": True}]
+        return (
+            [
+                MatcherPattern(
+                    local_name=pattern,
+                    service_uuid=normalize_uuid_str("fff0"),
+                    connectable=True,
+                )
+                for pattern in ("WTDH*", "WT???AZ*")
+            ]
+            + [
+                MatcherPattern(
+                    local_name=pattern,
+                    service_uuid=normalize_uuid_str("ffe1"),
+                    connectable=True,
+                )
+                for pattern in ("HS*", "WT???BG*")
+            ]
+            + [{"manufacturer_id": 54976, "connectable": True}]
+        )
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
@@ -129,7 +141,9 @@ class BMS(BaseBMS):
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         try:
-            await self._await_msg(data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False)
+            await self._await_msg(
+                data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False
+            )
             if (
                 ret := int.from_bytes(await self._client.read_gatt_char(BMS._UUID_CFG))
             ) != 0x1:
