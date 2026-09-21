@@ -91,157 +91,155 @@ _PROTO_DEFS: Final[dict[str, dict[int, bytes]]] = {
 }
 
 
-def ref_value() -> dict[str, BMSSample]:
-    """Return reference value for mock Seplos BMS."""
-    return {
-        "4S4Tv0.0": {
-            "cell_count": 4,
-            "temp_sensors": 4,
-            "voltage": 13.18,
-            "current": 0.0,
-            "battery_level": 55,
-            "cycle_charge": 57.5,
-            "cycles": 8,
-            "temperature": 23.075,
-            "cycle_capacity": 757.85,
-            "power": 0.0,
-            "battery_charging": False,
-            "cell_voltages": [3.297, 3.295, 3.297, 3.292],
-            "temp_values": [
-                TS(23.2, TS.T.AMBIENT),
-                TS(24.0, TS.T.MOSFET),
-                TS(22.6, TS.T.CELL),
-                TS(22.5, TS.T.CELL),
-            ],
-            "delta_voltage": 0.005,
-            "chrg_mosfet": True,
-            "dischrg_mosfet": True,
-            "problem": False,
-            "problem_code": 0,
-        },
-        "16S6Tv0.0": {
-            "cell_count": 16,
-            "temp_sensors": 6,
-            "voltage": 52.7,
-            "current": -5.7,
-            "battery_level": 91,
-            "cycle_charge": 99.1,
-            "cycles": 8,
-            "temperature": 18.317,
-            "cycle_capacity": 5222.57,
-            "power": -300.39,
-            "battery_charging": False,
-            "cell_voltages": [
-                3.299,
-                3.302,
-                3.294,
-                3.294,
-                3.293,
-                3.294,
-                3.293,
-                3.292,
-                3.292,
-                3.290,
-                3.294,
-                3.294,
-                3.294,
-                3.293,
-                3.295,
-                3.294,
-            ],
-            "temp_values": [TS(17.9, TS.T.AMBIENT), TS(19.6, TS.T.MOSFET)]
-            + [TS(v, TS.T.CELL) for v in (17.9, 17.9, 17.9, 18.7)],
-            "delta_voltage": 0.012,
-            "runtime": 62589,
-            "chrg_mosfet": True,
-            "dischrg_mosfet": True,
-            "problem": False,
-            "problem_code": 0,
-        },
-        "16S6Tv0.4": {
-            "cell_count": 16,
-            "temp_sensors": 6,
-            "cell_voltages": [
-                3.25,
-                3.256,
-                3.253,
-                3.256,
-                3.252,
-                3.254,
-                3.256,
-                3.257,
-                3.253,
-                3.257,
-                3.257,
-                3.257,
-                3.258,
-                3.255,
-                3.255,
-                3.256,
-            ],
-            "temp_values": [TS(25.4, TS.T.AMBIENT), TS(25.1, TS.T.MOSFET)]
-            + [TS(v, TS.T.CELL) for v in (26.9, 25.9, 27.9, 27.2)],
-            "voltage": 52.16,
-            "current": -16.2,
-            "cycle_charge": 64.5,
-            "battery_level": 51,
-            "cycles": 213,
-            "problem_code": 0,
-            "delta_voltage": 0.008,
-            "cycle_capacity": 3364.32,
-            "power": -844.992,
-            "battery_charging": False,
-            "runtime": 14333,
-            "temperature": 26.4,
-            "chrg_mosfet": True,
-            "dischrg_mosfet": True,
-            "problem": False,
-        },
-        "16S6Tv1.1": {
-            "cell_count": 16,
-            "temp_sensors": 6,
-            "cell_voltages": [
-                3.317,
-                3.314,
-                3.315,
-                3.315,
-                3.312,
-                3.316,
-                3.314,
-                3.312,
-                3.314,
-                3.315,
-                3.314,
-                3.313,
-                3.313,
-                3.313,
-                3.314,
-                3.311,
-            ],
-            "temp_values": [
-                TS(26.9, TS.T.AMBIENT),
-                TS(28.9, TS.T.MOSFET),
-                TS(25.9, TS.T.CELL),
-                TS(25.9, TS.T.CELL),
-                TS(25.9, TS.T.CELL),
-                TS(25.9, TS.T.CELL),
-            ],
-            "voltage": 53.03,
-            "current": 5,
-            "cycle_charge": 49,
-            "battery_level": 50,
-            "cycles": 12,
-            "problem_code": 0,
-            "chrg_mosfet": True,
-            "dischrg_mosfet": True,
-            "delta_voltage": 0.006,
-            "cycle_capacity": 2598.47,
-            "power": 265.15,
-            "battery_charging": True,
-            "temperature": 26.567,
-            "problem": False,
-        },
-    }
+_RESULT_DEFS: dict[str, BMSSample] = {
+    "4S4Tv0.0": {
+        "cell_count": 4,
+        "temp_sensors": 4,
+        "voltage": 13.18,
+        "current": 0.0,
+        "battery_level": 55,
+        "cycle_charge": 57.5,
+        "cycles": 8,
+        "temperature": 23.075,
+        "cycle_capacity": 757.85,
+        "power": 0.0,
+        "battery_charging": False,
+        "cell_voltages": [3.297, 3.295, 3.297, 3.292],
+        "temp_values": [
+            TS(23.2, TS.T.AMBIENT),
+            TS(24.0, TS.T.MOSFET),
+            TS(22.6, TS.T.CELL),
+            TS(22.5, TS.T.CELL),
+        ],
+        "delta_voltage": 0.005,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
+        "problem": False,
+        "problem_code": 0,
+    },
+    "16S6Tv0.0": {
+        "cell_count": 16,
+        "temp_sensors": 6,
+        "voltage": 52.7,
+        "current": -5.7,
+        "battery_level": 91,
+        "cycle_charge": 99.1,
+        "cycles": 8,
+        "temperature": 18.317,
+        "cycle_capacity": 5222.57,
+        "power": -300.39,
+        "battery_charging": False,
+        "cell_voltages": [
+            3.299,
+            3.302,
+            3.294,
+            3.294,
+            3.293,
+            3.294,
+            3.293,
+            3.292,
+            3.292,
+            3.290,
+            3.294,
+            3.294,
+            3.294,
+            3.293,
+            3.295,
+            3.294,
+        ],
+        "temp_values": [TS(17.9, TS.T.AMBIENT), TS(19.6, TS.T.MOSFET)]
+        + [TS(v, TS.T.CELL) for v in (17.9, 17.9, 17.9, 18.7)],
+        "delta_voltage": 0.012,
+        "runtime": 62589,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
+        "problem": False,
+        "problem_code": 0,
+    },
+    "16S6Tv0.4": {
+        "cell_count": 16,
+        "temp_sensors": 6,
+        "cell_voltages": [
+            3.25,
+            3.256,
+            3.253,
+            3.256,
+            3.252,
+            3.254,
+            3.256,
+            3.257,
+            3.253,
+            3.257,
+            3.257,
+            3.257,
+            3.258,
+            3.255,
+            3.255,
+            3.256,
+        ],
+        "temp_values": [TS(25.4, TS.T.AMBIENT), TS(25.1, TS.T.MOSFET)]
+        + [TS(v, TS.T.CELL) for v in (26.9, 25.9, 27.9, 27.2)],
+        "voltage": 52.16,
+        "current": -16.2,
+        "cycle_charge": 64.5,
+        "battery_level": 51,
+        "cycles": 213,
+        "problem_code": 0,
+        "delta_voltage": 0.008,
+        "cycle_capacity": 3364.32,
+        "power": -844.992,
+        "battery_charging": False,
+        "runtime": 14333,
+        "temperature": 26.4,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
+        "problem": False,
+    },
+    "16S6Tv1.1": {
+        "cell_count": 16,
+        "temp_sensors": 6,
+        "cell_voltages": [
+            3.317,
+            3.314,
+            3.315,
+            3.315,
+            3.312,
+            3.316,
+            3.314,
+            3.312,
+            3.314,
+            3.315,
+            3.314,
+            3.313,
+            3.313,
+            3.313,
+            3.314,
+            3.311,
+        ],
+        "temp_values": [
+            TS(26.9, TS.T.AMBIENT),
+            TS(28.9, TS.T.MOSFET),
+            TS(25.9, TS.T.CELL),
+            TS(25.9, TS.T.CELL),
+            TS(25.9, TS.T.CELL),
+            TS(25.9, TS.T.CELL),
+        ],
+        "voltage": 53.03,
+        "current": 5,
+        "cycle_charge": 49,
+        "battery_level": 50,
+        "cycles": 12,
+        "problem_code": 0,
+        "chrg_mosfet": True,
+        "dischrg_mosfet": True,
+        "delta_voltage": 0.006,
+        "cycle_capacity": 2598.47,
+        "power": 265.15,
+        "battery_charging": True,
+        "temperature": 26.567,
+        "problem": False,
+    },
+}
 
 
 @pytest.fixture(
@@ -351,7 +349,7 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()[protocol_type]
+    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
     await bms.async_update()
@@ -381,7 +379,7 @@ async def test_update_wo_auth(
 
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    assert await bms.async_update() == ref_value()["4S4Tv0.0"]
+    assert await bms.async_update() == _RESULT_DEFS["4S4Tv0.0"]
 
     await bms.disconnect()
 
@@ -414,7 +412,7 @@ async def test_update_0x1e_head(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()["4S4Tv0.0"]
+    assert await bms.async_update() == _RESULT_DEFS["4S4Tv0.0"]
 
     # query again to check already connected state
     await bms.async_update()
@@ -560,7 +558,7 @@ async def test_init_fail(
         with pytest.raises(BleakDeviceNotFoundError):
             assert not await bms.async_update()
     else:
-        assert await bms.async_update() == ref_value()["16S6Tv0.0"]
+        assert await bms.async_update() == _RESULT_DEFS["16S6Tv0.0"]
 
     await bms.disconnect()
 
