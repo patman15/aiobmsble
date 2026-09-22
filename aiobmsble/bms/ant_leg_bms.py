@@ -75,10 +75,10 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": pattern,
-                "service_uuid": BMS.uuid_services()[0],
+                "local_name": "ANT-BLE*",
+                "service_uuid": normalize_uuid_str("fee7"),
                 "connectable": True,
-            } for pattern in ("ANT-BLE[01]*", "ANT-BLE22*")
+            }
         ]
 
     @staticmethod
