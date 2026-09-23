@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.utils import StreamParser
 
@@ -41,8 +41,8 @@ class BMS(BaseBMS):
     """MyVolta BMS implementation."""
 
     INFO: BMSInfo = {
-        "default_manufacturer": "Voltagen Power Solutions",
-        "default_model": "MyVolta BLE HW",
+        "manufacturer": "Voltagen Power Solutions",
+        "model": "MyVolta BLE HW",
     }
     _PRB_MASK: Final[int] = 0xFF00FFFF  # mask to extract problem code (byte 3 unused)
     _FIELDS: Final[tuple[BMSDp, ...]] = (
@@ -65,12 +65,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: dict[int, bytes] = {}
         self.parser: Final[StreamParser] = StreamParser(DLE=0x05, STX=0x55, ETX=0x04)
 

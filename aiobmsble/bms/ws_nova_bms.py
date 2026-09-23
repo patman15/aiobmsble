@@ -12,17 +12,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, b2str
 
 
 class BMS(BaseBMS):
     """Wattstunde Nova Core BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Wattstunde",
-        "default_model": "Nova Core",
-    }
+    INFO: BMSInfo = {"manufacturer": "Wattstunde", "model": "Nova Core"}
     _HEAD: Final[bytes] = b"\x3a"  # beginning of frame
     _TAIL: Final[bytes] = b"\x7e"  # end of frame
     _MIN_LEN: Final[int] = 238  # heater*2 + tail
@@ -39,19 +36,18 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 25, 1, False),
         BMSDp("design_capacity", 26, 4, False, lambda x: x // 1000),
         BMSDp("cycle_charge", 30, 4, False, lambda x: x / 1000),
-        BMSDp("heater", 115, 4, False, bool),
+        BMSDp("heater", 64, 4, False, bool),
         BMSDp("problem_code", 0, 2, False, lambda x: x & 0x0FFC),
     )
 
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod

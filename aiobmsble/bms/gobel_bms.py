@@ -2,9 +2,6 @@
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
-
-This module implements support for Gobel Power BMS devices that use Modbus RTU
-protocol over Bluetooth Low Energy.
 """
 
 from typing import Final
@@ -12,14 +9,14 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
     """Gobel Power BLE BMS class implementation using Modbus RTU over BLE."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Gobel Power", "default_model": "BLE BMS"}
+    INFO: BMSInfo = {"manufacturer": "Gobel Power", "model": "BLE BMS"}
 
     # Modbus constants
     _SLAVE_ADDR: Final[int] = 0x01
@@ -62,12 +59,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
@@ -131,18 +127,16 @@ class BMS(BaseBMS):
         # Start of a new frame - check for valid Modbus response header
         if len(data) >= 2 and data[0] == BMS._SLAVE_ADDR:
             # Check if it's a valid read response or error response
-            if data[1] == BMS._FUNC_READ or data[1] == (BMS._FUNC_READ | 0x80):
-                # Start new frame (clear any old data)
-                self._frame = bytearray(data)
-            else:
+            if data[1] != BMS._FUNC_READ and data[1] != (BMS._FUNC_READ | 0x80):
                 self._log.debug("unexpected function code: 0x%02X", data[1])
                 return
-        elif self._frame:
-            # Continuation of existing frame
-            self._frame.extend(data)
-        else:
+            # Start new frame (clear any old data)
+            self._frame.clear()
+        elif not self._frame:
             self._log.debug("unexpected data, ignoring: %s", data.hex(" "))
             return
+
+        self._frame.extend(data)
 
         # Check if we have enough data for minimum frame
         if len(self._frame) < BMS._MIN_FRAME_LEN:

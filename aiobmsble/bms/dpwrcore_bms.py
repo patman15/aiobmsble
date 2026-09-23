@@ -13,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
@@ -33,10 +33,7 @@ class Cmd(IntEnum):
 class BMS(BaseBMS):
     """D-powercore smart BMS class implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "D-powercore",
-        "default_model": "smart BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "D-powercore", "model": "smart BMS"}
     _PAGE_LEN: Final[int] = 20
     _MAX_CELLS: Final[int] = 32
     _FIELDS: Final[tuple[BMSDp, ...]] = (
@@ -63,12 +60,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         assert self._ble_device.name is not None  # required for unlock
         self._msg: dict[int, bytes] = {}
 
@@ -112,9 +108,6 @@ class BMS(BaseBMS):
             self._log.debug("ignoring ACK message")
             return
 
-        # acknowledge received frame
-        await self._await_msg(bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False)
-
         page: Final[int] = data[1] >> 4
         if page == 1:
             self._frame.clear()
@@ -122,6 +115,9 @@ class BMS(BaseBMS):
         self._frame.extend(data[2 : data[0] + 2])
 
         self._log.debug("(%s): %s", "start" if page == 1 else "cnt.", data)
+
+        # acknowledge received frame
+        await self._await_msg(bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False)
 
         if page == data[1] & 0xF:  # check if last page
             if not self._check_integrity(

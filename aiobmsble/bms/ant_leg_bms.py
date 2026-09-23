@@ -1,4 +1,8 @@
-"""Module to support ANT BMS."""
+"""Module to support ANT BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 import contextlib
 from enum import IntEnum
@@ -9,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -27,7 +31,7 @@ class BMS(BaseBMS):
 
         STATUS = 0x00
 
-    INFO: BMSInfo = {"default_manufacturer": "ANT", "default_model": "legacy smart BMS"}
+    INFO: BMSInfo = {"manufacturer": "ANT", "model": "legacy smart BMS"}
     _RX_HEADER: Final[bytes] = b"\xaa\x55\xaa"
     _RX_HEADER_RSP_STAT: Final[bytes] = b"\xaa\x55\xaa\xff"
 
@@ -59,12 +63,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod

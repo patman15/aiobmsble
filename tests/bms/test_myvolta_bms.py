@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.myvolta_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -50,7 +50,6 @@ class MockMyVoltaBleakClient(MockBleakClient):
         b"\x01\x03\x05\x07\x13\x01\x03\x05\x07\x01\x03\x05\x01\x03\x01"
     )
     _RESP: bytes = _PROTO_DEFS
-    _task: asyncio.Task[None] | None = None
 
     def __init__(
         self,
@@ -63,6 +62,7 @@ class MockMyVoltaBleakClient(MockBleakClient):
         super().__init__(
             address_or_ble_device, disconnected_callback, services, **kwargs
         )
+        self._task: asyncio.Task[None] | None = None
         self._iterator: int = 0
         self._pos: int = 0
 
@@ -90,7 +90,7 @@ class MockMyVoltaBleakClient(MockBleakClient):
     ) -> None:
         """Mock start_notify."""
         await super().start_notify(char_specifier, callback, **kwargs)
-        self._task = asyncio.create_task(self._stream_data())
+        self._task = asyncio.create_task(self._stream_data(), name="send_loop")
         await asyncio.sleep(0)
 
     async def disconnect(self) -> None:
@@ -107,7 +107,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockMyVoltaBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == {
         "voltage": 57.345,
@@ -165,7 +165,7 @@ async def test_tx_notimplemented(patch_bleak_client) -> None:
 
     patch_bleak_client(MockMyVoltaBleakClient)
 
-    bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device(), BMSConfig(False))
 
     with pytest.raises(NotImplementedError):
         _ret: str = bms.uuid_tx()
@@ -195,7 +195,6 @@ async def test_invalid_response(
     patch_bleak_client(MockMyVoltaBleakClient)
 
     bms = BMS(generate_ble_device())
-    await asyncio.sleep(1e-3)  # wait for notifications to be sent
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
         result = await bms.async_update()

@@ -10,14 +10,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str
 
 
 class BMS(BaseBMS):
     """TianPwr BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "TianPwr", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"manufacturer": "TianPwr", "model": "smart BMS"}
     _HEAD: Final[bytes] = b"\x55"
     _TAIL: Final[bytes] = b"\xaa"
     _RDCMD: Final[bytes] = b"\x04"
@@ -45,12 +45,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: dict[int, bytes] = {}
 
     @staticmethod
@@ -137,9 +136,9 @@ class BMS(BaseBMS):
             divider=10,
         )
 
-        for idx, T in ((9, TempSensor.T.AMBIENT), (11, TempSensor.T.MOSFET)):
+        for idx, sensor_t in ((9, TempSensor.T.AMBIENT), (11, TempSensor.T.MOSFET)):
             result["temp_values"] += BMS._temp_values(
-                self._msg[0x83], start=idx, divider=10, types=(T,)
+                self._msg[0x83], start=idx, divider=10, types=(sensor_t,)
             )
 
         return result

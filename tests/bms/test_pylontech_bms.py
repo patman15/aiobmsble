@@ -9,7 +9,7 @@ from bleak.backends.scanner import AdvertisementData
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSInfo, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.bms.pylontech_bms import BMS
 from aiobmsble.test_data import adv_dict_to_advdata
 from aiobmsble.utils import _advertisement_matches
@@ -133,7 +133,7 @@ class MockPylontechBleakClient(MockBleakClient):
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test BMS data update returns correct values."""
     patch_bleak_client(MockPylontechBleakClient)
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == ref_value()
 

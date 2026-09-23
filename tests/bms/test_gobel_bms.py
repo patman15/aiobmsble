@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSInfo, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.gobel_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -138,7 +138,7 @@ async def test_update(
     monkeypatch.setattr(MockGobelBleakClient, "_RESP", _FRAME_MAIN_DATA)
     patch_bleak_client(MockGobelBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_MAIN_DATA
 
@@ -249,12 +249,6 @@ async def test_invalid_response(
 
     assert not result
     await bms.disconnect()
-
-
-def test_bms_info() -> None:
-    """Test BMS info definition."""
-    assert BMS.INFO.get("default_manufacturer") == "Gobel Power"
-    assert BMS.INFO.get("default_model") == "BLE BMS"
 
 
 def _build_test_frame(reg_values: dict[int, int]) -> bytearray:

@@ -10,14 +10,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
     """Pylontech RT series BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Pylontech", "default_model": "RT series"}
+    INFO: BMSInfo = {"manufacturer": "Pylontech", "model": "RT series"}
     _DEV_ID: Final[int] = 1
     _REG_SN: Final[tuple[int, int]] = (0x2000, 8)
     # Contiguous block 0x1016-0x1022 = 13 registers
@@ -35,12 +35,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
-        """Initialize BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        """Initialize private BMS members."""
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
         self._exp_len: int = 0
 

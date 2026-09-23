@@ -17,7 +17,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.exc import BleakError
 
-from aiobmsble import BMSInfo, BMSSample, __version__
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, __version__
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.test_data import adv_dict_to_advdata
 from aiobmsble.utils import bms_identify
@@ -52,7 +52,7 @@ async def _try_query(
 ) -> bool:
     """Attempt to query the BMS once. Returns True on success, False on failure."""
     bms_inst: BaseBMS = (
-        bms_cls(ble_device=ble_dev, secret=secret)
+        bms_cls(ble_device=ble_dev, config=BMSConfig(secret=secret))
         if secret
         else bms_cls(ble_device=ble_dev)
     )

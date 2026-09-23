@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.lithionics_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -17,21 +17,25 @@ from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
 
-STREAM_DATA: Final[bytes] = (
-    b"ERROR\r\n"
-    b"1399,350,350,350,349,55,48,-3,99,000000\r\n"
-    b"&,1,319,006391,0136,2300,FF05,8700\r\n"
-)
+_PROTO_DEFS: Final[dict[str, bytes]] = {
+    "stream": (
+        b"ERROR\r\n"
+        b"1399,350,350,350,349,55,48,-3,99,000000\r\n"
+        b"&,1,319,006391,0136,2300,FF05,8700\r\n"
+    ),
+    "fixed_stream": (
+        b"1,01594,0525,048,048,0,00000,000000,080,000100\r\n"
+        b"&,1,0525,0525,078,2,075845,0576,3300,FF03,0000,00,327,328,328\r\n"
+        b"#,1,1,0000,0000,4,25.4,27.1,329,337,333,0005,0102,329,331,337,325\r\n"  # TODO: record
+    ),
+}
 
-
-def ref_value() -> BMSSample:
-    """Return reference value for mock Lithionics BMS."""
-    return {
+_RESULT_DEFS: Final[dict[str, BMSSample]] = {
+    "stream": {
         "voltage": 13.99,
         "current": -3.0,
         "battery_level": 99,
         "problem_code": 0,
-        "temp_sensors": 2,
         "cell_count": 4,
         "cell_voltages": [3.5, 3.5, 3.5, 3.49],
         "temp_values": [TS(12.778), TS(8.889)],
@@ -44,7 +48,32 @@ def ref_value() -> BMSSample:
         "battery_charging": False,
         "runtime": 382800,
         "problem": False,
-    }
+    },
+    "fixed_stream": {
+        "voltage": 52.5,
+        "current": 0.0,
+        "power": 0.0,
+        "battery_level": 48,
+        "battery_charging": False,
+        "cycle_charge": 159.4,
+        "cycle_capacity": 8368.5,
+        "cell_count": 4,
+        "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+        "delta_voltage": 0.08,
+        "temp_values": [TS(26.667)],
+        "temperature": 26.667,
+        "problem_code": 0,
+        "problem": False,
+        "packs": [
+            {
+                "cell_count": 4,
+                "temp_values": [TS(25.4), TS(27.1)],
+                "delta_voltage": 0.08,
+                "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+            }
+        ],
+    },
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -56,7 +85,7 @@ class TestBasicBMS(BMSBasicTests):
 class MockLithionicsBleakClient(MockBleakClient):
     """Emulate a Lithionics BMS BleakClient."""
 
-    _RESP: bytes = STREAM_DATA
+    _RESP: bytes = _PROTO_DEFS["stream"]
     _task: asyncio.Task[None] | None = None
 
     async def _notify(self) -> None:
@@ -85,8 +114,8 @@ class MockLithionicsBleakClient(MockBleakClient):
     ) -> None:
         """Mock start_notify."""
         await super().start_notify(char_specifier, callback)
-        self._task = asyncio.create_task(self._notify())
-        await asyncio.sleep(0) # yield control to allow task to start
+        self._task = asyncio.create_task(self._notify(), name="send_loop")
+        await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
@@ -97,20 +126,69 @@ class MockLithionicsBleakClient(MockBleakClient):
         await super().disconnect()
 
 
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
+def fixture_protocol_type(request: pytest.FixtureRequest) -> str:
+    """Return each supported Lithionics protocol variant."""
+    return request.param
+
+
 async def test_update(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, keep_alive_fixture: bool
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    keep_alive_fixture: bool,
+    protocol_type: str,
 ) -> None:
-    """Test Lithionics BMS data update."""
-    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", STREAM_DATA)
+    """Test Lithionics BMS data update for both stream variants."""
+    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockLithionicsBleakClient)
 
-    bms = BMS(generate_ble_device(name="Lithionics"), keep_alive_fixture)
+    device_name = "Lithionics" if protocol_type == "stream" else "Li3-022724009"
+    bms = BMS(generate_ble_device(name=device_name), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize("cell_count", [True, False], ids=["correct", "wrong_cell"])
+async def test_module_info_sorted(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    cell_count: bool,
+) -> None:
+    """Test that module information is returned in module ID order."""
+    module_2: bytes = (
+        b"#,1,2,0000,0000,4,30.0,31.0,329,337,333,0005,0102,330,331,332"
+        + (b",333\r\n" if cell_count else b"\r\n")
+    )
+    monkeypatch.setattr(
+        MockLithionicsBleakClient,
+        "_RESP",
+        module_2 + _PROTO_DEFS["fixed_stream"],
+    )
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device(name="Li3-022724009"))
+    result: BMSSample = await bms.async_update()
+
+    assert result.get("packs") == [
+        {
+            "cell_count": 4,
+            "temp_values": [TS(25.4), TS(27.1)],
+            "delta_voltage": 0.08,
+            "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+        },
+        {
+            "cell_count": 4,
+            "temp_values": [TS(30.0), TS(31.0)],
+            "delta_voltage": 0.08,
+        }
+        | ({"cell_voltages": [3.30, 3.31, 3.32, 3.33]} if cell_count else {}),
+    ]
 
     await bms.disconnect()
 
@@ -172,9 +250,7 @@ async def test_invalid_frame_length(
     """Test handling of frames exceeding BLE_MAX_ATTR_SIZE in notification handler."""
     patch_bms_timeout("lithionics_bms")
     monkeypatch.setattr(
-        MockLithionicsBleakClient,
-        "_RESP",
-        bytearray(b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1)),
+        MockLithionicsBleakClient, "_RESP", b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1)
     )
     patch_bleak_client(MockLithionicsBleakClient)
 
@@ -196,6 +272,26 @@ def test_uuid_tx_not_implemented() -> None:
     """Test that TX UUID is intentionally not implemented for stream-only protocol."""
     with pytest.raises(NotImplementedError):
         BMS.uuid_tx()
+
+
+async def test_non_numeric_field_raises_value_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+) -> None:
+    """Test that a non-numeric (but correctly shaped) primary field raises ValueError."""
+    stream: bytes = (
+        b"1x,350,350,350,349,55,48,-3,99,000000\r\n"
+        b"&,1,319,006391,0136,2300,FF05,8700\r\n"
+    )
+    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", stream)
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device(name="Lithionics"))
+
+    with pytest.raises(ValueError, match="BMS data incomplete"):
+        await bms.async_update()
+
+    await bms.disconnect()
 
 
 @pytest.mark.parametrize(
@@ -232,5 +328,26 @@ async def test_status_field_variants(
 
     for key, value in expected.items():
         assert result.get(key) == value
+
+    await bms.disconnect()
+
+
+async def test_fixed_length_status_code_masked(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+) -> None:
+    """A real fault bit must surface, the benign idle value must not."""
+    monkeypatch.setattr(
+        MockLithionicsBleakClient,
+        "_RESP",
+        _PROTO_DEFS["fixed_stream"].replace(b",000100\r\n", b",000020\r\n"),
+    )
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device(name="Li3-022724009"))
+    result: BMSSample = await bms.async_update()
+
+    assert result.get("problem_code") == 0x000020  # over-current
+    assert result.get("problem") is True
 
     await bms.disconnect()

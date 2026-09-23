@@ -4,20 +4,20 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from typing import Final
+from typing import Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
     """EG4 BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "EG4 electronics", "default_model": "LL"}
+    INFO: BMSInfo = {"manufacturer": "EG4 electronics", "model": "LL"}
     _HEAD: Final[bytes] = b"\x01\x03"  # dev addr, fct code (read)
     _MAX_CELLS: Final[int] = 16
     _MAX_TEMP: Final[int] = 6
@@ -35,7 +35,9 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 55, 6, False),
         BMSDp("balancer", 79, 2, False),
     )
-    _OPT_FIELDS: Final[tuple[BMSValue, ...]] = (
+    _OPT_FIELDS: Final[
+        tuple[Literal["cycle_charge", "cycles", "design_capacity"], ...]
+    ] = (
         "cycle_charge",
         "cycles",
         "design_capacity",
@@ -44,12 +46,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
         self._exp_len: int = 0
 

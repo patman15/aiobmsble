@@ -8,17 +8,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, MatcherPattern
 from aiobmsble.bms.renogy_bms import BMS as RenogyBMS
 
 
 class BMS(RenogyBMS):
     """Renogy Pro battery class implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Renogy",
-        "default_model": "BT battery pro",
-    }
+    INFO: BMSInfo = {"manufacturer": "Renogy", "model": "BT battery pro"}
     _HEAD: bytes = b"\xff\x03"  # SOP, read fct (x03)
     FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),
@@ -33,12 +30,11 @@ class BMS(RenogyBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._char_write_handle: int = -1
 
     @staticmethod

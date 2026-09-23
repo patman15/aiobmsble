@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
@@ -44,10 +44,7 @@ class MsgT(IntEnum):
 class BMS(BaseBMS):
     """Greenway BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Greenway",
-        "default_model": "BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "Greenway", "model": "BMS"}
     _HEAD_CMD: Final[bytes] = b"\x46\x16\x01"
     _HEAD_RSP: Final[bytes] = b"\x47\x16\x01"
     _LEN_POS: Final[int] = 4
@@ -73,12 +70,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: dict[int, bytes] = {}
         self._exp_reply: int = 0
 

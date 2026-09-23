@@ -8,17 +8,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Dummy BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Dummy Manufacturer",
-        "default_model": "dummy model",
-    }  # TODO: fill correct manufacturer/model
+    INFO: BMSInfo = {  # TODO: fill correct manufacturer/model
+        "manufacturer": "Dummy Manufacturer",
+        "model": "dummy model",
+    }
     # _HEAD: Final[bytes] = b"\x55"  # beginning of frame
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
@@ -28,12 +28,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -58,7 +57,7 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         return BMSInfo(
-            default_manufacturer="Dummy manufacturer", default_model="Dummy BMS"
+            manufacturer="Dummy manufacturer", model="Dummy BMS"
         )  # TODO: implement query code or remove function to query service 0x180A
 
     # @staticmethod

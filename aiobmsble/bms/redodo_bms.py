@@ -11,17 +11,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
 class BMS(BaseBMS):
     """Redodo BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Redodo",
-        "default_model": "Bluetooth battery",
-    }
+    INFO: BMSInfo = {"manufacturer": "Redodo", "model": "Bluetooth battery"}
     _HEAD_LEN: Final[int] = 3
     _MAX_CELLS: Final[int] = 16
     _MAX_TEMP: Final[int] = 5
@@ -41,12 +38,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._temp_sensors: int = 1  # default to 1 temp sensor
         self._msg: bytes = b""
 

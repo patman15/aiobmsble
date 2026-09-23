@@ -103,6 +103,18 @@ def test_subclass_method_order() -> None:
         )
 
 
+def test_alive_interval_requires_alive_override() -> None:
+    """Verify plugins with an alive interval override the keep-alive hook."""
+    subclasses: list[tuple[type[BaseBMS], str]] = _get_bms_subclasses()
+
+    for subclass, file_path in subclasses:
+        if subclass.ALIVE_INTERVAL is not None:
+            assert "_alive" in subclass.__dict__, (
+                f"{subclass.__name__} sets ALIVE_INTERVAL but does not override _alive\n"
+                f"File: {file_path}"
+            )
+
+
 def test_no_pragma_no_cover() -> None:
     """Check that BMS plugin files do not use pragma no cover declarations."""
     pragma_no_cover_files: list[tuple[str, int]] = []

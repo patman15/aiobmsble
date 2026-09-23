@@ -1,6 +1,7 @@
 """Module to support Renogy BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from typing import Final
@@ -9,17 +10,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
     """Renogy battery class implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Renogy",
-        "default_model": "Bluetooth battery",
-    }
+    INFO: BMSInfo = {"manufacturer": "Renogy", "model": "Bluetooth battery"}
     _HEAD: bytes = b"\x30\x03"  # SOP, read fct (x03)
     _CRC_POS: Final[int] = -2
     _TEMP_POS: Final[int] = 37
@@ -35,12 +33,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod

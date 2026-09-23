@@ -11,14 +11,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Pro BMS Smart Shunt class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Pro BMS", "default_model": "Smart Shunt"}
+    INFO: BMSInfo = {"manufacturer": "Pro BMS", "model": "Smart Shunt"}
     _HEAD: Final[bytes] = b"\x55\xaa"
     _MIN_LEN: Final[int] = 5
     _INIT_RESP: Final[int] = 0x03
@@ -55,12 +55,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._valid_reply: int = BMS._RT_DATA
         self._msg: bytes = b""
 

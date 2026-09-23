@@ -9,7 +9,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.dpwrcore_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -191,7 +191,7 @@ async def test_update(
 
     patch_bleak_client(MockDPwrcoreBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), keep_alive_fixture)
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS
 
@@ -243,7 +243,7 @@ async def test_problem_response(patch_bleak_client, dev_name: str) -> None:
 
     patch_bleak_client(MockProblemBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), False)
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), BMSConfig(False))
 
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
@@ -269,7 +269,7 @@ async def test_incomplete_msgs(monkeypatch, patch_bleak_client, dev_name: str) -
     monkeypatch.setattr(MockDPwrcoreBleakClient, "_response", _stuck_response)
     patch_bleak_client(MockDPwrcoreBleakClient)
 
-    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), False)
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), BMSConfig(False))
 
     result: BMSSample = {}
     with pytest.raises(ValueError, match="BMS data incomplete."):

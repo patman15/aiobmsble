@@ -10,17 +10,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
     """Saihang BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Saihang Technology",
-        "default_model": "intelligent BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "Saihang Technology", "model": "intelligent BMS"}
     _HEAD: Final[bytes] = b"\xa5\xa5"  # beginning of frame
     _MIN_FRAME_LEN: Final[int] = 7  # min frame length, including SOF and CRC
     _MAX_TEMP: Final[int] = 10
@@ -44,12 +41,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod

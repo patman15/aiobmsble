@@ -9,7 +9,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_sum
 from aiobmsble.bms.neey_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -158,10 +158,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=["v1", "v2"],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
     assert isinstance(request.param, str)
@@ -177,9 +174,9 @@ class TestBasicBMS(BMSBasicTests):
 class MockNeeyBleakClient(MockBleakClient):
     """Emulate a Neey BMS BleakClient."""
 
-    HEAD_CMD: Final = bytearray(b"\xaa\x55\x11\x01")
-    DEV_INFO: Final = bytearray(b"\x01")
-    CELL_INFO: Final = bytearray(b"\x02")
+    HEAD_CMD: Final = b"\xaa\x55\x11\x01"
+    DEV_INFO: Final = b"\x01"
+    CELL_INFO: Final = b"\x02"
     TAIL: Final = 0xFF
     _FRAME: dict[str, bytearray] = _PROTO_DEFS["v1"]
 
@@ -188,7 +185,7 @@ class MockNeeyBleakClient(MockBleakClient):
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-        frame: Final[bytearray] = bytearray(data)
+        frame: Final[bytes] = bytes(data)
         if (
             char_specifier != "ffe1"
             or frame[19] != self.TAIL
@@ -196,9 +193,9 @@ class MockNeeyBleakClient(MockBleakClient):
         ):
             return bytearray()
         if frame[4:5] == self.CELL_INFO:
-            return self._FRAME["cell"]
+            return bytearray(self._FRAME["cell"])
         if frame[4:5] == self.DEV_INFO:
-            return self._FRAME["dev"]
+            return bytearray(self._FRAME["dev"])
 
         return bytearray()
 
@@ -251,7 +248,7 @@ class MockStreamBleakClient(MockNeeyBleakClient):
         if bytearray(data).startswith(
             self.HEAD_CMD + self.DEV_INFO
         ):  # send all responses as a series
-            self._task = asyncio.create_task(self._send_all())
+            self._task = asyncio.create_task(self._send_all(), name="send all msgs")
             await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
@@ -281,7 +278,7 @@ async def test_update(
 
     monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockNeeyBleakClient)
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
@@ -482,7 +479,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockNeeyBleakClient)
 
-    bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device(), BMSConfig(False))
 
     assert await bms.async_update() == _RESULT_DEFS["v1"] | {
         "problem": True,

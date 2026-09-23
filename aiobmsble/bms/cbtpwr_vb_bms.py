@@ -12,14 +12,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, lrc_modbus
 
 
 class BMS(BaseBMS):
     """CBT Power VB series battery class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Creabest", "default_model": "VB series"}
+    INFO: BMSInfo = {"manufacturer": "Creabest", "model": "VB series"}
     _HEAD: Final[bytes] = b"\x7e"
     _TAIL: Final[bytes] = b"\x0d"
     _CMD_VER: Final[int] = 0x11  # TX protocol version
@@ -40,12 +40,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
-        logger_name: str = "",
+        config: BMSConfig | None = None,
+        logger_name: str = ""
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
         self._exp_len: int = 0
 
@@ -104,7 +103,9 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
+        if (len(self._frame) % 2) or not all(
+            chr(c) in hexdigits for c in self._frame[1:-1]
+        ):
             self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return

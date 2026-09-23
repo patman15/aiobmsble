@@ -1,13 +1,13 @@
 """Test the ANT implementation."""
 
 from collections.abc import Buffer
-from typing import Final, cast
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.ant_leg_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -106,11 +106,11 @@ class TestBasicBMS(BMSBasicTests):
 class MockANTLEGACYBleakClient(MockBleakClient):
     """Emulate a ANT (legacy) BMS BleakClient."""
 
-    CMDS: Final[dict[int, bytearray]] = {
-        BMS.ADR.STATUS: bytearray(b"\xdb\xdb\x00\x00\x00\x00"),
+    CMDS: Final[dict[int, bytes]] = {
+        BMS.ADR.STATUS: b"\xdb\xdb\x00\x00\x00\x00",
     }
-    RESP: Final[dict[int, bytearray]] = {
-        BMS.ADR.STATUS: bytearray(
+    RESP: Final[dict[int, bytes]] = {
+        BMS.ADR.STATUS: (
             b"\xaa\x55\xaa\xff\x02\x1e\x0d\x0a\x0d\x0b\x0d\x0b\x0d\x0b\x0d\x55\x0d\x3f\x0d\x6c\x0d"
             b"\x48\x0d\x88\x0d\x76\x0d\x46\x0d\xb2\x0d\x0b\x0d\x0b\x0d\x0b\x0d\x0b\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -133,7 +133,7 @@ class MockANTLEGACYBleakClient(MockBleakClient):
             self._notify_callback
         ), "write to characteristics but notification not enabled"
 
-        resp: bytearray = self.RESP.get(bytes(data)[2]) or bytearray()
+        resp: bytearray = bytearray(self.RESP.get(bytes(data)[2], b""))
         for notify_data in [
             resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
@@ -150,7 +150,7 @@ async def test_update(
 
     bms = BMS(
         generate_ble_device(BT_ADDRESS, "MockBLEdevice"),
-        keep_alive_fixture,
+        BMSConfig(keep_alive_fixture),
     )
 
     assert await bms.async_update() == _RESULT_DEFS
@@ -249,20 +249,21 @@ async def test_update_empty_battery(
             MockANTLEGACYBleakClient.RESP[BMS.ADR.STATUS][:-2] + b"\xff\xff",
             "wrong_CRC",
         ),
-        (bytearray(1), "empty_response"),
+        (bytes(1), "empty_response"),
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytearray:
+def fix_response(request: pytest.FixtureRequest) -> bytes:
     """Return faulty response frame."""
-    return cast(bytearray, request.param[0])
+    assert isinstance(request.param, tuple) and isinstance(request.param[0], bytes)
+    return request.param[0]
 
 
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 

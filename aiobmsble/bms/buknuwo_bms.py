@@ -10,17 +10,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
-    """Dummy BMS implementation."""
+    """Buknuwo BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Buknuwo",
-        "default_model": "smart battery",
-    }
+    INFO: BMSInfo = {"manufacturer": "Buknuwo", "model": "smart battery"}
     _HEAD: Final[bytes] = b"\x01\x03"  # dev, read (0x03)
     _MIN_LEN: Final[int] = 5  # length of frame, including SOF and checksum
     _MAX_TEMP: Final[int] = 10  # maximum number of cell temperatures
@@ -41,19 +38,21 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._exp_len: int = 0
         self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [{"local_name": "CDZG*", "connectable": True}]
+        return [
+            {"local_name": "CDZG*", "connectable": True},
+            {"local_name": "MEY-?????-*", "connectable": True},
+        ]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
