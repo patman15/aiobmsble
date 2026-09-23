@@ -29,8 +29,7 @@
     "type": "gobel_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/749)",
-      "Dyness AR1.2 (Group 24, 100Ah LiFePO4)",
-      "Real device example with trailing spaces in name"
+      "Dyness AR1.2 (Group 24, 100Ah LiFePO4)"
     ]
   }
 ]
