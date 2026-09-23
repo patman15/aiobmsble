@@ -71,7 +71,8 @@
     "type": "tdt_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/aiobmsble/issues/290)",
-      "WattCycle 50A 48V LiFePO4 battery Firmware CLY-5673-V1.3, HW 22/0001"
+      "WattCycle 50Ah 51.2V LiFePO4 battery Firmware CLY-5673-V1.3, HW 22/0001",
+      "100A BMS, Golf Cart Smart Edition, GC2 MetalFort"
     ]
   }
 ]
