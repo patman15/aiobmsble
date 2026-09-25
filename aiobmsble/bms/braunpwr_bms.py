@@ -10,17 +10,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str
 
 
 class BMS(BaseBMS):
     """Braun Power BMS class implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Braun Power",
-        "default_model": "smart BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "Braun Power", "model": "smart BMS"}
     _HEAD: Final[bytes] = b"\x7b"  # header for responses
     _TAIL: Final[int] = 0x7D  # tail for command
     _MIN_LEN: Final[int] = 4  # minimum frame size
@@ -37,7 +34,7 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 31, 2, False, idx=0x1),
         BMSDp("balancer", 25, 2, False, idx=0x1),
     )
-    _CMDS: Final = frozenset({field.idx for field in _FIELDS})
+    _CMDS: Final = frozenset(field.idx for field in _FIELDS)
     _INIT_CMDS: Final = frozenset(
         {0x74, 0xF4, 0xF5}  # SW version  # BMS program version  # BMS boot version
     )
@@ -45,12 +42,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: dict[int, bytes] = {}
         self._exp_reply: tuple[int] = (0x01,)
 
@@ -64,7 +60,7 @@ class BMS(BaseBMS):
                 manufacturer_id=0x7B,
                 connectable=True,
             )
-            for pattern in ("HSKS-*", "BL-*")
+            for pattern in ("HSKS-*", "BL-*", "KS-*", "Vanvolt-*")
         ]
 
     @staticmethod
@@ -99,12 +95,13 @@ class BMS(BaseBMS):
         if (
             data.startswith(BMS._HEAD)
             and len(self._frame) >= BMS._MIN_LEN
+            and len(data) >= BMS._MIN_LEN
             and data[1] in {*BMS._CMDS, *BMS._INIT_CMDS}
             and len(self._frame) >= BMS._MIN_LEN + self._frame[2]
         ):
-            self._frame = bytearray()
+            self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
@@ -166,6 +163,7 @@ class BMS(BaseBMS):
             start=4,
             offset=2731,
             divider=10,
+            types=(TempSensor.T.CELL,) * data.get("temp_sensors", 0),
         )
 
         return data

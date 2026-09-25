@@ -11,15 +11,8 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_sum
-
-
-class Cmd(IntEnum):
-    """BMS operation codes."""
-
-    RT = 0x2
-    CAP = 0x10
 
 
 class BMS(BaseBMS):
@@ -29,24 +22,27 @@ class BMS(BaseBMS):
     - Metrisun / Chins (single-frame protocol, 140 bytes)
     """
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "E&J Technology",
-        "default_model": "smart BMS",
-    }
+    class Cmd(IntEnum):
+        """BMS operation codes."""
+
+        RT = 0x2
+        CAP = 0x10
+
+    INFO: BMSInfo = {"manufacturer": "E&J Technology", "model": "smart BMS"}
     _BT_MODULE_MSG: Final[bytes] = b"\x41\x54\x0d\x0a"  # BLE module message
     _IGNORE_CRC: Final[str] = "libattU"
     _HEAD: Final[bytes] = b"\x3a"
     _TAIL: Final[bytes] = b"\x7e"
     _CELL_POS: Final[int] = 12
     _MAX_CELLS: Final[int] = 16
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: tuple[BMSDp, ...] = (
         BMSDp(
             "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
         ),
         BMSDp("battery_level", 61, 1, False, idx=Cmd.RT),
         BMSDp("cycle_charge", 7, 2, False, lambda x: x / 10, Cmd.CAP),
         BMSDp(
-            "temp_values", 48, 1, False, lambda x: [x - 40], Cmd.RT
+            "temp_values", 48, 1, False, lambda x: [TempSensor(x - 40)], Cmd.RT
         ),  # only 1st sensor relevant
         BMSDp("cycles", 57, 2, False, idx=Cmd.RT),
         BMSDp(
@@ -62,12 +58,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
@@ -101,8 +96,10 @@ class BMS(BaseBMS):
                     "connectable": True,
                 }
             ]
-            + [  # Chins Battery "G-{voltage}V{capacity}Ah-{serial}"
-                MatcherPattern(local_name="G-[0-9]*V[0-9]*Ah-[0-9]*", connectable=True),
+            + [  # Chins/MOBILEKTRO Battery "G-{voltage}V{capacity}Ah-{serial}"
+                MatcherPattern(
+                    local_name="G-[0-5][2-8]V[0-9]*A[Hh]-[0-9]*", connectable=True
+                ),
             ]
         )
 
@@ -134,17 +131,17 @@ class BMS(BaseBMS):
         if data.startswith(BMS._HEAD):  # check for beginning of frame
             self._frame.clear()
 
-        self._frame += data
+        self._frame.extend(data)
 
         self._log.debug(
             "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
         exp_frame_len: Final[int] = (
-            int(self._frame[7:11], 16)
+            min(int(self._frame[7:11], 16), BMS._MAX_MSG_LEN)
             if len(self._frame) > 10
             and all(chr(c) in hexdigits for c in self._frame[7:11])
-            else 0xFFFF
+            else BMS._MAX_MSG_LEN
         )
 
         if not self._frame.startswith(BMS._HEAD) or (
@@ -153,12 +150,14 @@ class BMS(BaseBMS):
             return
 
         if not self._frame.endswith(BMS._TAIL):
-            self._log.debug("incorrect EOF: %s", data)
+            self._log.debug("incorrect EOF")
             self._frame.clear()
             return
 
-        if not all(chr(c) in hexdigits for c in self._frame[1:-1]):
-            self._log.debug("incorrect frame encoding.")
+        if (len(self._frame) % 2) or not all(
+            chr(c) in hexdigits for c in self._frame[1:-1]
+        ):
+            self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
 
@@ -171,13 +170,12 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if not self.name.startswith(BMS._IGNORE_CRC) and (
-            crc := crc_sum(self._frame[1:-3]) ^ 0xFF
-        ) != int(self._frame[-3:-1], 16):
-            # libattU firmware uses no CRC, so we ignore it
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X", int(self._frame[-3:-1], 16), crc
-            )
+        if not self.name.startswith(BMS._IGNORE_CRC) and not self._check_integrity(
+            self._frame,
+            lambda x: crc_sum(x) ^ 0xFF,
+            slice(1, -3),
+            int(self._frame[-3:-1], 16),
+        ):
             self._frame.clear()
             return
 
@@ -198,10 +196,10 @@ class BMS(BaseBMS):
             await self._await_msg(cmd)
             rsp: int = self._msg[1] & 0x7F
             raw_data[rsp] = self._msg
-            if rsp == Cmd.RT and len(self._msg) == 0x45:
+            if rsp == BMS.Cmd.RT and len(self._msg) == 0x45:
                 # handle single-frame variants (metrisun, Chins)
                 self._log.debug("single frame protocol detected")
-                raw_data[Cmd.CAP] = bytes(7) + self._msg[62:]
+                raw_data[BMS.Cmd.CAP] = bytes(7) + self._msg[62:]
                 break
         return raw_data
 
@@ -209,16 +207,13 @@ class BMS(BaseBMS):
         """Update battery status information."""
         raw_data: Final[dict[int, bytes]] = await self._query_bms()
 
-        if len(raw_data) != len(list(Cmd)) or not all(raw_data.values()):
+        if len(raw_data) != len(BMS.Cmd) or not all(raw_data.values()):
             return {}
 
         result: BMSSample = self._decode_data(BMS._FIELDS, raw_data) | BMSSample(
             cell_voltages=BMS._cell_voltages(
-                raw_data[Cmd.RT], cells=BMS._MAX_CELLS, start=BMS._CELL_POS
+                raw_data[BMS.Cmd.RT], cells=BMS._MAX_CELLS, start=BMS._CELL_POS
             )
         )
-        # design_capacity only available in single-frame (140-byte) variants
-        if not result.get("design_capacity"):
-            result.pop("design_capacity")
 
         return result

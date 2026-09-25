@@ -11,14 +11,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
     """ECO-WORTHY BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "ECO-WORTHY", "default_model": "BW 02/0B"}
+    INFO: BMSInfo = {"manufacturer": "ECO-WORTHY", "model": "BW 02/0B"}
     _HEAD: Final[tuple[bytes, ...]] = (b"\xa1", b"\xa2")
     _CELL_POS: Final[int] = 14
     _TEMP_POS: Final[int] = 80
@@ -45,17 +45,16 @@ class BMS(BaseBMS):
         b"\xff\x08\x02\x00\x0b\x01\x00\x64\x01\xff\xff\xff\xff\xff\xff\xff\x00\x2d",
         b"\xff\x08\x02\x00\x0b\x01\x00\x14\x01\xff\xff\xff\xff\xff\xff\xff\x65\xef",
     )
-    _CMDS: Final = frozenset({field.idx for field in _FIELDS_V1})
+    _CMDS: Final = frozenset(field.idx for field in _FIELDS_V1)
 
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._mac_head: Final[tuple[bytes, ...]] = tuple(
             int(self._ble_device.address.replace(":", ""), 16).to_bytes(6) + head
             for head in BMS._HEAD
@@ -99,12 +98,13 @@ class BMS(BaseBMS):
             self._log.debug("invalid frame type: '%s'", data[0:1].hex())
             return
 
-        if (crc := crc_modbus(data[:-2])) != int.from_bytes(data[-2:], "little"):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(data[-2:], "little"),
-                crc,
-            )
+        if not self._check_integrity(
+            data,
+            crc_modbus,
+            slice(None, -2),
+            slice(-2, None),
+            "little",
+        ):
             return
 
         # copy final data without message type and adapt to protocol type

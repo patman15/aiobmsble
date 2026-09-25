@@ -11,10 +11,7 @@ from aiobmsble.bms.ej_bms import BMS as EJBMS
 class BMS(EJBMS):
     """AG Automotive (E&J) BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "AG Automotive",
-        "default_model": "AG Power Lithium",
-    }
+    INFO: BMSInfo = {"manufacturer": "AG Automotive", "model": "AG Power Lithium"}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:

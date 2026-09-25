@@ -11,19 +11,19 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Super-B BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Super-B", "default_model": "Epsilon"}
+    INFO: BMSInfo = {"manufacturer": "Super-B", "model": "Epsilon"}
     _INFO_LEN: Final[int] = 20
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("battery_level", 2, 1, False),
         BMSDp("battery_health", 3, 1, False),
-        BMSDp("runtime", 4, 4, False, float),
+        BMSDp("runtime", 4, 4, False, int),
         BMSDp("problem_code", 1, 1, False, lambda x: (x & 0x1) ^ 0x1),
         BMSDp("balancer", 1, 1, False, lambda x: bool(x & 0x80)),
     )
@@ -31,12 +31,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod

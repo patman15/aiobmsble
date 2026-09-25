@@ -5,6 +5,7 @@ from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 
+from aiobmsble import BMSConfig
 from aiobmsble.bms.dummy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -40,7 +41,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockDummyBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == {
         "voltage": 12,
@@ -62,4 +63,4 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockDummyBleakClient)
     bms = BMS(generate_ble_device())
-    assert {"default_manufacturer", "default_model"}.issubset(await bms.device_info())
+    assert {"manufacturer", "model"}.issubset(await bms.device_info())

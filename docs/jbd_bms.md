@@ -11,6 +11,40 @@
 Checksum is the 8-Bit sum of `Cmd, Length, Data` fields.
 Default password is "000000".
 
+
+## Protection status (`problem_code`)
+
+On basic info (`0x03`), aiobmsble maps a 16-bit little-endian field at data offset 20 to `problem_code`. That word is the JBD "protection status" bitfield from the public UART/BLE protocol (same layout as Overkill Solar EEPROM register `0x10` "current errors"). Bit = 1 means the protection is active.
+
+| Bit | Mask | Meaning |
+|---|---|---|
+| 0 | `0x0001` | Cell overvoltage |
+| 1 | `0x0002` | Cell undervoltage |
+| 2 | `0x0004` | Pack overvoltage |
+| 3 | `0x0008` | Pack undervoltage |
+| 4 | `0x0010` | Charge over-temperature |
+| 5 | `0x0020` | Charge under-temperature |
+| 6 | `0x0040` | Discharge over-temperature |
+| 7 | `0x0080` | Discharge under-temperature |
+| 8 | `0x0100` | Charge overcurrent |
+| 9 | `0x0200` | Discharge overcurrent |
+| 10 | `0x0400` | Short circuit |
+| 11 | `0x0800` | Frontend IC error |
+| 12 | `0x1000` | Software lock MOS |
+| 13-15 | | Reserved |
+
+### Cell OV release hysteresis
+
+Cell overvoltage (bit 0) is not a separate sticky latch register. Trip and clear use EEPROM thresholds `COVP` and `COVP_REL` (Overkill `0x24` / `0x25`), with typical factory-style thresholds (e.g. `COVP=3650 mV`, `COVP_REL=3550 mV`):
+
+- Bit 0 sets when any cell reaches the trip threshold.
+- Bit 0 remains set while any cell is still **above** `COVP_REL`, even if every cell is already **below** `COVP`.
+- The bit clears only after all cells fall below the release threshold (and related delay settings elapse).
+
+So `problem_code & 0x1` during / after top-of-charge means "still in the OV release band", not necessarily "still above trip" or "hard faulted". This is useful to know when correlating `problem_code` with live cell voltages. Behavior may vary with firmware and EEPROM settings.
+
+References: [JBD Smart BMS protocol](https://github.com/syssi/esphome-jbd-bms/blob/00874229f610f28b18132b6c02f5388de781af4a/docs/Jiabaida.communication.protocol.pdf) (protection status note), [Overkill Solar JBD register map](https://gitlab.com/Overkill-Solar-LLC/overkill-solar-bms-tools/-/blob/master/JBD_REGISTER_MAP.md) (`0x10`, `0x24`, `0x25`).
+
 ## Chins Extended Fields
 
 ### Overview

@@ -4,14 +4,14 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
@@ -22,13 +22,12 @@ class BMS(BaseBMS):
     the full register map, frame format, and bit-level field definitions.
     """
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Humsienk",
-        "default_model": "BMC",
-    }
+    INFO: BMSInfo = {"manufacturer": "Humsienk", "model": "BMC"}
     _HEAD: Final[bytes] = b"\xaa"  # beginning of frame
     _MIN_LEN: Final[int] = 5  # minimal frame len
-    _ALARM_MASK: Final[int] = 0xFF7F7F7F  # exclude MOSFET, balance status bits
+    _ALARM_MASK: Final[int] = (
+        0xFF7F7F7F  # bits 7, 15, 23 are chrg FET, heater, dischrg FET
+    )
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 4, False, lambda x: x / 1000, 0x21),
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),
@@ -38,8 +37,9 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 17, 4, False, lambda x: round(x / 1000), 0x21),
         BMSDp("cycles", 21, 2, False, idx=0x21),
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 0x80), 0x20),
+        BMSDp("heater", 8, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("dischrg_mosfet", 9, 1, False, lambda x: bool(x & 0x80), 0x20),
-        BMSDp("balancer", 8, 1, False, lambda x: bool(x & 0x80), 0x20),
+        BMSDp("balancer", 11, 3, False, idx=0x20),  # bit 0 = cell 1
         BMSDp("problem_code", 7, 4, False, lambda x: x & BMS._ALARM_MASK, 0x20),
     )
     _CMDS: Final = frozenset({b"\x20", b"\x21", b"\x22"})
@@ -47,12 +47,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: dict[int, bytes] = {}
         self._valid_reply: int = 0x00
 
@@ -61,10 +60,11 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "HS*",
+                "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
             }
+            for pattern in ("HS*", "ECO????", "DCH????")
         ]
 
     @staticmethod
@@ -116,21 +116,16 @@ class BMS(BaseBMS):
             self._log.debug("unexpected response (type 0x%X)", data[1])
             return
 
-        if (crc := crc_sum(data[1:-2], 2)) != int.from_bytes(
-            data[-2:], byteorder="little"
+        if not self._check_integrity(
+            data, lambda x: crc_sum(x, 2), slice(1, -2), slice(-2, None), "little"
         ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(data[-2:], byteorder="little"),
-                crc,
-            )
             return
 
         self._msg[data[1]] = bytes(data)
         self._msg_event.set()
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: bytes) -> bytes:
         """Assemble a Humsienk BMS command."""
         frame: Final[bytes] = cmd[:1] + b"\x00"
@@ -150,6 +145,7 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
+        self._msg.clear()
         for cmd in BMS._CMDS:
             await self._await_msg(BMS._cmd(cmd))
 
@@ -160,7 +156,13 @@ class BMS(BaseBMS):
             self._msg[0x22], cells=24, start=3, byteorder="little"
         )
         result["temp_values"] = BMS._temp_values(
-            self._msg[0x21], values=6, start=23, size=1, byteorder="little"
+            self._msg[0x21],
+            values=6,
+            start=23,
+            size=1,
+            byteorder="little",
+            types=(TempSensor.T.CELL,) * 4
+            + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
 
         # Add problem for cell disconnect bitmap

@@ -12,7 +12,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSInfo, BMSMode, BMSSample
+from aiobmsble import BMSConfig, BMSInfo, BMSMode, BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_sum, lstr2int
 from aiobmsble.bms.jikong_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -255,7 +255,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "design_capacity": 202,
         "power": 123.369,
         "battery_charging": True,
-        "temp_values": [18.1, 18.6, 22.8],
+        "temp_values": [TS(18.1), TS(18.6), TS(22.8, TS.T.MOSFET)],
         "temp_sensors": 7,
         "problem": False,
         "problem_code": 0,
@@ -276,7 +276,12 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "balance_current": 0.0,
         "temp_sensors": 255,
         "problem_code": 0,
-        "temp_values": [31.0, 28.4, 29.2, 31.0],
+        "temp_values": [
+            TS(31.0, TS.T.MOSFET),
+            TS(28.4),
+            TS(29.2),
+            TS(31.0, TS.T.MOSFET),
+        ],
         "cell_voltages": [3.315, 3.315, 3.315, 3.312, 3.313, 3.312, 3.313, 3.313],
         "cycle_capacity": 3776.578,
         "power": -187.233,
@@ -302,7 +307,14 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "balance_current": 0.0,
         "temp_sensors": 255,
         "problem_code": 0,
-        "temp_values": [12.9, 13.4, 12.8, 20.5, 19.5, 19.1],
+        "temp_values": [
+            TS(12.9, TS.T.MOSFET),
+            TS(13.4),
+            TS(12.8),
+            TS(20.5, TS.T.MOSFET),
+            TS(19.5),
+            TS(19.1),
+        ],
         "cell_voltages": [
             3.333,
             3.326,
@@ -344,7 +356,14 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "balance_current": 0.0,
         "temp_sensors": 255,
         "problem_code": 0,
-        "temp_values": [12.9, 13.4, 12.8, 20.5, 19.5, 19.1],
+        "temp_values": [
+            TS(12.9, TS.T.MOSFET),
+            TS(13.4),
+            TS(12.8),
+            TS(20.5, TS.T.MOSFET),
+            TS(19.5),
+            TS(19.1),
+        ],
         "cell_voltages": [
             3.333,
             3.326,
@@ -389,7 +408,14 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cell_count": 8,
         "delta_voltage": 0.005,
         "battery_mode": BMSMode.BULK,
-        "temp_values": [26.2, 23.3, 23.6, 26.2, 24.5, 24.0],
+        "temp_values": [
+            TS(26.2, TS.T.MOSFET),
+            TS(23.3),
+            TS(23.6),
+            TS(26.2, TS.T.MOSFET),
+            TS(24.5),
+            TS(24.0),
+        ],
         "cell_voltages": [3.308, 3.312, 3.312, 3.307, 3.311, 3.311, 3.312, 3.309],
         "cycle_capacity": 6469.202,
         "power": -335.885,
@@ -439,16 +465,7 @@ _DEV_DEFS: Final[dict[str, BMSInfo]] = {
 }
 
 
-@pytest.fixture(
-    name="protocol_type",
-    params=[
-        "JK02_24S",
-        "JK02_32S",
-        "JK02_32S_v15",
-        "JK02_32S_v19.05",
-        "JK02_32S_v19.27",
-    ],
-)
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
 def proto(request: pytest.FixtureRequest) -> str:
     """Protocol fixture."""
     assert isinstance(request.param, str)
@@ -467,7 +484,7 @@ class MockJikongBleakClient(MockBleakClient):
     HEAD_CMD: Final = b"\xaa\x55\x90\xeb"
     CMD_INFO: Final = b"\x96"
     DEV_INFO: Final = b"\x97"
-    _FRAME: dict[str, bytearray] = {}
+    _FRAME: dict[str, bytearray] = _PROTO_DEFS["JK02_32S"]
 
     _task: asyncio.Task[None] | None = None
 
@@ -516,7 +533,8 @@ class MockJikongBleakClient(MockBleakClient):
         if bytes(data).startswith(
             self.HEAD_CMD + self.DEV_INFO
         ):  # JK BMS confirms commands with a command in reply
-            self._task = asyncio.create_task(self._send_confirm())
+            self._task = asyncio.create_task(self._send_confirm(), name="send_confirm")
+            await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Mock disconnect and wait for send task."""
@@ -602,12 +620,12 @@ class MockOversizedBleakClient(MockJikongBleakClient):
     ) -> bytearray:
         if char_specifier != 3:
             return bytearray()
-        if bytearray(data)[0:5] == self.HEAD_CMD + self.CMD_INFO:
+        if bytes(data)[0:5] == self.HEAD_CMD + self.CMD_INFO:
             return (  # added AT\r\n command and oversized
-                bytearray(b"\x41\x54\x0d\x0a") + self._FRAME["cell"] + bytearray(6)
+                bytearray(b"\x41\x54\x0d\x0a") + self._FRAME["cell"] + bytes(6)
             )
-        if bytearray(data)[0:5] == self.HEAD_CMD + self.DEV_INFO:
-            return self._FRAME["dev"] + bytearray(6)  # oversized
+        if bytes(data)[0:5] == self.HEAD_CMD + self.DEV_INFO:
+            return self._FRAME["dev"] + bytes(6)  # oversized
 
         return bytearray()
 
@@ -624,7 +642,7 @@ async def test_update(
 
     patch_bleak_client(MockJikongBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type]
 
@@ -643,6 +661,30 @@ async def test_device_info(
     patch_bleak_client(MockJikongBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == _DEV_DEFS[protocol_type]
+
+
+async def test_invalid_sw_version_defaults_to_zero(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a non-numeric sw_version does not crash init, but defaults to 0."""
+    bad_frames: dict[str, bytearray] = deepcopy(_PROTO_DEFS["JK02_24S"])
+    bad_frames["dev"][30:38] = b"n/a\x00\x00\x00\x00\x00"
+    bad_frames["dev"][-1] = crc_sum(bad_frames["dev"][:-1])
+
+    monkeypatch.setattr(MockJikongBleakClient, "_FRAME", bad_frames)
+    patch_bleak_client(MockJikongBleakClient)
+
+    bms = BMS(generate_ble_device())
+    caplog.clear()
+    await bms.device_info()
+
+    assert bms._sw_version == 0
+    assert bms._prot_offset == -32
+    assert "invalid sw_version" in caplog.text
+
+    await bms.disconnect()
 
 
 async def test_hide_temp_sensors(
@@ -679,7 +721,7 @@ async def test_hide_temp_sensors(
     elif protocol_type == "JK02_32S_v19.27":
         ref_result |= {"temp_sensors": 251, "temperature": 25.225}
 
-    temp_values: list[int | float] = ref_result.get("temp_values", [])
+    temp_values: list[TS] = ref_result.get("temp_values", [])
     temp_values.pop(1)  # remove sensor 1
     temp_values.pop(1)  # remove sensor 2
     ref_result["temp_values"] = temp_values.copy()
@@ -892,7 +934,7 @@ async def test_problem_response(
 
     patch_bleak_client(MockJikongBleakClient)
 
-    bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device(), BMSConfig(False))
 
     assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {
         "problem": True,

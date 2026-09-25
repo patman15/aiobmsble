@@ -1,15 +1,19 @@
-"""Module to support ANT BMS."""
+"""Module to support ANT BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 import contextlib
 from enum import IntEnum
-from functools import cache
+from functools import lru_cache
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -27,7 +31,7 @@ class BMS(BaseBMS):
 
         STATUS = 0x00
 
-    INFO: BMSInfo = {"default_manufacturer": "ANT", "default_model": "legacy smart BMS"}
+    INFO: BMSInfo = {"manufacturer": "ANT", "model": "legacy smart BMS"}
     _RX_HEADER: Final[bytes] = b"\xaa\x55\xaa"
     _RX_HEADER_RSP_STAT: Final[bytes] = b"\xaa\x55\xaa\xff"
 
@@ -38,7 +42,7 @@ class BMS(BaseBMS):
         BMSDp("voltage", 4, 2, False, lambda x: x / 10),
         BMSDp("current", 70, 4, True, lambda x: x / -10),
         BMSDp("battery_level", 74, 1, False),
-        BMSDp("design_capacity", 75, 4, False, lambda x: x // 1e6),
+        BMSDp("design_capacity", 75, 4, False, lambda x: x // 10**6),
         BMSDp("cycle_charge", 79, 4, False, lambda x: x / 1e6),
         BMSDp("total_charge", 83, 4, False, lambda x: x // 1000),
         BMSDp("runtime", 87, 4, False),
@@ -59,12 +63,11 @@ class BMS(BaseBMS):
     def __init__(
         self,
         ble_device: BLEDevice,
-        keep_alive: bool = True,
-        secret: str = "",
+        config: BMSConfig | None = None,
         logger_name: str = "",
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive, secret, logger_name)
+        super().__init__(ble_device, config, logger_name)
         self._msg: bytes = b""
 
     @staticmethod
@@ -72,11 +75,10 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "ANT-BLE*",
+                "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
-                "manufacturer_id": 1623,
                 "connectable": True,
-            }
+            } for pattern in ("ANT-BLE[01]*", "ANT-BLE22*")
         ]
 
     @staticmethod
@@ -94,8 +96,6 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
-    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
-
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -104,12 +104,12 @@ class BMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
 
         if data.startswith(BMS._RX_HEADER_RSP_STAT):
-            self._frame = bytearray()
+            self._frame.clear()
         elif not self._frame:
-            self._log.debug("invalid start of frame")
+            self._log.debug("invalid SOF")
             return
 
-        self._frame += data
+        self._frame.extend(data)
 
         _data_len: Final[int] = len(self._frame)
         if _data_len < BMS._RSP_STAT_LEN:
@@ -120,12 +120,13 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if (local_crc := crc_sum(self._frame[4:-2], 2)) != (
-            remote_crc := int.from_bytes(
-                self._frame[-2:], byteorder="big", signed=False
-            )
+        if not self._check_integrity(
+            self._frame,
+            lambda x: crc_sum(x[4:-2], 2),
+            slice(None, None),
+            slice(-2, None),
+            "big",
         ):
-            self._log.debug("invalid checksum 0x%X != 0x%X", local_crc, remote_crc)
             self._frame.clear()
             return
 
@@ -134,13 +135,14 @@ class BMS(BaseBMS):
         self._msg_event.set()
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=32)
     def _cmd(cmd: CMD, adr: ADR, value: int = 0x0000) -> bytes:
         """Assemble a ANT BMS command."""
-        _frame = bytearray((cmd, cmd, adr))
-        _frame += value.to_bytes(2, "big")
-        _frame += crc_sum(_frame[2:], 1).to_bytes(1, "big")
-        return bytes(_frame)
+        assert cmd in BMS.CMD
+        assert adr in BMS.ADR
+        assert 0 <= value <= 0xFFFF
+        _frame: bytes = bytes((cmd, cmd, adr)) + value.to_bytes(2, "big")
+        return bytes(_frame) + crc_sum(_frame[2:]).to_bytes(1, "big")
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
