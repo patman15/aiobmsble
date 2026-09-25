@@ -1,0 +1,24 @@
+[
+  {
+    "advertisement": {
+      "local_name": "AP R600 V2.0",
+      "service_uuids": ["0000fff0-0000-1000-8000-00805f9b34fb"],
+      "rssi": -55
+    },
+    "type": "allpowers_bms",
+    "_comments": [
+      "Allpowers R1500 portable power station"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "VOLIX-R1500",
+      "service_uuids": ["0000fff0-0000-1000-8000-00805f9b34fb"],
+      "rssi": -62
+    },
+    "type": "allpowers_bms",
+    "_comments": [
+      "Allpowers R1500 under VOLIX branding"
+    ]
+  }
+]
