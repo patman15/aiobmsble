@@ -1,10 +1,13 @@
 """Test the ANT implementation."""
 
-from collections.abc import Buffer
-from typing import Final
+from collections.abc import Buffer, Callable, Iterable
+from typing import Any, Final
 from uuid import UUID
 
+from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
+from bleak.backends.device import BLEDevice
+from bleak.exc import BleakGATTProtocolError, BleakGATTProtocolErrorCode
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
@@ -107,7 +110,7 @@ class MockANTLEGACYBleakClient(MockBleakClient):
     """Emulate a ANT (legacy) BMS BleakClient."""
 
     CMDS: Final[dict[int, bytes]] = {
-        BMS.ADR.STATUS: b"\xdb\xdb\x00\x00\x00\x00",
+        BMS.ADR.STATUS: b"\xdb\xdb",
     }
     RESP: Final[dict[int, bytes]] = {
         BMS.ADR.STATUS: (
@@ -120,6 +123,19 @@ class MockANTLEGACYBleakClient(MockBleakClient):
             b"\x00\x80\x00\x00\x00\x00\x00\x00\x0b\x50\x34\x09\x0f\x0d"
         ),
     }
+    REQUIRED_PASS: bytes = bytes(8)
+    _pass: bytearray
+
+    def __init__(
+        self,
+        address_or_ble_device: BLEDevice,
+        disconnected_callback: Callable[[BleakClient], None] | None,
+        services: Iterable[str] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize a client with isolated authentication state."""
+        super().__init__(address_or_ble_device, disconnected_callback, services, **kwargs)
+        self._pass = bytearray(8)
 
     async def write_gatt_char(
         self,
@@ -133,11 +149,24 @@ class MockANTLEGACYBleakClient(MockBleakClient):
             self._notify_callback
         ), "write to characteristics but notification not enabled"
 
-        resp: bytearray = bytearray(self.RESP.get(bytes(data)[2], b""))
-        for notify_data in [
-            resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
-        ]:
-            self._notify_callback("MockANTBleakClient", notify_data)
+        _frame = bytes(data)
+
+        if _frame.startswith(b"\xa5\xa5") and _frame[2] in range(0xF1, 0xF5):
+            pos: int = (_frame[2] - 0xF1) * 2
+            self._pass[pos : pos + 2] = _frame[3:5]
+            return
+
+        if self._pass != self.REQUIRED_PASS:
+            raise BleakGATTProtocolError(
+                BleakGATTProtocolErrorCode.INSUFFICIENT_AUTHORIZATION
+            )
+
+        if _frame[:2] in self.CMDS.values():
+            resp: bytearray = bytearray(self.RESP.get(_frame[2], b""))
+            for notify_data in [
+                resp[i : i + BT_FRAME_SIZE] for i in range(0, len(resp), BT_FRAME_SIZE)
+            ]:
+                self._notify_callback("MockANTBleakClient", notify_data)
 
 
 async def test_update(
@@ -158,6 +187,36 @@ async def test_update(
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    "secret",
+    ["12345678", "123wrong", "invalid"],
+    ids=["correct_secret", "wrong_secret", "invalid_secret"],
+)
+async def test_update_secret(
+    monkeypatch: pytest.MonkeyPatch, patch_bms_timeout, patch_bleak_client, secret: str
+) -> None:
+    """Test ANT BMS data update with password."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(  # set correct password
+        MockANTLEGACYBleakClient, "REQUIRED_PASS", "12345678".encode("ASCII")
+    )
+    patch_bleak_client(MockANTLEGACYBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(secret=secret))
+
+    if secret == "123wrong":
+        with pytest.raises(TimeoutError):
+            await bms.async_update()
+    elif secret == "invalid":
+        with pytest.raises(ValueError, match="Secret must be 8 characters long"):
+            await bms.async_update()
+    else:
+        assert await bms.async_update() == _RESULT_DEFS
 
     await bms.disconnect()
 

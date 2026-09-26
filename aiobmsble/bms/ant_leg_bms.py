@@ -30,11 +30,11 @@ class BMS(BaseBMS):
         """Addresses for ANT BMS."""
 
         STATUS = 0x00
-        SECRET = 0xF1
+        SECRET, SEC2, SEC3, SEC4 = range(0xF1, 0xF5)
 
     INFO: BMSInfo = {"manufacturer": "ANT", "model": "legacy smart BMS"}
-    _RX_HEADER: Final[bytes] = b"\xaa\x55\xaa"
-    _RX_HEADER_RSP_STAT: Final[bytes] = b"\xaa\x55\xaa\xff"
+    _RX_HDR: Final[bytes] = b"\xaa\x55\xaa"
+    _RX_HDR_RSP_STAT: Final[bytes] = b"\xaa\x55\xaa\xff"
     _RSP_STAT: Final[int] = 0xFF
     _RSP_STAT_LEN: Final[int] = 140
     _FIELDS: Final[tuple[BMSDp, ...]] = (
@@ -79,7 +79,8 @@ class BMS(BaseBMS):
                 "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
-            } for pattern in ("ANT-BLE[01]*", "ANT-BLE22*")
+            }
+            for pattern in ("ANT-BLE[01]*", "ANT-BLE22*")
         ]
 
     @staticmethod
@@ -121,7 +122,7 @@ class BMS(BaseBMS):
 
         self._log.debug("RX BLE data: %s", data)
 
-        if data.startswith(BMS._RX_HEADER_RSP_STAT):
+        if data.startswith(BMS._RX_HDR_RSP_STAT):
             self._frame.clear()
         elif not self._frame:
             self._log.debug("invalid SOF")
