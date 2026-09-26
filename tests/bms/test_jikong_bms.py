@@ -491,7 +491,7 @@ class MockJikongBleakClient(MockBleakClient):
     def _response(
         self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
     ) -> bytearray:
-        frame: Final[bytearray] = bytearray(data)
+        frame: Final[bytes] = bytes(data)
         if char_specifier != 3 or crc_sum(frame[:-1]) != frame[19]:
             return bytearray()
 
