@@ -191,9 +191,6 @@ class BMSConfig:
 class BMSInfo(TypedDict, total=False):
     """Human readable information about the BMS device."""
 
-    default_manufacturer: str
-    default_model: str
-    default_name: str
     fw_version: str
     manufacturer: str
     model: str

@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """EG4 BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "EG4 electronics", "default_model": "LL"}
+    INFO: BMSInfo = {"manufacturer": "EG4 electronics", "model": "LL"}
     _HEAD: Final[bytes] = b"\x01\x03"  # dev addr, fct code (read)
     _MAX_CELLS: Final[int] = 16
     _MAX_TEMP: Final[int] = 6

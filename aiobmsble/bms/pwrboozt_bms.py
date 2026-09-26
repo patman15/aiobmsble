@@ -19,10 +19,7 @@ from .ej_bms import BMS as EJBMS
 class BMS(EJBMS):
     """PowerBoozt battery implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Powerboozt",
-        "default_model": "battery",
-    }
+    INFO: BMSInfo = {"manufacturer": "Powerboozt", "model": "battery"}
     _FIELDS: tuple[BMSDp, ...] = (
         # BMSDp(
         #     "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT

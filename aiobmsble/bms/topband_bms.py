@@ -19,7 +19,7 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 class BMS(BaseBMS):
     """Topband BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Topband", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"manufacturer": "Topband", "model": "smart BMS"}
     _HEAD_RSP: Final[frozenset[int]] = frozenset(  # header for responses
         {0x5E, 0x6F, 0x83, 0x87, 0xB0, 0xE8, 0xF6}
     )

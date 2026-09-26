@@ -18,7 +18,7 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_sum, swap32
 class BMS(BaseBMS):
     """JBD smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Jiabaida", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"manufacturer": "Jiabaida", "model": "smart BMS"}
     _HEAD_INIT: Final[bytes] = b"\xff\xaa"  # header for initialization
     _HEAD_RSP: Final[bytes] = b"\xdd"  # header for responses
     _HEAD_CMD: Final[bytes] = b"\xdd\xa5"  # read header for commands

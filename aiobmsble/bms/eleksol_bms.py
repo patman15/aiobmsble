@@ -13,7 +13,7 @@ from aiobmsble.bms.jbd_bms import BMS as JbdBMS
 class BMS(JbdBMS):
     """Eleksol battery BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Jiabaida", "default_model": "Eleksol BMS"}
+    INFO: BMSInfo = {"manufacturer": "Jiabaida", "model": "Eleksol BMS"}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:

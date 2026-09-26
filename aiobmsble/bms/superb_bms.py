@@ -18,7 +18,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Super-B BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Super-B", "default_model": "Epsilon"}
+    INFO: BMSInfo = {"manufacturer": "Super-B", "model": "Epsilon"}
     _INFO_LEN: Final[int] = 20
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("battery_level", 2, 1, False),
