@@ -1,0 +1,15 @@
+[
+  {
+    "advertisement": {
+      "local_name": "UDUSM1AE3TA000000",
+      "platform_data": ["78:1C:3C:00:00:00"],
+      "rssi": -23,
+      "service_uuids": ["00001000-5374-6172-4b20-467574757265"]
+    },
+    "type": "stark_varg_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/822",
+      "Stark Varg Motorbike"
+    ]
+  }
+]
