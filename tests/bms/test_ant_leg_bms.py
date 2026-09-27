@@ -134,7 +134,9 @@ class MockANTLEGACYBleakClient(MockBleakClient):
         **kwargs: Any,
     ) -> None:
         """Initialize a client with isolated authentication state."""
-        super().__init__(address_or_ble_device, disconnected_callback, services, **kwargs)
+        super().__init__(
+            address_or_ble_device, disconnected_callback, services, **kwargs
+        )
         self._pass = bytearray(8)
 
     async def write_gatt_char(
@@ -144,10 +146,6 @@ class MockANTLEGACYBleakClient(MockBleakClient):
         response: bool | None = None,
     ) -> None:
         """Issue write command to GATT."""
-
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
 
         _frame = bytes(data)
 
@@ -160,6 +158,10 @@ class MockANTLEGACYBleakClient(MockBleakClient):
             raise BleakGATTProtocolError(
                 BleakGATTProtocolErrorCode.INSUFFICIENT_AUTHORIZATION
             )
+
+        assert (
+            self._notify_callback
+        ), "write to characteristics but notification not enabled"
 
         if _frame[:2] in self.CMDS.values():
             resp: bytearray = bytearray(self.RESP.get(_frame[2], b""))

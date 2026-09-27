@@ -101,7 +101,6 @@ class BMS(BaseBMS):
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         """Initialize RX/TX characteristics and protocol state."""
-        await super()._init_connection(char_notify)
         if self._cfg.secret:
             if len(self._cfg.secret) != 8:
                 raise ValueError("Secret must be 8 characters long")
@@ -113,6 +112,7 @@ class BMS(BaseBMS):
                     self._cmd(BMS.CMD.SET, BMS.ADR.SECRET + i, value),
                     wait_for_notify=False,
                 )
+        await super()._init_connection(char_notify)
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
