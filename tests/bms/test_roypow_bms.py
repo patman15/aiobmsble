@@ -20,9 +20,7 @@ BT_FRAME_SIZE = 20
 BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module
 
 
-def ref_value() -> BMSSample:
-    """Return reference value for mock Seplos BMS."""
-    return {
+_RESULT_DEFS: Final[BMSSample] = {
         "temp_sensors": 4,
         "voltage": 13.48,
         "current": 0.35,
@@ -41,7 +39,7 @@ def ref_value() -> BMSSample:
         "problem_code": 0,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
-    }
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -117,7 +115,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
@@ -142,7 +140,7 @@ async def test_update_dischrg(monkeypatch, patch_bleak_client) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(False))
 
-    assert await bms.async_update() == ref_value() | {
+    assert await bms.async_update() == _RESULT_DEFS | {
         "battery_charging": False,
         "current": -0.35,
         "power": -4.718,
@@ -292,7 +290,7 @@ async def test_problem_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = await bms.async_update()
-    assert result == ref_value() | {
+    assert result == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 23),
     }

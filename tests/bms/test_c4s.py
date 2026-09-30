@@ -1,6 +1,7 @@
 """Test the C4S100-family BMS implementation (derived from VatrerBMS)."""
 
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -26,9 +27,7 @@ _RESP: bytes = (
 )
 
 
-def ref_value() -> BMSSample:
-    """Return reference value for mock C4S100 BMS (real captured discharge frame)."""
-    return {
+_RESULT_DEFS: Final[BMSSample] = {
         "voltage": 13.33,
         "current": -3.42,
         "battery_level": 98,
@@ -46,7 +45,7 @@ def ref_value() -> BMSSample:
         "power": -45.589,
         "runtime": 97021,
         "problem": False,
-    }
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -81,7 +80,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()

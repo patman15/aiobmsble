@@ -14,7 +14,8 @@ from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
-REF_VALUE: BMSSample = {
+
+_RESULT_DEFS: BMSSample = {
     "cell_count": 16,
     "temp_sensors": 6,
     "voltage": 54.43,
@@ -140,7 +141,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == REF_VALUE
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
@@ -279,7 +280,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == REF_VALUE | {
+    assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": expected,
     }

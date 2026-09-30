@@ -45,9 +45,7 @@ RESP_VALUE: Final[dict[str, bytes]] = {
 }
 
 
-def ref_value() -> BMSSample:
-    """Return reference value for mock Seplos BMS."""
-    return {
+_RESULT_DEFS: Final[BMSSample] = {
         "voltage": 54.07,
         "current": 64.7,
         "battery_level": 78.0,
@@ -79,7 +77,7 @@ def ref_value() -> BMSSample:
         "delta_voltage": 0.011,
         "problem": False,
         "problem_code": 0,
-    }
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -140,7 +138,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
@@ -177,7 +175,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device(), BMSConfig(False))
 
-    assert await bms.async_update() == ref_value() | {
+    assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 11,
     }
