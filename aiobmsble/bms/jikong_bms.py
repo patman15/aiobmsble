@@ -39,7 +39,8 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 190, 1, False),
         BMSDp("chrg_mosfet", 198, 1, False, bool),
         BMSDp("dischrg_mosfet", 199, 1, False, bool),
-        BMSDp("temp_sensors", 214, 2, True),
+        BMSDp("temp_sensors", 214, 1, False),
+        BMSDp("heater", 215, 1, False, bool),
     )
 
     def __init__(
