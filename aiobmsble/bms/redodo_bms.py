@@ -65,6 +65,8 @@ class BMS(BaseBMS):
                 "R-24*",
                 "RO-12*",
                 "RO-24*",
+                "T-12*",  # ECO-WORTHY
+                "T-24*",  # ECO-WORTHY
                 "L-12*",  # vv *** LiTime *** vv
                 "L-24*",
                 "L-51*",
