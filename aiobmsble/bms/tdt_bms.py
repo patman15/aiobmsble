@@ -41,6 +41,8 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 10, 0x8C),
         BMSDp("battery_level", 12, 2, False, idx=0x8C),
         BMSDp("cycles", 8, 2, False, idx=0x8C),
+        BMSDp("design_capacity", 10, 2, False, lambda x: x // 10, 0x8C),
+        BMSDp("battery_health", 14, 2, False, idx=0x8C),
     )  # problem code, switches are not included in the list, but extra
     _FIELDS_v1: Final[tuple[BMSDp, ...]] = (
         BMSDp(
@@ -52,6 +54,7 @@ class BMS(BaseBMS):
             0x8C,
         ),
         BMSDp("cycle_charge", 4, 2, False, idx=0x8C),
+        BMSDp("design_capacity", 10, 2, False, idx=0x8C),
     )
 
     _CMDS: Final = frozenset({field.idx for field in _FIELDS} | {0x8D})
@@ -208,7 +211,7 @@ class BMS(BaseBMS):
                     return
                 self._log.warning("disabling CRC check, values might be unreliable")
 
-        self._msg[self._frame[5]] = bytes(self._frame)
+        self._msg[self._frame[5]] = bytes(self._frame)[:-3]
         self._msg_event.set()
 
     @staticmethod
@@ -255,7 +258,7 @@ class BMS(BaseBMS):
             values=result["temp_sensors"],
             start=BMS._CELL_POS + result.get("cell_count", 0) * 2 + 2,
             signed=False,
-            offset=2731,
+            offset=2730,
             divider=10,
             types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET)
             + (TempSensor.T.CELL,) * 4,
