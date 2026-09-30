@@ -69,7 +69,7 @@ _RESULT_IDLE: Final[BMSSample] = {
 }
 
 # Settings notification (short frame, prefix a565b100010603): should be ignored
-_FRAME_SETTINGS: Final[bytes] = bytes.fromhex("a565b100010603") + b"\x02\x01\xab\x00"
+_FRAME_SETTINGS: Final[bytes] = b"\xa5\x65\xb1\x00\x01\x06\x03\x02\x01\xab\x00"
 
 
 # ---------------------------------------------------------------------------
