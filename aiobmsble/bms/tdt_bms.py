@@ -41,6 +41,8 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 10, 0x8C),
         BMSDp("battery_level", 12, 2, False, idx=0x8C),
         BMSDp("cycles", 8, 2, False, idx=0x8C),
+        BMSDp("design_capacity", 10, 2, False, lambda x: x // 10, 0x8C),
+        BMSDp("battery_health", 14, 2, False, idx=0x8C),
     )  # problem code, switches are not included in the list, but extra
     _FIELDS_v1: Final[tuple[BMSDp, ...]] = (
         BMSDp(
@@ -52,6 +54,7 @@ class BMS(BaseBMS):
             0x8C,
         ),
         BMSDp("cycle_charge", 4, 2, False, idx=0x8C),
+        BMSDp("design_capacity", 10, 2, False, idx=0x8C),
     )
 
     _CMDS: Final = frozenset({field.idx for field in _FIELDS} | {0x8D})
@@ -74,13 +77,25 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [
-            MatcherPattern(
-                local_name=pattern,
-                connectable=True,
-            )
-            for pattern in ("HS02*", "WTDH*", "WTaHdAZ*")
-        ] + [{"manufacturer_id": 54976, "connectable": True}]
+        return (
+            [
+                MatcherPattern(
+                    local_name=pattern,
+                    service_uuid=normalize_uuid_str("fff0"),
+                    connectable=True,
+                )
+                for pattern in ("WTDH*", "WT???AZ*")
+            ]
+            + [
+                MatcherPattern(
+                    local_name=pattern,
+                    service_uuid=normalize_uuid_str("ffe1"),
+                    connectable=True,
+                )
+                for pattern in ("HS*", "WT???BG*")
+            ]
+            + [{"manufacturer_id": 54976, "connectable": True}]
+        )
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
@@ -129,7 +144,9 @@ class BMS(BaseBMS):
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         try:
-            await self._await_msg(data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False)
+            await self._await_msg(
+                data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False
+            )
             if (
                 ret := int.from_bytes(await self._client.read_gatt_char(BMS._UUID_CFG))
             ) != 0x1:
@@ -139,7 +156,7 @@ class BMS(BaseBMS):
 
         await super()._init_connection()
         _bms_info: BMSInfo = await self._fetch_device_info()
-        if _bms_info.get("sw_version", "").startswith("1."):
+        if _bms_info.get("sw_version", "")[:-1].endswith("1."):
             self._fields = self._merge_fields(BMS._FIELDS, BMS._FIELDS_v1)
 
     def _notification_handler(
@@ -194,7 +211,7 @@ class BMS(BaseBMS):
                     return
                 self._log.warning("disabling CRC check, values might be unreliable")
 
-        self._msg[self._frame[5]] = bytes(self._frame)
+        self._msg[self._frame[5]] = bytes(self._frame)[:-3]
         self._msg_event.set()
 
     @staticmethod
@@ -241,7 +258,7 @@ class BMS(BaseBMS):
             values=result["temp_sensors"],
             start=BMS._CELL_POS + result.get("cell_count", 0) * 2 + 2,
             signed=False,
-            offset=2731,
+            offset=2730,
             divider=10,
             types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET)
             + (TempSensor.T.CELL,) * 4,

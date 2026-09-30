@@ -8,5 +8,18 @@
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/408)"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "BT-ROCC2440",
+      "manufacturer_data": { "22618": "c84780000000" },
+      "service_uuids": "0000ffe0-0000-1000-8000-00805f9b34fb",
+      "platform_data": ["C8:47:80:00:00:00"],
+      "rssi": -62
+    },
+    "reason": "MPPT controller, no BMS",
+    "_comments": [
+      "source log (https://github.com/patman15/BMS_BLE-HA/issues/250)"
+    ]
   }
 ]

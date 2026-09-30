@@ -24,13 +24,16 @@ The package requires Python `>=3.12`. It is licensed under Apache-2.0.
 
 ## Environment and setup
 
-Use a Python 3.12+ virtual environment or equivalent isolated environment. From the repository root:
+Use the repository's existing `.venv` for all Python commands. Activate it once at the start of the session, then run commands normally without prefixing each one with the environment path. From the repository root:
 
 ```bash
+source .venv/bin/activate
 python -m pip install --upgrade pip
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 pre-commit install
 ```
+
+If `.venv` is missing or incomplete, ask the user to set it up rather than silently switching to a global Python environment.
 
 The development extra installs pytest, pytest-asyncio, pytest-cov, pytest-xdist, Hypothesis, mypy, Ruff, codespell, pdoc, and the other project development dependencies. Runtime dependencies are declared in `pyproject.toml`.
 
@@ -42,8 +45,10 @@ Run these from the repository root.
 
 ### Tests and quality checks
 
+After activating the environment, run:
+
 ```bash
-pytest
+python -m pytest
 ruff check .
 mypy .
 mypy aiobmsble --strict
@@ -55,7 +60,7 @@ codespell .
 For the fuzz test specifically, use the CI-compatible command:
 
 ```bash
-pytest tests/test_fuzzing.py --no-cov
+python -m pytest tests/test_fuzzing.py --no-cov
 ```
 
 The test configuration supports `--max-examples`; the scheduled fuzzing workflow supplies up to 25,000 examples with a time-derived Hypothesis seed.
@@ -74,7 +79,7 @@ The first command scans for reachable supported devices; the JSON form identifie
 To regenerate the data table and API documentation as the documentation workflow does:
 
 ```bash
-python3 scripts/bms_data_table.py
+python scripts/bms_data_table.py
 pdoc 'aiobmsble' '!aiobmsble.bms' -o docs
 ```
 
@@ -98,7 +103,7 @@ The documentation workflow runs those commands on pushes to `main`; generated ou
 3. Add a real-device advertisement to `aiobmsble/test_data/<name>_bms.json`.
 4. Add `tests/bms/test_<name>_bms.py`, subclassing `BMSBasicTests` from `tests/test_basebms.py`, and add protocol-specific cases. Use `tests/bms/test_dummy.py` as a template.
 5. Add `docs/<name>_bms.md` when detailed device/protocol information is available.
-6. If plugin fields or supported data change, run `python3 scripts/bms_data_table.py` and review `docs/available_bms_data.csv`.
+6. If plugin fields or supported data change, run `.venv/bin/python scripts/bms_data_table.py` and review `docs/available_bms_data.csv`.
 7. Run the complete quality gate, including 100% branch coverage, before opening a pull request.
 
 For a new BMS, ensure the sample contains at least the fields required by the contribution guide: overall voltage, signed current direction, and battery fill-level information directly or through the documented capacity fields. Do not introduce persistent values or behavior that depends on storing state across runs.
