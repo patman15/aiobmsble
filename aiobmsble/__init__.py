@@ -201,6 +201,24 @@ class BMSInfo(TypedDict, total=False):
     hw_version: str
 
 
+class BMSLimits(TypedDict, total=False):
+    """Protection thresholds configured in the BMS."""
+
+    # Voltage limits (per-cell, in V)
+    cell_ovp: float  # Cell overvoltage protection threshold
+    cell_uvp: float  # Cell undervoltage protection threshold
+
+    # Current limits (in A)
+    max_charge_current: float  # Charge overcurrent protection threshold
+    max_discharge_current: float  # Discharge overcurrent protection threshold
+
+    # Temperature limits (in °C)
+    charge_temp_high: float  # Max temperature allowed during charging
+    charge_temp_low: float  # Min temperature allowed during charging
+    discharge_temp_high: float  # Max temperature allowed during discharging
+    discharge_temp_low: float  # Min temperature allowed during discharging
+
+
 class MatcherPattern(TypedDict, total=False):
     """Optional patterns that can match Bleak advertisement data."""
 
