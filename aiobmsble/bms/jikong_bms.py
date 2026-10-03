@@ -41,7 +41,7 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 199, 1, False, bool),
         BMSDp("temp_sensors", 214, 1, False),
         BMSDp("heater", 215, 1, False, bool),
-        BMSDp("heater_current", 236, 2, False, lambda x: x / 1000),
+        BMSDp("heater_current", 236, 2, True, lambda x: x / 1000),
     )
 
     def __init__(
