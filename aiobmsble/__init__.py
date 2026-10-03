@@ -47,6 +47,7 @@ type BMSValue = CommonValue | Literal[
     "runtime",
     "balancer",
     "balance_current",
+    "heater_current",
     "pack_count",
     "problem_code",
     "chrg_mosfet",
@@ -145,6 +146,7 @@ class BMSSample(BatterySample, total=False):
     # detailed information
     balancer: bool | int  # False: off, True: active or bit mask, 1: enabled/active
     balance_current: float  # [A]
+    heater_current: float  # [A]
     total_charge: int  # [Ah], overall discharged
     pack_count: int  # [#]
     problem_code: int  # BMS specific code, 0 no problem, max. 64 bit
