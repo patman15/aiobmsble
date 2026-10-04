@@ -24,7 +24,7 @@ class BMS(BaseBMS):
         {c for c in range(1, 256) if chr(c) not in (hexdigits + punctuation)} | {0x5E}
     )
     _HEAD_RSP_BYTES: Final[bytes] = bytes(_HEAD_RSP)  # precomputed for strip()
-    _HEX_UPPER: frozenset[str] = frozenset("0123456789ABCDEF")
+    _HEX_UPPER: Final[frozenset[int]] = frozenset(b"0123456789ABCDEF")
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
@@ -83,9 +83,15 @@ class BMS(BaseBMS):
         # check for beginning of frame
         if (
             start := next((i for i, b in enumerate(data) if b in self._HEAD_RSP), -1)
-        ) != -1 and (not self._frame or len(self._frame) >= BMS._INFO_LEN):
+        ) != -1 and (
+            not self._frame
+            or len(self._frame) >= BMS._INFO_LEN
+            or not self._hex_coded()  # a control reply or padding started the frame
+        ):
             data = data[start:]
             self._frame.clear()
+        elif not self._frame:
+            return  # no frame started yet: drop data until a header arrives
 
         self._frame.extend(data)
         self._log.debug(
@@ -99,7 +105,7 @@ class BMS(BaseBMS):
 
         if not (
             self._frame[0] in BMS._HEAD_RSP
-            and set(self._frame.decode(errors="replace")[1:]).issubset(BMS._HEX_UPPER)
+            and self._hex_coded()
         ):
             self._log.debug("incorrect frame coding: %s", self._frame)
             self._frame.clear()
@@ -121,6 +127,10 @@ class BMS(BaseBMS):
 
         self._msg = _dec
         self._msg_event.set()
+
+    def _hex_coded(self) -> bool:
+        """Check that the frame after its header only contains uppercase hex digits."""
+        return BMS._HEX_UPPER.issuperset(self._frame[1:])
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

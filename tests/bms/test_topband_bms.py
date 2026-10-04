@@ -480,3 +480,65 @@ async def test_problem_response(
     }
 
     await bms.disconnect()
+
+
+async def test_resync_after_headerless_data(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that data received before the first frame header is dropped.
+
+    Notifications as logged from a Noovi battery: the connection starts in the middle
+    of a frame, so the first chunks have no header and must not start a frame.
+    """
+
+    chunks: Final[list[bytes]] = [
+        b"0000000000000000",
+        b"0000000000000000",
+        b"0000000000000000",
+        b"0277\t\t\t\t\t\t\t\t",
+        b"u2C34000000000000",
+        b"A020030004005F00",
+        b"0B0D0C0D0D0D070D",
+        b"0000000000000000",
+        b"0000000000000000",
+        b"0000000000000000",
+        b"0275\t\t\t\t\t\t\t\t",
+        b"u2C34000000000000",
+        b"A020030004005F00",
+        b"860B00000000",
+        b"0B0D0C0D0D0D080D",
+        b"0000000000000000",
+        b"0000000000000000",
+        b"0000000000000000",
+        b"0277\t\t\t\t\t\t\t\t",
+    ]
+
+    def _send_chunks(self: MockTopbandBleakClient) -> None:
+        assert self._notify_callback is not None
+        for chunk in chunks:
+            self._notify_callback("MockTopbandBleakClient", bytearray(chunk))
+
+    monkeypatch.setattr(MockTopbandBleakClient, "_send_info", _send_chunks)
+    patch_bleak_client(MockTopbandBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
+
+    assert await bms.async_update() == {
+        "voltage": 13.356,
+        "current": 0.0,
+        "battery_level": 95,
+        "cycle_charge": 204.96,
+        "cycles": 4,
+        "temp_values": [TS(21.85)],
+        "problem_code": 0,
+        "cell_voltages": [3.339, 3.34, 3.341, 3.336],
+        "battery_charging": False,
+        "cell_count": 4,
+        "delta_voltage": 0.005,
+        "temperature": 21.85,
+        "cycle_capacity": 2737.446,
+        "power": 0.0,
+        "problem": False,
+    }
+
+    await bms.disconnect()
