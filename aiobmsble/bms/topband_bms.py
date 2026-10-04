@@ -20,10 +20,11 @@ class BMS(BaseBMS):
     """Topband BMS implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Topband", "model": "smart BMS"}
-    _HEAD_RSP: Final[frozenset[int]] = frozenset(  # header for responses
-        {0x5E, 0x6F, 0x75, 0x83, 0x87, 0xB0, 0xE8, 0xF6}
+    _HEAD_RSP: frozenset[int] = frozenset(  # header for responses
+        {c for c in range(1, 256) if chr(c) not in hexdigits}
     )
     _HEAD_RSP_BYTES: Final[bytes] = bytes(_HEAD_RSP)  # precomputed for strip()
+    _HEX_UPPER: frozenset[str] = frozenset("0123456789ABCDEF")
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
@@ -79,9 +80,10 @@ class BMS(BaseBMS):
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
+        # check for beginning of frame
         if (
             start := next((i for i, b in enumerate(data) if b in BMS._HEAD_RSP), -1)
-        ) != -1:  # check for beginning of frame
+        ) != -1 and (not self._frame or len(self._frame) > BMS._INFO_LEN):
             data = data[start:]
             self._frame.clear()
 
@@ -97,7 +99,7 @@ class BMS(BaseBMS):
 
         if not (
             self._frame[0] in BMS._HEAD_RSP
-            and set(self._frame.decode(errors="replace")[1:]).issubset(hexdigits)
+            and set(self._frame.decode(errors="replace")[1:]).issubset(BMS._HEX_UPPER)
         ):
             self._log.debug("incorrect frame coding: %s", self._frame)
             self._frame.clear()
@@ -112,6 +114,10 @@ class BMS(BaseBMS):
         ):
             self._frame.clear()
             return
+
+        if len(BMS._HEAD_RSP) > 1:
+            self._log.debug("detected frame header 0x%X", self._frame[0])
+            BMS._HEAD_RSP = frozenset({self._frame[0]})
 
         self._msg = _dec
         self._msg_event.set()
