@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from string import hexdigits
+from string import hexdigits, punctuation
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -21,7 +21,7 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"manufacturer": "Topband", "model": "smart BMS"}
     _HEAD_RSP: frozenset[int] = frozenset(  # header for responses
-        {c for c in range(1, 256) if chr(c) not in hexdigits}
+        {c for c in range(1, 256) if chr(c) not in (hexdigits + punctuation)} | {0x5E}
     )
     _HEAD_RSP_BYTES: Final[bytes] = bytes(_HEAD_RSP)  # precomputed for strip()
     _HEX_UPPER: frozenset[str] = frozenset("0123456789ABCDEF")
