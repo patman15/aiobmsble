@@ -83,7 +83,7 @@ class BMS(BaseBMS):
         # check for beginning of frame
         if (
             start := next((i for i, b in enumerate(data) if b in self._HEAD_RSP), -1)
-        ) != -1 and (not self._frame or len(self._frame) > BMS._INFO_LEN):
+        ) != -1 and (not self._frame or len(self._frame) >= BMS._INFO_LEN):
             data = data[start:]
             self._frame.clear()
 
