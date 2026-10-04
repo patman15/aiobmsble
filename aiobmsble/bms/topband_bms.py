@@ -82,7 +82,7 @@ class BMS(BaseBMS):
 
         # check for beginning of frame
         if (
-            start := next((i for i, b in enumerate(data) if b in BMS._HEAD_RSP), -1)
+            start := next((i for i, b in enumerate(data) if b in self._HEAD_RSP), -1)
         ) != -1 and (not self._frame or len(self._frame) > BMS._INFO_LEN):
             data = data[start:]
             self._frame.clear()
@@ -115,9 +115,9 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if len(BMS._HEAD_RSP) > 1:
+        if len(self._HEAD_RSP) > 1:
             self._log.debug("detected frame header 0x%X", self._frame[0])
-            BMS._HEAD_RSP = frozenset({self._frame[0]})
+            self._HEAD_RSP = frozenset({self._frame[0]})
 
         self._msg = _dec
         self._msg_event.set()
