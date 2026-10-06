@@ -69,6 +69,9 @@ testpaths = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
+[tool.black]
+line-length = 100
+
 # ruff settings from HA 2026.9.0
 [tool.ruff]
 line-length = 100

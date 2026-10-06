@@ -227,6 +227,18 @@ class BoundedByteArray:
         """
         return self._new(self._data.strip(chars))
 
+    def rstrip(self, chars: BytesLike | None = None) -> Self:
+        """Return a copy with trailing bytes removed.
+
+        Args:
+            chars: Bytes to remove from the end. If omitted, ASCII whitespace
+                is removed.
+
+        Returns:
+            A new right-stripped instance with the same ``maxlen`` value.
+        """
+        return self._new(self._data.rstrip(chars))
+
     def decode(
         self,
         encoding: str = "utf-8",
