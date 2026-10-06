@@ -5,7 +5,6 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from string import hexdigits, punctuation
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -20,11 +19,9 @@ class BMS(BaseBMS):
     """Topband BMS implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Topband", "model": "smart BMS"}
-    _HEAD_RSP: frozenset[int] = frozenset(  # header for responses
-        {c for c in range(1, 256) if chr(c) not in (hexdigits + punctuation)} | {0x5E}
-    )
-    _HEAD_RSP_BYTES: Final[bytes] = bytes(_HEAD_RSP)  # precomputed for strip()
     _HEX_UPPER: Final[frozenset[int]] = frozenset(b"0123456789ABCDEF")
+    _HEAD_TABLE = bytes(0x00 if chr(i) in "0123456789ABCDEF" else 0xFF for i in range(256))
+    _HEAD_RSP: Final[bytes] = bytes(c for c in range(256) if chr(c) not in "0123456789ABCDEF")
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
@@ -81,39 +78,28 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
 
         # check for beginning of frame
-        if (
-            start := next((i for i, b in enumerate(data) if b in self._HEAD_RSP), -1)
-        ) != -1 and (
-            not self._frame
-            or len(self._frame) >= BMS._INFO_LEN
-            or not self._hex_coded()  # a control reply or padding started the frame
+        if (start := bytes(data).translate(BMS._HEAD_TABLE).rfind(0xFF)) != -1 and (
+            len(self._frame) + start <= BMS._INFO_LEN or not self._frame
         ):
             data = data[start:]
             self._frame.clear()
-        elif not self._frame:
-            return  # no frame started yet: drop data until a header arrives
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         if len(self._frame) < BMS._INFO_LEN:
             return
 
-        del self._frame[BMS._INFO_LEN :]  # cut off exceeding data
+        del self._frame[BMS._INFO_LEN :]
+        self._frame = self._frame.rstrip(BMS._HEAD_RSP)
 
-        if not (
-            self._frame[0] in BMS._HEAD_RSP
-            and self._hex_coded()
-        ):
+        # Handle potential two headers in final chunk
+        if len(self._frame[1:]) % 2 or not BMS._HEX_UPPER.issuperset(self._frame[1:]):
             self._log.debug("incorrect frame coding: %s", self._frame)
             self._frame.clear()
             return
 
-        _dec: Final[bytes] = bytes.fromhex(
-            self._frame.strip(BMS._HEAD_RSP_BYTES).decode()
-        )
+        _dec: Final[bytes] = bytes.fromhex(self._frame[1:].decode())
 
         if not self._check_integrity(
             _dec, lambda x: crc_sum(x, 2), slice(None, -2), slice(-2, None)
@@ -121,16 +107,9 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if len(self._HEAD_RSP) > 1:
-            self._log.debug("detected frame header 0x%X", self._frame[0])
-            self._HEAD_RSP = frozenset({self._frame[0]})
-
         self._msg = _dec
         self._msg_event.set()
-
-    def _hex_coded(self) -> bool:
-        """Check that the frame after its header only contains uppercase hex digits."""
-        return BMS._HEX_UPPER.issuperset(self._frame[1:])
+        self._frame.clear()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
