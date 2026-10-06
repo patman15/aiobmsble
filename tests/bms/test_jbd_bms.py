@@ -45,6 +45,42 @@ _RESULT_DEFS: Final[BMSSample] = {
 }
 
 
+_RESULT_UNIT_BASE: Final[BMSSample] = {
+    "temp_sensors": 3,
+    "voltage": 13.28,
+    "battery_level": 72,
+    "cycles": 37,
+    "temperature": 18.733,
+    "battery_charging": False,
+    "runtime": 292903,
+    "cell_count": 4,
+    "cell_voltages": [3.43, 3.425, 3.432, 3.417],
+    "temp_values": [TS(t, TS.T.CELL) for t in (19.9, 18.1, 18.2)],
+    "delta_voltage": 0.015,
+    "problem": False,
+    "problem_code": 0,
+    "balancer": 0,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
+}
+# Fogstar Drift 628 Ah capture (control byte 0x88 after NTC temps): 100 mA/100 mAh
+_RESULT_100MA: Final[BMSSample] = _RESULT_UNIT_BASE | {
+    "current": -5.8,
+    "cycle_charge": 471.9,
+    "design_capacity": 628,
+    "cycle_capacity": 6266.832,
+    "power": -77.024,
+}
+# same capture with the flag cleared: default 10 mA/10 mAh units
+_RESULT_10MA: Final[BMSSample] = _RESULT_UNIT_BASE | {
+    "current": -0.58,
+    "cycle_charge": 47.19,
+    "design_capacity": 62,
+    "cycle_capacity": 626.683,
+    "power": -7.702,
+}
+
+
 class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
 
@@ -177,6 +213,67 @@ class MockOversizedBleakClient(MockJBDBleakClient):
         if self._tasks:
             await asyncio.wait(self._tasks)
         raise BleakError
+
+
+class Mock100mABleakClient(MockJBDBleakClient):
+    """Emulate a JBD BMS reporting 100 mA / 100 mAh units (control byte bit 7 set)."""
+
+    # Fogstar Drift 628 Ah basic-info frame; control byte 0x88 right after the three
+    # NTC temperatures signals 100 mA / 100 mAh units.
+    RESP: dict[bytes, bytes] = {
+        MockJBDBleakClient.CMD_INFO: (
+            b"\xdd\x03\x00\x26\x05\x30\xff\xc6\x12\x6f\x18\x88\x00\x25\x30\x77"
+            b"\x00\x00\x00\x00\x00\x00\x62\x48\x03\x04\x03\x0b\x72\x0b\x60\x0b"
+            b"\x61\x88\x00\x00\x19\xa9\x12\x6f\x00\x00\xf8\x20\x77"
+        ),
+        MockJBDBleakClient.CMD_CELL: (
+            b"\xdd\x04\x00\x08\x0d\x66\x0d\x61\x0d\x68\x0d\x59\xfe\x3c\x77"
+        ),
+        MockJBDBleakClient.HW_INFO: (
+            b"\xdd\x05\x00\x0a\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\xfd\xe9\x77"
+        ),
+    }
+
+
+class Mock10mALongBleakClient(Mock100mABleakClient):
+    """Emulate the same long frame with the unit flag cleared (10 mA / 10 mAh)."""
+
+    # identical capture, control byte 0x08 (bit 7 cleared), CRC recomputed.
+    RESP: dict[bytes, bytes] = {
+        MockJBDBleakClient.CMD_INFO: (
+            b"\xdd\x03\x00\x26\x05\x30\xff\xc6\x12\x6f\x18\x88\x00\x25\x30\x77"
+            b"\x00\x00\x00\x00\x00\x00\x62\x48\x03\x04\x03\x0b\x72\x0b\x60\x0b"
+            b"\x61\x08\x00\x00\x19\xa9\x12\x6f\x00\x00\xf8\xa0\x77"
+        ),
+        MockJBDBleakClient.CMD_CELL: Mock100mABleakClient.RESP[MockJBDBleakClient.CMD_CELL],
+        MockJBDBleakClient.HW_INFO: Mock100mABleakClient.RESP[MockJBDBleakClient.HW_INFO],
+    }
+
+
+@pytest.mark.parametrize(
+    ("client", "expected"),
+    [(Mock100mABleakClient, _RESULT_100MA), (Mock10mALongBleakClient, _RESULT_10MA)],
+    ids=["100mA_flag_set", "10mA_flag_clear"],
+)
+async def test_update_unit_scale(
+    patch_bleak_client,
+    keep_alive_fixture: bool,
+    client: type[MockJBDBleakClient],
+    expected: BMSSample,
+) -> None:
+    """Test that the 0x03 control byte selects 100 mA / 100 mAh vs 10 mA / 10 mAh."""
+
+    patch_bleak_client(client)
+
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
+
+    assert await bms.async_update() == expected
+
+    # query again to check already connected state
+    await bms.async_update()
+    assert bms.is_connected is keep_alive_fixture
+
+    await bms.disconnect()
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
