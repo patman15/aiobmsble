@@ -80,11 +80,10 @@ class BMS(BaseBMS):
                 "24???BL*",  # SBL connect battery
             )
         ] + [
-            MatcherPattern(
-                oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True
-            )
+            MatcherPattern(oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True)
             for oui in (
                 "10:A5:62",  # CHINS
+                "A2:C2:37",
                 "A4:C1:37",
                 "A4:C1:38",
                 "A5:C2:37",
@@ -121,9 +120,7 @@ class BMS(BaseBMS):
             pass
         return result
 
-    def _notify_init_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notify_init_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new init data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -170,9 +167,7 @@ class BMS(BaseBMS):
 
         await super()._init_connection(char_notify)
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if (
             len(data) >= 3
@@ -185,13 +180,10 @@ class BMS(BaseBMS):
             self._frame.clear()
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         if (  # verify that data is long enough
-            len(self._frame) < BMS._INFO_LEN
-            or len(self._frame) < BMS._INFO_LEN + self._frame[3]
+            len(self._frame) < BMS._INFO_LEN or len(self._frame) < BMS._INFO_LEN + self._frame[3]
         ):
             return
 
@@ -224,7 +216,7 @@ class BMS(BaseBMS):
             )
             return
 
-        self._msg = bytes(self._frame[:frame_end-2])
+        self._msg = bytes(self._frame[: frame_end - 2])
         self._msg_event.set()
 
     @staticmethod
