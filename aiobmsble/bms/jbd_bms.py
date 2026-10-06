@@ -67,6 +67,7 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in (
+                "@KsM:*",  # RVPOWER
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery
