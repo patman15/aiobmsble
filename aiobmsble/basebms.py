@@ -29,6 +29,7 @@ from aiobmsble import (
     BMSConfig,
     BMSDp,
     BMSInfo,
+    BMSLimits,
     BMSPDp,
     BMSSample,
     BMSValue,
@@ -237,6 +238,28 @@ class BaseBMS(ABC):
                 pass
 
         return info
+
+    @final
+    async def limits(self) -> BMSLimits:
+        """Return a dictionary of protection thresholds configured in the BMS.
+
+        The values are trip/recovery points of the BMS protections, not the
+        operating envelope. Empty if the BMS does not report any, see `BMSLimits`.
+        """
+
+        async with self._op_lock:
+            disconnect: Final[bool] = not self._client.is_connected
+            await self._connect()
+            limits: Final[BMSLimits] = await self._fetch_limits()
+            if disconnect:
+                await self.disconnect()
+
+            self._log.debug("BMS limits %s", limits)
+            return limits
+
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the protection thresholds via BLE (default: none available)."""
+        return BMSLimits()
 
     @staticmethod
     def _raw_values() -> frozenset[BMSValue]:

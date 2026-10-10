@@ -18,7 +18,16 @@ from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSLimits,
+    BMSSample,
+    BMSValue,
+    MatcherPattern,
+    TempSensor,
+)
 from aiobmsble.basebms import (
     BaseBMS,
     b2str,
@@ -195,6 +204,18 @@ class OpGuardTestBMS(MinTestBMS):
             await asyncio.sleep(0)
             await self._await_msg(b"mock_update", wait_for_notify=False)
             return {"problem_code": 21}
+        finally:
+            self._op_active = False
+
+    async def _fetch_limits(self) -> BMSLimits:
+        if self._op_active:
+            raise RuntimeError("overlapping base operations")
+
+        self._op_active = True
+        try:
+            await asyncio.sleep(0)
+            await self._await_msg(b"mock_limits", wait_for_notify=False)
+            return {"cell_ovp": 3.65}
         finally:
             self._op_active = False
 
@@ -447,6 +468,22 @@ async def test_device_info_fail(
     assert bms._client.is_connected
 
 
+@pytest.mark.parametrize("connected", [False, True], ids=["disconnected", "connected"])
+async def test_limits_default(
+    patch_bleak_client: Callable[..., None], connected: bool
+) -> None:
+    """Verify that limits() defaults to empty and restores the connection state."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    if connected:
+        await bms.async_update()  # run update to have connection open
+
+    assert await bms.limits() == {}  # no limits available by default
+    assert bms._client.is_connected is connected
+
+    await bms.disconnect()
+
+
 def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
     """Check if missing data is correctly calculated."""
     bms_data: BMSSample = bms_data_fixture
@@ -557,15 +594,18 @@ async def test_async_update(patch_bleak_client: Callable[..., None], raw: bool) 
 async def test_op_guard_device_info_async_update(
     patch_bleak_client: Callable[..., None],
 ) -> None:
-    """Verify device_info and async_update are serialized for one BMS instance."""
+    """Verify device_info, limits, and async_update are serialized for one BMS instance."""
     patch_bleak_client()
     bms: OpGuardTestBMS = OpGuardTestBMS(
         generate_ble_device(), BMSConfig(keep_alive=True)
     )
     await bms._connect()
 
-    info, data = await asyncio.gather(bms.device_info(), bms.async_update(raw=True))
+    info, limits, data = await asyncio.gather(
+        bms.device_info(), bms.limits(), bms.async_update(raw=True)
+    )
     assert info == {"model": "mock_model"}
+    assert limits == {"cell_ovp": 3.65}
     assert data == {"problem_code": 21}
 
     await bms.disconnect()
