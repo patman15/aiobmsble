@@ -201,6 +201,37 @@ class BMSInfo(TypedDict, total=False):
     hw_version: str
 
 
+class BMSLimits(TypedDict, total=False):
+    """Protection thresholds configured in the BMS.
+
+    These are the trip points at which the BMS activates a protection, together
+    with the corresponding recovery (release) points if the BMS reports them.
+    They are not the operating envelope of the battery and must not be used as
+    charger/inverter set points. The values are static configuration and are
+    queried via `BaseBMS.limits()`.
+    """
+
+    # cell voltage protection
+    cell_ovp: float  # [V] cell overvoltage protection trip point
+    cell_ovp_recovery: float  # [V] cell overvoltage protection release
+    cell_uvp: float  # [V] cell undervoltage protection trip point
+    cell_uvp_recovery: float  # [V] cell undervoltage protection release
+
+    # current protection
+    charge_ocp: float  # [A] charge overcurrent protection trip point
+    discharge_ocp: float  # [A] discharge overcurrent protection trip point
+
+    # temperature protection
+    charge_temp_high: float  # [°C] charge high temperature trip point
+    charge_temp_high_recovery: float  # [°C] charge high temperature release
+    charge_temp_low: float  # [°C] charge low temperature trip point
+    charge_temp_low_recovery: float  # [°C] charge low temperature release
+    discharge_temp_high: float  # [°C] discharge high temperature trip point
+    discharge_temp_high_recovery: float  # [°C] discharge high temperature release
+    discharge_temp_low: float  # [°C] discharge low temperature trip point
+    discharge_temp_low_recovery: float  # [°C] discharge low temperature release
+
+
 class MatcherPattern(TypedDict, total=False):
     """Optional patterns that can match Bleak advertisement data."""
 
