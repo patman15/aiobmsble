@@ -43,6 +43,11 @@ class BMS(BaseBMS):
         BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
         BMSDp("temp_sensors", 26, 1, False),  # count is not limited
     )  # general protocol v4
+    _FIELDS_100MA: tuple[BMSDp, ...] = (
+        BMSDp("current", 6, 2, True, lambda x: x / 10),
+        BMSDp("cycle_charge", 8, 2, False, lambda x: x / 10),
+        BMSDp("design_capacity", 10, 2, False, lambda x: x // 10),
+    )  # overrides for boards reporting 100 mA / 100 mAh units (see _async_update)
 
     accept_secret: bool = True
 
@@ -253,6 +258,13 @@ class BMS(BaseBMS):
         result: BMSSample = {}
         await self._await_cmd_resp(0x03)
         result = BMS._decode_data(self._FIELDS, self._msg)
+        # Some JBD boards report current and capacities in 100 mA / 100 mAh units
+        # instead of the default 10 mA / 10 mAh, signalled by bit 7 of the control
+        # byte directly after the NTC temperatures. Re-decode those fields at the
+        # larger unit when present; frames without that byte keep the default.
+        ctrl: Final[int] = 27 + 2 * result.get("temp_sensors", 0)
+        if self._FIELDS_100MA and len(self._msg) > ctrl and self._msg[ctrl] & 0x80:
+            result = BMS._decode_data(self._FIELDS + self._FIELDS_100MA, self._msg)
         result["temp_values"] = BMS._temp_values(
             self._msg,
             values=result.get("temp_sensors", 0),
