@@ -162,6 +162,40 @@ def test_delitem_invalid_key(key: object, error: type[Exception]) -> None:
     assert bytes(buffer) == b"\xde\xad"
 
 
+@pytest.mark.parametrize(
+    ("chars", "result"),
+    [
+        (None, b"\x01\x02\x01"),
+        (b"\x00\x01", b"\x02"),
+        (b"\x01\x02\x03", b""),
+    ],
+    ids=["default_whitespace", "strip_exact_bytes", "all_chars_removed"],
+)
+def test_strip(chars: bytes | None, result: bytes) -> None:
+    """Check trimming of leading and trailing bytes."""
+    buffer: Final[BoundedByteArray] = BoundedByteArray(8, b"\x01\x02\x01")
+
+    assert bytes(buffer.strip(chars)) == result
+    assert bytes(buffer) == b"\x01\x02\x01"
+
+
+@pytest.mark.parametrize(
+    ("chars", "result"),
+    [
+        (None, b"\x01\x02\x01"),
+        (b"\x00\x01", b"\x01\x02"),
+        (b"\x01\x02\x03", b""),
+    ],
+    ids=["default_whitespace", "rstrip_exact_bytes", "trailing_chars_removed"],
+)
+def test_rstrip(chars: bytes | None, result: bytes) -> None:
+    """Check trimming of trailing bytes only."""
+    buffer: Final[BoundedByteArray] = BoundedByteArray(8, b"\x01\x02\x01")
+
+    assert bytes(buffer.rstrip(chars)) == result
+    assert bytes(buffer) == b"\x01\x02\x01"
+
+
 def test_iadd() -> None:
     """Check that in-place addition appends and returns the same instance."""
     buffer: BoundedByteArray = BoundedByteArray(4, b"\x01")
