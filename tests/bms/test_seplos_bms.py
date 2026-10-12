@@ -15,8 +15,9 @@ from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 27  # ATT maximum is 512, minimal 27
+
 CHAR_UUID = "fff1"
-REF_VALUE: BMSSample = {
+_RESULT_DEFS: BMSSample = {
     "voltage": 52.34,
     "current": -6.7,
     "cycle_charge": 134.12,
@@ -370,10 +371,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == REF_VALUE
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
-    assert await bms.async_update() == REF_VALUE
+    assert await bms.async_update() == _RESULT_DEFS
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -422,7 +423,7 @@ async def test_oversized_response(patch_bleak_client) -> None:
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == REF_VALUE
+    assert await bms.async_update() == _RESULT_DEFS
 
     await bms.disconnect()
 
@@ -492,7 +493,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == REF_VALUE | {
+    assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 0xFFFF00FF00FF0000FF,
     }
