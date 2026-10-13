@@ -64,6 +64,10 @@ class BMS(BaseBMS):
     # def _raw_values() -> frozenset[BMSValue]:
     #     return frozenset({"runtime"})  # never calculate, e.g. runtime
 
+    # async def _fetch_limits(self) -> BMSLimits:
+    #     """Fetch the protection thresholds (trip points) via BLE."""
+    #     return BMSLimits(cell_ovp=3.65, cell_uvp=2.5)  # query from BMS instead
+
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
