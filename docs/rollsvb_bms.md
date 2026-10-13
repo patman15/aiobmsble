@@ -63,6 +63,48 @@ raw register value for the non-zero reading. A raw value of `29991`
 (10 below the 30000 centre point) was displayed by the app as **charging
 at +0.9 A**.
 
+## Troubleshooting
+
+Two issues were hit (and resolved) while bringing this plugin up against
+real hardware for the first time, both worth checking before assuming
+the plugin itself is broken:
+
+**Device never appears, even unmatched, in Home Assistant's Bluetooth
+scanner.** This battery's BMS only supports one BLE central connection
+at a time, like most cheap serial-bridge modules of this type, and
+appears to stop advertising entirely while something else is connected
+to it. If the vendor's own "Rolls LFP Connect" app is open (even just
+backgrounded, not force-quit) on a phone, it may be holding the
+connection open, which makes the device invisible to any other scanner,
+including Home Assistant's — independent of signal strength or BLE
+proxy placement. Force-quitting the app (not just leaving it
+backgrounded) frees the connection and the device starts advertising
+again within a few seconds. "Forget this device" in the phone's OS-level
+Bluetooth settings does **not** help here, since this class of device is
+not OS-paired — the app holds its own internal connection.
+
+**`BleakCharacteristicNotFoundError: Characteristic fff1 was not
+found!` on every connection attempt, even though the service (`0xFFF0`)
+resolves correctly.** This is a known BlueZ/bleak GATT-attribute-caching
+issue (see e.g.
+[hbldh/bleak#882](https://github.com/hbldh/bleak/issues/882) and
+[hbldh/bleak#1358](https://github.com/hbldh/bleak/issues/1358)), not
+specific to this plugin: if an earlier connection to the device was torn
+down before characteristic discovery completed — easy to trigger during
+initial setup/testing with repeated connect/disconnect attempts — BlueZ
+can cache that incomplete attribute table and keep returning it on every
+subsequent connection, even once the real device's full table is
+available. The integration's own retry loop will keep hitting the same
+cached, incomplete result and never recover on its own.
+`bleak_retry_connector.clear_cache(address)` is the targeted fix, but
+needs to run inside the same process holding the dbus session (i.e. the
+Home Assistant Core container), which isn't reachable from the
+Terminal & SSH add-on's shell. In practice, a full **Home Assistant Core
+restart** (not just reloading the integration) was sufficient to clear
+this and get a clean reconnect. A physical unplug/replug of the BLE
+adapter is reported elsewhere as an alternative fix for the same
+underlying BlueZ behaviour.
+
 ## Known gaps
 
 - `design_capacity` is not available from any register read observed so
