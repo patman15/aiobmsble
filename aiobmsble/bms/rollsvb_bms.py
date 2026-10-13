@@ -53,9 +53,6 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                # "RD?*" (not "RD*"): Home Assistant's own Bluetooth
-                # matcher rejects local_name patterns with a wildcard
-                # within the first 3 characters as overly broad.
                 "local_name": "RD?*",
                 "service_data_uuid": normalize_uuid_str("ffe1"),
                 "connectable": True,
