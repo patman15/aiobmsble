@@ -12,7 +12,16 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPDp,
+    BMSSample,
+    MatcherPattern,
+    PackSample,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -35,14 +44,25 @@ class BMS(BaseBMS):
     _CELL_POS: Final[int] = 12  # position of first cell voltage
     _HWV_POS: Final[int] = 65
     _SWV_POS: Final[int] = 10
-    _FIELDS: Final[tuple[BMSDp, ...]] = (  # pack values, 0x0a01 reply
-        BMSDp("current", 1, 2, True, lambda x: x / 100),
-        BMSDp("voltage", 3, 2, False, lambda x: x / 100),
-        BMSDp("cycle_charge", 5, 2, False, lambda x: x / 100),
-        BMSDp("design_capacity", 9, 2, False, lambda x: x // 100),
-        BMSDp("battery_level", 11, 1, False),
-        BMSDp("battery_health", 12, 1, False),
-        BMSDp("cycles", 13, 2, False),
+    _FIELDS: Final[tuple[BMSDp, ...]] = (
+        BMSDp("current", 1, 4, True, lambda x: x / 100),
+        BMSDp("voltage", 5, 4, False, lambda x: x / 100),
+        BMSDp("cycle_charge", 9, 4, False, lambda x: x / 100),
+        BMSDp("design_capacity", 13, 4, False, lambda x: x // 100),
+        BMSDp("battery_level", 21, 1, False),
+        BMSDp("battery_health", 22, 1, False),
+        BMSDp("pack_count", 0, 1, False),
+        BMSDp("cycles", 23, 4, False),
+        # BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
+    )
+    _PFIELDS: Final[tuple[BMSPDp, ...]] = (  # pack values, 0x0a01 reply
+        BMSPDp("current", 1, 2, True, lambda x: x / 100),
+        BMSPDp("voltage", 3, 2, False, lambda x: x / 100),
+        BMSPDp("cycle_charge", 5, 2, False, lambda x: x / 100),
+        BMSPDp("design_capacity", 9, 2, False, lambda x: x // 100),
+        BMSPDp("battery_level", 11, 1, False),
+        BMSPDp("battery_health", 12, 1, False),
+        BMSPDp("cycles", 13, 2, False),
     )
 
     def __init__(
@@ -94,9 +114,7 @@ class BMS(BaseBMS):
         )
         return result
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -141,17 +159,15 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(BMS._cmd(BMS._Cmd.PACK_INFO, b"\x01\x01"))
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._msg, byteorder="big", start=8
-        )
+        pack: PackSample = BMS._decode_pack(BMS._PFIELDS, self._msg, start=8)
         await self._await_msg(BMS._cmd(BMS._Cmd.CELL_INFO, b"\x01\x01"))
         if len(self._msg) < BMS._CELL_POS:
             raise ValueError("BMS data incomplete.")
-        result["cell_count"] = self._msg[BMS._CELL_POS - 1]
-        result["cell_voltages"] = BMS._cell_voltages(
-            self._msg, cells=result["cell_count"], start=BMS._CELL_POS, gap=2
+        pack["cell_count"] = self._msg[BMS._CELL_POS - 1]
+        pack["cell_voltages"] = BMS._cell_voltages(
+            self._msg, cells=pack["cell_count"], start=BMS._CELL_POS, gap=2
         )
-        result["temp_values"] = BMS._temp_values(
+        pack["temp_values"] = BMS._temp_values(
             self._msg,
             values=6,
             start=14,
@@ -159,10 +175,12 @@ class BMS(BaseBMS):
             signed=False,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL,) * 4
-            + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
+            types=(TempSensor.T.CELL,) * 4 + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
         await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
-        if pack_count := self._msg[8]:  # zero on all packs except the master
-            result["pack_count"] = pack_count
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=8)
+        if not result.get("pack_count"):  # zero on all packs except the master
+            result |= BMSSample(**pack)  # overwrite with pack data if pack is individual device
+        else:
+            result["packs"] = [pack]
         return result
