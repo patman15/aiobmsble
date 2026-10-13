@@ -16,13 +16,13 @@ from tests.test_basebms import BMSBasicTests
 BT_FRAME_SIZE = 200
 
 _RESULT_DEFS: BMSSample = {
-    "voltage": 53.02,
-    "current": -3.84,
+    "voltage": 53.01,
+    "current": -4.23,
     "battery_level": 74,
     "battery_health": 100,
-    "cycle_charge": 74.23,
+    "cycle_charge": 74.0,
     "design_capacity": 100,
-    "cycle_capacity": 3935.675,
+    "cycle_capacity": 3922.74,
     "delta_voltage": 0.004,
     "cycles": 239,
     "cell_count": 16,
@@ -44,12 +44,43 @@ _RESULT_DEFS: BMSSample = {
         3.31,
         3.308,
     ],
-    "temp_values": [TS(t, TS.T.CELL) for t in (22.2, 22.4, 22.7, 22.4)],
-    "temperature": 22.425,
     "battery_charging": False,
-    "runtime": 69590,
-    "power": -203.597,
+    "runtime": 62978,
+    "power": -224.232,
     "problem": False,
+    "pack_count": 1,
+    "packs": [
+        {
+            "current": -3.84,
+            "voltage": 53.02,
+            "cycle_charge": 74.23,
+            "design_capacity": 100,
+            "battery_level": 74,
+            "battery_health": 100,
+            "cycles": 239,
+            "cell_count": 16,
+            "cell_voltages": [
+                3.31,
+                3.308,
+                3.31,
+                3.311,
+                3.311,
+                3.31,
+                3.311,
+                3.311,
+                3.311,
+                3.312,
+                3.311,
+                3.31,
+                3.31,
+                3.311,
+                3.31,
+                3.308,
+            ],
+            "temp_values": [TS(t, TS.T.CELL) for t in (22.2, 22.4, 22.7, 22.4)],
+            "delta_voltage": 0.004,
+        }
+    ],
 }
 
 
@@ -154,9 +185,7 @@ class MockPaceBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         resp: Final[bytearray] = self._response(char_specifier, data)
         for notify_data in [
@@ -246,9 +275,7 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_device_info_incomplete(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_device_info_incomplete(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that a truncated (but CRC-valid) sw/hw version response raises ValueError."""
     monkeypatch.setattr(
         MockPaceBleakClient,
@@ -270,9 +297,7 @@ async def test_device_info_incomplete(
     await bms.disconnect()
 
 
-async def test_cell_block_incomplete(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_cell_block_incomplete(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that a truncated (but CRC-valid) cell block response raises ValueError."""
     monkeypatch.setattr(
         MockPaceBleakClient,
@@ -295,7 +320,7 @@ async def test_cell_block_incomplete(
 
 
 async def test_pack_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
-    """Test Pace BMS pack data update."""
+    """Test Pace BMS pack data update, response to SYS_INFO is empty."""
 
     monkeypatch.setattr(
         MockPaceBleakClient,
@@ -311,6 +336,15 @@ async def test_pack_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
 
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    assert await bms.async_update() == _RESULT_DEFS
+    result = await bms.async_update()
+    assert result == _RESULT_DEFS.get("packs", [])[0] | {
+        "pack_count": 0,
+        "battery_charging": False,
+        "temperature": 22.425,
+        "cycle_capacity": 3935.675,
+        "power": -203.597,
+        "runtime": 69590,
+        "problem": False,
+    }
 
     await bms.disconnect()
