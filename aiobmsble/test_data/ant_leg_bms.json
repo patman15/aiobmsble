@@ -29,5 +29,23 @@
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/668)"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "ANT-BLEUB5837-5837",
+      "platform_data": ["E0:38:59:00:00:00"],
+      "rssi": -59,
+      "manufacturer_data": {
+        "56718": "88a0e03859b3fe9e"
+      },
+      "service_uuids": [
+        "0000ffe0-0000-1000-8000-00805f9b34fb",
+        "0000fee7-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "ant_leg_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/821)"
+    ]
   }
 ]
