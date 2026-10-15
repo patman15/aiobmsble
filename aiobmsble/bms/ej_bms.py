@@ -101,11 +101,6 @@ class BMS(BaseBMS):
                     local_name="G-[0-5][2-8]V[0-9]*A[Hh]-[0-9]*", connectable=True
                 ),
             ]
-            + [
-                MatcherPattern(
-                    local_name="EJ*", manufacturer_id=21320, connectable=True
-                )
-            ]
         )
 
     @staticmethod

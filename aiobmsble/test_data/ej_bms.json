@@ -127,18 +127,5 @@
       "MOBILEKTRO MLB-1280D-NT",
       "nRF connect (https://github.com/patman15/BMS_BLE-HA/issues/759)"
     ]
-  },
-  {
-    "advertisement": {
-      "local_name": "EJ22040073",
-      "platform_data": ["84:28:08:00:00:00"],
-      "rssi": -68,
-      "manufacturer_data": { "21320": "1112131415166400" }
-    },
-    "type": "ej_bms",
-    "_comments": [
-      "E&J-Technology LiFePO4 battery (2112Wh, 12.8V, 165Ah, EJBMS-PRO app",
-      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/819)"
-    ]
   }
 ]
