@@ -1,0 +1,13 @@
+[
+  {
+    "advertisement": {
+      "local_name": "R07E8546681A00F9",
+      "rssi": -60,
+      "platform_data": ["90:EB:48:00:00:00"]
+    },
+    "type": "dyness_jun_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/633)"
+    ]
+  }
+]
