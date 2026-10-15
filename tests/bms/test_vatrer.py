@@ -1,6 +1,7 @@
 """Test the Vatrer BMS implementation."""
 
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -12,10 +13,7 @@ from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
-
-def ref_value() -> BMSSample:
-    """Return reference value for mock Vatrer BMS."""
-    return {
+_RESULT_DEFS: Final[BMSSample] = {
         "voltage": 52.67,
         "current": -4.96,
         "battery_level": 40,
@@ -54,7 +52,7 @@ def ref_value() -> BMSSample:
             3.296,
             3.293,
         ],
-    }
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -105,7 +103,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
@@ -209,6 +207,6 @@ async def test_problem_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = await bms.async_update()
-    assert result == ref_value() | {"problem": True}
+    assert result == _RESULT_DEFS | {"problem": True}
 
     await bms.disconnect()

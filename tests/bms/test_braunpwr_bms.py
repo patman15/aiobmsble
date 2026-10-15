@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -14,10 +15,7 @@ from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
-
-def ref_value() -> BMSSample:
-    """Return reference value for mock CBT power BMS."""
-    return {
+_RESULT_DEFS: Final[BMSSample] = {
         "voltage": 53.31,
         "current": -11.45,
         "battery_level": 83,
@@ -55,7 +53,7 @@ def ref_value() -> BMSSample:
         "problem_code": 0,
         "problem": False,
         "balancer": 32385,
-    }
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -127,7 +125,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
