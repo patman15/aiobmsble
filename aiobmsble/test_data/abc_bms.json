@@ -28,16 +28,5 @@
     "_comments": [
       "source log (https://github.com/patman15/BMS_BLE-HA/issues/394)"
     ]
-  },
-  {
-    "advertisement": {
-      "local_name": "SK12V314PHB030215",
-      "platform_data": ["40:D6:3C:00:00:00"],
-      "rssi": -41
-    },
-    "type": "abc_bms",
-    "_comments": [
-      "source log (https://github.com/patman15/BMS_BLE-HA/issues/812)"
-    ]
   }
 ]

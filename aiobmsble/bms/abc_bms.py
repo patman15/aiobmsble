@@ -74,7 +74,7 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in ("ABC-*", "SOK-*", "NB-*", "Hoover")
-        ] + [{"local_name": "SK??V*", "connectable": True}]
+        ]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
