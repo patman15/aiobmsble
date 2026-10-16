@@ -73,6 +73,7 @@ class BMS(BaseBMS):
         self._ch_c_event: asyncio.Event = asyncio.Event()
         self._ka_resp: int = 0xFF
         self._design_cap: dict[int, bytes] = {}
+        self._known_packs: set[int] = set()  # packs that were once reported completely
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -191,10 +192,18 @@ class BMS(BaseBMS):
             return
 
         self._data_final.setdefault(data[2], {})[data[3]] = bytes(data)
-        if self._data_final and all(
-            BMS._CMDS.issubset(data.keys()) for data in self._data_final.values()
+        complete: set[int] = {
+            dev for dev, dat in self._data_final.items() if BMS._CMDS.issubset(dat)
+        }
+        if (
+            complete == self._data_final.keys()  # no partially received pack
+            and self._known_packs.issubset(complete)  # no known pack missing
+            and complete
         ):
             self._msg_event.set()
+        else:
+            # e.g. an additional pack started reporting: data set is not complete anymore
+            self._msg_event.clear()
 
     @staticmethod
     def _cellV(
@@ -226,20 +235,34 @@ class BMS(BaseBMS):
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS._GATHER_TIMEOUT)
 
-        # restore design capacity if not received
-        for dev, data in self._data_final.items():
-            if (cap_msg := data.get(0x7) or self._design_cap.get(dev)) is None:
-                raise ValueError("BMS data incomplete.")
-            self._design_cap[dev] = data[0x7] = cap_msg
+        try:
+            if missing := self._known_packs - self._data_final.keys():
+                raise ValueError(
+                    f"BMS data incomplete, packs missing: {sorted(missing)}"
+                )
 
-        result: BMSSample = BMSSample(pack_count=len(self._data_final))
-        for pack in sorted(self._data_final):
-            pack_result: BMSSample = self._decode_data(
-                BMS._FIELDS, self._data_final[pack]
-            )
-            pack_result["cell_voltages"] = BMS._cellV(self._data_final[pack], cells=4)
-            result.setdefault("packs", []).append(pack_result)
+            # restore design capacity if not received
+            for dev, data in self._data_final.items():
+                # packs might start reporting after the data set was signalled complete
+                if not BMS._CMDS.issubset(data) or (
+                    cap_msg := data.get(0x7) or self._design_cap.get(dev)
+                ) is None:
+                    raise ValueError("BMS data incomplete.")
+                self._design_cap[dev] = data[0x7] = cap_msg
 
-        self._data_final.clear()
-        self._msg_event.clear()
+            self._known_packs |= self._data_final.keys()
+
+            result: BMSSample = BMSSample(pack_count=len(self._data_final))
+            for pack in sorted(self._data_final):
+                pack_result: BMSSample = self._decode_data(
+                    BMS._FIELDS, self._data_final[pack]
+                )
+                pack_result["cell_voltages"] = BMS._cellV(
+                    self._data_final[pack], cells=4
+                )
+                result.setdefault("packs", []).append(pack_result)
+        finally:
+            self._data_final.clear()
+            self._msg_event.clear()
+
         return result
