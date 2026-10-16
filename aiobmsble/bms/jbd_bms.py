@@ -28,6 +28,7 @@ class BMS(BaseBMS):
     _INFO_LEN: Final[int] = 7  # minimum frame size
     _BASIC_INFO: Final[int] = 23  # basic info data length
     _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
+    _POS_SWVER: Final[int] = 22  # position of SW version
     _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4
     _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
@@ -80,9 +81,7 @@ class BMS(BaseBMS):
                 "24???BL*",  # SBL connect battery
             )
         ] + [
-            MatcherPattern(
-                oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True
-            )
+            MatcherPattern(oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True)
             for oui in (
                 "10:A5:62",  # CHINS
                 "A4:C1:37",
@@ -113,7 +112,10 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         await self._await_cmd_resp(0x03)
-        result: BMSInfo = {"sw_version": f"{self._msg[22] >> 4}.{self._msg[22] & 0xF}"}
+        if len(self._msg) <= BMS._POS_SWVER:
+            raise ValueError("BMS data incomplete.")
+        sw_version: Final[int] = self._msg[BMS._POS_SWVER]
+        result: BMSInfo = {"sw_version": f"{sw_version >> 4}.{sw_version & 0xF}"}
         try:
             await self._await_cmd_resp(0x05)
             result["hw_version"] = b2str(self._msg[4 : self._msg[3] + 4])
@@ -121,9 +123,7 @@ class BMS(BaseBMS):
             pass
         return result
 
-    def _notify_init_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notify_init_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new init data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -170,9 +170,7 @@ class BMS(BaseBMS):
 
         await super()._init_connection(char_notify)
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if (
             len(data) >= 3
@@ -185,13 +183,10 @@ class BMS(BaseBMS):
             self._frame.clear()
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         if (  # verify that data is long enough
-            len(self._frame) < BMS._INFO_LEN
-            or len(self._frame) < BMS._INFO_LEN + self._frame[3]
+            len(self._frame) < BMS._INFO_LEN or len(self._frame) < BMS._INFO_LEN + self._frame[3]
         ):
             return
 
@@ -224,7 +219,7 @@ class BMS(BaseBMS):
             )
             return
 
-        self._msg = bytes(self._frame[:frame_end-2])
+        self._msg = bytes(self._frame[: frame_end - 2])
         self._msg_event.set()
 
     @staticmethod
