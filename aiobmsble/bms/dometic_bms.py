@@ -236,11 +236,6 @@ class BMS(BaseBMS):
         await asyncio.wait_for(self._wait_event(), timeout=BMS._GATHER_TIMEOUT)
 
         try:
-            if missing := self._known_packs - self._data_final.keys():
-                raise ValueError(
-                    f"BMS data incomplete, packs missing: {sorted(missing)}"
-                )
-
             # restore design capacity if not received
             for dev, data in self._data_final.items():
                 # packs might start reporting after the data set was signalled complete
