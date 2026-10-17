@@ -129,14 +129,15 @@ class BMS(EJBMS):
             len(self._frame),
         )
 
-        self._msg = bytes.fromhex(self._frame[1:-1].decode())
+        msg: Final[bytes] = bytes.fromhex(self._frame[1:-1].decode())
 
         if not self._check_integrity(
-            self._msg, lambda x: crc_sum(x) ^ 0xFF, slice(1, -1), self._msg[-1]
+            msg, lambda x: crc_sum(x) ^ 0xFF, slice(1, -1), msg[-1]
         ):
             self._frame.clear()
             return
 
+        self._msg = msg
         self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:

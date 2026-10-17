@@ -23,6 +23,7 @@ class BMS(BaseBMS):
     _HEAD_CMD: Final[int] = 0xEE
     _HEAD_RESP: Final[bytes] = b"\xcc"
     _INFO_LEN: Final[int] = 0x14
+    _MAX_CELL: Final[int] = 32
     _EXP_REPLY: Final[dict[int, set[int]]] = {  # wait for these replies
         0xC0: {0xF1},
         0xC1: {0xF0, 0xF2},
@@ -99,9 +100,7 @@ class BMS(BaseBMS):
         info.update({"model": b2str(self._msg[0xF1][2:-1])})
         return info
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -117,7 +116,10 @@ class BMS(BaseBMS):
             return
 
         if data[1] == 0xF4 and 0xF4 in self._msg:
-            # expand cell voltage frame with all parts
+            # each part holds 4 cells, only accept the consecutive next part
+            if data[2] != len(self._msg[0xF4]) // 4 or data[2] > BMS._MAX_CELL:
+                self._log.debug("unexpected cell index %i", data[2])
+                return
             self._msg[0xF4] = bytes(self._msg[0xF4][:-2] + data[2:])
         else:
             self._msg[data[1]] = bytes(data)
