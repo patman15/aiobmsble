@@ -68,6 +68,7 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in (
+                "@KsM:*",  # RVPOWER
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery
@@ -84,6 +85,7 @@ class BMS(BaseBMS):
             MatcherPattern(oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True)
             for oui in (
                 "10:A5:62",  # CHINS
+                "A2:C2:37",
                 "A4:C1:37",
                 "A4:C1:38",
                 "A5:C2:37",
