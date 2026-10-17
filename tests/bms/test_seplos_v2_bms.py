@@ -8,6 +8,7 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble.basebms import crc_xmodem
 from aiobmsble.bms.seplos_v2_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -181,10 +182,69 @@ async def test_short_message(
     bms = BMS(generate_ble_device(), BMSConfig(False))
 
     result: BMSSample = {}
-    with pytest.raises(ValueError, match="message too short to decode data"):
+    with pytest.raises(ValueError, match="BMS data incomplete"):
         result = await bms.async_update()
 
     assert not result
+    await bms.disconnect()
+
+
+def _truncate_frame(frame: bytes, length: int) -> bytes:
+    """Return a valid frame with the payload truncated to the given length."""
+    body: bytearray = bytearray(frame[1 : 7 + length])
+    body[4:6] = length.to_bytes(2, "big")
+    return b"\x7e" + bytes(body) + crc_xmodem(body).to_bytes(2, "big") + b"\x0d"
+
+
+@pytest.mark.parametrize(
+    ("cmd", "length"),
+    [
+        (b"\x00\x46\x51\x00\x00\x3a\x7f", 1),
+        (b"\x00\x46\x61\x00\x01\x00\xf7\xc1", 30),
+        (b"\x00\x46\x61\x00\x01\x00\xf7\xc1", 80),
+    ],
+    ids=["short_info", "short_cells", "short_states"],
+)
+async def test_short_frame(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, cmd: bytes, length: int
+) -> None:
+    """Test Seplos V2 BMS data update with valid but too short frames."""
+
+    monkeypatch.setattr(
+        MockSeplosv2BleakClient,
+        "RESP",
+        MockSeplosv2BleakClient.RESP
+        | {cmd: _truncate_frame(MockSeplosv2BleakClient.RESP[cmd], length)},
+    )
+    patch_bleak_client(MockSeplosv2BleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete"):
+        await bms.async_update()
+
+    await bms.disconnect()
+
+
+async def test_device_info_short(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that a valid but too short manufacturer information frame is rejected."""
+
+    cmd: bytes = b"\x00\x46\x51\x00\x00\x3a\x7f"
+    monkeypatch.setattr(
+        MockSeplosv2BleakClient,
+        "RESP",
+        MockSeplosv2BleakClient.RESP
+        | {cmd: _truncate_frame(MockSeplosv2BleakClient.RESP[cmd], 1)},
+    )
+    patch_bleak_client(MockSeplosv2BleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete"):
+        await bms.device_info()
+
     await bms.disconnect()
 
 
