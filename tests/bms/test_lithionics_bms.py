@@ -185,16 +185,20 @@ async def test_module_info_sorted(
     await bms.disconnect()
 
 
+@pytest.mark.parametrize("module_id", [b"ZZ", b"256"], ids=["non_numeric", "too_large"])
 async def test_invalid_module_id_ignored(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     caplog: pytest.LogCaptureFixture,
+    module_id: bytes,
 ) -> None:
-    """Test that a module line with a non-numeric module ID is discarded."""
+    """Test that a module line with an invalid module ID is discarded."""
     monkeypatch.setattr(
         MockLithionicsBleakClient,
         "_RESP",
-        b"#,1,ZZ,0000,0000,4,30.0,31.0,329,337,333,0005,0102,330,331,332,333\r\n"
+        b"#,1,"
+        + module_id
+        + b",0000,0000,4,30.0,31.0,329,337,333,0005,0102,330,331,332,333\r\n"
         + _PROTO_DEFS["fixed_stream"],
     )
     patch_bleak_client(MockLithionicsBleakClient)
@@ -211,21 +215,16 @@ async def test_malformed_module_not_persistent(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
 ) -> None:
-    """Test that a single malformed module line does not fail later updates."""
+    """Test that a malformed module line is ignored and does not persist."""
     monkeypatch.setattr(
         MockLithionicsBleakClient,
         "_RESP",
-        b"#,1,42,0000,0000,X,30.0,31.0,329,337,333,0005,0102,330,331,332,333\r\n"
-        + _PROTO_DEFS["fixed_stream"],
+        _PROTO_DEFS["fixed_stream"]
+        + b"#,1,42,0000,0000,X,30.0,31.0,401,402,403,0015,0112,300,301,302,303\r\n",
     )
     patch_bleak_client(MockLithionicsBleakClient)
 
     bms = BMS(generate_ble_device(name="Li3-022724009"))
-
-    with pytest.raises(ValueError, match="BMS data incomplete"):
-        await bms.async_update()
-
-    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", _PROTO_DEFS["fixed_stream"])
     assert await bms.async_update() == _RESULT_DEFS["fixed_stream"]
 
     await bms.disconnect()
@@ -310,13 +309,16 @@ def test_uuid_tx_not_implemented() -> None:
         BMS.uuid_tx()
 
 
+@pytest.mark.parametrize("first_field", [b"1x", b"1" * 400], ids=["non_numeric", "too_long"])
 async def test_non_numeric_field_raises_value_error(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
+    first_field: bytes,
 ) -> None:
-    """Test that a non-numeric (but correctly shaped) primary field raises ValueError."""
+    """Test that a non-numeric or overlong (but correctly shaped) primary field raises ValueError."""
     stream: bytes = (
-        b"1x,350,350,350,349,55,48,-3,99,000000\r\n&,1,319,006391,0136,2300,FF05,8700\r\n"
+        first_field
+        + b",350,350,350,349,55,48,-3,99,000000\r\n&,1,319,006391,0136,2300,FF05,8700\r\n"
     )
     monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", stream)
     patch_bleak_client(MockLithionicsBleakClient)

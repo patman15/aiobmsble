@@ -40,6 +40,8 @@ class BMS(BaseBMS):
     _FIXED_LEN_PRIM: Final[int] = 46
     _FIELDS_STAT: Final[int] = 15
     _PROBLEM_MASK: Final[int] = 0x68CEFD
+    _MAX_DIGITS: Final[int] = 9  # maximum length of a numeric field
+    _MAX_MODULE: Final[int] = 9  # maximum module ID
 
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 0, 1, False, lambda x: x / 100, _Msg.prim),
@@ -146,7 +148,7 @@ class BMS(BaseBMS):
 
             if line.startswith(b"#,") and fields >= BMS._MIN_FIELDS_MOD:
                 module_id: bytes = line.split(b",", 3)[2]
-                if not module_id.isdigit():
+                if not module_id.isdigit() or int(module_id) > BMS._MAX_MODULE:
                     self._log.debug("invalid module ID: %s", line)
                     continue
                 self._msg[int(module_id) << 8] = line
@@ -169,6 +171,13 @@ class BMS(BaseBMS):
         return len(msg) == BMS._FIXED_LEN_PRIM and msg.find(b",") == 1
 
     @staticmethod
+    def _int(value: str) -> int:
+        """Convert a numeric CSV field, rejecting implausibly long values."""
+        if len(value) > BMS._MAX_DIGITS:
+            raise ValueError(f"numeric field too long: {value}")
+        return int(value)
+
+    @staticmethod
     def _decode_module(data: bytes) -> PackSample:
         """Decode a module information CSV line."""
         fields: Final[list[str]] = data.decode("ascii").split(",")
@@ -178,14 +187,14 @@ class BMS(BaseBMS):
             if field.key == "temp_values":
                 result[field.key] = [TempSensor(float(value)) for value in values]
             elif field.key == "delta_voltage":
-                result[field.key] = (int(values[1]) - int(values[0])) / 100
+                result[field.key] = (BMS._int(values[1]) - BMS._int(values[0])) / 100
             else:
-                result[field.key] = field.fct(int(values[0]))
+                result[field.key] = field.fct(BMS._int(values[0]))
 
         cell_count: int = result.get("cell_count", 0)
         cell_values: list[str] = fields[13 : 13 + cell_count]
         if len(cell_values) == cell_count:
-            result["cell_voltages"] = [int(value) / 100 for value in cell_values]
+            result["cell_voltages"] = [BMS._int(value) / 100 for value in cell_values]
         return result
 
     async def _async_update(self) -> BMSSample:
@@ -232,12 +241,15 @@ class BMS(BaseBMS):
                 continue
 
             if field.key == "cell_voltages":
-                result[field.key] = [field.fct(int(msg[i])) for i in range(start + field.pos, end)]
+                result[field.key] = [
+                    field.fct(BMS._int(msg[i])) for i in range(start + field.pos, end)
+                ]
             elif field.key == "temp_values":
                 result[field.key] = [
-                    TempSensor(field.fct(int(msg[i]))) for i in range(start + field.pos, end)
+                    TempSensor(field.fct(BMS._int(msg[i])))
+                    for i in range(start + field.pos, end)
                 ]
             else:  # assumes field.size == 1
-                result[field.key] = field.fct(int(msg[start + field.pos]))
+                result[field.key] = field.fct(BMS._int(msg[start + field.pos]))
 
         return result
