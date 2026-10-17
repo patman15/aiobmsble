@@ -67,23 +67,25 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in (
+                "12???BL*",  # SBL connect battery
+                "24???BL*",  # SBL connect battery
                 "@KsM:*",  # RVPOWER
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery
+                "OGR-*",  # OGRPHY
+                "SBL-*",  # SBL
                 "SJ-???-*",  # Supervolt Jumbo
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
-                "SBL-*",  # SBL
-                "OGR-*",  # OGRPHY
+                "TITAN-*", # Titan battery
                 "TZ-H*",  # CERRNSS battery
-                "12???BL*",  # SBL connect battery
-                "24???BL*",  # SBL connect battery
             )
         ] + [
             MatcherPattern(oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True)
             for oui in (
                 "10:A5:62",  # CHINS
+                "70:3E:97",
                 "A2:C2:37",
                 "A4:C1:37",
                 "A4:C1:38",
@@ -91,7 +93,6 @@ class BMS(BaseBMS):
                 "A5:C2:39",
                 "A5:C2:3A",
                 "AA:C2:37",
-                "70:3E:97",
             )
         ]
 
