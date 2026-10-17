@@ -634,5 +634,33 @@
       "source advmon (https://github.com/patman15/aiobmsble/issues/804)",
       "Supervolt 480 Ah Jumbo"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "ECO-LFP48100-3U-3158",
+      "platform_data": ["A2:C2:37:02:31:58"],
+      "rssi": -61,
+      "manufacturer_data": { "49826": "3700000000015507" },
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/835)",
+      "ECO-WORTHY ECO-LFP48100-3U"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "@KsM:33390A014CC5    ",
+      "platform_data": ["C5:4C:01:00:00:00"],
+      "rssi": -61,
+      "manufacturer_data": { "123": "0002ffff7d" },
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/837)",
+      "RVPOWER 12V 100Ah LiFePO4"
+    ]
   }
 ]

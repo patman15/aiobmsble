@@ -129,7 +129,7 @@ def main() -> None:
     rows_sorted: Final = sorted(rows, key=lambda row: (row[0], row[1][1:-1]))
 
     with Path.open(CSV_FILE, "w", encoding="UTF-8", newline="") as csvfile:
-        writer = csv.writer(csvfile)
+        writer = csv.writer(csvfile, dialect="unix")
         writer.writerow(header)
         writer.writerows(rows_sorted)
 

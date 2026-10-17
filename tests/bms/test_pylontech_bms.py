@@ -66,9 +66,7 @@ _RESP_SN_ZERO: Final[bytes] = b"\x01\x03\x10" + b"\x00" * 16 + b"\xe4\x59"
 TX_UUID: Final[str] = BMS.uuid_tx()
 
 
-def ref_value() -> BMSSample:
-    """Return the expected BMSSample for the reference recording above."""
-    return {
+_RESULT_DEFS: Final[BMSSample] = {
         "voltage": 13.24,
         "current": -4.8,
         "power": 63.0,
@@ -85,7 +83,7 @@ def ref_value() -> BMSSample:
         "battery_charging": False,
         "problem": False,
         "runtime": int(91.0 / 4.8 * 3600),
-    }
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -135,7 +133,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     patch_bleak_client(MockPylontechBleakClient)
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS
 
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture

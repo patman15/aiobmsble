@@ -14,10 +14,7 @@ from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
-
-def ref_value() -> BMSSample:
-    """Return reference value for mock Tian Power BMS."""
-    return {
+_RESULT_DEFS: Final[BMSSample] = {
         "temp_sensors": 4,
         "voltage": 54.74,
         "current": 0.0,
@@ -56,7 +53,7 @@ def ref_value() -> BMSSample:
         "dischrg_mosfet": True,
         "problem": False,
         "problem_code": 0,
-    }
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -146,7 +143,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
@@ -279,7 +276,7 @@ async def test_problem_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = await bms.async_update()
-    assert result == ref_value() | {
+    assert result == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 63),
     }

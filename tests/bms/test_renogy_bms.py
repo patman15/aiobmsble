@@ -17,9 +17,7 @@ from tests.test_basebms import BMSBasicTests
 BT_FRAME_SIZE = 512  # ATT max is 512 bytes
 
 
-def ref_value() -> BMSSample:
-    """Return reference value for mock Renogy BMS."""
-    return {
+_RESULT_DEFS: Final[BMSSample] = {
         "battery_charging": False,
         "battery_level": 97.2,
         "cell_voltages": [3.5, 3.3, 3.3, 3.3],
@@ -41,7 +39,7 @@ def ref_value() -> BMSSample:
         "chrg_mosfet": False,
         "dischrg_mosfet": False,
         "heater": False,
-    }
+}
 
 
 BASE_VALUE_CMD: Final[bytes] = b"\x30\x03\x13\xb2\x00\x07\xa4\x8a"
@@ -114,7 +112,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
@@ -208,7 +206,7 @@ async def test_problem_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = await bms.async_update()
-    assert result == ref_value() | {
+    assert result == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 0xFFFFFFFFFFFFFFFFFFFFFFFFFFF1,
         "chrg_mosfet": True,
