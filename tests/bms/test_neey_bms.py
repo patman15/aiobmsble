@@ -435,6 +435,46 @@ async def test_non_stale_data(
     assert await bms.async_update() == _RESULT_DEFS["v1"]
 
 
+async def test_short_frame(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that a valid but too short cell info frame is rejected."""
+
+    frames: dict[str, bytearray] = deepcopy(_PROTO_DEFS["v1"])
+    frames["cell"] = bytearray(b"\x55\xaa\x11\x01\x02\x00\x0a\x00\x00\xff")
+    frames["cell"][-2] = crc_sum(frames["cell"][:-2])
+    monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", frames)
+    patch_bleak_client(MockNeeyBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.async_update()
+    assert bms._msg_event.is_set() is False
+
+    await bms.disconnect()
+
+
+async def test_non_finite_value(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that a non-finite float value is ignored."""
+
+    frames: dict[str, bytearray] = deepcopy(_PROTO_DEFS["v2"])
+    frames["cell"][242:246] = b"\x00\x00\x80\x7f"  # design capacity: inf
+    frames["cell"][-2] = crc_sum(frames["cell"][:-2])
+    monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", frames)
+    patch_bleak_client(MockNeeyBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    assert await bms.async_update() == {
+        k: v for k, v in _RESULT_DEFS["v2"].items() if k != "design_capacity"
+    }
+
+    await bms.disconnect()
+
+
 @pytest.fixture(
     name="problem_response",
     params=[
