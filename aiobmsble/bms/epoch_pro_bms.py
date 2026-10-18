@@ -1,20 +1,23 @@
-"""Module to support Epoch Pro BMS."""
+"""Module to support Epoch Pro BMS.
 
-from collections.abc import Callable
-from typing import Any, Final
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
+
+from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSpackvalue, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSPDp, BMSSample, MatcherPattern, PackSample
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
     """Epoch Pro BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Epoch", "default_model": "Pro"}
+    INFO: BMSInfo = {"manufacturer": "Epoch", "model": "Pro"}
     _HEAD: Final[bytes] = b"\xfa"
     _CMDS: Final[set[int]] = {0xF3}
     _VER: Final[bytes] = b"\x16"  # version 1.6?
@@ -26,30 +29,32 @@ class BMS(BaseBMS):
     _MIN_LEN: Final[int] = 7  # HEAD, CMD, VER, DEV, LEN, CRC (2 bytes)
 
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("temperature", 18, 2, True, lambda x: x / 10),
+        BMSDp("battery_level", 8, 2, False),
+        BMSDp("battery_health", 10, 2, False),
         BMSDp("voltage", 14, 2, False, lambda x: x / 100),
         BMSDp("current", 16, 2, True),
+        BMSDp("temperature", 18, 2, True, lambda x: x / 10),
         BMSDp("pack_count", 42, 2, False),
         # BMSdp("cycle_charge", 8, 4, False),
         # BMSdp("cycles", 46, 2, False),
         # BMSdp("design_capacity", 4, 4, False),
-        BMSDp("battery_level", 8, 2, False),
-        BMSDp("battery_health", 10, 2, False),
         # BMSDp("problem_code", 100, 8, False), # not verified
     )
 
-    _PFIELDS: Final[list[tuple[BMSpackvalue, int, bool, Callable[[int], Any]]]] = [
-        ("pack_voltages", 46, False, lambda x: x / 100),
-        ("pack_currents", 48, True, lambda x: x / 100),
-        ("pack_battery_levels", 66, False, lambda x: x / 10),
-        ("pack_cycles", 16, False, lambda x: x),
-    ]
+    _PFIELDS: Final[tuple[BMSPDp, ...]] = (
+        BMSPDp("cycles", 16, 2, False, lambda x: x),
+        BMSPDp("voltage", 46, 2, False, lambda x: x / 100),
+        BMSPDp("current", 48, 2, True, lambda x: x / 100),
+        BMSPDp("battery_level", 66, 2, False, lambda x: x / 10),
+    )
 
-    def __init__(self, ble_device: BLEDevice, reconnect: bool = False) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, reconnect)
+    def __init__(
+        self, ble_device: BLEDevice, config: BMSConfig | None = None, logger_name: str = ""
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, config, logger_name)
         self._pkglen: int = 0
-        self._data_final: dict[int, bytearray] = {}
+        self._msg: dict[int, bytes] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -63,9 +68,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("ffe0")]
+        return (normalize_uuid_str("ffe0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -77,9 +82,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         # Check for a valid new packet header
@@ -89,41 +92,37 @@ class BMS(BaseBMS):
             and data[1] in BMS._CMDS
             and data[2:3] == BMS._VER
         ):
-            self._data = bytearray()
+            self._frame.clear()
             self._pkglen = data[4] + BMS._MIN_LEN
 
-        self._data += data
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
-        )
+        self._frame.extend(data)
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         # verify that data is long enough
-        if self._pkglen and len(self._data) < self._pkglen:
+        if self._pkglen and len(self._frame) < self._pkglen:
             return
 
-        if (crc := crc_modbus(self._data[: self._pkglen - 2])) != int.from_bytes(
-            self._data[self._pkglen - 2 : self._pkglen], "little"
+        if (crc := crc_modbus(self._frame[: self._pkglen - 2])) != int.from_bytes(
+            self._frame[self._pkglen - 2 : self._pkglen], "little"
         ):
             self._log.debug(
                 "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._data[self._pkglen - 2 : self._pkglen], "little"),
+                int.from_bytes(self._frame[self._pkglen - 2 : self._pkglen], "little"),
                 crc,
             )
-            self._data = bytearray()
+            self._frame.clear()
             return
 
-        if len(self._data) != self._pkglen:
+        if len(self._frame) != self._pkglen:
             self._log.debug(
                 "wrong data length (%i!=%s): %s",
-                len(self._data),
+                len(self._frame),
                 self._pkglen,
-                self._data,
+                self._frame,
             )
 
-        self._data_final[int(self._data[3]) << 8 | int(self._data[4])] = (
-            self._data.copy()
-        )
-        self._data_event.set()
+        self._msg[int(self._frame[3]) << 8 | int(self._frame[4])] = bytes(self._frame)
+        self._msg_event.set()
 
     @staticmethod
     def _cmd(device: int, cmd: int, start: int, count: int) -> bytes:
@@ -143,50 +142,26 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         # await self._await_reply(BMS._cmd(0, 0xf3, 0xea64, 0x1))
-        await self._await_reply(BMS._cmd(1, 0xF3, 0x7654, 0x37))
+        await self._await_msg(BMS._cmd(1, 0xF3, 0x7654, 0x37))
 
-        data: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data_final[0x016E], start=BMS._HEAD_LEN
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg[0x016E], start=BMS._HEAD_LEN)
 
-        for pack in range(1, 1 + data.get("pack_count", 0)):
-            await self._await_reply(BMS._cmd(pack, 0xF3, 0x75F8, 0x52))
-            pack_response: bytearray = self._data_final[pack << 8 | 0xA4]
+        for pack in range(1, 1 + result.get("pack_count", 0)):
+            await self._await_msg(BMS._cmd(pack, 0xF3, 0x75F8, 0x52))
+            pack_response: bytes = self._msg[pack << 8 | 0xA4]
 
-            for key, idx, sign, func in BMS._PFIELDS:
-                data.setdefault(key, []).append(
-                    func(
-                        int.from_bytes(
-                            pack_response[
-                                BMS._HEAD_LEN + idx : BMS._HEAD_LEN + idx + 2
-                            ],
-                            signed=sign,
-                        )
-                    )
-                )
+            pack_sample: PackSample = BMS._decode_pack(BMS._PFIELDS, pack_response, start=BMS._HEAD_LEN)
             # get cell voltages
-            pack_cells: list[float] = BMS._cell_voltages(
-                pack_response,
-                cells=pack_response[BMS._CELLNUM_POS],
-                start=BMS._CELL_POS,
+            pack_sample["cell_voltages"] = BMS._cell_voltages(
+                pack_response, cells=pack_response[BMS._CELLNUM_POS], start=BMS._CELL_POS
             )
 
-            # update per pack delta voltage
-            data["delta_voltage"] = max(
-                data.get("delta_voltage", 0),
-                round(max(pack_cells) - min(pack_cells), 3),
-            )
-            # add individual cell voltages
-            data.setdefault("cell_voltages", []).extend(pack_cells)
             # add temperature sensors (4x cell temperature + 4 reserved)
-            data.setdefault("temp_values", []).extend(
-                BMS._temp_values(
-                    pack_response,
-                    values=pack_response[BMS._TEMPNUM_POS],
-                    start=BMS._TEMP_POS,
-                )
+            pack_sample["temp_values"] = BMS._temp_values(
+                pack_response, values=pack_response[BMS._TEMPNUM_POS], start=BMS._TEMP_POS
             )
+            result.setdefault("packs",[]).append(pack_sample)
 
-        self._data_final.clear()
+        self._msg.clear()
 
-        return data
+        return result

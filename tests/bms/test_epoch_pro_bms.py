@@ -1,32 +1,87 @@
 """Test the Epoch Pro BMS implementation."""
 
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble.basebms import BMSSample
+from aiobmsble import BMSConfig
+from aiobmsble.basebms import BMSSample, TempSensor as TS
 from aiobmsble.bms.epoch_pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
 BT_FRAME_SIZE = 32  # ATT maximum is 512, minimal 27
-REF_VALUE: BMSSample = {
+_RESULT_DEFS: Final[BMSSample] = {
+    "battery_level": 91,
+    "battery_health": 100,
     "voltage": 53.21,
     "current": 0,
-    "battery_health": 100,
-    "battery_level": 91,
     # "cycle_charge": 134.12,
     # "cycles": 9,
     "temperature": 27.0,
     # "cycle_capacity": 7019.841,
-    "power": 0.0,
-    "battery_charging": False,
     # "runtime": 72064,
     "pack_count": 2,
-    "cell_count": 32,
+    "packs": [
+        {
+            "cycles": 10,
+            "voltage": 53.21,
+            "current": 0.0,
+            "battery_level": 91.0,
+            "cell_voltages": [
+                3.326,
+                3.325,
+                3.325,
+                3.325,
+                3.326,
+                3.326,
+                3.325,
+                3.325,
+                3.326,
+                3.326,
+                3.326,
+                3.326,
+                3.326,
+                3.327,
+                3.326,
+                3.326,
+            ],
+            "temp_values": [TS(27.0)] * 4,
+            "delta_voltage": 0.002,
+            "cell_count": 16,
+        },
+        {
+            "cycles": 10,
+            "voltage": 53.21,
+            "current": 0.0,
+            "battery_level": 91.0,
+            "cell_voltages": [
+                3.326,
+                3.324,
+                3.325,
+                3.325,
+                3.325,
+                3.325,
+                3.325,
+                3.325,
+                3.326,
+                3.326,
+                3.326,
+                3.325,
+                3.327,
+                3.327,
+                3.327,
+                3.327,
+            ],
+            "temp_values": [TS(27.0)] * 4,
+            "delta_voltage": 0.003,
+            "cell_count": 16,
+        },
+    ],
     "cell_voltages": [
         3.326,
         3.325,
@@ -61,12 +116,11 @@ REF_VALUE: BMSSample = {
         3.327,
         3.327,
     ],
+    "cell_count": 16,
+    "cycles": 10,
     "delta_voltage": 0.003,
-    "temp_values": [27] * 8,
-    "pack_battery_levels": [91.0, 91.0],
-    "pack_currents": [0.0, 0.0],
-    "pack_cycles": [10, 10],
-    "pack_voltages": [53.21, 53.21],
+    "battery_charging": False,
+    "power": 0.0,
     "problem": False,
 }
 
@@ -75,8 +129,8 @@ class MockEpochProBleakClient(MockBleakClient):
     """Emulate a Epoch Pro BMS BleakClient."""
 
     PKT_FRAME = 0x5  # header(3) + crc(2)
-    RESP: dict[bytes, bytearray] = {
-        b"\xfa\xf3\x16\x76\x54\x01\x00\x37\xc7\x24": bytearray(  # overall
+    RESP: dict[bytes, bytes] = {
+        b"\xfa\xf3\x16\x76\x54\x01\x00\x37\xc7\x24": (  # overall
             b"\xfa\xf3\x16\x01\x6e\x00\x00\x00\x00\x04\xb0\x00\x00\x00\x5b\x00\x64\x23\x8c\x14"
             b"\xc9\x00\x00\x01\x0e\x00\x00\x00\x00\x18\x7a\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x0c\xfd\x0c\xff\x00"
@@ -84,7 +138,7 @@ class MockEpochProBleakClient(MockBleakClient):
             b"\x30\x30\x2d\x00\x31\x00\x00\x31\x30\x30\x2d\x00\x31\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x38\xaa\xa8\x02\xaa\xaa\xa8\x00\x82\x00\x3c\x6b\x2f"
         ),
-        b"\xfa\xf3\x16\x75\xf8\x01\x00\x52\x62\x5f": bytearray(  # pack 1
+        b"\xfa\xf3\x16\x75\xf8\x01\x00\x52\x62\x5f": (  # pack 1
             b"\xfa\xf3\x16\x01\xa4\x02\x40\x01\xe0\x02\x58\x01\x2c\xc8\x78\x00\x00\x00\x00\x75"
             b"\x30\x00\x0a\x00\x00\x0c\x2c\x00\x00\x00\x00\x79\x7c\x00\x10\x0c\xfe\x0c\xfd\x00"
             b"\x10\x00\x07\x00\x1b\x00\x1b\x00\x04\x00\x03\x14\xc9\x00\x00\x10\x04\x00\x00\x00"
@@ -95,7 +149,7 @@ class MockEpochProBleakClient(MockBleakClient):
             b"\x00\x00\x31\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x32\x33\x31"
             b"\x31\x33\x30\x30\x31\x30\x32\x38\x33\x75\xb5"
         ),
-        b"\xfa\xf3\x16\x75\xf8\x02\x00\x52\x92\x5f": bytearray(  # pack 2
+        b"\xfa\xf3\x16\x75\xf8\x02\x00\x52\x92\x5f": (  # pack 2
             b"\xfa\xf3\x16\x02\xa4\x02\x40\x01\xe0\x02\x58\x01\x2c\xc8\x78\x00\x00\x00\x00\x75"
             b"\x30\x00\x0a\x00\x00\x0c\x4e\x00\x00\x00\x00\x7b\x0c\x00\x10\x0c\xff\x0c\xfc\x00"
             b"\x10\x00\x02\x00\x1b\x00\x1b\x00\x04\x00\x03\x14\xc9\x00\x00\x10\x04\x00\x00\x00"
@@ -115,14 +169,11 @@ class MockEpochProBleakClient(MockBleakClient):
     ) -> None:
         """Send fragmented response."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
-        resp: bytearray = self.RESP.get(bytes(data), bytearray())
+        resp: bytearray = bytearray(self.RESP.get(bytes(data), b""))
         for notify_data in [
-            resp[i : min(len(resp), i + BT_FRAME_SIZE)]
-            for i in range(0, len(resp), BT_FRAME_SIZE)
+            resp[i : min(len(resp), i + BT_FRAME_SIZE)] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockEpoch ProBleakClient", notify_data)
 
@@ -134,9 +185,7 @@ class MockEpochProBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
         assert isinstance(char_specifier, str) and normalize_uuid_str(
             char_specifier
         ) == normalize_uuid_str("ffe1")
@@ -150,14 +199,13 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     patch_bleak_client(MockEpochProBleakClient)
 
     bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice"),
-        keep_alive_fixture,
+        generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice"), BMSConfig(keep_alive_fixture)
     )
 
-    assert await bms.async_update() == REF_VALUE
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
-    assert await bms.async_update() == REF_VALUE
+    assert await bms.async_update() == _RESULT_DEFS
     assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -167,7 +215,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     name="wrong_response",
     params=[
         (
-            bytearray(  # overall
+            (  # overall
                 b"\xaa\xf3\x16\x01\x6e\x00\x00\x00\x00\x04\xb0\x00\x00\x00\x5b\x00\x64\x23\x8c\x14"
                 b"\xc9\x00\x00\x01\x0e\x00\x00\x00\x00\x18\x7a\x00\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x0c\xfd\x0c\xff\x00"
@@ -178,7 +226,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
             "wrong_SOF",
         ),
         (
-            bytearray(  # overall
+            (  # overall
                 b"\xfa\xf3\x16\x01\x6e\x00\x00\x00\x00\x04\xb0\x00\x00\x00\x5b\x00\x64\x23\x8c\x14"
                 b"\xc9\x00\x00\x01\x0e\x00\x00\x00\x00\x18\x7a\x00\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x0c\xfd\x0c\xff\x00"
@@ -188,11 +236,11 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
             ),
             "wrong_CRC",
         ),
-        (bytearray(7), "critical_length"),
+        (bytes(7), "critical_length"),
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request) -> bytearray:
+def fix_response(request) -> bytes:
     """Return faulty response frame."""
     return request.param[0]
 
@@ -201,7 +249,7 @@ async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -249,7 +297,7 @@ async def test_wrong_length(
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice"))
 
-    assert await bms.async_update() == REF_VALUE
+    assert await bms.async_update() == _RESULT_DEFS
     await bms.disconnect()
 
 
