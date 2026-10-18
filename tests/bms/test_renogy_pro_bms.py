@@ -9,17 +9,16 @@ from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.renogy_pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 512  # ATT max is 512 bytes
 
 
-def ref_value() -> BMSSample:
-    """Return reference value for mock Renogy Pro BMS."""
-    return {
+_RESULT_DEFS: Final[BMSSample] = {
         "battery_charging": False,
         "battery_level": 99.0,
         "cell_voltages": [3.3, 3.3, 3.3, 3.3],
@@ -34,18 +33,23 @@ def ref_value() -> BMSSample:
         "problem": False,
         "problem_code": 0,
         "runtime": 626886,
-        "temp_values": [27.3, 26.8, 27.5],
+        "temp_values": [TS(27.3), TS(26.8), TS(27.5)],
         "temp_sensors": 3,
         "temperature": 27.2,
         "voltage": 13.3,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
         "heater": False,
-    }
+}
 
 
 BASE_VALUE_CMD: Final[bytes] = b"\x30\x03\x13\xb2\x00\x07\xa4\x8a"
 
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 class MockRenogyProBleakClient(MockBleakClient):
     """Emulate a Renogy Pro BMS BleakClient."""
@@ -146,9 +150,9 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockRenogyProBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()

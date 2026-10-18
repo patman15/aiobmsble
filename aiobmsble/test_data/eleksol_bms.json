@@ -1,0 +1,16 @@
+[
+  {
+    "advertisement": {
+      "local_name": "12150EG00040",
+      "manufacturer_data": { "2163": "6237c2a5" },
+      "service_uuids": ["0000ff06-0000-1000-8000-00805f9b34fb"],
+      "platform_data": ["A5:C2:37:00:00:00"],
+      "rssi": -86
+    },
+    "type": "eleksol_bms",
+    "_comments": [
+      "source LOG (https://github.com/patman15/BMS_BLE-HA/issues/649",
+      "Eleksol battery"
+    ]
+  }
+]

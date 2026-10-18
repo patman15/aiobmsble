@@ -7,10 +7,11 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.ws_nova_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
 
@@ -40,7 +41,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycle_charge": 110.849,
     "cycles": 5,
     "design_capacity": 200,
-    "temp_values": [9.0, 9.0, 9.0, 9.0],
+    "temp_values": [TS(9.0)] * 4,
     "temperature": 9.0,
     "cell_voltages": [
         3.253,
@@ -54,6 +55,12 @@ _RESULT_DEFS: Final[BMSSample] = {
     "problem": False,
     "problem_code": 0,
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockWSNovaBleakClient(MockBleakClient):
@@ -101,7 +108,7 @@ async def test_update(
     monkeypatch.setattr(MockWSNovaBleakClient, "_RESP", _PROTO_DEFS)
     patch_bleak_client(MockWSNovaBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == _RESULT_DEFS
 
@@ -124,7 +131,7 @@ async def test_stream_update(
     bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == _RESULT_DEFS
-    assert bms._data_event.is_set() is False, "BMS does not request fresh data"
+    assert bms._msg_event.is_set() is False, "BMS does not request fresh data"
     assert "requesting BMS data" in caplog.text
 
     _client: MockStreamBleakClient = cast(MockStreamBleakClient, bms._client)
@@ -162,6 +169,7 @@ async def test_device_info(patch_bleak_client) -> None:
     ("wrong_response"),
     [
         b"",
+        b":~",
         b"-" + _PROTO_DEFS[1:],
         _PROTO_DEFS[:-2] + b"#",
         b":" + _PROTO_DEFS[2:],
@@ -170,6 +178,7 @@ async def test_device_info(patch_bleak_client) -> None:
     ],
     ids=[
         "empty",
+        "minimal",
         "wrong_SOF",
         "wrong_EOF",
         "wrong_length",

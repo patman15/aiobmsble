@@ -1,0 +1,543 @@
+"""Test the Topband BMS implementation."""
+
+from collections.abc import Awaitable, Callable
+import logging
+from typing import Final, cast
+from uuid import UUID
+
+from bleak.backends.characteristic import BleakGATTCharacteristic
+import pytest
+
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble.bms.topband_bms import BMS
+from tests.bluetooth import generate_ble_device
+from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
+
+BT_FRAME_SIZE = 32
+
+_PROTO_DEFS: Final[dict[int, bytes]] = {
+    0xAF: (  # Ective
+        b"\xaf\x30\x33\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x32\x38\x32\x33"
+        b"\x30\x30\x30\x30\x30\x31\x30\x30\x36\x33\x30\x30\x39\x43\x30\x42\x30\x30\x43\x30\x30"
+        b"\x35\x42\x34\x46\x42\x30\x43\x30\x30\x30\x44\x30\x32\x30\x44\x30\x36\x30\x44\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x34\x33\x43"
+    ),
+    0x6F: (  # Enerdrive B-TEC EPL-200BT-12V G2
+        b"\x6f\x43\x39\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x45\x38\x30\x41"
+        b"\x30\x33\x30\x30\x31\x45\x30\x30\x36\x33\x30\x30\x32\x44\x30\x42\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x33\x45\x30\x44\x32\x30\x30\x44\x33\x38\x30\x44\x33\x31\x30\x44\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x33\x41\x36\x11\x11\x11\x11\x11\x11\x11\x11"
+    ),
+    0x75: (  # Noovi 12 V LiFePO4 model ImageA, firmware V0.3
+        b"\x75\x32\x42\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x41\x30\x32\x30"
+        b"\x30\x33\x30\x30\x30\x34\x30\x30\x35\x46\x30\x30\x38\x36\x30\x42\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x42\x30\x44\x30\x43\x30\x44\x30\x44\x30\x44\x30\x37\x30\x44\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x32\x37\x35\x09\x09\x09\x09\x09\x09\x09\x09"
+    ),
+    0x83: (  # StartCraft
+        b"\x83\x36\x32\x33\x34\x30\x30\x30\x30\x37\x36\x46\x45\x46\x46\x46\x46\x38\x38\x38\x41"
+        b"\x30\x31\x30\x30\x31\x36\x30\x30\x36\x32\x30\x30\x35\x33\x30\x42\x30\x30\x38\x30\x30"
+        b"\x37\x42\x34\x31\x36\x30\x44\x31\x37\x30\x44\x31\x39\x30\x44\x31\x43\x30\x44\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x37\x43\x32\x11\x11\x11\x11\x11\x11\x11\x11"
+    ),
+    0xB0: (  # KiloVault
+        b"\xb0\x39\x30\x33\x33\x30\x30\x30\x30\x33\x45\x46\x45\x46\x46\x46\x46\x33\x34\x30\x46"
+        b"\x30\x33\x30\x30\x37\x44\x30\x30\x35\x45\x30\x30\x39\x31\x30\x42\x30\x30\x30\x31\x30"
+        b"\x30\x30\x30\x44\x45\x30\x43\x30\x38\x30\x44\x45\x32\x30\x43\x30\x35\x30\x44\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x37\x42\x41\x52\x52\x52\x52\x52\x52\x52\x52"
+    ),
+    0xE8: (  # Wattstunde
+        b"\xe8\x35\x43\x33\x38\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x33\x32\x38\x36"
+        b"\x30\x31\x30\x30\x30\x42\x30\x30\x36\x34\x30\x30\x39\x42\x30\x42\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x31\x45\x30\x45\x31\x43\x30\x45\x31\x45\x30\x45\x30\x31\x30\x45\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x32\x46\x33"
+    ),
+    0x87: (  # LiFeBlue LB12100-PC 100AH
+        b"\x87\x30\x36\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x35\x38\x39\x32"
+        b"\x30\x31\x30\x30\x33\x35\x30\x30\x36\x33\x30\x30\x41\x34\x30\x42\x30\x30\x38\x30\x31"
+        b"\x37\x42\x34\x46\x43\x30\x43\x30\x32\x30\x44\x30\x33\x30\x44\x30\x35\x30\x44\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+        b"\x30\x30\x30\x30\x30\x34\x46\x30\x29\x29\x29\x29\x29\x29\x29\x29"
+    ),
+    # 0xF6: bytes()  # Voltium Energy
+}
+
+_RESULT_DEFS: Final[dict[int, BMSSample]] = {
+    0xAF: {
+        "voltage": 13.315,
+        "current": 0.0,
+        "battery_level": 99,
+        "cycle_charge": 9.0,
+        "cycles": 1,
+        "temp_values": [TS(24.05, TS.T.GENERIC)],
+        "problem_code": 0,
+        "cell_voltages": [3.323, 3.328, 3.33, 3.334],
+        "battery_charging": False,
+        "cell_count": 4,
+        "delta_voltage": 0.011,
+        "temperature": 24.05,
+        "cycle_capacity": 119.835,
+        "power": 0.0,
+        "problem": False,
+    },
+    0x6F: {
+        "voltage": 13.513,
+        "current": 0.0,
+        "battery_level": 99,
+        "cycles": 30,
+        "cycle_charge": 199.4,
+        "cell_count": 4,
+        "cell_voltages": [3.39, 3.36, 3.384, 3.377],
+        "delta_voltage": 0.03,
+        "temperature": 12.95,
+        "temp_values": [TS(12.95)],
+        "cycle_capacity": 2694.492,
+        "power": 0.0,
+        "battery_charging": False,
+        "problem": False,
+        "problem_code": 0,
+    },
+    0x75: {
+        "voltage": 13.355,
+        "current": 0.0,
+        "battery_level": 95,
+        "cycles": 4,
+        "cycle_charge": 204.96,
+        "cell_count": 4,
+        "cell_voltages": [3.339, 3.34, 3.341, 3.335],
+        "delta_voltage": 0.006,
+        "temperature": 21.85,
+        "temp_values": [TS(21.85)],
+        "cycle_capacity": 2737.241,
+        "power": 0.0,
+        "battery_charging": False,
+        "problem": False,
+        "problem_code": 0,
+    },
+    0x83: {
+        "voltage": 13.41,
+        "current": -0.394,
+        "battery_level": 98,
+        "cycles": 22,
+        "cycle_charge": 101,
+        "cell_count": 4,
+        "cell_voltages": [3.35, 3.351, 3.353, 3.356],
+        "delta_voltage": 0.006,
+        "temperature": 16.75,
+        "temp_values": [TS(16.75)],
+        "cycle_capacity": 1354.41,
+        "power": -5.284,
+        "runtime": 922842,
+        "battery_charging": False,
+        "problem": False,
+        "problem_code": 0,
+    },
+    0xB0: {
+        "battery_charging": False,
+        "cycle_capacity": 2646.6,
+        "voltage": 13.2,
+        "current": -0.45,
+        "cycle_charge": 200.5,
+        "delta_voltage": 0.042,
+        "power": -5.94,
+        "problem": False,
+        "cycles": 125,
+        "battery_level": 94,
+        "temperature": 22.95,
+        "temp_values": [TS(22.95)],
+        "problem_code": 0,
+        "runtime": 1604000,
+        "cell_count": 4,
+        "cell_voltages": [3.294, 3.336, 3.298, 3.333],
+    },
+    0xE8: {
+        "voltage": 14.428,
+        "current": 0.0,
+        "battery_level": 100,
+        "cycle_charge": 99.89,
+        "cycles": 11,
+        "temp_values": [TS(23.95)],
+        "problem_code": 0,
+        "cell_voltages": [
+            3.614,
+            3.612,
+            3.614,
+            3.585,
+        ],
+        "delta_voltage": 0.029,
+        "cell_count": 4,
+        "cycle_capacity": 1441.213,
+        "power": 0.0,
+        "battery_charging": False,
+        "temperature": 23.95,
+        "problem": False,
+    },
+    0x87: {
+        "voltage": 13.318,
+        "current": 0.0,
+        "battery_level": 99,
+        "cycle_charge": 103.0,
+        "cycles": 53,
+        "temp_values": [
+            TS(24.85),
+        ],
+        "problem_code": 0,
+        "cell_voltages": [
+            3.324,
+            3.33,
+            3.331,
+            3.333,
+        ],
+        "battery_charging": False,
+        "cell_count": 4,
+        "delta_voltage": 0.009,
+        "temperature": 24.85,
+        "cycle_capacity": 1371.754,
+        "power": 0.0,
+        "problem": False,
+    },
+}
+
+
+@pytest.fixture(name="protocol_type", params=_PROTO_DEFS.keys())
+def proto(request: pytest.FixtureRequest) -> int:
+    """Protocol fixture."""
+    assert isinstance(request.param, int)
+    return request.param
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
+
+
+class MockTopbandBleakClient(MockBleakClient):
+    """Emulate a Topband BMS BleakClient."""
+
+    _RESP: bytes = _PROTO_DEFS[0xAF]
+
+    def _send_info(self) -> None:
+        assert self._notify_callback is not None
+        for notify_data in [
+            self._RESP[i : i + BT_FRAME_SIZE] for i in range(0, len(self._RESP), BT_FRAME_SIZE)
+        ]:
+            self._notify_callback("MockTopbandBleakClient", bytearray(notify_data))
+
+    @property
+    def is_connected(self) -> bool:
+        """Mock connected to retrigger frame transmission in MockClient."""
+        if self._connected and self._notify_callback is not None:
+            self._send_info()  # patch to provide data when not reconnecting
+        return self._connected
+
+    async def start_notify(
+        self,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        callback: Callable[[BleakGATTCharacteristic, bytearray], None | Awaitable[None]],
+        **kwargs,
+    ) -> None:
+        """Mock start_notify."""
+        await super().start_notify(char_specifier, callback)
+        self._send_info()
+
+
+async def test_update(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    keep_alive_fixture: bool,
+) -> None:
+    """Test Topband BMS data update."""
+
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", _PROTO_DEFS[0xAF])
+    patch_bleak_client(MockTopbandBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
+
+    assert await bms.async_update() == _RESULT_DEFS[0xAF]
+
+    # query again to check already connected state
+    await bms.async_update()
+    assert bms.is_connected is keep_alive_fixture
+
+    await bms.disconnect()
+
+
+async def test_proto_variants(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    protocol_type: int,
+) -> None:
+    """Test Topband BMS data update."""
+
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
+    patch_bleak_client(MockTopbandBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
+
+    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+
+    # query again to check already connected state
+    await bms.async_update()
+    assert bms.is_connected is False
+
+    await bms.disconnect()
+
+
+async def test_tx_notimplemented(patch_bleak_client) -> None:
+    """Test Topband BMS uuid_tx not implemented for coverage."""
+
+    patch_bleak_client(MockTopbandBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(False))
+
+    with pytest.raises(NotImplementedError):
+        _ret = bms.uuid_tx()
+
+
+def test_invalid_frame_coding(caplog: pytest.LogCaptureFixture) -> None:
+    """Test malformed Topband frame fragments are rejected before decoding."""
+
+    with caplog.at_level(logging.DEBUG, logger="aiobmsble.bms.topband_bms"):
+        bms = BMS(generate_ble_device(), BMSConfig(False))
+        bad_chunks: tuple[bytes, bytes] = (
+            b"~" + b"0" * (BMS._INFO_LEN - 11),  # frame: N-10 bytes
+            b"0~" + b"0" * 11 + b"\r",  # 14 bytes, 2 non-hex
+        )
+
+        for chunk in bad_chunks:
+            bms._notification_handler(cast(BleakGATTCharacteristic, None), bytearray(chunk))
+
+    assert not bms._msg
+    assert not bms._msg_event.is_set()
+    assert "incorrect frame coding" in caplog.text
+
+
+@pytest.fixture(
+    name="wrong_response",
+    params=[
+        (
+            (
+                b"\xaf\x38\x34\x33\x35\x30\x30\x30\x30\x33\x38\x43\x44\x46\x46\x46\x46"
+                b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30"
+                b"\x45\x31\x30\x42\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x35\x45\x30\x44\x37\x31\x30\x44\x36\x35\x30\x44\x35\x45\x30\x44"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x38\x38\x45\x00\x00\x00\x00\x00\x00\x00\x00"
+            ),
+            "wrong_CRC",
+        ),
+        (
+            (
+                b"\xaf\x34\x33\x35\x30\x30\x30\x30\x33\x38\x43\x44\x46\x46\x46\x46"
+                b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30"
+                b"\x45\x31\x30\x42\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x35\x45\x30\x44\x37\x31\x30\x44\x36\x35\x30\x44\x35\x45\x30\x44"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x38\x38\x46"
+            ),
+            "wrong_length",  # 1st byte missing
+        ),
+        (
+            (
+                b"\xaf\x5e\x34\x33\x35\x30\x30\x30\x30\x33\x38\x43\x44\x46\x46\x46\x46"
+                b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30"
+                b"\x45\x31\x30\x42\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x35\x45\x30\x44\x37\x31\x30\x44\x36\x35\x30\x44\x35\x45\x30\x44"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x38\x38\x46"
+            ),
+            "wrong_character",
+        ),
+    ],
+    ids=lambda param: param[1],
+)
+def response(request: pytest.FixtureRequest) -> bytes:
+    """Return faulty response frame."""
+    assert isinstance(request.param[0], bytes)
+    return request.param[0]
+
+
+async def test_invalid_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
+) -> None:
+    """Test data up date with BMS returning invalid data."""
+
+    patch_bms_timeout("topband_bms")
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", wrong_response)
+    patch_bleak_client(MockTopbandBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = {}
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
+
+    assert not result
+    await bms.disconnect()
+
+
+@pytest.fixture(
+    name="problem_response",
+    params=[
+        (
+            (
+                b"\xaf\x38\x34\x33\x35\x30\x30\x30\x30\x33\x38\x43\x44\x46\x46\x46\x46"
+                b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30"
+                b"\x45\x31\x30\x42\x30\x31\x30\x30\x30\x30\x30\x30"
+                b"\x35\x45\x30\x44\x37\x31\x30\x44\x36\x35\x30\x44\x35\x45\x30\x44"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x38\x39\x30"
+            ),
+            "first_bit",
+        ),
+        (
+            (
+                b"\xaf\x38\x34\x33\x35\x30\x30\x30\x30\x33\x38\x43\x44\x46\x46\x46\x46"
+                b"\x32\x43\x46\x39\x30\x32\x30\x30\x39\x37\x30\x31\x36\x32\x30\x30"
+                b"\x45\x31\x30\x42\x38\x30\x30\x30\x30\x30\x30\x30"
+                b"\x35\x45\x30\x44\x37\x31\x30\x44\x36\x35\x30\x44\x35\x45\x30\x44"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30"
+                b"\x30\x39\x30\x46"
+            ),
+            "last_bit",
+        ),
+    ],
+    ids=lambda param: param[1],
+)
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytes, str]:
+    """Return faulty response frame."""
+    assert (
+        isinstance(request.param, tuple)
+        and isinstance(request.param[0], bytes)
+        and isinstance(request.param[1], str)
+    )
+    return request.param
+
+
+async def test_problem_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: tuple[bytes, str],
+) -> None:
+    """Test data update with BMS returning error flags."""
+
+    monkeypatch.setattr(MockTopbandBleakClient, "_RESP", problem_response[0])
+
+    patch_bleak_client(MockTopbandBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = await bms.async_update()
+    assert result == {
+        "voltage": 13.7,
+        "current": -13.0,
+        "battery_level": 98,
+        "cycles": 407,
+        "cycle_charge": 194.86,
+        "cell_count": 4,
+        "cell_voltages": [
+            3.422,
+            3.441,
+            3.429,
+            3.422,
+        ],
+        "delta_voltage": 0.019,
+        "temperature": 30.95,
+        "temp_values": [30.95],
+        "cycle_capacity": 2669.582,
+        "power": -178.1,
+        "runtime": 53961,
+        "battery_charging": False,
+        "problem": True,
+        "problem_code": (1 if problem_response[1] == "first_bit" else 128),
+    }
+
+    await bms.disconnect()
+
+
+async def test_resync(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that data received before the first frame header is dropped.
+
+    Notifications as logged from a Noovi battery: the connection starts in the middle
+    of a frame, so the first chunks have no header and must not start a frame.
+    """
+
+    chunks: Final[list[bytes]] = [
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x30\x32\x37\x37\x09\x09\x09\x09\x09\x09\x09\x09",
+        b"\x75\x32\x43\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x41\x30\x32\x30\x30\x33\x30\x30\x30\x34\x30\x30\x35\x46\x30\x30",
+        b"\x30\x42\x30\x44\x30\x43\x30\x44\x30\x44\x30\x44\x30\x37\x30\x44",
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x30\x32\x37\x35\x09\x09\x09\x09\x09\x09\x09\x09",
+        b"\x75\x32\x43\x33\x34\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x41\x30\x32\x30\x30\x33\x30\x30\x30\x34\x30\x30\x35\x46\x30\x30",
+        b"\x38\x36\x30\x42\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x30\x42\x30\x44\x30\x43\x30\x44\x30\x44\x30\x44\x30\x38\x30\x44",
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30\x30",
+        b"\x30\x32\x37\x37\x09\x09\x09\x09\x09\x09\x09\x09",
+    ]
+
+    def _send_chunks(self: MockTopbandBleakClient) -> None:
+        assert self._notify_callback is not None
+        for chunk in chunks:
+            self._notify_callback("MockTopbandBleakClient", bytearray(chunk))
+
+    monkeypatch.setattr(MockTopbandBleakClient, "_send_info", _send_chunks)
+    patch_bleak_client(MockTopbandBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
+
+    assert await bms.async_update() == {
+        "voltage": 13.356,
+        "current": 0.0,
+        "battery_level": 95,
+        "cycle_charge": 204.96,
+        "cycles": 4,
+        "temp_values": [TS(21.85)],
+        "problem_code": 0,
+        "cell_voltages": [3.339, 3.34, 3.341, 3.336],
+        "battery_charging": False,
+        "cell_count": 4,
+        "delta_voltage": 0.005,
+        "temperature": 21.85,
+        "cycle_capacity": 2737.446,
+        "power": 0.0,
+        "problem": False,
+    }
+
+    await bms.disconnect()

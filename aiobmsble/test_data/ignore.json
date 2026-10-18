@@ -1,48 +1,25 @@
 [
   {
     "advertisement": {
-      "local_name": "ECO0AA8",
-      "manufacturer_data": {
-        "64590": "6661643630616138"
-      },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb",
-        "00000001-0000-1000-8000-00805f9b34fb"
-      ],
-      "rssi": -80
-    },
-    "reason": "classic BT device",
-    "_comments": [
-      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/282)",
-      "MAC address, no OUI, correct"
-    ]
-  },
-  {
-    "advertisement": {
-      "local_name": "ECOBF9F",
-      "manufacturer_data": {
-        "3053": "6365326562663966"
-      },
-      "service_uuids": [
-        "0000ff00-0000-1000-8000-00805f9b34fb",
-        "00000001-0000-1000-8000-00805f9b34fb"
-      ],
-      "rssi": -50
-    },
-    "reason": "classic BT device",
-    "_comments": [
-      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/317)",
-      "MAC address, no OUI, correct"
-    ]
-  },
-  {
-    "advertisement": {
       "local_name": "BMS-SMART_708BFC",
       "rssi": -78
     },
     "reason": "classic BT device",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/408)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "BT-ROCC2440",
+      "manufacturer_data": { "22618": "c84780000000" },
+      "service_uuids": "0000ffe0-0000-1000-8000-00805f9b34fb",
+      "platform_data": ["C8:47:80:00:00:00"],
+      "rssi": -62
+    },
+    "reason": "MPPT controller, no BMS",
+    "_comments": [
+      "source log (https://github.com/patman15/BMS_BLE-HA/issues/250)"
     ]
   }
 ]

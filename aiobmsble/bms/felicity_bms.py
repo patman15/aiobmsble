@@ -12,17 +12,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Felicity BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Felicity Solar",
-        "default_model": "LiFePo4 battery",
-    }
+    INFO: BMSInfo = {"manufacturer": "Felicity Solar", "model": "LiFePo4 battery"}
     _HEAD: Final[bytes] = b"{"
     _TAIL: Final[bytes] = b"}"
     _CMD_PRE: Final[bytes] = b"wifilocalMonitor:"  # CMD prefix
@@ -38,20 +35,21 @@ class BMS(BaseBMS):
             ]
         ]
     ] = [
-        ("voltage", "Batt", lambda x: x[0][0] / 1000),
-        ("current", "Batt", lambda x: x[1][0] / 10),
-        (
-            "cycle_charge",
-            "BatsocList",
-            lambda x: (int(x[0][0]) * int(x[0][2])) / 1e7,
-        ),
+        ("voltage", "BattList", lambda x: x[0][0] / 1000),
+        ("current", "BattList", lambda x: x[1][0] / 10),
+        ("cycle_charge", "BatsocList", lambda x: (int(x[0][0]) * int(x[0][2])) / 1e7),
         ("battery_level", "BatsocList", lambda x: x[0][0] / 100),
     ]
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
-        """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
-        self._data_final: dict[str, Any] = {}
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        config: BMSConfig | None = None,
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, config, logger_name)
+        self._msg: dict[str, Any] = {}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -61,9 +59,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("6e6f736a-4643-4d44-8fa9-0fafd005e455")]
+        return (normalize_uuid_str("6e6f736a-4643-4d44-8fa9-0fafd005e455"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -77,12 +75,12 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_reply(BMS._CMD_PRE + BMS._CMD_BI)
+        await self._await_msg(BMS._CMD_PRE + BMS._CMD_BI)
         return {
-            "fw_version": self._data_final.get("M1SwVer", []),
-            "sw_version": self._data_final.get("version", []),
-            "model_id": self._data_final.get("Type", []),
-            "serial_number": self._data_final.get("DevSN", []),
+            "fw_version": str(self._msg.get("M1SwVer", "")),
+            "sw_version": str(self._msg.get("version", "")),
+            "model_id": str(self._msg.get("Type", "")),
+            "serial_number": str(self._msg.get("DevSN", "")),
         }
 
     def _notification_handler(
@@ -91,27 +89,27 @@ class BMS(BaseBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if data.startswith(BMS._HEAD):
-            self._data = bytearray()
+            self._frame.clear()
 
-        self._data += data
+        self._frame.extend(data)
         self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._data else "cnt.", data
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
         )
 
         if not data.endswith(BMS._TAIL):
             return
 
         try:
-            self._data_final = loads(self._data)
+            self._msg = loads(bytes(self._frame))
         except (JSONDecodeError, UnicodeDecodeError):
-            self._log.debug("JSON decode error: %s", self._data)
+            self._log.debug("JSON decode error: %s", self._frame)
             return
 
-        if (ver := self._data_final.get("CommVer", 0)) != 1:
-            self._log.debug("Unknown protocol version (%i)", ver)
+        if (ver := self._msg.get("CommVer", 0)) != 1:
+            self._log.debug("unknown protocol version (%i)", ver)
             return
 
-        self._data_event.set()
+        self._msg_event.set()
 
     @staticmethod
     def _conv_data(data: dict[str, Any]) -> BMSSample:
@@ -122,26 +120,31 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _conv_cells(data: dict[str, Any]) -> list[float]:
-        return [(value / 1000) for value in data.get("BatcelList", [])[0]]
+        return [value / 1000 for value in data.get("BatcelList", [])[0]]
 
     @staticmethod
-    def _conv_temp(data: dict[str, Any]) -> list[float]:
+    def _conv_temp(data: dict[str, Any]) -> list[TempSensor]:
         return [
-            (value / 10) for value in data.get("BtemList", [])[0] if value != 0x7FFF
+            TempSensor(value / 10)
+            for value in data.get("BtemList", [])[0]
+            if value != 0x7FFF
         ]
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        await self._await_reply(BMS._CMD_PRE + BMS._CMD_RT)
+        await self._await_msg(BMS._CMD_PRE + BMS._CMD_RT)
 
-        return (
-            BMS._conv_data(self._data_final)
-            | {"temp_values": BMS._conv_temp(self._data_final)}
-            | {"cell_voltages": BMS._conv_cells(self._data_final)}
-            | {
-                "problem_code": int(
-                    self._data_final.get("Bwarn", 0) + self._data_final.get("Bfault", 0)
-                )
-            }
-        )
+        try:
+            return (
+                BMS._conv_data(self._msg)
+                | {"temp_values": BMS._conv_temp(self._msg)}
+                | {"cell_voltages": BMS._conv_cells(self._msg)}
+                | {
+                    "problem_code": int(
+                        self._msg.get("Bwarn", 0) + self._msg.get("Bfault", 0)
+                    )
+                }
+            )
+        except (IndexError, TypeError) as exc:
+            raise ValueError("BMS data incomplete.") from exc

@@ -10,19 +10,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.roypow_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
 BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module
 
 
-def ref_value() -> BMSSample:
-    """Return reference value for mock Seplos BMS."""
-    return {
+_RESULT_DEFS: Final[BMSSample] = {
         "temp_sensors": 4,
         "voltage": 13.48,
         "current": 0.35,
@@ -35,22 +33,28 @@ def ref_value() -> BMSSample:
         "battery_charging": True,
         "cell_count": 4,
         "cell_voltages": [3.375, 3.370, 3.369, 3.372],
-        "temp_values": [19, 19, 19, 20],
+        "temp_values": [TS(19), TS(19), TS(19), TS(20)],
         "delta_voltage": 0.006,
         "problem": False,
         "problem_code": 0,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
-    }
+}
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockRoyPowBleakClient(MockBleakClient):
     """Emulate a RoyPow BMS BleakClient."""
 
-    CMDS: Final[dict[int, bytearray]] = {
-        0x02: bytearray(b"\xea\xd1\x01\x04\xff\x02\xf9\xf5"),
-        0x03: bytearray(b"\xea\xd1\x01\x04\xff\x03\xf8\xf5"),
-        0x04: bytearray(b"\xea\xd1\x01\x04\xff\x04\xff\xf5"),
+    CMDS: Final[dict[int, bytes]] = {
+        0x02: b"\xea\xd1\x01\x04\xff\x02\xf9\xf5",
+        0x03: b"\xea\xd1\x01\x04\xff\x03\xf8\xf5",
+        0x04: b"\xea\xd1\x01\x04\xff\x04\xff\xf5",
     }
     RESP: Final[dict[int, bytearray]] = {
         0x02: bytearray(  # cell info
@@ -109,20 +113,15 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     patch_bleak_client(MockRoyPowBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
-
-
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockRoyPowBleakClient, BMS)
 
 
 async def test_update_dischrg(monkeypatch, patch_bleak_client) -> None:
@@ -139,9 +138,9 @@ async def test_update_dischrg(monkeypatch, patch_bleak_client) -> None:
 
     monkeypatch.setattr(MockRoyPowBleakClient, "RESP", negative_response)
 
-    bms = BMS(generate_ble_device(), False)
+    bms = BMS(generate_ble_device(), BMSConfig(False))
 
-    assert await bms.async_update() == ref_value() | {
+    assert await bms.async_update() == _RESULT_DEFS | {
         "battery_charging": False,
         "current": -0.35,
         "power": -4.718,
@@ -263,8 +262,13 @@ async def test_missing_message(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request):
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
     """Return faulty response frame."""
+    assert (
+        isinstance(request.param, tuple)
+        and isinstance(request.param[0], bytearray)
+        and isinstance(request.param[1], str)
+    )
     return request.param
 
 
@@ -286,7 +290,7 @@ async def test_problem_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = await bms.async_update()
-    assert result == ref_value() | {
+    assert result == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 23),
     }

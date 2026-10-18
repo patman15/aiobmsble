@@ -8,11 +8,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.abc_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests, verify_device_info
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockABCBleakClient(MockBleakClient):
@@ -99,7 +105,7 @@ async def test_update(
     patch_bms_timeout()  # required for optional F9 response
     patch_bleak_client(MockABCBleakClient)
 
-    bms = BMS(generate_ble_device(), keep_alive_fixture)
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == {
         "temp_sensors": 1,
@@ -108,7 +114,6 @@ async def test_update(
         "battery_level": 99,
         "cycle_charge": 106.048,
         "cycles": 7,
-        "problem_code": 0,
         "cell_count": 8,
         "cell_voltages": [3.442, 3.496, 3.375, 3.464, 3.457, 3.429, 3.359, 3.42],
         "temp_values": [20],

@@ -11,14 +11,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
 class BMS(BaseBMS):
     """Pro BMS Smart Shunt class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Pro BMS", "default_model": "Smart Shunt"}
+    INFO: BMSInfo = {"manufacturer": "Pro BMS", "model": "Smart Shunt"}
     _HEAD: Final[bytes] = b"\x55\xaa"
     _MIN_LEN: Final[int] = 5
     _INIT_RESP: Final[int] = 0x03
@@ -45,17 +45,23 @@ class BMS(BaseBMS):
             16,
             3,
             False,
-            lambda x: [((x & 0xFFFF) / 10) * (-1 if x >> 16 else 1)],
+            lambda x: [TempSensor(((x & 0xFFFF) / 10) * (-1 if x >> 16 else 1))],
         ),
         BMSDp("cycle_charge", 20, 4, False, lambda x: x / 100),
         BMSDp("battery_level", 24, 1, False),
         BMSDp("power", 32, 4, False, lambda x: x / 100),
     )
 
-    def __init__(self, ble_device: BLEDevice, keep_alive: bool = True) -> None:
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        config: BMSConfig | None = None,
+        logger_name: str = "",
+    ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, config, logger_name)
         self._valid_reply: int = BMS._RT_DATA
+        self._msg: bytes = b""
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -69,9 +75,9 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("fff0")]
+        return (normalize_uuid_str("fff0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -82,8 +88,6 @@ class BMS(BaseBMS):
     def uuid_tx() -> str:
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff3"
-
-    # async def _fetch_device_info(self) -> BMSInfo: unknown, use default
 
     def _notification_handler(
         self, _sender: BleakGATTCharacteristic, data: bytearray
@@ -103,8 +107,8 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame length: %i != %i).", len(data), _exp_len)
             return
 
-        self._data = data.copy()
-        self._data_event.set()
+        self._msg = bytes(data)
+        self._msg_event.set()
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -114,9 +118,9 @@ class BMS(BaseBMS):
         self._valid_reply = BMS._INIT_RESP
 
         # Send initialization command and await response
-        await self._await_reply(BMS._HEAD + BMS._CMD_INIT)
+        await self._await_msg(BMS._HEAD + BMS._CMD_INIT)
         for cmd in (BMS._CMD_HWID, BMS._CMD_DATA_STREAM, BMS._CMD_TRIGGER_DATA):
-            await self._await_reply(BMS._HEAD + cmd, wait_for_notify=False)
+            await self._await_msg(BMS._HEAD + cmd, wait_for_notify=False)
 
         self._valid_reply = BMS._RT_DATA
 
@@ -130,12 +134,10 @@ class BMS(BaseBMS):
             await self.disconnect()
             raise
 
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._data, byteorder="little"
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         result["power"] = result.get("power", 0) * (
             -1 if result.get("current", 0) < 0 else 1
         )
-        self._data_event.clear()
-        self._data.clear()
+        self._msg_event.clear()
+        self._frame.clear()
         return result

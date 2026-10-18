@@ -56,3 +56,5 @@ async def test_notification_handler(
         await notify_handler(notify_characteristics, bytearray(data))
     else:
         notify_handler(notify_characteristics, bytearray(data))
+
+    await bms_instance.disconnect()

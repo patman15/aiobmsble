@@ -13,11 +13,11 @@ import logging
 from bleak.backends.device import BLEDevice
 import pytest
 
-from aiobmsble import BMSSample
+from aiobmsble import BMSConfig, BMSSample
 from aiobmsble.bms.pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
-from tests.test_basebms import verify_device_info
+from tests.test_basebms import BMSBasicTests
 
 # Actual recorded packets from device logs
 RECORDED_PACKETS: dict[str, bytearray] = {
@@ -40,6 +40,12 @@ RECORDED_PACKETS: dict[str, bytearray] = {
         "55aa200380aa0140008000000002000000f7040000c800000004010000065eaf7a4ee0f700"
     ),  # fct. 0x40, SW version 0x0104 => 1.4
 }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
 
 
 class MockProBMSBleakClient(MockBleakClient):
@@ -67,9 +73,10 @@ class MockProBMSBleakClient(MockBleakClient):
         while not self._stop_streaming:
             if self._notify_callback and self._test_packet:
                 self._notify_callback(None, self._test_packet)
-            await asyncio.sleep(0.5)  # Send data every 500ms
+            # Send data, real every 500ms, but use shorter sleep to speed up tests
+            await asyncio.sleep(0)
 
-    async def write_gatt_char(self, char_specifier, data, response=None):
+    async def write_gatt_char(self, char_specifier, data, response=None) -> None:
         """Mock write to handle initialization and data requests."""
         await super().write_gatt_char(char_specifier, data, response)
 
@@ -82,7 +89,8 @@ class MockProBMSBleakClient(MockBleakClient):
             # Start streaming data packets
             if not self._streaming_task:
                 self._stop_streaming = False
-                self._streaming_task = asyncio.create_task(self._stream_data())
+                self._streaming_task = asyncio.create_task(self._stream_data(), name="send_loop")
+                await asyncio.sleep(0) # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Stop streaming on disconnect."""
@@ -175,11 +183,6 @@ async def test_async_update_with_protection(patch_bleak_client) -> None:
     await bms.disconnect()
 
 
-async def test_device_info(patch_bleak_client) -> None:
-    """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(patch_bleak_client, MockProBMSBleakClient, BMS)
-
-
 @pytest.mark.asyncio
 async def test_async_update_incomplete_data(
     patch_bleak_client, patch_bms_timeout
@@ -210,7 +213,7 @@ async def test_async_update_already_streaming(patch_bleak_client) -> None:
     mock_client.set_test_packet(RECORDED_PACKETS["data_charging"])
     patch_bleak_client(lambda *args, **kwargs: mock_client)
 
-    bms = BMS(device, keep_alive=True)
+    bms = BMS(device, BMSConfig(keep_alive=True))
 
     # First update to initialize
     await bms.async_update()
@@ -255,7 +258,8 @@ async def test_async_update_no_data_after_init(
                 self._notify_callback(None, RECORDED_PACKETS["init_response"])
 
             # Store task reference to prevent garbage collection
-            self._streaming_task = asyncio.create_task(send_wrong_packet())
+            self._streaming_task = asyncio.create_task(send_wrong_packet(), name="send wrong packet")
+            await asyncio.sleep(0) # yield control to allow task to start
 
     monkeypatch.setattr(MockProBMSBleakClient, "write_gatt_char", mock_write)
 

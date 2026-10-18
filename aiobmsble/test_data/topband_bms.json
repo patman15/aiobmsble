@@ -5,15 +5,11 @@
       "manufacturer_data": {
         "65535": "30554437a2d2"
       },
-      "service_uuids": [
-        "0000ffe0-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
       "rssi": -56
     },
-    "type": "ective_bms",
-    "_comments": [
-      "source LOG"
-    ]
+    "type": "topband_bms",
+    "_comments": ["source LOG"]
   },
   {
     "advertisement": {
@@ -21,15 +17,11 @@
       "manufacturer_data": {
         "65535": "3055443762ec"
       },
-      "service_uuids": [
-        "0000ffe0-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
       "rssi": -47
     },
-    "type": "ective_bms",
-    "_comments": [
-      "source LOG"
-    ]
+    "type": "topband_bms",
+    "_comments": ["source LOG"]
   },
   {
     "advertisement": {
@@ -37,12 +29,10 @@
       "manufacturer_data": {
         "65535": "10554433e8b4"
       },
-      "service_uuids": [
-        "0000ffe0-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
       "rssi": -47
     },
-    "type": "ective_bms",
+    "type": "topband_bms",
     "_comments": [
       "nRF Connect (https://github.com/patman15/BMS_BLE-HA/issues/82#issuecomment-2498299433)"
     ]
@@ -53,15 +43,11 @@
       "manufacturer_data": {
         "0": "3414b59d78e74c"
       },
-      "service_uuids": [
-        "0000ffe0-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
       "rssi": -127
     },
-    "type": "ective_bms",
-    "_comments": [
-      "BTctl (https://github.com/patman15/BMS_BLE-HA/issues/137)"
-    ]
+    "type": "topband_bms",
+    "_comments": ["BTctl (https://github.com/patman15/BMS_BLE-HA/issues/137)"]
   },
   {
     "advertisement": {
@@ -69,12 +55,10 @@
       "manufacturer_data": {
         "0": "fc45c3bcd6a8"
       },
-      "service_uuids": [
-        "0000ffe0-0000-1000-8000-00805f9b34fb"
-      ],
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
       "rssi": -48
     },
-    "type": "ective_bms",
+    "type": "topband_bms",
     "_comments": [
       "source BTctl (https://github.com/patman15/BMS_BLE-HA/issues/194)",
       "Topband"
@@ -94,10 +78,26 @@
       ],
       "rssi": -127
     },
-    "type": "ective_bms",
+    "type": "topband_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/276)",
       "can be renamed",
+      "value: MAC address"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "30:55:44:00:00:00",
+      "platform_data": ["30:55:44:00:00:00"],
+      "rssi": -89,
+      "manufacturer_data": {
+        "65535": "305544000000"
+      },
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "topband_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/739)",
       "value: MAC address"
     ]
   }

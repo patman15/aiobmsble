@@ -1,10 +1,14 @@
 """Test the BLE Battery Management System base class functions."""
 
+import asyncio
 from collections.abc import Buffer, Callable
 from logging import DEBUG
-from typing import Any, Final, Literal, NoReturn
+from string import hexdigits
+from types import UnionType
+from typing import Any, Final, Literal, NoReturn, get_args, get_origin, get_type_hints
 from uuid import UUID
 
+import aiooui
 from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -14,15 +18,16 @@ from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.basebms import (
     BaseBMS,
-    barr2str,
+    b2str,
     crc8,
     crc_modbus,
     crc_sum,
     crc_xmodem,
     lrc_modbus,
+    lstr2int,
 )
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
 from tests.bluetooth import generate_ble_device
@@ -77,8 +82,8 @@ class MinTestBMS(BaseBMS):
     """Minimal Test BMS implementation."""
 
     INFO: BMSInfo = {
-        "default_manufacturer": "Test Manufacturer",
-        "default_model": "minimal BMS for test",
+        "manufacturer": "Test Manufacturer",
+        "model": "minimal BMS for test",
     }
 
     @staticmethod
@@ -87,9 +92,9 @@ class MinTestBMS(BaseBMS):
         return [{"local_name": "Test", "connectable": True}]
 
     @staticmethod
-    def uuid_services() -> list[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return [normalize_uuid_str("afe0")]
+        return (normalize_uuid_str("afe0"),)
 
     @staticmethod
     def uuid_rx() -> str:
@@ -110,7 +115,7 @@ class MinTestBMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {"problem_code": 21}
 
 
@@ -123,7 +128,7 @@ class DataTestBMS(MinTestBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {
             "voltage": 13,
             "current": 1.7,
@@ -133,6 +138,67 @@ class DataTestBMS(MinTestBMS):
         }
 
 
+class AliveTestBMS(MinTestBMS):
+    """BMS exercising the periodic keep-alive task in the base class."""
+
+    ALIVE_INTERVAL: float | None = 0.0
+
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        config: BMSConfig | None = None,
+        logger_name: str = "",
+    ) -> None:
+        """Initialize the AliveTestBMS."""
+        super().__init__(ble_device, config, logger_name)
+        self.alive_calls: int = 0
+        self.alive_raise: bool = False
+
+    async def _alive(self) -> None:
+        """Record each periodic invocation, optionally failing the loop."""
+        self.alive_calls += 1
+        if self.alive_raise:
+            raise RuntimeError("keep-alive failure")
+
+
+class OpGuardTestBMS(MinTestBMS):
+    """BMS to verify that public operations do not overlap."""
+
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        config: BMSConfig | None = None,
+        logger_name: str = "",
+    ) -> None:
+        """Initialize the OpGuardTestBMS."""
+        super().__init__(ble_device, config, logger_name)
+        self._op_active = False
+
+    async def _fetch_device_info(self) -> BMSInfo:
+        if self._op_active:
+            raise RuntimeError("overlapping base operations")
+
+        self._op_active = True
+        try:
+            await asyncio.sleep(0)
+            await self._await_msg(b"mock_info", wait_for_notify=False)
+            return {"model": "mock_model"}
+        finally:
+            self._op_active = False
+
+    async def _async_update(self) -> BMSSample:
+        if self._op_active:
+            raise RuntimeError("overlapping base operations")
+
+        self._op_active = True
+        try:
+            await asyncio.sleep(0)
+            await self._await_msg(b"mock_update", wait_for_notify=False)
+            return {"problem_code": 21}
+        finally:
+            self._op_active = False
+
+
 class WMTestBMS(MinTestBMS):
     """Write mode mock BMS implementation."""
 
@@ -140,10 +206,11 @@ class WMTestBMS(MinTestBMS):
         self,
         char_tx_properties: list[str],
         ble_device: BLEDevice,
-        keep_alive: bool = True,
+        config: BMSConfig | None = None,
+        logger_name: str = "",
     ) -> None:
         """Initialize BMS."""
-        super().__init__(ble_device, keep_alive)
+        super().__init__(ble_device, config, logger_name)
         self._char_tx_properties: list[str] = char_tx_properties
 
     def _wr_response(self, char: int | str) -> bool:
@@ -155,13 +222,157 @@ class WMTestBMS(MinTestBMS):
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
         self._data = data
-        self._data_event.set()
+        self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_reply(b"mock_command")
+        await self._await_msg(b"mock_command")
 
         return {"problem_code": int.from_bytes(self._data, "big", signed=False)}
+
+
+class BMSBasicTests:
+    """Base class for BMS tests."""
+
+    bms_class: type[BaseBMS]
+
+    def test_bms_id(self) -> None:
+        """Test that the BMS returns default information."""
+
+        for key in ("manufacturer", "model"):
+            assert str(self.bms_class.INFO.get(key, "")).strip()
+        assert len(self.bms_class.bms_id().strip())
+
+    async def test_matcher_dict(self) -> None:
+        """Test that the BMS returns BT matcher."""
+
+        assert len(self.bms_class.matcher_dict_list())
+        for matcher in self.bms_class.matcher_dict_list():
+
+            if manufacturer_id := matcher.get("manufacturer_id"):
+                assert (
+                    manufacturer_id == manufacturer_id & 0xFFFF
+                ), f"incorrect {manufacturer_id=}"
+
+            if service_uuid := matcher.get("service_uuid"):
+                assert UUID(service_uuid), f"incorrect {service_uuid=}"
+
+            if manufacturer_data_start := matcher.get("manufacturer_data_start"):
+                assert all(
+                    byte == byte & 0xFF for byte in manufacturer_data_start
+                ), "manufacturer_data_start needs to contain Byte values!"
+
+            if oui := matcher.get("oui"):
+                parts: list[str] = oui.split(":")
+                assert len(parts) == 3 and all(
+                    len(part) == 2 and all(c in hexdigits for c in part)
+                    for part in parts
+                ), f"incorrect {oui=}"
+                await aiooui.async_load()
+                if aiooui.get_vendor(oui) is None:
+                    # OUI is not registered
+                    assert (int(parts[0], 16) & 0xC0) not in (
+                        0x00,  # Non-resolvable random private address
+                        0x40,  # Resolvable random private address
+                        # 0x80,  # 	Reserved for future use
+                        # 0xC0,  # Static random device address
+                    ), f"random private address OUI ({oui}) cannot be used for filtering!"
+
+    async def test_result_value_types(
+        self,
+        patch_bleak_client: Callable[..., None],
+        patch_bms_timeout: Callable[..., None],
+        request: pytest.FixtureRequest,
+    ) -> None:
+        """Verify that async_update returns BMSSample fields with the correct types."""
+        if "_async_update" not in self.bms_class.__dict__:
+            pytest.skip(
+                f"{self.bms_class.__name__} does not define _async_update(), skipping result type check."
+            )
+
+        def _is_typed_dict(tp: Any) -> bool:
+            return (
+                isinstance(tp, type)
+                and issubclass(tp, dict)
+                and hasattr(tp, "__required_keys__")
+            )
+
+        def _is_instance_of_type(value: Any, expected_type: Any) -> bool:
+            if expected_type is Any:
+                return True
+
+            result: bool
+
+            if _is_typed_dict(expected_type):
+                if not isinstance(value, dict):
+                    result = False
+                else:
+                    sub_hints: dict[str, Any] = get_type_hints(expected_type)
+                    required_keys: frozenset[str] = getattr(
+                        expected_type, "__required_keys__", frozenset()
+                    )
+
+                    if (not required_keys.issubset(value.keys())) or (
+                        not set(value.keys()).issubset(sub_hints.keys())
+                    ):
+                        result = False
+                    else:
+                        result = all(
+                            sub_key in sub_hints
+                            and _is_instance_of_type(sub_value, sub_hints[sub_key])
+                            for sub_key, sub_value in value.items()
+                        )
+            else:
+                origin: Any = get_origin(expected_type)
+                args: tuple[Any, ...] = get_args(expected_type)
+
+                if origin is None:
+                    result = type(value) is expected_type
+                elif origin is UnionType:
+                    result = any(_is_instance_of_type(value, arg) for arg in args)
+                elif type(value) is not origin:
+                    result = False
+                elif origin is list:
+                    result = (not args) or all(
+                        _is_instance_of_type(item, args[0]) for item in value
+                    )
+                else:
+                    result = False
+
+            return result
+
+        module = request.module
+        mock_client: type[BleakClient] = MockBleakClient
+
+        for obj in module.__dict__.values():
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, MockBleakClient)
+                and obj is not MockBleakClient
+            ):
+                mock_client = obj
+                break
+
+        patch_bms_timeout()
+        patch_bleak_client(mock_client)
+
+        bms: BaseBMS = self.bms_class(generate_ble_device())
+        result: BMSSample = await bms.async_update()
+        await bms.disconnect()
+
+        hints: dict[str, Any] = get_type_hints(BMSSample)
+        assert isinstance(
+            result, dict
+        ), "async_update must return a dict-like BMSSample"
+
+        for key, value in result.items():
+            assert (
+                key in hints
+            ), f"Unexpected result key '{key}' not defined in BMSSample"
+            expected_type = hints[key]
+            assert _is_instance_of_type(
+                value, expected_type
+            ), f"{key} has wrong type {type(value).__name__}; expected {expected_type}"
 
 
 async def verify_device_info(
@@ -267,24 +478,50 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
     [
         (
             {"cell_voltages": [3.456, 3.567]},
-            {"cell_count": 2, "delta_voltage": 0.111, "voltage": 7.023},
+            {
+                "cell_count": 2,
+                "delta_voltage": 0.111,
+                "voltage": 7.023,
+                "problem": False,
+            },
         ),
-        ({"battery_level": 73, "design_capacity": 125}, {"cycle_charge": 91.25}),
-        ({"cycle_charge": 421, "design_capacity": 983}, {"battery_level": 42.8}),
-        ({"total_charge": 1234567, "design_capacity": 256}, {"cycles": 4822}),
         (
-            {"current": -1.3, "cycle_charge": 73},
-            {"battery_charging": False, "runtime": 202153},
+            {"battery_level": 73, "design_capacity": 125},
+            {"cycle_charge": 91.25, "problem": False},
         ),
-        ({"current": 1.3, "cycle_charge": 73}, {"battery_charging": True}),
+        (
+            {"cycle_charge": 421, "design_capacity": 983},
+            {"battery_level": 42.8, "problem": False},
+        ),
+        (
+            {"total_charge": 1234567, "design_capacity": 256},
+            {"cycles": 4822, "problem": False},
+        ),
+        (
+            {"current": -1.3, "cycle_charge": 73, "problem": False},
+            {"battery_charging": False, "runtime": 202153, "problem": False},
+        ),
+        (
+            {"current": 1.3, "cycle_charge": 73},
+            {"battery_charging": True, "problem": False},
+        ),
+        ({}, {}),
     ],
-    ids=["voltage", "cycle_charge", "battery_level", "cycles", "runtime", "no_runtime"],
+    ids=[
+        "voltage",
+        "cycle_charge",
+        "battery_level",
+        "cycles",
+        "runtime",
+        "no_runtime",
+        "no_data",
+    ],
 )
 def test_calc_values(sample: BMSSample, expected: BMSSample) -> None:
     """Check if missing data is correctly calculated."""
     ref: BMSSample = sample.copy()
     BaseBMS._add_missing_values(sample)
-    assert sample == ref | expected | {"problem": False}
+    assert sample == ref | expected
 
 
 @pytest.mark.parametrize(
@@ -315,6 +552,23 @@ async def test_async_update(patch_bleak_client: Callable[..., None], raw: bool) 
             }
         )
     assert await bms.async_update(raw=raw) == base_result
+
+
+async def test_op_guard_device_info_async_update(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify device_info and async_update are serialized for one BMS instance."""
+    patch_bleak_client()
+    bms: OpGuardTestBMS = OpGuardTestBMS(
+        generate_ble_device(), BMSConfig(keep_alive=True)
+    )
+    await bms._connect()
+
+    info, data = await asyncio.gather(bms.device_info(), bms.async_update(raw=True))
+    assert info == {"model": "mock_model"}
+    assert data == {"problem_code": 21}
+
+    await bms.disconnect()
 
 
 @pytest.mark.parametrize(
@@ -412,7 +666,7 @@ async def test_write_mode(
     bms = WMTestBMS(
         ["write-no-response", "write"],
         generate_ble_device(),
-        False,
+        BMSConfig(keep_alive=False),
     )
 
     # NOTE: output must reflect the end result after one call, as init of HA resets the whole BMS!
@@ -454,33 +708,12 @@ async def test_no_notify(
     """Test BMS update without waiting for notification event."""
     patch_bleak_client(MockBleakClient)
 
-    bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=False))
     with caplog.at_level(DEBUG):
         result: BMSSample = await bms.async_update()
     assert "MockBleakClient write_gatt_char afe2, data: b'mock_command'" in caplog.text
     assert result == {"problem": True, "problem_code": 21}
     assert not bms._client.is_connected
-
-
-async def test_disconnect_fail(
-    monkeypatch: pytest.MonkeyPatch,
-    patch_bleak_client: Callable[..., None],
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Check that exceptions in connect function for guarding disconnect are ignored."""
-
-    async def _raise_bleak_error(*args: Any) -> NoReturn:
-        raise BleakError
-
-    monkeypatch.setattr(MockBleakClient, "disconnect", _raise_bleak_error)
-    patch_bleak_client(MockBleakClient)
-
-    bms: MinTestBMS = MinTestBMS(generate_ble_device(), keep_alive=False)
-    with caplog.at_level(DEBUG):
-        result: BMSSample = await bms.async_update()
-    assert result == {"problem": True, "problem_code": 21}
-    assert "failed to disconnect stale connection (BleakError)" in caplog.text
-    assert "disconnect failed!" in caplog.text
 
 
 async def test_init_connect_fail(
@@ -507,7 +740,7 @@ async def test_context_mgr(
     """Test that context manager provides data."""
     patch_bleak_client(MockBleakClient)
 
-    async with DataTestBMS(generate_ble_device(), keep_alive=True) as bms:
+    async with DataTestBMS(generate_ble_device(), BMSConfig(keep_alive=True)) as bms:
         assert await bms.async_update() == {
             "voltage": 13,
             "current": 1.7,
@@ -519,6 +752,7 @@ async def test_context_mgr(
             "problem": True,
             "problem_code": 21,
         }
+        assert bms.is_connected
 
 
 async def test_context_mgr_fail(
@@ -529,8 +763,18 @@ async def test_context_mgr_fail(
     patch_bleak_client(MockBleakClient)
 
     with pytest.raises(ValueError, match="usage of context manager*"):
-        async with MinTestBMS(generate_ble_device(), keep_alive=False) as bms:
+        async with MinTestBMS(
+            generate_ble_device(), BMSConfig(keep_alive=False)
+        ) as bms:
             await bms.async_update()
+
+
+def test_cmd_modbus() -> None:
+    """Test Modbus command building."""
+    assert (
+        BaseBMS._cmd_modbus(dev_id=0x01, fct=0x04, addr=0xAFFE, count=0x1234)
+        == b"\x01\x04\xaf\xfe\x12\x34\xbd\x99"
+    )
 
 
 def test_crc_calculations() -> None:
@@ -556,13 +800,14 @@ def test_crc_calculations() -> None:
     ("data", "cells", "start", "size", "byteorder", "divider", "expected"),
     [
         # Two cells, big endian, default divider
-        (bytearray([0x0D, 0x80, 0x0D, 0xF7]), 2, 0, 2, "big", 1000, [3.456, 3.575]),
+        (b"\x0d\x80\x0d\xf7", 2, 0, 2, "big", 1000, [3.456, 3.575]),
         # Two cells, little endian, default divider
-        (bytearray([0x80, 0x0D, 0xF7, 0x0D]), 2, 0, 2, "little", 1000, [3.456, 3.575]),
+        (b"\x80\x0d\xf7\x0d", 2, 0, 2, "little", 1000, [3.456, 3.575]),
         # One cell, big endian, custom divider
-        (bytearray([0x30, 0x34]), 1, 0, 2, "big", 10000, [1.234]),
-        (  # Three cells, big endian, offset start
-            bytearray([0x00, 0x00, 0x0D, 0x80, 0x0D, 0xF7, 0x0D, 0xA7]),
+        (b"\x30\x34", 1, 0, 2, "big", 10000, [1.234]),
+        # Three cells, big endian, offset start
+        (
+            b"\x00\x00\x0d\x80\x0d\xf7\x0d\xa7",
             3,
             2,
             2,
@@ -571,11 +816,11 @@ def test_crc_calculations() -> None:
             [3.456, 3.575, 3.495],
         ),
         # Not enough data for all cells
-        (bytearray([0x0D, 0x80]), 2, 0, 2, "big", 1000, [3.456]),
+        (b"\x0d\x80", 2, 0, 2, "big", 1000, [3.456]),
         # Zero cells
-        (bytearray([0x0D, 0x80]), 0, 0, 2, "big", 1000, []),
+        (b"\x0d\x80", 0, 0, 2, "big", 1000, []),
         # Divider = 1 (raw values)
-        (bytearray([0x01, 0x02, 0x03, 0x04]), 2, 0, 2, "big", 1, [258, 772]),
+        (b"\x01\x02\x03\x04", 2, 0, 2, "big", 1, [258, 772]),
     ],
     ids=[
         "two_cells_big_endian",
@@ -587,7 +832,15 @@ def test_crc_calculations() -> None:
         "divider_one_raw_values",
     ],
 )
-def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -> None:
+def test_cell_voltages(
+    data: bytes,
+    cells: int,
+    start: int,
+    size: int,
+    byteorder: Literal["little", "big"],
+    divider: int,
+    expected: list[float],
+) -> None:
     """Test the _cell_voltages method of BaseBMS with various input parameters."""
     result: list[float] = BaseBMS._cell_voltages(
         data,
@@ -614,22 +867,14 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
     ),
     [
         # Two signed big endian values, no offset, divider=1
-        (bytearray([0xFF, 0xEC, 0x00, 0x64]), 2, 0, 2, "big", True, 0, 1, [-20, 100]),
-        (  # Two unsigned little endian values, offset=0, divider=10
-            bytearray([0x10, 0x00, 0x20, 0x00]),
-            2,
-            0,
-            2,
-            "little",
-            False,
-            0,
-            10,
-            [1.6, 3.2],
-        ),
+        (b"\xff\xec\x00\x64", 2, 0, 2, "big", True, 0, 1, [-20, 100]),
+        # Two unsigned little endian values, offset=0, divider=10
+        (b"\x10\x00\x20\x00", 2, 0, 2, "little", False, 0, 10, [1.6, 3.2]),
         # One signed big endian value, offset=273.15, divider=1
-        (bytearray([0x0B, 0x98]), 1, 0, 2, "big", False, 2731, 10, [23.7]),
-        (  # Three signed little endian values, offset=0, divider=100
-            bytearray([0x64, 0x00, 0xC8, 0xFF, 0x2C, 0x01]),
+        (b"\x0b\x98", 1, 0, 2, "big", False, 2731, 10, [23.7]),
+        # Three signed little endian values, offset=0, divider=100
+        (
+            b"\x64\x00\xc8\xff\x2c\x01",
             3,
             0,
             2,
@@ -640,37 +885,17 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
             [1.0, -0.56, 3.0],
         ),
         # Not enough data for all values
-        (bytearray([0x00, 0x7D]), 2, 0, 2, "big", True, 0, 1, [125]),
+        (b"\x00\x7d", 2, 0, 2, "big", True, 0, 1, (125,)),
         # Zero values requested
-        (bytearray([0x00, 0x7D]), 0, 0, 2, "big", True, 0, 1, []),
+        (b"\x00\x7d", 0, 0, 2, "big", True, 0, 1, ()),
         # Divider = 1, offset = 7
-        (bytearray([0x00, 0x14]), 1, 0, 2, "big", True, 7, 1, [13]),
+        (b"\x00\x14", 1, 0, 2, "big", True, 7, 1, (13,)),
         # no offset, div = 10
-        (
-            bytearray(b"\x65\x64\x00\x40"),
-            4,
-            0,
-            1,
-            "big",
-            True,
-            0,
-            10,
-            [10.1, 10.0, 0.0, 6.4],
-        ),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 0, 10, (10.1, 10.0, 0.0, 6.4)),
         # offset -40, div = 10
-        (
-            bytearray(b"\x65\x64\x00\x40"),
-            4,
-            0,
-            1,
-            "big",
-            True,
-            40,
-            10,
-            [6.1, 6.0, 2.4],
-        ),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 40, 10, (6.1, 6.0, 2.4)),
         # offset -25, div = 1
-        (bytearray(b"\x65\x64\x00\x40"), 4, 0, 1, "big", True, 25, 1, [76, 75, 39]),
+        (b"\x65\x64\x00\x40", 4, 0, 1, "big", True, 25, 1, (76, 75, 39)),
     ],
     ids=[
         "two_signed_big_endian",
@@ -686,7 +911,7 @@ def test_cell_voltages(data, cells, start, size, byteorder, divider, expected) -
     ],
 )
 def test_temp_values(
-    data: bytearray,
+    data: bytes,
     values: int,
     start: int,
     size: int,
@@ -694,10 +919,10 @@ def test_temp_values(
     signed: bool,
     offset: float,
     divider: int,
-    expected: list[int | float],
+    expected: tuple[float, ...],
 ) -> None:
     """Test the _temp_values method of BaseBMS with various input parameters."""
-    result: list[int | float] = BaseBMS._temp_values(
+    result: list[TempSensor] = BaseBMS._temp_values(
         data,
         values=values,
         start=start,
@@ -707,11 +932,11 @@ def test_temp_values(
         offset=offset,
         divider=divider,
     )
-    assert result == expected
+    assert result == [TempSensor(v) for v in expected]
 
 
 @pytest.mark.parametrize(
-    ("fields", "data", "byteorder", "offset", "expected"),
+    ("fields", "data", "byteorder", "start", "expected"),
     [
         # Test with big endian and multiple data points
         (
@@ -719,7 +944,7 @@ def test_temp_values(
                 BMSDp("voltage", 0, size=2, signed=False),
                 BMSDp("current", 2, size=2, signed=True),
             ),
-            bytearray([0x0D, 0x80, 0xFF, 0xEC]),
+            b"\x0d\x80\xff\xec",
             "big",
             0,
             {"voltage": 3456.0, "current": -20},
@@ -727,7 +952,7 @@ def test_temp_values(
         # Test with dict data, little endian
         (
             (BMSDp("voltage", 0, size=2, signed=False, fct=lambda x: x / 10, idx=1),),
-            {1: bytearray([0x64, 0x00])},
+            {1: b"\x64\x00"},
             "little",
             0,
             {"voltage": 10},
@@ -735,23 +960,23 @@ def test_temp_values(
         # Test with missing dict data
         (
             (BMSDp("voltage", 0, size=2, signed=False, idx=2),),
-            {1: bytearray([0x64, 0x00])},
+            {1: b"\x64\x00"},
             "little",
             0,
             {},
         ),
-        # Test with offset
+        # Test with start
         (
             (BMSDp("battery_level", 1, size=1, signed=False),),
-            bytearray([0x00, 0x7D]),
+            b"\x00\x7d",
             "big",
             0,
             {"battery_level": 125},
         ),
-        # Test with offset shifting the slice
+        # Test with start shifting the slice
         (
             (BMSDp("voltage", 0, size=2, signed=False),),
-            bytearray([0x00, 0x00, 0x12, 0x34]),
+            b"\x00\x00\x12\x34",
             "big",
             2,
             {"voltage": 0x1234},
@@ -761,14 +986,20 @@ def test_temp_values(
         "be_multiple_dps",
         "le_dict_single_dp_lambda",
         "le_dict_missing_idx",
-        "be_with_offset",
-        "be_offset_shift_slice",
+        "be_with_start",
+        "be_start_shift_slice",
     ],
 )
-def test_decode_data(fields, data, byteorder, offset, expected) -> None:
+def test_decode_data(
+    fields: tuple[BMSDp, ...],
+    data: bytes | dict[int, bytes],
+    byteorder: Literal["little", "big"],
+    start: int,
+    expected: BMSSample,
+) -> None:
     """Test the _decode_data method of BaseBMS with various input parameters."""
     result: BMSSample = BaseBMS._decode_data(
-        fields, data, byteorder=byteorder, start=offset
+        fields, data, byteorder=byteorder, start=start
     )
     assert result == expected
 
@@ -778,6 +1009,333 @@ def test_decode_data(fields, data, byteorder, offset, expected) -> None:
     [(b"", ""), (b"\x00 ", ""), (b"test\x00 ", "test"), (b"test  \t\r ", "test")],
     ids=["empty", "hex", "text_hex", "test_space"],
 )
-def test_barr2str(data: bytes, expected: str) -> None:
+def test_b2str(data: bytes, expected: str) -> None:
     """Test bytearray to string conversion function."""
-    assert barr2str(bytearray(data)) == expected
+    assert b2str(data) == expected
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        ("01", 1),
+        ("01.1", 1),
+        ("123", 123),
+        ("0", 0),
+        ("000", 0),
+        ("123abc", 123),
+        ("123.45", 123),
+        ("1.2.3", 1),
+        ("5", 5),
+        ("999999", 999999),
+    ],
+    ids=[
+        "leading_zero",
+        "decimal_point",
+        "three_digits",
+        "zero",
+        "multiple_zeros",
+        "digits_then_letters",
+        "digits_then_decimal",
+        "digits_dot_digits_dot_digits",
+        "single_digit",
+        "large_number",
+    ],
+)
+def test_lstr2int(data: str, expected: int) -> None:
+    """Test string to integer conversion function."""
+    assert lstr2int(data) == expected
+
+
+# ---------------------------------------------------------------------------
+# Connection timeout wrapper tests
+# ---------------------------------------------------------------------------
+
+TEST_TIMEOUT = 0.01  # very short timeout
+
+async def test_connect_timeout_fires(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify hard timeout fires when establish_connection hangs."""
+
+    async def _hang(**kwargs: Any) -> None:
+        await asyncio.sleep(TEST_TIMEOUT * 10)
+
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    monkeypatch.setattr(bms, "_init_connection", _hang)
+    monkeypatch.setattr(bms, "_CONNECT_TIMEOUT", TEST_TIMEOUT)
+
+    with caplog.at_level(DEBUG), pytest.raises(TimeoutError):
+        await bms.async_update()
+
+    assert "failed to initialize BMS connection" in caplog.text
+
+
+async def test_connect_within_timeout(
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify normal connection completes without timeout warning."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+
+    with caplog.at_level(DEBUG):
+        await bms.async_update()
+
+    assert "connection timed out" not in caplog.text
+    assert bms._client.is_connected
+
+
+async def test_connect_timeout_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify cleanup disconnect is attempted when timeout fires."""
+    disconnect_called: list[bool] = []
+
+    async def _hang(**kwargs: Any) -> None:
+        await asyncio.sleep(TEST_TIMEOUT * 10)
+
+    original_disconnect = MockBleakClient.disconnect
+
+    async def _tracking_disconnect(self: MockBleakClient) -> None:
+        disconnect_called.append(True)
+        await original_disconnect(self)
+
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    monkeypatch.setattr(bms, "_init_connection", _hang)
+    monkeypatch.setattr(MockBleakClient, "disconnect", _tracking_disconnect)
+    monkeypatch.setattr(bms, "_CONNECT_TIMEOUT", TEST_TIMEOUT)
+
+    with pytest.raises(TimeoutError):
+        await bms.async_update()
+
+    # disconnect called at least once (stale cleanup + timeout cleanup)
+    assert len(disconnect_called) >= 1
+
+
+class MockGATTService:
+    """Mock BLE GATT service for get_GATT_profile()."""
+
+    def __init__(
+        self, name: str, characteristics: list["MockGATTCharacteristic"]
+    ) -> None:
+        """Initialize mock GATT service."""
+        self._name: str = name
+        self.characteristics: list[MockGATTCharacteristic] = characteristics
+
+    def __str__(self) -> str:
+        """Return mock service string."""
+        return self._name
+
+
+class MockGATTCharacteristic:
+    """Mock BLE GATT characteristic for get_GATT_profile()."""
+
+    def __init__(
+        self,
+        name: str,
+        properties: list[str],
+        descriptors: list["MockGATTDescriptor"],
+    ) -> None:
+        """Initialize mock GATT characteristic."""
+        self._name: str = name
+        self.properties: list[str] = properties
+        self.descriptors: list[MockGATTDescriptor] = descriptors
+
+    def __str__(self) -> str:
+        """Return mock characteristic string."""
+        return self._name
+
+
+class MockGATTDescriptor:
+    """Mock BLE GATT descriptor for get_GATT_profile()."""
+
+    def __init__(self, name: str) -> None:
+        """Initialize mock GATT descriptor."""
+        self._name: str = name
+
+    def __str__(self) -> str:
+        """Return mock descriptor string."""
+        return self._name
+
+
+class MockGATTProfileBleakClient(MockBleakClient):
+    """Mock BleakClient with a GATT profile."""
+
+    @property
+    def services(self) -> list[MockGATTService]:  # type: ignore[override]
+        """Mock GATT services."""
+        return [
+            MockGATTService(
+                "service_1",
+                [
+                    MockGATTCharacteristic(
+                        "char_1_read",
+                        ["read", "notify"],
+                        [MockGATTDescriptor("descriptor_1")],
+                    ),
+                    MockGATTCharacteristic(
+                        "char_2_write",
+                        ["write"],
+                        [MockGATTDescriptor("descriptor_2")],
+                    ),
+                ],
+            ),
+            MockGATTService(
+                "service_2",
+                [
+                    MockGATTCharacteristic(
+                        "char_3_notify",
+                        ["notify"],
+                        [MockGATTDescriptor("descriptor_3")],
+                    ),
+                ],
+            ),
+        ]
+
+
+class MockEmptyGATTProfileBleakClient(MockBleakClient):
+    """Mock BleakClient with a GATT profile."""
+
+    @property
+    def services(self) -> list[BleakGATTServiceCollection]:  # type: ignore[override]
+        """Mock GATT services empty."""
+        return []
+
+
+async def test_get_gatt_profile(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns one line for each service, characteristic and descriptor."""
+
+    patch_bleak_client(MockGATTProfileBleakClient)
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._client.connect()
+
+    result: str = await bms.get_GATT_profile()
+
+    assert result.splitlines() == [
+        "SRV service_1",
+        "  CHR char_1_read (read,notify)",
+        "    DCR descriptor_1",
+        "  CHR char_2_write (write)",
+        "    DCR descriptor_2",
+        "SRV service_2",
+        "  CHR char_3_notify (notify)",
+        "    DCR descriptor_3",
+    ]
+
+
+async def test_get_gatt_profile_not_connected(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns error message when device not connected."""
+    patch_bleak_client(MockBleakClient)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+
+    assert await bms.get_GATT_profile() == "device not connected"
+
+
+async def test_get_gatt_profile_empty(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns error message when device not connected."""
+    patch_bleak_client(MockEmptyGATTProfileBleakClient)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._client.connect()
+
+    assert await bms.get_GATT_profile() == "no services found"
+
+
+async def test_get_gatt_profile_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify get_GATT_profile returns error string when BleakError occurs."""
+    patch_bleak_client(MockGATTProfileBleakClient)
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._client.connect()
+
+    def raise_bleak_error(_self) -> NoReturn:
+        raise BleakError("mock error")
+
+    # Monkeypatch services property to raise BleakError
+    monkeypatch.setattr(
+        MockGATTProfileBleakClient, "services", property(raise_bleak_error)
+    )
+
+    assert "mock error" in await bms.get_GATT_profile()
+
+
+async def test_alive_loop_running(
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify the periodic keep-alive loop invokes `_alive` and is cancelled on disconnect."""
+    patch_bleak_client()
+    bms: AliveTestBMS = AliveTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
+
+    await bms.async_update()
+    assert bms.is_connected is True
+
+    for _ in range(3):
+        await asyncio.sleep(0)
+    assert bms.alive_calls > 0
+
+    with caplog.at_level(DEBUG):
+        await bms.disconnect()
+    assert bms.is_connected is False
+    assert "task 'BMS keep-alive' was cancelled" in caplog.text
+
+
+async def test_alive_loop_exception(
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify an exception in the keep-alive loop is logged via the done callback."""
+    patch_bleak_client()
+    bms: AliveTestBMS = AliveTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
+    bms.alive_raise = True
+
+    with caplog.at_level(DEBUG):
+        await bms.async_update()
+        for _ in range(10):
+            await asyncio.sleep(0)
+            if "terminated with unexpectedly" in caplog.text:
+                break
+
+    assert "task 'BMS keep-alive' terminated with unexpectedly" in caplog.text
+    await bms.disconnect()  # task already done -> no cancellation needed
+
+
+async def test_alive_task_disabled(patch_bleak_client: Callable[..., None]) -> None:
+    """Verify no keep-alive task is started when `ALIVE_INTERVAL` is None."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
+
+    await bms.async_update()
+    assert bms._alive_task is None
+    await bms.disconnect()
+
+
+async def test_reconnect_with_running_alive_task(
+    patch_bleak_client: Callable[..., None],
+) -> None:
+    """Verify `_start_alive_task` skips creating a new task when one is running."""
+    patch_bleak_client()
+
+    bms: AliveTestBMS = AliveTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
+    await bms.async_update()  # first update: keep-alive task created
+    task: Final = bms._alive_task
+    assert task is not None and not task.done()
+
+    await bms._client.disconnect()  # silent transport drop, task keeps running
+    await bms.async_update()  # reconnect: running task is reused, not recreated
+    assert bms._alive_task is task
+
+    await bms.disconnect()  # cleanup cancels the task

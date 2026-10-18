@@ -1,0 +1,15 @@
+[
+  {
+    "advertisement": {
+      "local_name": "SH24100-H-00069",
+      "manufacturer_data": { "105": "202251a2" },
+      "service_data": { "0000180a-0000-1000-8000-00805f9b34fb": "" },
+      "service_uuids": ["0000fffa-0000-1000-8000-00805f9b34fb"],
+      "rssi": -53
+    },
+    "type": "saihang_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/655)"
+    ]
+  }
+]
