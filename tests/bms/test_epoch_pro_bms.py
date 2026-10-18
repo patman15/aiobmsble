@@ -26,12 +26,14 @@ _RESULT_DEFS: Final[BMSSample] = {
     # "cycle_capacity": 7019.841,
     # "runtime": 72064,
     "pack_count": 2,
+    "design_capacity": 60,
     "packs": [
         {
             "cycles": 10,
             "voltage": 53.21,
             "current": 0.0,
             "battery_level": 91.0,
+            "battery_health": 100,
             "cell_voltages": [
                 3.326,
                 3.325,
@@ -59,6 +61,7 @@ _RESULT_DEFS: Final[BMSSample] = {
             "voltage": 53.21,
             "current": 0.0,
             "battery_level": 91.0,
+            "battery_health": 100,
             "cell_voltages": [
                 3.326,
                 3.324,
@@ -120,7 +123,9 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycles": 10,
     "delta_voltage": 0.003,
     "battery_charging": False,
+    "cycle_charge": 54.6,
     "power": 0.0,
+    "cycle_capacity": 2905.266,
     "problem": False,
 }
 

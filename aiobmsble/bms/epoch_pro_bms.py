@@ -35,9 +35,9 @@ class BMS(BaseBMS):
         BMSDp("current", 16, 2, True),
         BMSDp("temperature", 18, 2, True, lambda x: x / 10),
         BMSDp("pack_count", 42, 2, False),
-        # BMSdp("cycle_charge", 8, 4, False),
-        # BMSdp("cycles", 46, 2, False),
-        # BMSdp("design_capacity", 4, 4, False),
+        # BMSDp("cycle_charge", 8, 4, False),
+        # BMSDp("cycles", 46, 2, False),
+        BMSDp("design_capacity", 108, 2, False),
         # BMSDp("problem_code", 100, 8, False), # not verified
     )
 
@@ -46,6 +46,7 @@ class BMS(BaseBMS):
         BMSPDp("voltage", 46, 2, False, lambda x: x / 100),
         BMSPDp("current", 48, 2, True, lambda x: x / 100),
         BMSPDp("battery_level", 66, 2, False, lambda x: x / 10),
+        BMSPDp("battery_health", 68, 2, False),
     )
 
     def __init__(
@@ -150,7 +151,9 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(pack, 0xF3, 0x75F8, 0x52))
             pack_response: bytes = self._msg[pack << 8 | 0xA4]
 
-            pack_sample: PackSample = BMS._decode_pack(BMS._PFIELDS, pack_response, start=BMS._HEAD_LEN)
+            pack_sample: PackSample = BMS._decode_pack(
+                BMS._PFIELDS, pack_response, start=BMS._HEAD_LEN
+            )
             # get cell voltages
             pack_sample["cell_voltages"] = BMS._cell_voltages(
                 pack_response, cells=pack_response[BMS._CELLNUM_POS], start=BMS._CELL_POS
@@ -160,7 +163,7 @@ class BMS(BaseBMS):
             pack_sample["temp_values"] = BMS._temp_values(
                 pack_response, values=pack_response[BMS._TEMPNUM_POS], start=BMS._TEMP_POS
             )
-            result.setdefault("packs",[]).append(pack_sample)
+            result.setdefault("packs", []).append(pack_sample)
 
         self._msg.clear()
 
