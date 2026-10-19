@@ -14,7 +14,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor as TS
 from aiobmsble.basebms import BaseBMS
 
 
@@ -27,11 +27,12 @@ class BMS(BaseBMS):
     _MIN_LEN: Final[int] = 5  # minimum length (SOF+type+16bit)
     _VALID_RSP: Final[frozenset[int]] = frozenset({0x0, 0x2, 0x3, 0x10, 0x43})
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("current", 15, 2, True, lambda x: x / 100, 0x2),
-        BMSDp("cycles", 25, 2, False, idx=0x2),  # after cell voltages(!)
-        BMSDp("design_capacity", 3, 4, False, lambda x: x // 1000, 0x2),
+        BMSDp("design_capacity", 3, 4, False, lambda x: x, 0x2),
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000, 0x2),
         BMSDp("voltage", 13, 2, False, lambda x: x / 1000, 0x2),
+        BMSDp("current", 15, 2, True, lambda x: x / 100, 0x2),
+        BMSDp("cycles", 25, 2, False, idx=0x2),
+        BMSDp("heater", 31, 1, False, bool, idx=0x2),
     )
     accept_secret: bool = True
 
@@ -86,7 +87,9 @@ class BMS(BaseBMS):
             if len(self._cfg.secret) != 6 or any(
                 c not in (ascii_uppercase + digits) for c in self._cfg.secret
             ):
-                self._log.error("Secret needs to be 6 characters, uppercase letters and digits only!")
+                self._log.error(
+                    "Secret needs to be 6 characters, uppercase letters and digits only!"
+                )
                 raise ValueError("Invalid secret")
             auth_cmd: bytes = (
                 BMS._cmd(0x10)
@@ -136,6 +139,14 @@ class BMS(BaseBMS):
         result: BMSSample = self._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg[0x2], cells=BMS._MAX_CELLS, start=17, byteorder="little"
+        )
+        result["temp_values"] = BMS._temp_values(
+            self._msg[0x2],
+            start=27,
+            values=2,
+            byteorder="little",
+            divider=100,
+            types=(TS.T.CELL, TS.T.PCB),
         )
 
         return result
