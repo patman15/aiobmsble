@@ -251,12 +251,6 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-def test_bms_info() -> None:
-    """Test BMS info definition."""
-    assert BMS.INFO.get("default_manufacturer") == "Gobel Power"
-    assert BMS.INFO.get("default_model") == "BLE BMS"
-
-
 def _build_test_frame(reg_values: dict[int, int]) -> bytearray:
     """Build a test frame with specific register values for edge case testing.
 

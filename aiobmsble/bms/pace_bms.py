@@ -19,10 +19,7 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 class BMS(BaseBMS):
     """PACEEX BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "PeiCheng Technology",
-        "default_model": "PACEEX Smart BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "PeiCheng Technology", "model": "PACEEX Smart BMS"}
 
     class _Cmd(bytes, Enum):
         SERIAL = b"\x00\x00\x00\x02\x00\x00"

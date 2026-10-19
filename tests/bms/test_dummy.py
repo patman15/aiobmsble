@@ -63,4 +63,4 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockDummyBleakClient)
     bms = BMS(generate_ble_device())
-    assert {"default_manufacturer", "default_model"}.issubset(await bms.device_info())
+    assert {"manufacturer", "model"}.issubset(await bms.device_info())

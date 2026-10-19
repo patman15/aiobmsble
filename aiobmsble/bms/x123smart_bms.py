@@ -5,7 +5,6 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from string import ascii_uppercase, digits
 from typing import Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -19,10 +18,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     r"""123\\SmartBMS gen3 implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "123electric",
-        "default_model": "123\\SmartBMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "123electric", "model": "123\\SmartBMS"}
 
     accept_secret: bool = True  # requires a 4-digit PIN for authentication
 
@@ -35,7 +31,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 4, 1, False, idx=ord("E") << 8),
         BMSDp("battery_health", 1, 1, False, idx=ord("H") << 8),
     )
-    HEX_UPPER: Final[str] = digits + ascii_uppercase[:6]  # hex characters in upper case
+    HEX_UPPER: Final[frozenset[int]] = frozenset(b"0123456789ABCDEF")
     _LMSG: Final[int] = -1  # last message index
     _MSG_FMT: Final[dict[str, int]] = {
         "U": 5,
@@ -131,8 +127,9 @@ class BMS(BaseBMS):
 
             msg_t: str = chr(line[0])
             if (line in BMS._REPLIES) or (
-                all(chr(c) in (BMS.HEX_UPPER + "+-_") for c in line)
-                and line[1:2] != BMS._SEP
+                line[1:2] != BMS._SEP
+                and all(c in BMS.HEX_UPPER for c in line[-2:])
+                and all(c in (BMS.HEX_UPPER | frozenset(b"+-_")) for c in line)
                 and self._crc_sum(line[:-2]) == int(line[-2:], 16)
             ):
                 self._msg[BMS._LMSG] = line

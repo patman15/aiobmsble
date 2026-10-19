@@ -44,10 +44,7 @@ class MsgT(IntEnum):
 class BMS(BaseBMS):
     """Greenway BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Greenway",
-        "default_model": "BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "Greenway", "model": "BMS"}
     _HEAD_CMD: Final[bytes] = b"\x46\x16\x01"
     _HEAD_RSP: Final[bytes] = b"\x47\x16\x01"
     _LEN_POS: Final[int] = 4

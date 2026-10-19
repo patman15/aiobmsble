@@ -16,7 +16,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Super-B v2 BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Super-B", "default_model": "Epsilon v2"}
+    INFO: BMSInfo = {"manufacturer": "Super-B", "model": "Epsilon v2"}
     _NOTIFY_CHAR: Final[str] = "e0fef452-9d2b-4005-a1e3-69fe1102b436"
     _FRAME_LEN: Final[int] = 24
     _FIELDS: Final[tuple[BMSDp, ...]] = (

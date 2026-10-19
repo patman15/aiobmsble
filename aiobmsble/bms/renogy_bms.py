@@ -17,10 +17,7 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 class BMS(BaseBMS):
     """Renogy battery class implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Renogy",
-        "default_model": "Bluetooth battery",
-    }
+    INFO: BMSInfo = {"manufacturer": "Renogy", "model": "Bluetooth battery"}
     _HEAD: bytes = b"\x30\x03"  # SOP, read fct (x03)
     _CRC_POS: Final[int] = -2
     _TEMP_POS: Final[int] = 37

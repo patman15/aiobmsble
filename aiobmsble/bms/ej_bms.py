@@ -28,10 +28,7 @@ class BMS(BaseBMS):
         RT = 0x2
         CAP = 0x10
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "E&J Technology",
-        "default_model": "smart BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "E&J Technology", "model": "smart BMS"}
     _BT_MODULE_MSG: Final[bytes] = b"\x41\x54\x0d\x0a"  # BLE module message
     _IGNORE_CRC: Final[str] = "libattU"
     _HEAD: Final[bytes] = b"\x3a"

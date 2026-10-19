@@ -33,7 +33,7 @@ class BMS(BaseBMS):
         )  # conversion function (default do nothing)
         idx: int = -1  # array index containing the message to be parsed
 
-    INFO: BMSInfo = {"default_manufacturer": "Neey", "default_model": "Balancer"}
+    INFO: BMSInfo = {"manufacturer": "Neey", "model": "Balancer"}
     _BT_MODULE_MSG: Final = b"\x41\x54\x0d\x0a"  # AT\r\n from BLE module
     _HEAD_RSP: Final = b"\x55\xaa\x11\x01"  # start, dev addr, read cmd
     _HEAD_CMD: Final = b"\xaa\x55\x11\x01"  # cmd header (endianness!)

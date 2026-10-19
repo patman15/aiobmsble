@@ -31,7 +31,7 @@ classifiers = [
 ]
 dependencies = [
   "bleak>=3.0.2,<4",
-  "bleak-retry-connector>=4.6.1",
+  "bleak-retry-connector>=4.6.3",
 ]
 
 [project.optional-dependencies]
@@ -68,6 +68,9 @@ testpaths = [
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.black]
+line-length = 100
 
 # ruff settings from HA 2026.9.0
 [tool.ruff]

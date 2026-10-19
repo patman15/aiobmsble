@@ -17,9 +17,7 @@ from tests.test_basebms import BMSBasicTests
 BT_FRAME_SIZE = 32
 
 
-def ref_value() -> BMSSample:
-    """Return reference value for mock CBT power VB series BMS."""
-    return {
+_RESULT_DEFS: Final[BMSSample] = {
         "voltage": 13.3,
         "current": 0.0,
         "battery_level": 96,
@@ -37,7 +35,7 @@ def ref_value() -> BMSSample:
         "battery_charging": False,
         "problem": False,
         "problem_code": 0,
-    }
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -107,7 +105,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == ref_value()
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
@@ -255,7 +253,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == ref_value() | {
+    assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 47),
     }

@@ -33,10 +33,7 @@ class Cmd(IntEnum):
 class BMS(BaseBMS):
     """D-powercore smart BMS class implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "D-powercore",
-        "default_model": "smart BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "D-powercore", "model": "smart BMS"}
     _PAGE_LEN: Final[int] = 20
     _MAX_CELLS: Final[int] = 32
     _FIELDS: Final[tuple[BMSDp, ...]] = (

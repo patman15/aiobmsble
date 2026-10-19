@@ -20,10 +20,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Dometic BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Dometic",
-        "default_model": "Büttner BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "Dometic", "model": "Büttner BMS"}
 
     class _NotifyChars(StrEnum):
         ch_a_tx = "00000001-0000-1000-8000-008025000000"

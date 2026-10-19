@@ -82,8 +82,8 @@ class MinTestBMS(BaseBMS):
     """Minimal Test BMS implementation."""
 
     INFO: BMSInfo = {
-        "default_manufacturer": "Test Manufacturer",
-        "default_model": "minimal BMS for test",
+        "manufacturer": "Test Manufacturer",
+        "model": "minimal BMS for test",
     }
 
     @staticmethod
@@ -239,7 +239,7 @@ class BMSBasicTests:
     def test_bms_id(self) -> None:
         """Test that the BMS returns default information."""
 
-        for key in ("default_manufacturer", "default_model"):
+        for key in ("manufacturer", "model"):
             assert str(self.bms_class.INFO.get(key, "")).strip()
         assert len(self.bms_class.bms_id().strip())
 

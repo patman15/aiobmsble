@@ -17,7 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """LiPower BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Ective", "default_model": "LiPower BMS"}
+    INFO: BMSInfo = {"manufacturer": "Ective", "model": "LiPower BMS"}
     _DEV_IDS: Final[tuple[bytes, ...]] = (
         b"\x22",
         b"\x0b",

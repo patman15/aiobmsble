@@ -18,7 +18,7 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_xmodem
 class BMS(BaseBMS):
     """Seplos v2 BMS implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Seplos", "default_model": "smart BMS V2"}
+    INFO: BMSInfo = {"manufacturer": "Seplos", "model": "smart BMS V2"}
     _HEAD: Final[bytes] = b"\x7e"
     _TAIL: Final[bytes] = b"\x0d"
     _CMD_VER: Final[int] = 0x10  # TX protocol version

@@ -18,10 +18,7 @@ from aiobmsble.basebms import BaseBMS, crc_sum
 class BMS(BaseBMS):
     """Redodo BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Redodo",
-        "default_model": "Bluetooth battery",
-    }
+    INFO: BMSInfo = {"manufacturer": "Redodo", "model": "Bluetooth battery"}
     _HEAD_LEN: Final[int] = 3
     _MAX_CELLS: Final[int] = 16
     _MAX_TEMP: Final[int] = 5
@@ -68,6 +65,8 @@ class BMS(BaseBMS):
                 "R-24*",
                 "RO-12*",
                 "RO-24*",
+                "T-12*",  # ECO-WORTHY
+                "T-24*",  # ECO-WORTHY
                 "L-12*",  # vv *** LiTime *** vv
                 "L-24*",
                 "L-51*",

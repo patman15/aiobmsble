@@ -19,7 +19,7 @@ from aiobmsble.basebms import BaseBMS, b2str, crc_sum, lstr2int
 class BMS(BaseBMS):
     """Jikong smart BMS class implementation."""
 
-    INFO: BMSInfo = {"default_manufacturer": "Jikong", "default_model": "smart BMS"}
+    INFO: BMSInfo = {"manufacturer": "Jikong", "model": "smart BMS"}
     _HEAD_RSP: Final = b"\x55\xaa\xeb\x90"  # header for responses
     _HEAD_CMD: Final = b"\xaa\x55\x90\xeb"  # cmd header (endianness!)
     _READY_MSG: Final = _HEAD_CMD + b"\xc8\x01\x01" + bytes(12) + b"\x44"
@@ -39,7 +39,9 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 190, 1, False),
         BMSDp("chrg_mosfet", 198, 1, False, bool),
         BMSDp("dischrg_mosfet", 199, 1, False, bool),
-        BMSDp("temp_sensors", 214, 2, True),
+        BMSDp("temp_sensors", 214, 1, False),
+        BMSDp("heater", 215, 1, False, bool),
+        BMSDp("heater_current", 236, 2, True, lambda x: x / 1000),
     )
 
     def __init__(
@@ -198,7 +200,9 @@ class BMS(BaseBMS):
         try:
             self._sw_version = lstr2int(_bms_info.get("sw_version", "0"))
         except ValueError:
-            self._log.debug("invalid sw_version '%s', assuming 0", _bms_info.get("sw_version"))
+            self._log.debug(
+                "invalid sw_version '%s', assuming 0", _bms_info.get("sw_version")
+            )
             self._sw_version = 0
         self._log.debug("device information: %s", _bms_info)
         self._prot_offset = -32 if self._sw_version < 11 else 0

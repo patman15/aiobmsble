@@ -161,5 +161,22 @@
       "Starry Sea battery by LiTime",
       "MAC correct"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "T-12100BNNH19-A00130",
+      "platform_data": ["C8:47:80:00:00:00"],
+      "rssi": -65,
+      "manufacturer_data": {
+        "22618": "c84780000000"
+      },
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "redodo_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/827)",
+      "ECO-WORTHY 12.8V 100Ah",
+      "MAC correct"
+    ]
   }
 ]

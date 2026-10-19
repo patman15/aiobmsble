@@ -17,10 +17,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """Saihang BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Saihang Technology",
-        "default_model": "intelligent BMS",
-    }
+    INFO: BMSInfo = {"manufacturer": "Saihang Technology", "model": "intelligent BMS"}
     _HEAD: Final[bytes] = b"\xa5\xa5"  # beginning of frame
     _MIN_FRAME_LEN: Final[int] = 7  # min frame length, including SOF and CRC
     _MAX_TEMP: Final[int] = 10

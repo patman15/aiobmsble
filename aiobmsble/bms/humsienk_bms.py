@@ -22,13 +22,12 @@ class BMS(BaseBMS):
     the full register map, frame format, and bit-level field definitions.
     """
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Humsienk",
-        "default_model": "BMC",
-    }
+    INFO: BMSInfo = {"manufacturer": "Humsienk", "model": "BMC"}
     _HEAD: Final[bytes] = b"\xaa"  # beginning of frame
     _MIN_LEN: Final[int] = 5  # minimal frame len
-    _ALARM_MASK: Final[int] = 0xFF7F7F7F  # bits 7, 15, 23 are chrg FET, heater, dischrg FET
+    _ALARM_MASK: Final[int] = (
+        0xFF7F7F7F  # bits 7, 15, 23 are chrg FET, heater, dischrg FET
+    )
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 4, False, lambda x: x / 1000, 0x21),
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),
