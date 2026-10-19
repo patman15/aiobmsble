@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from datetime import datetime
 from functools import cache
-from string import digits
+from string import ascii_uppercase, digits
 from typing import Final
 from zlib import crc32
 
@@ -83,8 +83,10 @@ class BMS(BaseBMS):
         await super()._init_connection(char_notify)
         if self._cfg.secret:
             self._log.debug("sending password")
-            if len(self._cfg.secret) != 6 or any(c not in digits for c in self._cfg.secret[:6]):
-                self._log.error("Secret needs to be 6 digits!")
+            if len(self._cfg.secret) != 6 or any(
+                c not in (ascii_uppercase + digits) for c in self._cfg.secret
+            ):
+                self._log.error("Secret needs to be 6 characters, uppercase letters and digits only!")
                 raise ValueError("Invalid secret")
             auth_cmd: bytes = (
                 BMS._cmd(0x10)
