@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from functools import cache
 from typing import Final
+from zlib import crc32
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -18,18 +19,14 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """Saftkiste BMS implementation."""
 
-    INFO: BMSInfo = {
-        "default_manufacturer": "Batterieschmiede",
-        "default_model": "Saftkiste BMS",
-    }
-    _HEAD: Final[bytes] = b"\xf0\xff"  # beginning of frame
+    INFO: BMSInfo = {"manufacturer": "Batterieschmiede", "model": "Saftkiste BMS"}
+    _HEAD: Final[bytes] = b"\xf0\xff"
     _MAX_CELLS: Final[int] = 4
-    _MIN_LEN: Final[int] = 5  # minimum length of valid responst (SOF+type+16bit)
+    _MIN_LEN: Final[int] = 5  # minimum length (SOF+type+16bit)
     _VALID_RSP: Final[frozenset[int]] = frozenset({0x0, 0x2, 0x3, 0x10, 0x43})
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 15, 2, True, lambda x: x / 100, 0x2),
         BMSDp("cycles", 25, 2, False, idx=0x2),  # after cell voltages(!)
-        # BMSDp("design_capacity", 11, 2, False, idx=0x2),
         BMSDp("design_capacity", 3, 4, False, lambda x: x // 1000, 0x2),
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000, 0x2),
         BMSDp("voltage", 13, 2, False, lambda x: x / 1000, 0x2),
@@ -78,9 +75,6 @@ class BMS(BaseBMS):
     #         default_manufacturer="Dummy manufacturer", default_model="Dummy BMS"
     #     )  # TODO: implement query code or remove function to query service 0x180A
 
-    # @staticmethod
-    # def _raw_values() -> frozenset[BMSValue]:
-    #     return frozenset({"runtime"})  # never calculate, e.g. runtime
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
@@ -96,12 +90,10 @@ class BMS(BaseBMS):
             if 0x0 not in self._msg:
                 raise ConnectionRefusedError("authentication failed")
         else:
-            self._log.warning("no passwod provided")
+            self._log.warning("no password provided")
         await self._await_msg(BMS._cmd(0x43) + b"\x01\x01\xe7\x80\x69\x96")
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -113,9 +105,10 @@ class BMS(BaseBMS):
             self._log.debug("incorrect SOF")
             return
 
-        # if (crc := crc_sum(self._data[:-1])) != self._data[-1]:
-        #     self._log.debug("invalid checksum 0x%X != 0x%X", self._data[-1], crc)
-        #     return
+        if not self._check_integrity(
+            data, lambda x: (crc32(x) & 0xFF), slice(None, -1), slice(-1, None)
+        ):
+            return
 
         self._msg[data[2]] = bytes(data)
         self._msg_event.set()
@@ -132,9 +125,7 @@ class BMS(BaseBMS):
         for cmd in (0x2, 0x3):
             await self._await_msg(BMS._cmd(cmd))
 
-        result: BMSSample = self._decode_data(
-            BMS._FIELDS, self._msg, byteorder="little"
-        )
+        result: BMSSample = self._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg[0x2], cells=BMS._MAX_CELLS, start=17, byteorder="little"
         )
