@@ -9,7 +9,7 @@ from zlib import crc32
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.saftkiste_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -63,6 +63,11 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycle_charge": 297.639,
     "cycle_capacity": 4118.133,
     "runtime": 9740912,
+    "balancer": False,
+    "heater": False,
+    "problem_code": 0,
+    "temp_values": [TS(6.89, TS.T.CELL), TS(7.66, TS.T.PCB)],
+    "temperature": 7.275,
 }
 
 

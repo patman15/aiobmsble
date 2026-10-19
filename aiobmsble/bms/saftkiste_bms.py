@@ -27,12 +27,14 @@ class BMS(BaseBMS):
     _MIN_LEN: Final[int] = 5  # minimum length (SOF+type+16bit)
     _VALID_RSP: Final[frozenset[int]] = frozenset({0x0, 0x2, 0x3, 0x10, 0x43})
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("design_capacity", 3, 4, False, lambda x: x, 0x2),
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000, 0x2),
+        BMSDp("design_capacity", 11, 2, False, lambda x: x, 0x2),
         BMSDp("voltage", 13, 2, False, lambda x: x / 1000, 0x2),
         BMSDp("current", 15, 2, True, lambda x: x / 100, 0x2),
         BMSDp("cycles", 25, 2, False, idx=0x2),
         BMSDp("heater", 31, 1, False, bool, idx=0x2),
+        BMSDp("balancer", 33, 1, False, bool, idx=0x2),
+        BMSDp("problem_code", 38, 2, False, idx=0x2),
     )
     accept_secret: bool = True
 
