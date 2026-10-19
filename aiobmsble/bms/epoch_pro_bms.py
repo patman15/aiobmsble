@@ -19,8 +19,8 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"manufacturer": "Epoch", "model": "Pro"}
     _HEAD: Final[bytes] = b"\xfa"
-    _CMDS: Final[set[int]] = {0xF3}
-    _VER: Final[bytes] = b"\x16"  # version 1.6?
+    _PROT: Final[bytes] = b"\xf3"
+    _CMD: Final[bytes] = b"\x16"
     _CELLNUM_POS: Final[int] = 55  # number of cells in pack
     _CELL_POS: Final[int] = 77  # position of first cell voltage in pack
     _TEMPNUM_POS: Final[int] = 56  # number of temperature sensors in pack
@@ -35,8 +35,6 @@ class BMS(BaseBMS):
         BMSDp("current", 16, 2, True),
         BMSDp("temperature", 18, 2, True, lambda x: x / 10),
         BMSDp("pack_count", 42, 2, False),
-        # BMSDp("cycle_charge", 8, 4, False),
-        # BMSDp("cycles", 46, 2, False),
         BMSDp("design_capacity", 108, 2, False),
         # BMSDp("problem_code", 100, 8, False), # not verified
     )
@@ -86,12 +84,9 @@ class BMS(BaseBMS):
     def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
-        # Check for a valid new packet header
         if (
             len(data) >= BMS._MIN_LEN
-            and data[0:1] == BMS._HEAD
-            and data[1] in BMS._CMDS
-            and data[2:3] == BMS._VER
+            and data[0:3] == BMS._HEAD+ BMS._PROT+ BMS._CMD
         ):
             self._frame.clear()
             self._pkglen = data[4] + BMS._MIN_LEN
@@ -126,13 +121,11 @@ class BMS(BaseBMS):
         self._msg_event.set()
 
     @staticmethod
-    def _cmd(device: int, cmd: int, start: int, count: int) -> bytes:
+    def _cmd(device: int, start: int, count: int) -> bytes:
         """Assemble a Seplos BMS command."""
         assert start >= 0 and count > 0 and start + count <= 0xFFFF
         frame: bytearray = (
-            bytearray(BMS._HEAD)
-            + int.to_bytes(cmd, 1, byteorder="big")
-            + BMS._VER
+            bytearray(BMS._HEAD + BMS._PROT + BMS._CMD)
             + int.to_bytes(start, 2, byteorder="big")
             + int.to_bytes(device, 1)
             + int.to_bytes(count, 2, byteorder="big")
@@ -143,24 +136,21 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
         # await self._await_reply(BMS._cmd(0, 0xf3, 0xea64, 0x1))
-        await self._await_msg(BMS._cmd(1, 0xF3, 0x7654, 0x37))
+        await self._await_msg(BMS._cmd(1, 0x7654, 0x37))
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg[0x016E], start=BMS._HEAD_LEN)
 
         for pack in range(1, 1 + result.get("pack_count", 0)):
-            await self._await_msg(BMS._cmd(pack, 0xF3, 0x75F8, 0x52))
+            await self._await_msg(BMS._cmd(pack, 0x75F8, 0x52))
             pack_response: bytes = self._msg[pack << 8 | 0xA4]
 
             pack_sample: PackSample = BMS._decode_pack(
                 BMS._PFIELDS, pack_response, start=BMS._HEAD_LEN
             )
-            # get cell voltages
             pack_sample["cell_voltages"] = BMS._cell_voltages(
                 pack_response, cells=pack_response[BMS._CELLNUM_POS], start=BMS._CELL_POS
             )
-
-            # add temperature sensors (4x cell temperature + 4 reserved)
-            pack_sample["temp_values"] = BMS._temp_values(
+            pack_sample["temp_values"] = BMS._temp_values(  # 4x cell temperature + 4 reserved
                 pack_response, values=pack_response[BMS._TEMPNUM_POS], start=BMS._TEMP_POS
             )
             result.setdefault("packs", []).append(pack_sample)
