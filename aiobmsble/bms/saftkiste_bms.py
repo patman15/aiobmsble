@@ -4,7 +4,9 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from datetime import datetime
 from functools import cache
+from string import digits
 from typing import Final
 from zlib import crc32
 
@@ -81,12 +83,16 @@ class BMS(BaseBMS):
         await super()._init_connection(char_notify)
         if self._cfg.secret:
             self._log.debug("sending password")
-            try:
-                # await self._await_msg(BMS._cmd(0x10) + BMS._PASS[:6] + b"\x00\xe7\x80\x69\x48")
-                await self._await_msg(bytes.fromhex(self._cfg.secret))
-            except ValueError:
-                self._log.error("Secret needs to be a pure HEX string!")
-                raise
+            if len(self._cfg.secret) != 6 or any(c not in digits for c in self._cfg.secret[:6]):
+                self._log.error("Secret needs to be 6 digits!")
+                raise ValueError("Invalid secret")
+            auth_cmd: bytes = (
+                BMS._cmd(0x10)
+                + self._cfg.secret[:6].encode("ASCII")
+                + int(datetime.now().timestamp()).to_bytes(4, "little")
+            )
+            await self._await_msg(auth_cmd + (crc32(auth_cmd) & 0xFF).to_bytes(1))
+
             if 0x0 not in self._msg:
                 raise ConnectionRefusedError("authentication failed")
         else:
