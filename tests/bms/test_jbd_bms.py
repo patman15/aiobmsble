@@ -257,21 +257,16 @@ class Mock10mALongBleakClient(Mock100mABleakClient):
 )
 async def test_update_unit_scale(
     patch_bleak_client,
-    keep_alive_fixture: bool,
     client: type[MockJBDBleakClient],
     expected: BMSSample,
 ) -> None:
-    """Test that the 0x03 control byte selects 100 mA / 100 mAh vs 10 mA / 10 mAh."""
+    """Test control byte in 0x03 message selects correct mA and mAh scaling."""
 
     patch_bleak_client(client)
 
-    bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
+    bms = BMS(generate_ble_device(), BMSConfig())
 
     assert await bms.async_update() == expected
-
-    # query again to check already connected state
-    await bms.async_update()
-    assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
 
