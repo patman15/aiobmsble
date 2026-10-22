@@ -168,6 +168,21 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
+async def test_short_frame(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that a valid but too short frame does not break temperature detection."""
+
+    monkeypatch.setattr(MockRedodoBleakClient, "_RESP", b"\x00\x00\x00\x00")
+    patch_bleak_client(MockRedodoBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    assert (await bms.async_update()).get("temp_values") == []
+
+    await bms.disconnect()
+
+
 @pytest.fixture(
     name="problem_response",
     params=[

@@ -153,6 +153,26 @@ async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     await bms.disconnect()
 
 
+async def test_device_info_short(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that a valid but too short version reply is rejected."""
+
+    monkeypatch.setattr(
+        MockGreenwayBleakClient,
+        "_RESP",
+        _PROTO_DEFS | {0x1A: b"\x47\x16\x01\x1a\x00\x78"},
+    )
+    patch_bleak_client(MockGreenwayBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.device_info()
+
+    await bms.disconnect()
+
+
 @pytest.mark.parametrize(
     ("wrong_response"),
     [

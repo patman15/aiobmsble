@@ -2,7 +2,7 @@ r"""Test the 123\\SmartBMS implementation."""
 
 import asyncio
 from collections.abc import Buffer, Callable, Iterable
-from typing import Any, Final
+from typing import Any, Final, cast
 from uuid import UUID
 
 from bleak import BleakClient
@@ -178,6 +178,52 @@ async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     assert await bms.device_info() == {"fw_version": "3.2.53"}
 
 
+async def test_device_info_invalid(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that an invalid version reply is rejected."""
+    orig_reply: Final = Mock123SmartBleakClient._reply
+
+    def _reply(self, data: bytes) -> bytes:
+        return b"_A41\r" if data == b"V@\r" else orig_reply(self, data)
+
+    monkeypatch.setattr(Mock123SmartBleakClient, "_reply", _reply)
+    patch_bleak_client(Mock123SmartBleakClient)
+
+    bms = BMS(generate_ble_device())
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.device_info()
+
+    await bms.disconnect()
+
+
+async def test_cmd_reply_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a command without reply line is treated as rejected."""
+
+    async def _no_reply(*_args, **_kwargs) -> None:
+        """Return as if the event was set by streamed data only."""
+
+    bms = BMS(generate_ble_device())
+    monkeypatch.setattr(bms, "_await_msg", _no_reply)
+
+    with pytest.raises(ConnectionRefusedError, match=r"command rejected \(\)"):
+        await bms._cmd_expect_ok(b"E!")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [b"C_0X_04_2BC_12C_03_30\r", b"C_01_X4_2BC_12C_03_30\r", b"C_-9_04_2BC_12C_03_30\r"],
+    ids=["cell_index", "cell_count", "negative_index"],
+)
+async def test_invalid_cell_line(line: bytes) -> None:
+    """Test that cell lines with non-numeric index or count are ignored."""
+
+    bms = BMS(generate_ble_device())
+    bms._notification_handler(cast(BleakGATTCharacteristic, None), bytearray(line))
+
+    assert not bms._msg
+
+
 @pytest.mark.parametrize(
     ("wrong_response", "expected_exc"),
     [
@@ -189,8 +235,19 @@ async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
         (b"X" + _PROTO_DEFS[1:], ValueError),
         (b"U." + _PROTO_DEFS[2:], ValueError),
         (_PROTO_DEFS[:18] + _PROTO_DEFS[24:], ValueError),
+        (_PROTO_DEFS.replace(b"C_02_04_2BC_12C_03_30\r", b""), ValueError),
     ],
-    ids=["empty", "empty_line", "minimal", "wrong_enc", "too_short", "wrong_TAG", "wrong_fmt", "invalid_fmt"],
+    ids=[
+        "empty",
+        "empty_line",
+        "minimal",
+        "wrong_enc",
+        "too_short",
+        "wrong_TAG",
+        "wrong_fmt",
+        "invalid_fmt",
+        "missing_cell",
+    ],
 )
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
@@ -241,9 +298,14 @@ async def test_no_cmd_response(
     [
         (b"U_XXXX" + _PROTO_DEFS[6:], BMSSample(voltage=0, power=0, problem=True)),
         (b"U_123X" + _PROTO_DEFS[6:], BMSSample(voltage=0, power=0, problem=True)),
+        (b"U_" + _PROTO_DEFS[6:], BMSSample(voltage=0, power=0, problem=True)),
+        (
+            b"U_" + b"F" * 400 + _PROTO_DEFS[6:],
+            BMSSample(voltage=0, power=0, problem=True),
+        ),
         (_PROTO_DEFS[:43] + _PROTO_DEFS[46:], BMSSample()),
     ],
-    ids=["no_number", "inv_hex", "short_cell"],
+    ids=["no_number", "inv_hex", "empty", "too_long", "short_cell"],
 )
 async def test_number_range(
     monkeypatch: pytest.MonkeyPatch,

@@ -135,4 +135,5 @@ async def test_invalid_response(
         result = await bms.async_update()
 
     assert not result
+    assert not bms._msg, "invalid frame must not be stored"
     await bms.disconnect()

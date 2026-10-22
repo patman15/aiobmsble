@@ -8,6 +8,7 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble.basebms import crc_xmodem
 from aiobmsble.bms.seplos_v2_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -180,10 +181,53 @@ async def test_short_message(
     bms = BMS(generate_ble_device(), BMSConfig(False))
 
     result: BMSSample = {}
-    with pytest.raises(ValueError, match="message too short to decode data"):
+    with pytest.raises(ValueError, match="BMS data incomplete"):
         result = await bms.async_update()
 
     assert not result
+    await bms.disconnect()
+
+
+def _truncate_frame(frame: bytes, length: int) -> bytes:
+    """Return a valid frame with the payload truncated to the given length."""
+    body: bytearray = bytearray(frame[1 : 7 + length])
+    body[4:6] = length.to_bytes(2, "big")
+    return b"\x7e" + bytes(body) + crc_xmodem(body).to_bytes(2, "big") + b"\x0d"
+
+
+@pytest.mark.parametrize(
+    ("cmd", "length", "operation"),
+    [
+        (b"\x00\x46\x51\x00\x00\x3a\x7f", 1, "async_update"),
+        (b"\x00\x46\x61\x00\x01\x00\xf7\xc1", 30, "async_update"),
+        (b"\x00\x46\x61\x00\x01\x00\xf7\xc1", 80, "async_update"),
+        (b"\x00\x46\x51\x00\x00\x3a\x7f", 1, "device_info"),
+    ],
+    ids=["short_info_update", "short_cells", "short_states", "short_device_info"],
+)
+async def test_short_frame(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    cmd: bytes,
+    length: int,
+    operation: str,
+) -> None:
+    """Reject valid but too short Seplos V2 response frames."""
+
+    monkeypatch.setattr(
+        MockSeplosv2BleakClient,
+        "RESP",
+        MockSeplosv2BleakClient.RESP
+        | {cmd: _truncate_frame(MockSeplosv2BleakClient.RESP[cmd], length)},
+    )
+    patch_bleak_client(MockSeplosv2BleakClient)
+
+    bms = BMS(generate_ble_device())
+    update = bms.device_info if operation == "device_info" else bms.async_update
+
+    with pytest.raises(ValueError, match="BMS data incomplete"):
+        await update()
+
     await bms.disconnect()
 
 

@@ -188,6 +188,7 @@ async def test_problem_response(
         (b'"CommVer":1,"wifiSN":"F100011002424470238"}', "invalid frame start"),
         (b'{"CommVer":1,"wifiSN":"F100011002424470238"', "invalid frame end"),
         (b'{"CommVer":2,"wifiSN":"F100011002424470238"}', "invalid protocol"),
+        (b'{"CommVer":"x","wifiSN":"F100011002424470238"}', "non-numeric protocol"),
     ],
     ids=lambda param: param[1],
 )
@@ -221,15 +222,31 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
+@pytest.mark.parametrize(
+    ("original", "replacement"),
+    [
+        (b'"BattList":[[54070,65535],[647,-1]]', b'"BattList":[]'),
+        (b'"BattList":[[54070,65535],[647,-1]]', b'"BattList":{}'),
+        (b'"BattList":[[54070,65535],[647,-1]]', b'"BattList":[[1e400],[647]]'),
+        (b'"Bfault":0', b'"Bfault":4294967296'),
+        (
+            b'"BtemList":[[340,340,340,340,32767,32767,32767,32767]]',
+            b'"BtemList":{"0":340}',
+        ),
+    ],
+    ids=["empty list", "dict", "infinite", "out of range", "temp dict"],
+)
 async def test_malformed_json_raises_value_error(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    original: bytes,
+    replacement: bytes,
 ) -> None:
     """Test that structurally invalid (but valid JSON) data raises the documented ValueError."""
 
     bad_resp: dict[str, bytes] = RESP_VALUE.copy()
-    bad_resp["rt"] = RESP_VALUE["rt"].replace(
-        b'"BattList":[[54070,65535],[647,-1]]', b'"BattList":[]'
-    )
+    bad_resp["rt"] = RESP_VALUE["rt"].replace(original, replacement)
+    assert bad_resp["rt"] != RESP_VALUE["rt"]
 
     patch_bleak_client(MockFelicityBleakClient)
     monkeypatch.setattr(MockFelicityBleakClient, "RESP", bad_resp)

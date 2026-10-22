@@ -150,7 +150,7 @@ def derive_from_packs(data: BMSSample) -> None:
         return [pack.get(key, 0) for pack in packs]
 
     for pack in packs:
-        if "cell_voltages" not in pack:
+        if not pack.get("cell_voltages"):
             continue
         if "delta_voltage" not in pack:
             pack["delta_voltage"] = round(

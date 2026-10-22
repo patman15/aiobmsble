@@ -190,6 +190,27 @@ async def test_partly_base_data(
     await bms.disconnect()
 
 
+async def test_wrong_cell_response(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
+) -> None:
+    """Test that a reply to another command does not break cell voltage parsing."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(
+        MockCBTpwrBleakClient,
+        "RESP",
+        MockCBTpwrBleakClient.RESP | {0x05: MockCBTpwrBleakClient.RESP[0x0B]},
+    )  # wrong response to cell voltage req (0x5) with voltage/current (0xB)
+    patch_bleak_client(MockCBTpwrBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.async_update()
+
+    await bms.disconnect()
+
+
 async def test_all_cell_voltages(patch_bleak_client, patch_bms_timeout) -> None:
     """Test data update with BMS returning invalid data."""
 

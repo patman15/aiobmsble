@@ -210,9 +210,7 @@ class MockNeeyBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         resp: Final[bytearray] = self._response(char_specifier, data)
         for notify_data in [
@@ -225,9 +223,7 @@ class MockStreamBleakClient(MockNeeyBleakClient):
     """Mock Neey BMS that already sends battery data (no request required)."""
 
     async def _send_all(self) -> None:
-        assert (
-            self._notify_callback
-        ), "send_all frames called but notification not enabled"
+        assert self._notify_callback, "send_all frames called but notification not enabled"
         for resp in self._FRAME.values():
             self._notify_callback("MockNeeyBleakClient", resp)
             await asyncio.sleep(0)
@@ -240,9 +236,7 @@ class MockStreamBleakClient(MockNeeyBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
         if bytearray(data).startswith(
             self.HEAD_CMD + self.DEV_INFO
         ):  # send all responses as a series
@@ -345,21 +339,15 @@ async def test_stream_update(
     assert "requesting cell info" not in caplog.text, "BMS did not use streaming data"
 
 
-@pytest.fixture(
-    name="wrong_response",
-    params=[
-        (_PROTO_DEFS["v1"]["dev"][:-2] + b"\x00\xff", "wrong_CRC"),
-        (bytearray(b"\x55\xaa\xeb\x90\x05") + bytes(295), "wrong_frame_type"),
-        (_PROTO_DEFS["v1"]["dev"][:-1] + b"\x00", "wrong_EOF"),
+@pytest.mark.parametrize(
+    "wrong_response",
+    [
+        _PROTO_DEFS["v1"]["dev"][:-2] + b"\x00\xff",
+        bytearray(b"\x55\xaa\xeb\x90\x05") + bytes(295),
+        _PROTO_DEFS["v1"]["dev"][:-1] + b"\x00",
     ],
-    ids=lambda param: param[1],
+    ids=["wrong_CRC", "wrong_frame_type", "wrong_EOF"],
 )
-def faulty_response(request: pytest.FixtureRequest) -> bytearray:
-    """Return faulty response frame."""
-    assert isinstance(request.param[0], bytearray)
-    return request.param[0]
-
-
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
@@ -369,9 +357,7 @@ async def test_invalid_response(
     """Test data up date with BMS returning invalid data."""
 
     patch_bms_timeout()
-    monkeypatch.setattr(
-        MockNeeyBleakClient, "_response", lambda _s, _c, _d: wrong_response
-    )
+    monkeypatch.setattr(MockNeeyBleakClient, "_response", lambda _s, _c, _d: wrong_response)
     patch_bleak_client(MockNeeyBleakClient)
 
     bms = BMS(generate_ble_device())
@@ -384,9 +370,7 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_oversized_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_oversized_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test data update with BMS returning oversized data, result shall still be ok."""
 
     monkeypatch.setattr(MockOversizedBleakClient, "_FRAME", _PROTO_DEFS["v1"])
@@ -433,9 +417,45 @@ async def test_non_stale_data(
     assert await bms.async_update() == _RESULT_DEFS["v1"]
 
 
-@pytest.fixture(
-    name="problem_response",
-    params=[
+async def test_short_frame(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that a valid but too short cell info frame is rejected."""
+
+    frames: dict[str, bytearray] = deepcopy(_PROTO_DEFS["v1"])
+    frames["cell"] = bytearray(b"\x55\xaa\x11\x01\x02\x00\x0a\x00\x00\xff")
+    frames["cell"][-2] = crc_sum(frames["cell"][:-2])
+    monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", frames)
+    patch_bleak_client(MockNeeyBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.async_update()
+    assert bms._msg_event.is_set() is False
+
+    await bms.disconnect()
+
+
+async def test_non_finite_value(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that a non-finite float value is ignored."""
+
+    frames: dict[str, bytearray] = deepcopy(_PROTO_DEFS["v2"])
+    frames["cell"][242:246] = b"\x00\x00\x80\x7f"  # design capacity: inf
+    frames["cell"][-2] = crc_sum(frames["cell"][:-2])
+    monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", frames)
+    patch_bleak_client(MockNeeyBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    assert await bms.async_update() == {
+        k: v for k, v in _RESULT_DEFS["v2"].items() if k != "design_capacity"
+    }
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    "problem_response",
+    [
         (0x01, "Wrong cell count"),
         # (0x02, "AcqLine Res test"),
         (0x03, "AcqLine Res exceed"),
@@ -449,14 +469,8 @@ async def test_non_stale_data(
         (0x0B, "Temperature too high - balancing stopped"),
         # (0x0C, "Self-test completed"),
     ],
-    ids=lambda param: param[1],
+    ids=lambda problem_response: problem_response[1],
 )
-def prb_response(request: pytest.FixtureRequest) -> tuple[int, str]:
-    """Return faulty response frame."""
-    assert isinstance(request.param, tuple)
-    return request.param
-
-
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,

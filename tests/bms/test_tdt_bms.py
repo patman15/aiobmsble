@@ -11,6 +11,7 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.tdt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -594,6 +595,44 @@ async def test_incorrect_CRC(
         result = await bms.async_update()
 
     assert not result
+    await bms.disconnect()
+
+
+def _truncate_frame(frame: bytes, length: int) -> bytes:
+    """Return a valid frame with the payload truncated to the given length."""
+    body: bytearray = bytearray(frame[: 8 + length])
+    body[6:8] = length.to_bytes(2, "big")
+    return bytes(body) + crc_modbus(body).to_bytes(2, "big") + b"\x0d"
+
+
+@pytest.mark.parametrize(
+    ("cmd", "length"),
+    [(0x8C, 0), (0x8C, 33), (0x8D, 22)],
+    ids=["no_cells", "short_cells", "short_status"],
+)
+async def test_short_frame(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    cmd: int,
+    length: int,
+) -> None:
+    """Test data update with BMS returning valid but too short frames."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(
+        MockTDTBleakClient,
+        "RESP",
+        _PROTO_DEFS["16S6Tv0.0"]
+        | {cmd: _truncate_frame(_PROTO_DEFS["16S6Tv0.0"][cmd], length)},
+    )
+    patch_bleak_client(MockTDTBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.async_update()
+
     await bms.disconnect()
 
 

@@ -146,6 +146,14 @@ class MockWrongCRCBleakClient(MockDPwrcoreBleakClient):
     }
 
 
+class MockShortFrameBleakClient(MockDPwrcoreBleakClient):
+    """Emulate a D-powercore BMS BleakClient that replies a too short frame."""
+
+    _RESP: dict[int, bytes] = {
+        0x60: b"\x03\x11\x08\x00\x00" + bytes(15)
+    }  # 3 byte frame with valid CRC (0x08)
+
+
 class MockInvalidBleakClient(MockDPwrcoreBleakClient):
     """Emulate a D-powercore BMS BleakClient replying garbage."""
 
@@ -233,6 +241,20 @@ async def test_wrong_crc(patch_bleak_client, patch_bms_timeout, dev_name: str) -
         result = await bms.async_update()
 
     assert not result
+
+    await bms.disconnect()
+
+
+async def test_short_frame(patch_bleak_client, patch_bms_timeout) -> None:
+    """Test that a too short frame with valid CRC is rejected."""
+
+    patch_bms_timeout()
+    patch_bleak_client(MockShortFrameBleakClient)
+
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "TBA-MockBLEDevice_C0FE"))
+
+    with pytest.raises(TimeoutError):
+        await bms.async_update()
 
     await bms.disconnect()
 
