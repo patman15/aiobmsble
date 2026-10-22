@@ -122,7 +122,6 @@ async def test_update(
         "cycle_capacity": 2922.047,
         "power": 0.0,
         "battery_charging": False,
-        "temperature": 20.0,
         "problem": False,
         "balancer": False,
         "chrg_mosfet": True,

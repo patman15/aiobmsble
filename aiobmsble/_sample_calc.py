@@ -43,9 +43,7 @@ def _c_delta_voltage(data: BMSSample) -> bool:
 
 
 def _c_cycle_charge(data: BMSSample) -> bool:
-    data["cycle_charge"] = (
-        data.get("design_capacity", 0) * data.get("battery_level", 0)
-    ) / 100
+    data["cycle_charge"] = (data.get("design_capacity", 0) * data.get("battery_level", 0)) / 100
     return True
 
 
@@ -53,9 +51,7 @@ def _c_battery_level(data: BMSSample) -> bool:
     design_capacity: Final[int] = data.get("design_capacity", 0)
     if not design_capacity:
         return False
-    data["battery_level"] = round(
-        data.get("cycle_charge", 0) / design_capacity * 100, 1
-    )
+    data["battery_level"] = round(data.get("cycle_charge", 0) / design_capacity * 100, 1)
     return True
 
 
@@ -65,9 +61,7 @@ def _c_cell_count(data: BMSSample) -> bool:
 
 
 def _c_cycle_capacity(data: BMSSample) -> bool:
-    data["cycle_capacity"] = round(
-        data.get("voltage", 0) * data.get("cycle_charge", 0), 3
-    )
+    data["cycle_capacity"] = round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3)
     return True
 
 
@@ -97,13 +91,6 @@ def _c_runtime(data: BMSSample) -> bool:
     return True
 
 
-def _c_temperature(data: BMSSample) -> bool:
-    if not data.get("temp_values"):
-        return False
-    data["temperature"] = round(fmean(data.get("temp_values", [])), 3)
-    return True
-
-
 @lru_cache
 def BMSSample_Calc_registry() -> tuple[_C, ...]:
     """Return calculated values with their input requirements and formula."""
@@ -119,7 +106,6 @@ def BMSSample_Calc_registry() -> tuple[_C, ...]:
         _C("power", fs({"voltage", "current"}), _c_power),
         _C("battery_charging", fs({"current"}), _c_battery_charging),
         _C("runtime", fs({"current", "cycle_charge"}), _c_runtime),
-        _C("temperature", fs({"temp_values"}), _c_temperature),
     )
 
 
@@ -136,13 +122,9 @@ def _validated_calc_registry() -> tuple[_C, ...]:
         if calc.output in outputs:
             raise ValueError(f"Duplicate calculation output '{calc.output}'.")
         if calc.output not in known_values:
-            raise ValueError(
-                f"Unknown BMSSample output in calculation registry: '{calc.output}'."
-            )
+            raise ValueError(f"Unknown BMSSample output in calculation registry: '{calc.output}'.")
         if calc.output in calc.requires:
-            raise ValueError(
-                f"Calculation output '{calc.output}' cannot depend on itself."
-            )
+            raise ValueError(f"Calculation output '{calc.output}' cannot depend on itself.")
         unknown_requirements: set[BMSValue] = set(calc.requires) - set(known_values)
         if unknown_requirements:
             raise ValueError(
@@ -178,9 +160,7 @@ def derive_from_packs(data: BMSSample) -> None:
             pack["cell_count"] = len(pack["cell_voltages"])
 
     if _can_calc("cell_voltages"):
-        data["cell_voltages"] = [
-            v for pack in packs for v in pack.get("cell_voltages", [])
-        ]
+        data["cell_voltages"] = [v for pack in packs for v in pack.get("cell_voltages", [])]
     if _can_calc("cell_count") and len(set(_pvalues("cell_count"))) == 1:
         data["cell_count"] = _pvalues("cell_count")[0]
 
@@ -214,9 +194,7 @@ def derive_from_packs(data: BMSSample) -> None:
         data["voltage"] = round(fmean(_pvalues("voltage")), 3)
 
 
-def derive_missing_fields(
-    data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
-) -> None:
+def derive_missing_fields(data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()) -> None:
     """Apply dependency-driven calculations to the provided data mapping."""
 
     derive_from_packs(data)

@@ -464,7 +464,6 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
         ),
         # battery is charging if current is positive
         "battery_charging": bms_data.get("current", 0) > 0,
-        "temperature": -34.396,
         "problem": False,
     }
     if bms_data.get("current", 0) < 0:

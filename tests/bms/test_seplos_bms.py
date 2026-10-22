@@ -26,7 +26,6 @@ _RESULT_DEFS: BMSSample = {
     "cycles": 9,
     "battery_level": 47.9,
     "battery_health": 99.9,
-    "temperature": 24.4,
     "problem_code": 0,
     "dischrg_mosfet": True,
     "chrg_mosfet": True,

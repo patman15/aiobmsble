@@ -35,7 +35,6 @@ _RESULT_DEFS: Final[BMSSample] = {
         "runtime": 626886,
         "temp_values": [TS(27.3), TS(26.8), TS(27.5)],
         "temp_sensors": 3,
-        "temperature": 27.2,
         "voltage": 13.3,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,

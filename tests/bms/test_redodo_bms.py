@@ -31,7 +31,6 @@ _RESULT_DEFS: Final[BMSSample] = {
     "runtime": 172825,
     "temp_values": [TS(23), TS(22), TS(-2)],
     "temp_sensors": 3,
-    "temperature": 14.333,
     "cycles": 3,
     "problem": False,
     "problem_code": 0,
@@ -253,7 +252,6 @@ async def test_temp_sensor_detection(
         assert await bms.async_update() == _RESULT_DEFS | {
             "temp_sensors": expected[0],
             "temp_values": expected[1],
-            "temperature": sum(expected[1]) / expected[0],
         }
 
     await bms.disconnect()

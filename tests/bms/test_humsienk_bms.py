@@ -27,7 +27,6 @@ _RESULT_DEFS: BMSSample = {
     "cycle_capacity": 833.23,
     "runtime": 198657,
     "delta_voltage": 0.011,
-    "temperature": 30.5,
     "temp_values": [TS(v, TS.T.CELL) for v in (35.0, 26.0, 26.0, 26.0)]
     + [TS(44.0, TS.T.MOSFET), TS(26.0, TS.T.AMBIENT)],
     "chrg_mosfet": True,
