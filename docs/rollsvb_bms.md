@@ -15,8 +15,9 @@
 The Rolls VB-series 24 V LiFePO4 "drop-in" batteries (e.g. VB24-150LFP,
 24 V nominal, 150 Ah, 8S) use an internal BMS marked `RD-RJ8S150A` on the
 PCB. It advertises over BLE with a local name of `RD` followed by its own
-MAC address with colons stripped (e.g. `RDAC233FAF8312` for MAC
-`AC:23:3F:AF:83:12`), and only becomes BLE-reachable once a charger or
+MAC address with colons stripped (e.g. `RDAC233F000000` for MAC
+`AC:23:3F:00:00:00`, the last three bytes anonymized), and only becomes
+BLE-reachable once a charger or
 load drawing more than roughly 1 A is connected (per Rolls' own
 installation guide — the BLE radio is otherwise asleep).
 

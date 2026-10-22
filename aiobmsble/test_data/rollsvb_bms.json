@@ -1,9 +1,9 @@
 [
   {
     "advertisement": {
-      "local_name": "RDAC233FAF8312",
+      "local_name": "RDAC233F000000",
       "service_data": {
-        "0000ffe1-0000-1000-8000-00805f9b34fb": "ac233faf8312"
+        "0000ffe1-0000-1000-8000-00805f9b34fb": "ac233f000000"
       },
       "rssi": -68
     },

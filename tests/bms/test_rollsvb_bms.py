@@ -17,7 +17,7 @@ from tests.test_basebms import BMSBasicTests
 # real device responses, captured with Apple PacketLogger while the vendor's
 # "Rolls LFP Connect" app queried the battery over BLE
 _RESP: Final[dict[bytes, bytes]] = {
-    # cell voltages, reg 0x0000, 8 registers
+    # cell voltages, reg 0x0000, 16 registers (8 cells, rest zero padding)
     b"\xd2\x03\x00\x00\x00\x10\x57\xa5": (
         b"\xd2\x03\x20\x0c\xf2\x0c\xf2\x0c\xf2\x0c\xed\x0c\xf1\x0c\xf1\x0c\xee\x0c\xf0"
         b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x4c\x08"

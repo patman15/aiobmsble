@@ -22,16 +22,13 @@ class BMS(BaseBMS):
     MODBUS RTU frames, slave address 0xD2. The current field uses the same
     zero-offset encoding found in the Daly BMS protocol family
     (``value - 30000``, in 0.1 A steps), but with the opposite sign: a raw
-    value below 30000 means the battery is charging here, whereas the Daly
-    family uses the same offset for discharging. This was confirmed against
-    the vendor's own "Rolls LFP Connect" app, which showed a positive
-    (charging) current for a raw reading below 30000.
+    value below 30000 means the battery is charging here. See
+    ``docs/rollsvb_bms.md`` for how this was confirmed.
     """
 
     INFO: BMSInfo = {"manufacturer": "Rolls", "model": "VB-series LFP (RD-RJ8S150A)"}
     _DEV_ID: Final[int] = 0xD2
-    _CELL_COUNT: Final[int] = 8  # VB24-150LFP is an 8S pack
-    _CELL_REG_COUNT: Final[int] = 16  # register block is padded to 16 cells
+    _MAX_CELLS: Final[int] = 16  # cell block is padded with zeros up to 16 cells
     _CRC_POS: Final[int] = -2
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 10),
@@ -53,7 +50,7 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "RD?*",
+                "local_name": "RD????????????",  # "RD" + MAC without colons
                 "service_data_uuid": normalize_uuid_str("ffe1"),
                 "connectable": True,
             }
@@ -103,19 +100,14 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        # cell voltages, register 0x0000, padded block of 16 registers (mV)
+        # cell voltages, register 0x0000, block of 16 registers (mV), unused cells
+        # read as zero and are skipped by _cell_voltages
         await self._await_msg(
-            self._cmd_modbus(
-                dev_id=BMS._DEV_ID, addr=0x0000, count=BMS._CELL_REG_COUNT
-            )
+            self._cmd_modbus(dev_id=BMS._DEV_ID, addr=0x0000, count=BMS._MAX_CELLS)
         )
         result: BMSSample = {
             "cell_voltages": BMS._cell_voltages(
-                self._msg,
-                cells=BMS._CELL_COUNT,
-                start=3,
-                byteorder="big",
-                divider=1000,
+                self._msg, cells=BMS._MAX_CELLS, start=3
             )
         }
 
