@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSLimits, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
@@ -89,6 +89,34 @@ class BMS(BaseBMS):
         return {
             "model": b2str(self._msg[0x11][3:-2]),
             "hw_version": b2str(self._msg[0xF5][3:-2]),
+        }
+
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the protection thresholds (0x58 configuration frame)."""
+        await self._await_msg(BMS._cmd(b"\x58"))
+        cfg: Final[bytes] = self._msg[0x58][3:-2]  # 24 unsigned 16-bit LE values
+
+        def _u16(pos: int) -> int:
+            return int.from_bytes(cfg[pos : pos + 2], byteorder="little")
+
+        def _temp(pos: int) -> float:  # deciKelvin -> °C
+            return (_u16(pos) - 2731) / 10
+
+        return {
+            "cell_ovp": _u16(4) / 1000,
+            "cell_ovp_recovery": _u16(6) / 1000,
+            "cell_uvp": _u16(10) / 1000,
+            "cell_uvp_recovery": _u16(12) / 1000,
+            "charge_ocp": _u16(16) / 10,
+            "discharge_ocp": _u16(20) / 10,  # level 1
+            "charge_temp_high": _temp(28),
+            "charge_temp_high_recovery": _temp(30),
+            "charge_temp_low": _temp(32),
+            "charge_temp_low_recovery": _temp(34),
+            "discharge_temp_high": _temp(36),
+            "discharge_temp_high_recovery": _temp(38),
+            "discharge_temp_low": _temp(40),
+            "discharge_temp_low_recovery": _temp(42),
         }
 
     async def _init_connection(

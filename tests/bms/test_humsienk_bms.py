@@ -117,6 +117,29 @@ async def test_device_info(patch_bleak_client) -> None:
     assert await bms.device_info() == {"hw_version": "V02", "model": "BMC-04S001"}
 
 
+async def test_limits(patch_bleak_client) -> None:
+    """Test that the BMS returns the protection thresholds from the 0x58 frame."""
+    patch_bleak_client(MockHumsienkBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.limits() == {
+        "cell_ovp": 3.65,
+        "cell_ovp_recovery": 3.33,
+        "cell_uvp": 2.5,
+        "cell_uvp_recovery": 2.8,
+        "charge_ocp": 1100.0,
+        "discharge_ocp": 3000.0,
+        "charge_temp_high": 60.0,
+        "charge_temp_high_recovery": 55.0,
+        "charge_temp_low": 0.0,
+        "charge_temp_low_recovery": 5.0,
+        "discharge_temp_high": 65.0,
+        "discharge_temp_high_recovery": 60.0,
+        "discharge_temp_low": -20.0,
+        "discharge_temp_low_recovery": -15.0,
+    }
+    assert not bms.is_connected
+
+
 @pytest.mark.parametrize(
     ("wrong_response"),
     [

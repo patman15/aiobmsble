@@ -17,7 +17,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.exc import BleakError
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, __version__
+from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, __version__
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.test_data import adv_dict_to_advdata
 from aiobmsble.utils import bms_identify
@@ -59,8 +59,10 @@ async def _try_query(bms_cls: type[BaseBMS], ble_dev: BLEDevice, secret: str = "
     try:
         async with bms_inst as bms:
             info: BMSInfo = await bms.device_info()
+            limits: BMSLimits = await bms.limits()
             data: BMSSample = await bms.async_update()
         logger.info("BMS info: %s", repr(info).replace(", '", ",\n\t'"))
+        logger.info("BMS limits: %s", repr(limits).replace(", '", ",\n\t'"))
         logger.info("BMS data: %s", repr(data).replace(", '", ",\n\t'"))
     except (BleakError, TimeoutError, ConnectionError, ValueError) as exc:
         logger.error(
