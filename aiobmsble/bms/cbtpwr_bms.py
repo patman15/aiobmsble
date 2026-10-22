@@ -133,6 +133,8 @@ class BMS(BaseBMS):
         voltages: list[float] = []
         for cmd in BMS._CELLV_CMDS:
             await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
+            if cmd not in self._msg:
+                raise ValueError("BMS data incomplete.")
             cells: list[float] = BMS._cell_voltages(
                 self._msg[cmd], cells=5, start=4, byteorder="little"
             )
