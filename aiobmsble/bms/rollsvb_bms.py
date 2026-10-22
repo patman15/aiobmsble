@@ -15,16 +15,7 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
 class BMS(BaseBMS):
-    """Rolls VB-series LFP battery class implementation.
-
-    The battery's internal BMS (marked RD-RJ8S150A on the PCB) exposes a
-    generic serial-over-BLE bridge (service 0xFFF0) that carries plain
-    MODBUS RTU frames, slave address 0xD2. The current field uses the same
-    zero-offset encoding found in the Daly BMS protocol family
-    (``value - 30000``, in 0.1 A steps), but with the opposite sign: a raw
-    value below 30000 means the battery is charging here. See
-    ``docs/rollsvb_bms.md`` for how this was confirmed.
-    """
+    """Rolls VB-series LFP battery class implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Rolls", "model": "VB-series LFP (RD-RJ8S150A)"}
     _DEV_ID: Final[int] = 0xD2
