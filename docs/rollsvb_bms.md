@@ -30,20 +30,34 @@ Read Holding Registers, CRC-16/MODBUS), confirmed byte-for-byte against
 two live captures (Apple PacketLogger on macOS/iOS, decoded with
 `tshark`) of the vendor app connecting to a real VB24-150LFP.
 
-The app issues three separate read requests per update cycle (there is no
-single combined read of all fields, unlike some other Modbus-over-BLE
-BMS protocols in this library):
+The app issues separate read requests per update cycle (it never reads more
+than 16 registers at once, so it is not known whether the BMS accepts larger
+blocks):
 
 | Register | Count | Contents |
 |---|---|---|
 | `0x0000` | 16 | Cell voltages, mV, padded to 16 slots for packs with fewer than 16 cells (the VB24-150LFP is an 8S pack; the remaining 8 registers read as zero) |
+| `0x0020` | 5 | Temperatures, raw value is °C + 40, unused sensors read as zero (this battery has two sensors) |
 | `0x0028` | 2 | Pack voltage (×0.1 V) and current (see below) |
 | `0x002A` | 1 | State of charge, ×0.1 % |
+| `0x0031` | 3 | Cell count, temperature sensor count, cycle count |
 
-A fourth read range (`0x0031`, 3 registers; `0x003A`, 4 registers;
-`0x0020`, 5 registers) is also issued by the app but was not needed to
-satisfy this library's minimum required fields and is not yet decoded —
-see "Known gaps" below.
+The register positions match the Modbus layout implemented in
+`daly_bms.py` (same slave address `0xD2`, voltage/current/state of charge
+at `0x0028`–`0x002A`, temperatures from `0x0020` with an offset of 40,
+cell count/sensor count/cycles from `0x0031`), which is how these blocks
+were identified. Both were then verified live against the vendor app: raw
+temperature values `59, 59` while the app showed 19.0 °C, and a raw
+third value of `2` in `0x0031` while the app showed 2.0 cycles (it read
+`1` in the earlier captures).
+
+The app also reads `0x003A` (4 registers) each cycle, which is not
+decoded — see "Known gaps" below.
+
+Block size: reading `0x0028` with a count of 3 (voltage, current and state
+of charge in one request) works on the real battery. A single request for
+62 registers from `0x0000`, as used by the Daly plugin, got no response.
+Sizes in between have not been tested.
 
 ## Current encoding
 
@@ -110,13 +124,10 @@ underlying BlueZ behaviour.
 
 - `design_capacity` is not available from any register read observed so
   far, so `cycle_charge`/`cycle_capacity` cannot be derived.
-- Registers `0x0031`, `0x003A`, and `0x0020` are read by the app each
-  cycle but not yet decoded. `0x003A` (4 registers, observed constant at
-  all zero) is suspected to be an alarm/fault bitfield; `0x0020` (5
-  registers, observed constant `60, 60, 0, 0, 0`) is suspected to be
-  temperature-related but unconfirmed; `0x0031` (3 registers, observed
-  constant `8, 2, 1`) may include the cell count (`8`, matching the
-  known 8S pack) plus two unidentified static fields.
+- Register `0x003A` is read by the app each cycle but not decoded (4
+  registers, observed constant at all zero). It is suspected to be an
+  alarm/fault bitfield, as in the Daly layout, but no non-zero value has
+  been seen yet.
 - A one-time burst of reads at register `0x0050`/`0x0051` was observed
   only at the start of a connection (an apparent event-log dump, 18
   entries) and is unrelated to steady-state telemetry; not decoded.

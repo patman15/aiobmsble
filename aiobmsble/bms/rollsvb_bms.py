@@ -20,11 +20,14 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"manufacturer": "Rolls", "model": "VB-series LFP (RD-RJ8S150A)"}
     _DEV_ID: Final[int] = 0xD2
     _MAX_CELLS: Final[int] = 16  # cell block is padded with zeros up to 16 cells
+    _MAX_TEMPS: Final[int] = 5  # temperature block, unused sensors read as zero
     _CRC_POS: Final[int] = -2
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 10),
         BMSDp("current", 5, 2, False, lambda x: (30000 - x) / 10),
     )
+    # register 0x0031: cell count, temperature sensor count, cycle count
+    _FIELDS_COUNTS: Final[tuple[BMSDp, ...]] = (BMSDp("cycles", 7, 2, False),)
 
     def __init__(
         self,
@@ -101,6 +104,18 @@ class BMS(BaseBMS):
                 self._msg, cells=BMS._MAX_CELLS, start=3
             )
         }
+
+        # temperatures, register 0x0020, raw value is degrees C + 40, zero means unused
+        await self._await_msg(
+            self._cmd_modbus(dev_id=BMS._DEV_ID, addr=0x0020, count=BMS._MAX_TEMPS)
+        )
+        result["temp_values"] = BMS._temp_values(
+            self._msg, values=BMS._MAX_TEMPS, start=3, offset=40
+        )
+
+        # cell count, temperature sensor count and cycles, register 0x0031
+        await self._await_msg(self._cmd_modbus(dev_id=BMS._DEV_ID, addr=0x0031, count=3))
+        result |= BMS._decode_data(BMS._FIELDS_COUNTS, self._msg)
 
         # pack voltage + current, register 0x0028, 2 registers
         await self._await_msg(self._cmd_modbus(dev_id=BMS._DEV_ID, addr=0x0028, count=2))

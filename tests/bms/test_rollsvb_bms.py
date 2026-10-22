@@ -7,7 +7,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.rollsvb_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -21,6 +21,14 @@ _RESP: Final[dict[bytes, bytes]] = {
     b"\xd2\x03\x00\x00\x00\x10\x57\xa5": (
         b"\xd2\x03\x20\x0c\xf2\x0c\xf2\x0c\xf2\x0c\xed\x0c\xf1\x0c\xf1\x0c\xee\x0c\xf0"
         b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x4c\x08"
+    ),
+    # temperatures, reg 0x0020, 5 registers -- two sensors at 20 degrees C
+    b"\xd2\x03\x00\x20\x00\x05\x97\xa0": (
+        b"\xd2\x03\x0a\x00\x3c\x00\x3c\x00\x00\x00\x00\x00\x00\xe3\xe6"
+    ),
+    # cell count 8, temperature sensors 2, cycles 1
+    b"\xd2\x03\x00\x31\x00\x03\x47\xa7": (
+        b"\xd2\x03\x06\x00\x08\x00\x02\x00\x01\x29\x81"
     ),
     # pack voltage + current, reg 0x0028, 2 registers -- charging at 0.9A
     b"\xd2\x03\x00\x28\x00\x02\x57\xa0": (
@@ -40,6 +48,9 @@ _RESULT: Final[BMSSample] = {
     "voltage": 26.5,
     "current": 0.9,
     "battery_level": 50.4,
+    "cycles": 1,
+    "temp_values": [TS(20.0, TS.T.GENERIC), TS(20.0, TS.T.GENERIC)],
+    "temperature": 20.0,
     "cell_count": 8,
     "delta_voltage": 0.005,
     "power": 23.85,
