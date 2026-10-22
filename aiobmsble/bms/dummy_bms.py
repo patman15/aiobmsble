@@ -22,7 +22,6 @@ class BMS(BaseBMS):
     # _HEAD: Final[bytes] = b"\x55"  # beginning of frame
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
-
     # accept_secret: bool = True  # if the BMS accepts a secret for authentication
 
     def __init__(
