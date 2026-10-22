@@ -142,12 +142,19 @@ class BMS(BaseBMS):
             cells=result.get("cell_count", 0),
             start=BMS._CELL_POS + 2,
         )
+        
         result["temp_values"] = BMS._temp_values(
             self._msg[0xA2],
             values=result.get("temp_sensors", 0),
             start=BMS._TEMP_POS + 2,
             divider=10,
         )
+
+        valid_temps = [sensor.value for sensor in result["temp_values"] if sensor.value > -100.0]
+        if valid_temps:
+            result["temperature"] = round(sum(valid_temps) / len(valid_temps), 3)
+        else:
+            result["temperature"] = None
 
         self._msg.clear()
         self._msg_event.clear()  # clear event to ensure new data is acquired
