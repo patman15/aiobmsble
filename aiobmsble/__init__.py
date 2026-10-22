@@ -41,7 +41,6 @@ type BMSValue = CommonValue | Literal[
     "battery_charging",
     "battery_mode",
     "power",
-    "temperature",
     "total_charge",
     "problem",
     "runtime",
@@ -139,7 +138,6 @@ class BMSSample(BatterySample, total=False):
     battery_charging: bool  # True: battery charging
     battery_mode: BMSMode  # BMS charging mode
     power: float  # [W] (positive: charging)
-    temperature: int | float  # [°C]
     problem: bool  # True: problem detected
     runtime: int  # [s]
 
