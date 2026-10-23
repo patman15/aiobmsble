@@ -46,7 +46,7 @@ _RESULT_DEFS: Final[BMSSample] = {
             3.429,
         ],
         "temp_values": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
-        "delta_voltage": 0.014,
+        "delta_cell_voltage": 0.014,
         "balancer": False,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,

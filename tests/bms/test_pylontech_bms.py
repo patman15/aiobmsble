@@ -77,7 +77,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         "cycle_capacity": round(13.24 * 91.0, 3),
         "temp_values": [TS(15.0)] * 2,
         "cell_voltages": [3.312, 3.311],
-        "delta_voltage": 0.001,
+        "delta_cell_voltage": 0.001,
         "cell_count": 2,
         "battery_charging": False,
         "problem": False,

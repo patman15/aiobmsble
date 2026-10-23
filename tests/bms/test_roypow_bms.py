@@ -33,7 +33,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         "cell_count": 4,
         "cell_voltages": [3.375, 3.370, 3.369, 3.372],
         "temp_values": [TS(19), TS(19), TS(19), TS(20)],
-        "delta_voltage": 0.006,
+        "delta_cell_voltage": 0.006,
         "problem": False,
         "problem_code": 0,
         "chrg_mosfet": True,

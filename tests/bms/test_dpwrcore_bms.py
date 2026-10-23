@@ -50,7 +50,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.752,
     ],
     "cell_count": 14,
-    "delta_voltage": 0.015,
+    "delta_cell_voltage": 0.015,
     "temp_values": [TS(21.05)],
     "cycle_capacity": 980.175,
     "power": 1233.75,

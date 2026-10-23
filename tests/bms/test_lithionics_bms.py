@@ -42,7 +42,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cycle_charge": 319.0,
         "total_charge": 6391,
         "cycle_capacity": 4462.81,
-        "delta_voltage": 0.01,
+        "delta_cell_voltage": 0.01,
         "power": -41.97,
         "battery_charging": False,
         "runtime": 382800,
@@ -58,7 +58,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cycle_capacity": 8368.5,
         "cell_count": 4,
         "cell_voltages": [3.29, 3.31, 3.37, 3.25],
-        "delta_voltage": 0.08,
+        "delta_cell_voltage": 0.08,
         "temp_values": [TS(26.667)],
         "problem_code": 0,
         "problem": False,
@@ -66,7 +66,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
             {
                 "cell_count": 4,
                 "temp_values": [TS(25.4), TS(27.1)],
-                "delta_voltage": 0.08,
+                "delta_cell_voltage": 0.08,
                 "cell_voltages": [3.29, 3.31, 3.37, 3.25],
             }
         ],
@@ -169,13 +169,13 @@ async def test_module_info_sorted(
         {
             "cell_count": 4,
             "temp_values": [TS(25.4), TS(27.1)],
-            "delta_voltage": 0.08,
+            "delta_cell_voltage": 0.08,
             "cell_voltages": [3.29, 3.31, 3.37, 3.25],
         },
         {
             "cell_count": 4,
             "temp_values": [TS(30.0), TS(31.0)],
-            "delta_voltage": 0.08,
+            "delta_cell_voltage": 0.08,
         }
         | ({"cell_voltages": [3.30, 3.31, 3.32, 3.33]} if cell_count else {}),
     ]

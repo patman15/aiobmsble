@@ -23,7 +23,7 @@ _RESULT_DEFS: BMSSample = {
     "cycle_charge": 74.23,
     "design_capacity": 100,
     "cycle_capacity": 3935.675,
-    "delta_voltage": 0.004,
+    "delta_cell_voltage": 0.004,
     "cycles": 239,
     "cell_count": 16,
     "cell_voltages": [

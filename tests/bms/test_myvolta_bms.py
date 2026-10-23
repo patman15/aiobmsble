@@ -130,7 +130,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
             0.001,
         ],
         "current": -0.56,
-        "delta_voltage": 4.103,
+        "delta_cell_voltage": 4.103,
         "battery_level": 94.2,
         "heater": False,
         "problem_code": 0,

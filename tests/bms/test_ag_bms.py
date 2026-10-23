@@ -83,7 +83,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "cycles": 63,
         "cell_count": 4,
         "cell_voltages": [3.296, 3.297, 3.295, 3.297],
-        "delta_voltage": 0.002,
+        "delta_cell_voltage": 0.002,
         "dischrg_mosfet": True,
         "power": -44.038,
         "temp_values": [6.0],

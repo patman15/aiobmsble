@@ -141,7 +141,7 @@ async def test_update(patch_bleak_client, ogt_bms_name: str, keep_alive_fixture:
     else:
         assert result == _RESULT_DEFS | {
             "current": 1.23,
-            "delta_voltage": 0.003,
+            "delta_cell_voltage": 0.003,
             "power": 56.188,
             "battery_charging": True,
             "cell_count": 4,
@@ -174,7 +174,7 @@ async def test_update_16s(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -
     # verify all sensors are reported
     assert await bms.async_update() == _RESULT_DEFS | {
         "current": 1.23,
-        "delta_voltage": 0.003,
+        "delta_cell_voltage": 0.003,
         "power": 56.188,
         "battery_charging": True,
         "cell_count": 16,

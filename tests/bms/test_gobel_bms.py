@@ -53,7 +53,7 @@ _RESULT_MAIN_DATA: Final[BMSSample] = {
     "cycle_capacity": 4193.316,
     "cycle_charge": 315.05,
     "cycles": 1,
-    "delta_voltage": 0.003,
+    "delta_cell_voltage": 0.003,
     "design_capacity": 324,
     "dischrg_mosfet": True,
     "power": 0.0,
@@ -279,7 +279,7 @@ def _build_test_frame(reg_values: dict[int, int]) -> bytearray:
     ("reg_values", "expected_key", "expected_value"),
     [
         # Single cell - delta should be 0
-        ({15: 1, 16: 3329}, "delta_voltage", 0),
+        ({15: 1, 16: 3329}, "delta_cell_voltage", 0),
         # Zero cells - empty cell_voltages list
         ({15: 0}, "cell_voltages", []),
         # Zero temp sensors with invalid MOSFET temp - empty temp_values list

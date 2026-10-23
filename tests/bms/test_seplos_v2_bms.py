@@ -49,7 +49,7 @@ _RESULT_DEFS: BMSSample = {
     ],
     "temp_values": [TS(v, TS.T.CELL) for v in (23.2, 23.1, 22.9, 23.4)]
     + [TS(29.3, TS.T.AMBIENT), TS(24.5, TS.T.MOSFET)],
-    "delta_voltage": 0.022,
+    "delta_cell_voltage": 0.022,
     "pack_count": 1,
     "balancer": 2,
     "chrg_mosfet": True,

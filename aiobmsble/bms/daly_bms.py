@@ -66,7 +66,7 @@ class BMS(BaseBMS):
                 BMSDp("cell_count", 98, 2, False, lambda x: min(x, 32), 62),
                 BMSDp("temp_sensors", 100, 2, False, lambda x: min(x, 8), 62),
                 BMSDp("cycles", 102, 2, False, idx=62),
-                BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000, 62),
+                BMSDp("delta_cell_voltage", 112, 2, False, lambda x: x / 1000, 62),
                 BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64, 62),
                 BMSDp("balancer", 104, 2, False, idx=62),
                 BMSDp("chrg_mosfet", 106, 2, False, bool, 62),

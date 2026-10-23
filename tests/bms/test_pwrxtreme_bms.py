@@ -40,7 +40,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cell_voltages": [3.34, 3.339, 3.34, 3.337],
         "battery_charging": False,
         "cell_count": 4,
-        "delta_voltage": 0.003,
+        "delta_cell_voltage": 0.003,
         "cycle_capacity": 2831.472,
         "power": -42.739,
         "problem": False,

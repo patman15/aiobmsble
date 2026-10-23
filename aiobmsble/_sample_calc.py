@@ -34,11 +34,11 @@ def _c_voltage(data: BMSSample) -> bool:
     return True
 
 
-def _c_delta_voltage(data: BMSSample) -> bool:
+def _c_delta_cell_voltage(data: BMSSample) -> bool:
     cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
     if not cell_voltages:
         return False
-    data["delta_voltage"] = round(max(cell_voltages) - min(cell_voltages), 3)
+    data["delta_cell_voltage"] = round(max(cell_voltages) - min(cell_voltages), 3)
     return True
 
 
@@ -97,7 +97,7 @@ def BMSSample_Calc_registry() -> tuple[_C, ...]:
     fs = frozenset
     return (
         _C("voltage", fs({"cell_voltages"}), _c_voltage),
-        _C("delta_voltage", fs({"cell_voltages"}), _c_delta_voltage),
+        _C("delta_cell_voltage", fs({"cell_voltages"}), _c_delta_cell_voltage),
         _C("cycle_charge", fs({"design_capacity", "battery_level"}), _c_cycle_charge),
         _C("battery_level", fs({"design_capacity", "cycle_charge"}), _c_battery_level),
         _C("cell_count", fs({"cell_voltages"}), _c_cell_count),
@@ -152,8 +152,8 @@ def derive_from_packs(data: BMSSample) -> None:
     for pack in packs:
         if not pack.get("cell_voltages"):
             continue
-        if "delta_voltage" not in pack:
-            pack["delta_voltage"] = round(
+        if "delta_cell_voltage" not in pack:
+            pack["delta_cell_voltage"] = round(
                 max(pack["cell_voltages"]) - min(pack["cell_voltages"]), 3
             )
         if "cell_count" not in pack:
@@ -171,7 +171,7 @@ def derive_from_packs(data: BMSSample) -> None:
         "cycle_capacity": sum,
         "design_capacity": sum,
         "cycles": max,
-        "delta_voltage": max,
+        "delta_cell_voltage": max,
     }
     for field, calculate in calculations.items():
         if _can_calc(field):

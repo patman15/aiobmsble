@@ -45,7 +45,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         "power": -610.399,
         "temp_sensors": 4,
         "temp_values": [TS(23.0, TS.T.CELL)] * 4,
-        "delta_voltage": 0.011,
+        "delta_cell_voltage": 0.011,
         "cycle_capacity": 13341.361,
         "battery_charging": False,
         "runtime": 78684,

@@ -43,7 +43,7 @@ class BMS(BaseBMS):
     _MIN_FRAME: Final[int] = 10  # header length
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 201, "<f", lambda x: round(x, 3)),
-        BMSDp("delta_voltage", 209, "<f", lambda x: round(x, 3)),
+        BMSDp("delta_cell_voltage", 209, "<f", lambda x: round(x, 3)),
         BMSDp("problem_code", 216, "B", lambda x: x if x in (1, 3, 7, 8, 9, 10, 11) else 0),
         BMSDp("balancer", 216, "B", lambda x: (x == 0x5)),
         BMSDp("balance_current", 218, "<f", lambda x: round(x, 3)),

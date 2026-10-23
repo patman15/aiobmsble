@@ -87,7 +87,7 @@ class BMS(BaseBMS):
     _PFIELDS: Final[tuple[BMSPDp, ...]] = (
         BMSPDp("cell_count", 5, 1, False, int),
         BMSPDp("temp_values", 6, 2, False),
-        BMSPDp("delta_voltage", 8, 2, False),
+        BMSPDp("delta_cell_voltage", 8, 2, False),
     )
 
     def __init__(
@@ -186,7 +186,7 @@ class BMS(BaseBMS):
             values: list[str] = fields[field.pos : field.pos + field.size]
             if field.key == "temp_values":
                 result[field.key] = [TempSensor(float(value)) for value in values]
-            elif field.key == "delta_voltage":
+            elif field.key == "delta_cell_voltage":
                 result[field.key] = (BMS._int(values[1]) - BMS._int(values[0])) / 100
             else:
                 result[field.key] = field.fct(BMS._int(values[0]))

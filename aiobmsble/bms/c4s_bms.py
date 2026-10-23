@@ -26,7 +26,7 @@ class BMS(VatrerBMS):
         BMSDp("design_capacity", 13, 2, False, lambda x: round(x / 100)),
         BMSDp("cycles", 15, 2, False),
         BMSDp("battery_health", 17, 2, False),
-        BMSDp("delta_voltage", 29, 2, False, lambda x: x / 1000),
+        BMSDp("delta_cell_voltage", 29, 2, False, lambda x: x / 1000),
         BMSDp("cell_count", 45, 2, False),
     )
 

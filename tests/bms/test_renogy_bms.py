@@ -27,7 +27,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycle_capacity": 1321.92,
     "cycle_charge": 97.2,
     "cycles": 15,
-    "delta_voltage": 0.2,
+    "delta_cell_voltage": 0.2,
     "design_capacity": 100,
     "power": -11.696,
     "problem": False,

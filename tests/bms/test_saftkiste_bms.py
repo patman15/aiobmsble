@@ -54,7 +54,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     ],
     "current": -0.11,
     "cycles": 33,
-    "delta_voltage": 0.006,
+    "delta_cell_voltage": 0.006,
     "design_capacity": 300,
     "power": -1.522,
     "problem": False,

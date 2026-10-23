@@ -38,7 +38,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cell_count": 4,
     "cell_voltages": [3.5, 3.5, 3.5, 3.5],
     "temp_values": [TS(24.0, TS.T.CELL)] * 4,
-    "delta_voltage": 0.0,
+    "delta_cell_voltage": 0.0,
     "power": 14.0,
     "battery_charging": True,
     "problem": False,

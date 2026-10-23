@@ -91,7 +91,7 @@ _PROTO_DEFS: Final[dict[str, dict[str, bytearray]]] = {
 
 _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     "v1": {
-        "delta_voltage": 0.008,
+        "delta_cell_voltage": 0.008,
         "voltage": 52.313,
         "balance_current": -4.082,
         "cell_count": 16,
@@ -145,7 +145,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "current": 2.026,
         "cycle_capacity": 9296.836,
         "cycle_charge": 177.407,
-        "delta_voltage": 0.013,
+        "delta_cell_voltage": 0.013,
         "design_capacity": 320,
         "power": 106.171,
         "problem": False,

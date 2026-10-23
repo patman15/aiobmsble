@@ -120,7 +120,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "cycle_capacity": 2260.859,
         "cycle_charge": 28.172,
         "cycles": 16,
-        "delta_voltage": 0.009,
+        "delta_cell_voltage": 0.009,
         "design_capacity": 37,
         "power": 1201.453,
         "problem": False,

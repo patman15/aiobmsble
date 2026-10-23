@@ -251,7 +251,7 @@ class BMS(BaseBMS):
             data[70 + (offs >> 1) : 74 + (offs >> 1)], byteorder="little"
         ).bit_count()
 
-        result["delta_voltage"] = (
+        result["delta_cell_voltage"] = (
             int.from_bytes(data[76 + (offs >> 1) : 78 + (offs >> 1)], byteorder="little") / 1000
         )
 

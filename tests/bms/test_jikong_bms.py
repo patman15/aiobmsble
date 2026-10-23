@@ -224,7 +224,7 @@ _PROTO_DEFS: Final[dict[str, dict[str, bytearray]]] = {
 _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     "JK02_24S": {
         "cell_count": 16,
-        "delta_voltage": 0.005,
+        "delta_cell_voltage": 0.005,
         "voltage": 52.971,
         "current": 2.329,
         "balance_current": 0.002,
@@ -266,7 +266,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     },
     "JK02_32S": {
         "cell_count": 8,
-        "delta_voltage": 0.003,
+        "delta_cell_voltage": 0.003,
         "voltage": 26.509,
         "current": -7.063,
         "battery_level": 68,
@@ -297,7 +297,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     },
     "JK02_32S_v15": {
         "cell_count": 16,
-        "delta_voltage": 0.016,
+        "delta_cell_voltage": 0.016,
         "battery_mode": BMSMode.FLOAT,
         "voltage": 53.224,
         "current": 31.881,
@@ -347,7 +347,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     },
     "JK02_32S_v19.05": {
         "cell_count": 16,
-        "delta_voltage": 0.016,
+        "delta_cell_voltage": 0.016,
         "battery_mode": BMSMode.FLOAT,
         "voltage": 53.224,
         "current": 31.881,
@@ -412,7 +412,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "dischrg_mosfet": True,
         "temp_sensors": 255,
         "cell_count": 8,
-        "delta_voltage": 0.005,
+        "delta_cell_voltage": 0.005,
         "battery_mode": BMSMode.BULK,
         "temp_values": [
             TS(26.2, TS.T.MOSFET),

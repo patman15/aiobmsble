@@ -87,7 +87,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         ],
         "cycle_capacity": 2629.246,
         "cycle_charge": 96.38,
-        "delta_voltage": 0.129,
+        "delta_cell_voltage": 0.129,
         "design_capacity": 100.0,
         "balancer": 0,
         "chrg_mosfet": True,

@@ -111,7 +111,7 @@ def test_derive_from_packs_empty_packs() -> None:
 
 
 def test_derive_from_packs_pack_delta_and_count() -> None:
-    """Check delta_voltage and cell_count are derived per pack."""
+    """Check delta_cell_voltage and cell_count are derived per pack."""
     data: BMSSample = {
         "packs": [
             {"cell_voltages": [3.1, 3.3, 3.2]},
@@ -122,21 +122,21 @@ def test_derive_from_packs_pack_delta_and_count() -> None:
 
     assert data == {
         "packs": [
-            {"cell_voltages": [3.1, 3.3, 3.2], "delta_voltage": 0.2, "cell_count": 3},
-            {"cell_voltages": [3.0, 3.4], "delta_voltage": 0.4, "cell_count": 2},
+            {"cell_voltages": [3.1, 3.3, 3.2], "delta_cell_voltage": 0.2, "cell_count": 3},
+            {"cell_voltages": [3.0, 3.4], "delta_cell_voltage": 0.4, "cell_count": 2},
         ],
         "cell_voltages": [3.1, 3.3, 3.2, 3.0, 3.4],
-        "delta_voltage": 0.4,
+        "delta_cell_voltage": 0.4,
     }
 
 
 def test_derive_from_packs_keeps_existing_pack_values() -> None:
-    """Check existing per-pack delta_voltage and cell_count are not overwritten."""
+    """Check existing per-pack delta_cell_voltage and cell_count are not overwritten."""
     data: BMSSample = {
         "packs": [
             {
                 "cell_voltages": [3.1, 3.3, 3.2],
-                "delta_voltage": 9.9,
+                "delta_cell_voltage": 9.9,
                 "cell_count": 99,
             },
         ]
@@ -147,18 +147,18 @@ def test_derive_from_packs_keeps_existing_pack_values() -> None:
         "packs": [
             {
                 "cell_voltages": [3.1, 3.3, 3.2],
-                "delta_voltage": 9.9,
+                "delta_cell_voltage": 9.9,
                 "cell_count": 99,
             },
         ],
         "cell_count": 99,
         "cell_voltages": [3.1, 3.3, 3.2],
-        "delta_voltage": 9.9,
+        "delta_cell_voltage": 9.9,
     }
 
 
 def test_derive_from_packs_skips_packs_without_cell_voltages() -> None:
-    """Check packs without cell_voltages get no delta_voltage/cell_count."""
+    """Check packs without cell_voltages get no delta_cell_voltage/cell_count."""
     data: BMSSample = {"packs": [{"voltage": 12.0}]}
     derive_from_packs(data)
 
@@ -215,7 +215,7 @@ def test_derive_from_packs_aggregate_values() -> None:
                 "cycles": 42,
                 "design_capacity": 100,
                 "voltage": 12.0,
-                "delta_voltage": 0.2,
+                "delta_cell_voltage": 0.2,
                 "cell_count": 2,
             },
             {
@@ -228,7 +228,7 @@ def test_derive_from_packs_aggregate_values() -> None:
                 "cycles": 123,
                 "design_capacity": 150,
                 "voltage": 12.4,
-                "delta_voltage": 0.4,
+                "delta_cell_voltage": 0.4,
                 "cell_count": 2,
             },
         ],
@@ -241,7 +241,7 @@ def test_derive_from_packs_aggregate_values() -> None:
         "cycle_capacity": 115.1,
         "design_capacity": 250,
         "cycles": 123,
-        "delta_voltage": 0.4,
+        "delta_cell_voltage": 0.4,
         "voltage": 12.2,
     }
 
@@ -258,11 +258,11 @@ def test_derive_from_packs_cell_count_mismatch() -> None:
 
     assert data == {
         "packs": [
-            {"cell_voltages": [3.1, 3.3], "delta_voltage": 0.2, "cell_count": 2},
-            {"cell_voltages": [3.0, 3.4, 3.2], "delta_voltage": 0.4, "cell_count": 3},
+            {"cell_voltages": [3.1, 3.3], "delta_cell_voltage": 0.2, "cell_count": 2},
+            {"cell_voltages": [3.0, 3.4, 3.2], "delta_cell_voltage": 0.4, "cell_count": 3},
         ],
         "cell_voltages": [3.1, 3.3, 3.0, 3.4, 3.2],
-        "delta_voltage": 0.4,
+        "delta_cell_voltage": 0.4,
     }
 
 
@@ -290,7 +290,7 @@ def test_derive_from_packs_does_not_override_native_values() -> None:
         "design_capacity": 999,
         "voltage": 99.0,
         "cell_count": 99,
-        "delta_voltage": 99.0,
+        "delta_cell_voltage": 99.0,
     }
     derive_from_packs(data)
 
@@ -302,7 +302,7 @@ def test_derive_from_packs_does_not_override_native_values() -> None:
                 "cycle_charge": 10.0,
                 "design_capacity": 100,
                 "voltage": 12.0,
-                "delta_voltage": 0.2,
+                "delta_cell_voltage": 0.2,
                 "cell_count": 2,
             },
             {
@@ -311,7 +311,7 @@ def test_derive_from_packs_does_not_override_native_values() -> None:
                 "cycle_charge": 15.0,
                 "design_capacity": 100,
                 "voltage": 12.4,
-                "delta_voltage": 0.4,
+                "delta_cell_voltage": 0.4,
                 "cell_count": 2,
             },
         ],
@@ -321,7 +321,7 @@ def test_derive_from_packs_does_not_override_native_values() -> None:
         "design_capacity": 999,
         "voltage": 99.0,
         "cell_count": 99,
-        "delta_voltage": 99.0,
+        "delta_cell_voltage": 99.0,
     }
 
 
@@ -340,14 +340,14 @@ def test_derive_from_packs_partial_availability() -> None:
             {
                 "cell_voltages": [3.1, 3.3],
                 "current": 1.0,
-                "delta_voltage": 0.2,
+                "delta_cell_voltage": 0.2,
                 "cell_count": 2,
             },
-            {"cell_voltages": [3.0, 3.4], "delta_voltage": 0.4, "cell_count": 2},
+            {"cell_voltages": [3.0, 3.4], "delta_cell_voltage": 0.4, "cell_count": 2},
         ],
         "cell_count": 2,
         "cell_voltages": [3.1, 3.3, 3.0, 3.4],
-        "delta_voltage": 0.4,
+        "delta_cell_voltage": 0.4,
     }
 
 
@@ -374,7 +374,7 @@ def test_derive_from_packs_single_pack() -> None:
                 "cycle_charge": 20.0,
                 "design_capacity": 100,
                 "voltage": 12.0,
-                "delta_voltage": 0.2,
+                "delta_cell_voltage": 0.2,
                 "cell_count": 2,
             },
         ],
@@ -382,7 +382,7 @@ def test_derive_from_packs_single_pack() -> None:
         "cell_voltages": [3.1, 3.3],
         "current": 5.0,
         "cycle_charge": 20.0,
-        "delta_voltage": 0.2,
+        "delta_cell_voltage": 0.2,
         "design_capacity": 100,
         "voltage": 12.0,
     }

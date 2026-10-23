@@ -34,7 +34,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 13.015,
     "current": -1.52,
     "battery_level": 52,
-    "delta_voltage": 0.005,
+    "delta_cell_voltage": 0.005,
     "power": -19.783,
     "runtime": 262537,
     "battery_charging": False,
