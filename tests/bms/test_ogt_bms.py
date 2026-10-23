@@ -116,14 +116,10 @@ class MockOGTBleakClient(MockBleakClient):
         assert self._notify_callback is not None
         value: Final[bytearray] = await self._response(char_specifier, data)
 
-        asyncio.get_running_loop().call_soon(
-            self._notify_callback, DefGATTChar(1, "fff4"), value
-        )
+        asyncio.get_running_loop().call_soon(self._notify_callback, DefGATTChar(1, "fff4"), value)
 
 
-async def test_update(
-    patch_bleak_client, ogt_bms_name: str, keep_alive_fixture: bool
-) -> None:
+async def test_update(patch_bleak_client, ogt_bms_name: str, keep_alive_fixture: bool) -> None:
     """Test OGT BMS data update."""
 
     patch_bleak_client(MockOGTBleakClient)
@@ -174,9 +170,7 @@ async def test_update_16s(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -
     )
     patch_bleak_client(MockOGTBleakClient)
 
-    bms = BMS(
-        generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"), BMSConfig(False)
-    )
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"), BMSConfig(False))
 
     # verify all sensors are reported
     assert await bms.async_update() == _RESULT_DEFS | {
@@ -224,6 +218,7 @@ async def test_device_info(patch_bleak_client) -> None:
         (b";BT<Ubb\x7f\x10", "BMS_error"),
         (b"invalid\xf0value", "invalid_value"),
         (b";BT<UQ S\x1d\x1a", "wrong_reg"),
+        (b";BT< Q!\x1d\x1a", "odd_length"),  # "+RD,0A1\r\n" scrambled with key 0x10
     ],
     ids=lambda param: param[1],
 )

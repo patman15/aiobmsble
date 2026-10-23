@@ -9,6 +9,7 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.renogy_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -18,27 +19,27 @@ BT_FRAME_SIZE = 512  # ATT max is 512 bytes
 
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "battery_charging": False,
-        "battery_level": 97.2,
-        "cell_voltages": [3.5, 3.3, 3.3, 3.3],
-        "cell_count": 4,
-        "current": -0.86,
-        "cycle_capacity": 1321.92,
-        "cycle_charge": 97.2,
-        "cycles": 15,
-        "delta_voltage": 0.2,
-        "design_capacity": 100,
-        "power": -11.696,
-        "problem": False,
-        "problem_code": 0,
-        "runtime": 406883,
-        "temp_values": [TS(17.0)] * 2,
-        "temp_sensors": 2,
-        "temperature": 17.0,
-        "voltage": 13.6,
-        "chrg_mosfet": False,
-        "dischrg_mosfet": False,
-        "heater": False,
+    "battery_charging": False,
+    "battery_level": 97.2,
+    "cell_voltages": [3.5, 3.3, 3.3, 3.3],
+    "cell_count": 4,
+    "current": -0.86,
+    "cycle_capacity": 1321.92,
+    "cycle_charge": 97.2,
+    "cycles": 15,
+    "delta_voltage": 0.2,
+    "design_capacity": 100,
+    "power": -11.696,
+    "problem": False,
+    "problem_code": 0,
+    "runtime": 406883,
+    "temp_values": [TS(17.0)] * 2,
+    "temp_sensors": 2,
+    "temperature": 17.0,
+    "voltage": 13.6,
+    "chrg_mosfet": False,
+    "dischrg_mosfet": False,
+    "heater": False,
 }
 
 
@@ -184,9 +185,31 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_short_alarm_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that a valid but too short alarm flag response is rejected."""
+
+    frame: Final[bytes] = b"\x30\x03\x00"  # no data bytes
+    monkeypatch.setattr(
+        MockRenogyBleakClient,
+        "RESP",
+        MockRenogyBleakClient.RESP
+        | {
+            b"\x30\x03\x13\xec\x00\x08\x85\x5c": bytearray(
+                frame + crc_modbus(frame).to_bytes(2, "little")
+            )
+        },
+    )
+    patch_bleak_client(MockRenogyBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.async_update()
+
+    await bms.disconnect()
+
+
+async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test data update with BMS returning error flags."""
 
     monkeypatch.setattr(
