@@ -121,9 +121,7 @@ class MockJBDBleakClient(MockBleakClient):
         **kwargs: Any,
     ) -> None:
         """Initialize MockBleakClient."""
-        super().__init__(
-            address_or_ble_device, disconnected_callback, services, **kwargs
-        )
+        super().__init__(address_or_ble_device, disconnected_callback, services, **kwargs)
         self._services = ["ff01", "ff02"]
 
     def _response(
@@ -140,8 +138,7 @@ class MockJBDBleakClient(MockBleakClient):
             self.UNLOCKED = True
             return (
                 MockJBDBleakClient.ACK_MSG
-                if sum(_msg[2:-1]) & 0xFF == _msg[-1]
-                and _msg[4:-1] == self.DEFAULT_SECRET
+                if sum(_msg[2:-1]) & 0xFF == _msg[-1] and _msg[4:-1] == self.DEFAULT_SECRET
                 else b"\xff\xaa\x15\x01\x01\x17"
             )
 
@@ -155,9 +152,7 @@ class MockJBDBleakClient(MockBleakClient):
         return b""
 
     async def _send_data(self, char_specifier, data) -> None:
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         # always send two responses, to test timeout behaviour
         for resp in (
@@ -287,9 +282,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-@pytest.mark.parametrize(
-    "secret", ["000000", "wrong"], ids=["correct_secret", "wrong_secret"]
-)
+@pytest.mark.parametrize("secret", ["000000", "wrong"], ids=["correct_secret", "wrong_secret"])
 async def test_update_secret(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client, secret: str
 ) -> None:
@@ -341,9 +334,7 @@ async def test_invalid_init(
 
 
 @pytest.mark.parametrize("client", [MockJBDBleakClient, MockOversizedBleakClient])
-async def test_device_info(
-    patch_bleak_client, patch_bms_timeout, client: object
-) -> None:
+async def test_device_info(patch_bleak_client, patch_bms_timeout, client: object) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bms_timeout()
     patch_bleak_client(client)
@@ -355,6 +346,25 @@ async def test_device_info(
         }
     else:
         assert await bms.device_info() == {"sw_version": "8.0"}
+
+
+async def test_device_info_short(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that a valid but too short basic info reply is rejected."""
+
+    monkeypatch.setattr(
+        MockJBDBleakClient,
+        "RESP",
+        MockJBDBleakClient.RESP
+        | {MockJBDBleakClient.CMD_INFO: b"\xdd\x03\x00\x01\x00\xff\xff\x77"},
+    )
+    patch_bleak_client(MockJBDBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.device_info()
+
+    await bms.disconnect()
 
 
 @pytest.fixture(
@@ -388,9 +398,7 @@ async def test_invalid_response(
 
     patch_bms_timeout()
 
-    monkeypatch.setattr(
-        MockJBDBleakClient, "_response", lambda _s, _c, _d: wrong_response
-    )
+    monkeypatch.setattr(MockJBDBleakClient, "_response", lambda _s, _c, _d: wrong_response)
 
     patch_bleak_client(MockJBDBleakClient)
 

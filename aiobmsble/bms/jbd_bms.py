@@ -28,6 +28,7 @@ class BMS(BaseBMS):
     _INFO_LEN: Final[int] = 7  # minimum frame size
     _BASIC_INFO: Final[int] = 23  # basic info data length
     _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
+    _POS_SWVER: Final[int] = 22  # position of SW version
     _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4
     _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
@@ -118,7 +119,10 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         await self._await_cmd_resp(0x03)
-        result: BMSInfo = {"sw_version": f"{self._msg[22] >> 4}.{self._msg[22] & 0xF}"}
+        if len(self._msg) <= BMS._POS_SWVER:
+            raise ValueError("BMS data incomplete.")
+        sw_version: Final[int] = self._msg[BMS._POS_SWVER]
+        result: BMSInfo = {"sw_version": f"{sw_version >> 4}.{sw_version & 0xF}"}
         try:
             await self._await_cmd_resp(0x05)
             result["hw_version"] = b2str(self._msg[4 : self._msg[3] + 4])
