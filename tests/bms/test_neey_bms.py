@@ -114,7 +114,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
             3.272,
         ],
         "balancer": True,
-        "temp_values": [TS(50.24), TS(50.24)],
+        "temperatures": [TS(50.24), TS(50.24)],
         "problem": False,
         "problem_code": 0,
     },
@@ -150,7 +150,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "power": 106.171,
         "problem": False,
         "problem_code": 0,
-        "temp_values": [TS(v) for v in (28.2, 28.09, 31.4, 61.9)],
+        "temperatures": [TS(v) for v in (28.2, 28.09, 31.4, 61.9)],
         "voltage": 52.404,
     },
 }

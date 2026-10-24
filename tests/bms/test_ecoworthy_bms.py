@@ -52,7 +52,7 @@ _PROTO_DEFS: Final[dict[int, dict[int, bytes]]] = {
 _RESULT_DEFS: Final[dict[int, BMSSample]] = {
     0x1: {
         "cell_count": 4,
-        "temp_sensors": 3,
+        "temp_count": 3,
         "voltage": 13.29,
         "current": -1.14,
         "battery_level": 72,
@@ -64,7 +64,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "power": -15.151,
         "battery_charging": False,
         "cell_voltages": [3.323, 3.325, 3.323, 3.322],
-        "temp_values": [TS(20.5), TS(19.2), TS(19.0)],
+        "temperatures": [TS(20.5), TS(19.2), TS(19.0)],
         "delta_cell_voltage": 0.003,
         "runtime": 227368,
         "problem": False,
@@ -72,7 +72,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
     },
     0x2: {
         "cell_count": 4,
-        "temp_sensors": 2,
+        "temp_count": 2,
         "voltage": 13.28,
         "current": -6.0,
         "battery_level": 98,
@@ -83,7 +83,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "power": -79.68,
         "battery_charging": False,
         "cell_voltages": [3.323, 3.324, 3.323, 3.317],
-        "temp_values": [TS(22.0), TS(21.4)],
+        "temperatures": [TS(22.0), TS(21.4)],
         "delta_cell_voltage": 0.007,
         "problem": False,
         "problem_code": 0,

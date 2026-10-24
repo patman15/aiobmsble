@@ -28,7 +28,7 @@ class BMS(EJBMS):
         BMSDp("current", 54, 4, True, lambda x: x / 1000),
         # BMSDp("cycle_charge", 7, 2, False, lambda x: x / 10, Cmd.CAP),
         # BMSDp(
-        #     "temp_values", 48, 1, False, lambda x: [TempSensor(x - 40)], Cmd.RT
+        #     "temperatures", 48, 1, False, lambda x: [TempSensor(x - 40)], Cmd.RT
         # ),  # only 1st sensor relevant
         BMSDp("cycles", 67, 2, False),
         BMSDp("design_capacity", 70, 4, False, lambda x: x // 1000),
@@ -150,7 +150,7 @@ class BMS(EJBMS):
             "cell_voltages": BMS._cell_voltages(
                 self._msg, cells=BMS._MAX_CELLS, start=BMS._CELL_POS
             ),
-            "temp_values": BMS._temp_values(
+            "temperatures": BMS._temperatures(
                 self._msg, start=48, values=4, size=1, signed=False, offset=40
             ),
         }

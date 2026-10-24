@@ -84,7 +84,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cell_voltages": [4.127, 4.137, 4.147, 4.157],
         "cell_count": 4,
         "delta_cell_voltage": 0.321,
-        "temp_sensors": 4,
+        "temp_count": 4,
         "cycle_capacity": 4838.4,
         "power": 42.0,
         "battery_charging": True,
@@ -93,7 +93,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "chrg_mosfet": False,
         "dischrg_mosfet": True,
         "balancer": True,
-        "temp_values": [
+        "temperatures": [
             TS(38.0, TS.T.MOSFET),
             TS(20.0, TS.T.GENERIC),
             TS(21.0, TS.T.GENERIC),
@@ -106,14 +106,14 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "current": -0.8,
         "battery_level": 11.2,
         "cell_count": 4,
-        "temp_sensors": 2,
+        "temp_count": 2,
         "cell_voltages": [
             3.281,
             3.216,
             3.235,
             3.284,
         ],
-        "temp_values": [TS(215.0, TS.T.GENERIC), TS(215.0, TS.T.GENERIC)],
+        "temperatures": [TS(215.0, TS.T.GENERIC), TS(215.0, TS.T.GENERIC)],
         "battery_charging": False,
         "delta_cell_voltage": 0.068,
         "power": -10.4,
@@ -250,7 +250,7 @@ async def test_update_nomos(
     bms = BMS(generate_ble_device(), BMSConfig())
 
     assert await bms.async_update() == _RESULT_DEFS[0xD2] | {
-        "temp_values": [20.0, 21.0, 22.0, 23.0],
+        "temperatures": [20.0, 21.0, 22.0, 23.0],
     }
 
     await bms.disconnect()
@@ -301,7 +301,7 @@ async def test_mos_excl(
             _PROTO_DEFS[0xD2] | {MOS_INFO: mos_info},
         )
         assert await bms.async_update() == _RESULT_DEFS[0xD2] | {
-            "temp_values": [TS(v, TS.T.MOSFET) for v in expected]
+            "temperatures": [TS(v, TS.T.MOSFET) for v in expected]
             + [TS(v) for v in (20.0, 21.0, 22.0, 23.0)],
         }
 

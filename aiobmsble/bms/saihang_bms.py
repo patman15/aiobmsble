@@ -35,7 +35,7 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 37, 2, False, lambda x: bool(x & 0x0400)),
         BMSDp("balancer", 41, 2, False),
         BMSDp("cell_count", 43, 2, False, lambda x: min(x, BMS._MAX_CELLS)),
-        BMSDp("temp_sensors", 85, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
+        BMSDp("temp_count", 85, 2, False, lambda x: min(x, BMS._MAX_TEMP)),
     )
 
     def __init__(
@@ -108,14 +108,14 @@ class BMS(BaseBMS):
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=result.get("cell_count", 0), start=45
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperatures"] = BMS._temperatures(
             self._msg,
-            values=result.get("temp_sensors", 0),
+            values=result.get("temp_count", 0),
             start=87,
             offset=2730,
             divider=10,
-            types=(TempSensor.T.CELL,) * result.get("temp_sensors", 0),
-        ) + BMS._temp_values(
+            types=(TempSensor.T.CELL,) * result.get("temp_count", 0),
+        ) + BMS._temperatures(
             self._msg,
             values=2,
             start=107,
@@ -123,6 +123,6 @@ class BMS(BaseBMS):
             divider=10,
             types=(TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
-        result["temp_sensors"] = len(result["temp_values"])
+        result["temp_count"] = len(result["temperatures"])
 
         return result

@@ -16,7 +16,7 @@ from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests, verify_device_info
 
 _RESULT_DEFS: Final[BMSSample] = {
-    "temp_sensors": 1,
+    "temp_count": 1,
     "voltage": 27.554,
     "current": 0.0,
     "battery_level": 99,
@@ -24,7 +24,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycles": 7,
     "cell_count": 8,
     "cell_voltages": [3.442, 3.496, 3.375, 3.464, 3.457, 3.429, 3.359, 3.42],
-    "temp_values": [TS(20, TS.T.GENERIC)],
+    "temperatures": [TS(20, TS.T.GENERIC)],
     "delta_cell_voltage": 0.137,
     "design_capacity": 100,
     "cycle_capacity": 2922.047,

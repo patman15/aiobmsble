@@ -41,7 +41,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycle_charge": 110.849,
     "cycles": 5,
     "design_capacity": 200,
-    "temp_values": [TS(9.0)] * 4,
+    "temperatures": [TS(9.0)] * 4,
     "cell_voltages": [
         3.253,
         3.253,

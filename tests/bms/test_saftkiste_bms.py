@@ -66,7 +66,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "balancer": False,
     "heater": False,
     "problem_code": 0,
-    "temp_values": [TS(6.89, TS.T.CELL), TS(7.66, TS.T.PCB)],
+    "temperatures": [TS(6.89, TS.T.CELL), TS(7.66, TS.T.PCB)],
 }
 
 

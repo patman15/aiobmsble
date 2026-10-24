@@ -921,7 +921,7 @@ def test_cell_voltages(
         "div-1",
     ],
 )
-def test_temp_values(
+def test_temperatures(
     data: bytes,
     values: int,
     start: int,
@@ -932,8 +932,8 @@ def test_temp_values(
     divider: int,
     expected: tuple[float, ...],
 ) -> None:
-    """Test the _temp_values method of BaseBMS with various input parameters."""
-    result: list[TempSensor] = BaseBMS._temp_values(
+    """Test the _temperatures method of BaseBMS with various input parameters."""
+    result: list[TempSensor] = BaseBMS._temperatures(
         data,
         values=values,
         start=start,

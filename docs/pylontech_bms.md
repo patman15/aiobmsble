@@ -69,12 +69,12 @@ Modbus RTU over BLE SPP. Device address `0x01`, function code `0x03`
 | 0x2000–0x2007 | ASCII | – | – | Serial number (16 chars across 8 registers) |
 | 0x2008–0x200D | – | – | – | Telink GModule internal config, not BMS data |
 
-### Notes on cell_voltages and temp_values
+### Notes on cell_voltages and temperatures
 
 The RT series Modbus interface exposes only min/max aggregates for cell
 voltages (0x1018, 0x1019) and temperatures (0x101A, 0x101B) — individual
 cell or sensor values are not available. Both `cell_voltages` and
-`temp_values` are therefore two-element lists `[max, min]`.
+`temperatures` are therefore two-element lists `[max, min]`.
 
 ### Potential further advertisements
 ```json

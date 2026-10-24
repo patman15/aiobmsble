@@ -38,7 +38,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         "delta_cell_voltage": 0.01,
         "cell_count": 4,
         "cell_voltages": [3.337, 3.33, 3.329, 3.339],
-        "temp_values": [TS(28.0, TS.T.MOSFET), TS(27.0, TS.T.AMBIENT)],
+        "temperatures": [TS(28.0, TS.T.MOSFET), TS(27.0, TS.T.AMBIENT)],
         "battery_charging": False,
         "cycle_capacity": 1228.626,
         "power": -45.589,

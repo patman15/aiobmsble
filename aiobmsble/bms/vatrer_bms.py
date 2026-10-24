@@ -28,7 +28,7 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 17, 2, False, idx=0x28),
         BMSDp("cycle_charge", 11, 2, False, lambda x: x / 100, 0x28),
         BMSDp("cell_count", 3, 2, False, lambda x: min(x, BMS._MAX_CELLS), 0x3E),
-        BMSDp("temp_sensors", 3, 2, False, lambda x: min(x, BMS._MAX_TEMP), 0x24),
+        BMSDp("temp_count", 3, 2, False, lambda x: min(x, BMS._MAX_TEMP), 0x24),
         BMSDp("cycles", 15, 2, False, idx=0x28),
         BMSDp("delta_cell_voltage", 29, 2, False, lambda x: x / 1000, 0x28),
         BMSDp("problem", 17, 15, False, lambda x: (x != 0), 0x24),
@@ -116,11 +116,11 @@ class BMS(BaseBMS):
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg[0x3E], cells=result.get("cell_count", 0), start=5
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperatures"] = BMS._temperatures(
             self._msg[0x24],
-            values=result.get("temp_sensors", 0) + 2,
+            values=result.get("temp_count", 0) + 2,
             start=5,
-            types=(TempSensor.T.GENERIC,) * (result.get("temp_sensors", 0) + 1)
+            types=(TempSensor.T.GENERIC,) * (result.get("temp_count", 0) + 1)
             + (TempSensor.T.MOSFET,),
         )
 

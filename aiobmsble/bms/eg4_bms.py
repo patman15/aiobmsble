@@ -128,9 +128,9 @@ class BMS(BaseBMS):
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperatures"] = BMS._temperatures(
             self._msg, values=1, start=39, types=(TempSensor.T.PCB,)
-        ) + BMS._temp_values(
+        ) + BMS._temperatures(
             self._msg,
             values=BMS._MAX_TEMP,
             start=69,

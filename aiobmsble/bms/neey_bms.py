@@ -202,10 +202,10 @@ class BMS(BaseBMS):
             data: BMSSample = self._conv_data(
                 (BMS._FIELDS if self._proto == "v2" else BMS._FIELDS_v1), self._msg
             )
-            data["temp_values"] = (
-                BMS._temp_values(self._msg, values=4, start=226)
+            data["temperatures"] = (
+                BMS._temperatures(self._msg, values=4, start=226)
                 if self._proto == "v2"
-                else BMS._temp_values(self._msg, values=2, start=221)
+                else BMS._temperatures(self._msg, values=2, start=221)
             )
 
             data["cell_voltages"] = BMS._cell_voltages(
@@ -237,7 +237,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _temp_values(
+    def _temperatures(
         data: bytes,
         *,
         start: int,

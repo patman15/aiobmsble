@@ -15,7 +15,7 @@ from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "temp_sensors": 4,
+        "temp_count": 4,
         "voltage": 54.74,
         "current": 0.0,
         "battery_level": 60,
@@ -45,7 +45,7 @@ _RESULT_DEFS: Final[BMSSample] = {
             3.422,
             3.429,
         ],
-        "temp_values": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
+        "temperatures": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
         "delta_cell_voltage": 0.014,
         "balancer": False,
         "chrg_mosfet": True,

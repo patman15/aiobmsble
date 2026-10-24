@@ -173,8 +173,8 @@ class BMS(BaseBMS):
 
         # get extension pack count from manufacturer information (only main unit != 0)
         result["pack_count"] = self._msg[0x51][BMS._PACK_POS]
-        result["temp_sensors"] = self._msg[0x61][temp_pos]
-        ct_blk_len: Final[int] = (result["cell_count"] + result["temp_sensors"]) * 2 + 2
+        result["temp_count"] = self._msg[0x61][temp_pos]
+        ct_blk_len: Final[int] = (result["cell_count"] + result["temp_count"]) * 2 + 2
 
         if (BMS._GSMD_LEN + ct_blk_len) > len(self._msg[0x61]):
             raise ValueError("BMS data incomplete")
@@ -183,7 +183,7 @@ class BMS(BaseBMS):
 
         states_pos: Final[int] = (
             (BMS._CELL_POS + ct_blk_len)
-            + (result["cell_count"] + result["temp_sensors"])
+            + (result["cell_count"] + result["temp_count"])
             + (3 + 19)
         )
         cst_alarm_pos: Final[int] = states_pos + 1
@@ -219,14 +219,14 @@ class BMS(BaseBMS):
             cells=self._msg[0x61][BMS._CELL_POS],
             start=10,
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperatures"] = BMS._temperatures(
             self._msg[0x61],
-            values=result.get("temp_sensors", 0),
+            values=result.get("temp_count", 0),
             start=BMS._CELL_POS + result.get("cell_count", 0) * 2 + 2,
             signed=False,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL,) * (result.get("temp_sensors", 2) - 2)
+            types=(TempSensor.T.CELL,) * (result.get("temp_count", 2) - 2)
             + (TempSensor.T.AMBIENT, TempSensor.T.MOSFET),
         )
 

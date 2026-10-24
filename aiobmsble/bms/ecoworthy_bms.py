@@ -30,7 +30,7 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 51, 2, False, idx=0xA1),
         BMSDp("design_capacity", 26, 2, False, lambda x: x // 100, 0xA1),
         BMSDp("cell_count", _CELL_POS, 2, False, idx=0xA2),
-        BMSDp("temp_sensors", _TEMP_POS, 2, False, idx=0xA2),
+        BMSDp("temp_count", _TEMP_POS, 2, False, idx=0xA2),
         # ("cycles", 0xA1, 8, 2, False,
     )
     _FIELDS_V2: Final[tuple[BMSDp, ...]] = tuple(
@@ -142,9 +142,9 @@ class BMS(BaseBMS):
             cells=result.get("cell_count", 0),
             start=BMS._CELL_POS + 2,
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperatures"] = BMS._temperatures(
             self._msg[0xA2],
-            values=result.get("temp_sensors", 0),
+            values=result.get("temp_count", 0),
             start=BMS._TEMP_POS + 2,
             divider=10,
         )

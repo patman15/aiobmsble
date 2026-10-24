@@ -55,7 +55,7 @@ class BMS(VatrerBMS):
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg[BMS._REG_COUNT * 2], cells=result.get("cell_count", 0), start=47
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperatures"] = BMS._temperatures(
             self._msg[BMS._REG_COUNT * 2],
             start=35,
             values=BMS._TEMPS,

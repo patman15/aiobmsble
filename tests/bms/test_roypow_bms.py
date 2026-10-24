@@ -21,7 +21,7 @@ BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module
 
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "temp_sensors": 4,
+        "temp_count": 4,
         "voltage": 13.48,
         "current": 0.35,
         "battery_level": 96,
@@ -32,7 +32,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         "battery_charging": True,
         "cell_count": 4,
         "cell_voltages": [3.375, 3.370, 3.369, 3.372],
-        "temp_values": [TS(19), TS(19), TS(19), TS(20)],
+        "temperatures": [TS(19), TS(19), TS(19), TS(20)],
         "delta_cell_voltage": 0.006,
         "problem": False,
         "problem_code": 0,

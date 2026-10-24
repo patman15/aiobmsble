@@ -125,7 +125,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "power": 1201.453,
         "problem": False,
         "problem_code": 0,
-        "temp_values": [17.0, 17.0, 17.0, 18.0, 19.0, 19.0, 19.0],
+        "temperatures": [17.0, 17.0, 17.0, 18.0, 19.0, 19.0, 19.0],
     }
     # query again to check already connected state
     await bms.async_update()
