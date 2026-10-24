@@ -26,7 +26,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 0, 1, False, idx=2),
         BMSDp("cycle_charge", 0, 3, False, lambda x: x / 1000, 4),
         BMSDp("voltage", 0, 2, False, lambda x: x / 1000, 8),
-        BMSDp("temp_values", 0, 2, False, lambda x: [round(x / 10 - 273.15, 3)], 12),
+        BMSDp("temperatures", 0, 2, False, lambda x: [round(x / 10 - 273.15, 3)], 12),
         BMSDp("current", 0, 3, False, lambda x: x / 100, 16),
         BMSDp("runtime", 0, 2, False, lambda x: x * 60, 24),
         BMSDp("cycles", 0, 2, False, idx=44),
@@ -34,7 +34,7 @@ class BMS(BaseBMS):
     )
     # Fields for type B: register -> BMSDp
     _FIELDS_B: Final[tuple[BMSDp, ...]] = (
-        BMSDp("temp_values", 0, 2, False, lambda x: [round(x / 10 - 273.15, 3)], 8),
+        BMSDp("temperatures", 0, 2, False, lambda x: [round(x / 10 - 273.15, 3)], 8),
         BMSDp("voltage", 0, 2, False, lambda x: x / 1000, 9),
         BMSDp("current", 0, 3, False, lambda x: x / 1000, 10),
         BMSDp("battery_level", 0, 1, False, idx=13),

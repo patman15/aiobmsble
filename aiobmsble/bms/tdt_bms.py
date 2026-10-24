@@ -239,23 +239,23 @@ class BMS(BaseBMS):
         temp_pos: Final[int] = BMS._CELL_POS + result["cell_count"] * 2 + 1
         if len(self._msg[0x8C]) <= temp_pos:
             raise ValueError("BMS data incomplete.")
-        result["temp_sensors"] = self._msg[0x8C][temp_pos]
+        result["temp_count"] = self._msg[0x8C][temp_pos]
 
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg[0x8C],
             cells=result.get("cell_count", 0),
             start=BMS._CELL_POS + 1,
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperatures"] = BMS._temperatures(
             self._msg[0x8C],
-            values=result["temp_sensors"],
+            values=result["temp_count"],
             start=BMS._CELL_POS + result.get("cell_count", 0) * 2 + 2,
             signed=False,
             offset=2730,
             divider=10,
             types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET) + (TempSensor.T.CELL,) * 4,
         )
-        idx: Final[int] = result.get("cell_count", 0) + result.get("temp_sensors", 0)
+        idx: Final[int] = result.get("cell_count", 0) + result.get("temp_count", 0)
         if len(self._msg[0x8D]) <= BMS._CELL_POS + idx + 8:
             raise ValueError("BMS data incomplete.")
 

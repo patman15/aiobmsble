@@ -47,7 +47,7 @@ The BLE MTU size is typically smaller than the requested payload. The BMS may sp
 The telemetry block contains up to 4 standard cell NTC sensors starting at byte offset 87. However, the payload contains two additional dedicated sensors:
 - **MOSFET Temperature**: Located at byte offset 107.
 - **Ambient Temperature**: Located at byte offset 109.
-These are now appended dynamically to the `temp_values` array so that Home Assistant can track the internal transistor and ambient case temperatures independently.
+These are now appended dynamically to the `temperatures` array so that Home Assistant can track the internal transistor and ambient case temperatures independently.
 
 ### Hardware Switch States
 The 16-bit word at offset 37 represents the `Fault & Switch Status Bitmask`. 

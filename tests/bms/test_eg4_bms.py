@@ -27,13 +27,12 @@ _RESULT_DEFS: Final[BMSSample] = {
     "battery_level": 48,
     "cell_count": 4,
     "cell_voltages": [3.31, 3.313, 3.309, 3.313],
-    "delta_voltage": 0.004,
-    "temperature": 17,
+    "delta_cell_voltage": 0.004,
     "power": -82.088,
     "battery_charging": False,
     "problem_code": 0,
     "problem": False,
-    "temp_values": [TS(17.0, TS.T.PCB)]
+    "temperatures": [TS(17.0, TS.T.PCB)]
     + [TS(v, TS.T.CELL) for v in (17.0, -56.0, 0.0, 0.0, 0.0, 0.0)],
 }
 

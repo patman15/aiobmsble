@@ -42,7 +42,7 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 61, 1, False, idx=Cmd.RT),
         BMSDp("cycle_charge", 7, 2, False, lambda x: x / 10, Cmd.CAP),
         BMSDp(
-            "temp_values", 48, 1, False, lambda x: [TempSensor(x - 40)], Cmd.RT
+            "temperatures", 48, 1, False, lambda x: [TempSensor(x - 40)], Cmd.RT
         ),  # only 1st sensor relevant
         BMSDp("cycles", 57, 2, False, idx=Cmd.RT),
         BMSDp(

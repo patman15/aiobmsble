@@ -37,7 +37,7 @@ For details, see Lithionics' `RV-C J1939 PGN Table Rev4`, section 6 *UART-CAN Ma
 ```
 
 The trace line ends with lowest/highest/average cell voltage, giving
-`delta_voltage`:
+`delta_cell_voltage`:
 
 ```
 &,1,0525,0525,078,2,075845,0576,3300,FF03,0000,00,327,328,328

@@ -23,7 +23,7 @@ class BMS(BaseBMS):
     _MIN_LEN: Final[int] = 4  # minimum frame size
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("cell_count", 3, 1, False, idx=0x2),
-        BMSDp("temp_sensors", 3, 1, False, idx=0x3),
+        BMSDp("temp_count", 3, 1, False, idx=0x3),
         BMSDp("voltage", 5, 2, False, lambda x: x / 100, 0x1),
         BMSDp("current", 13, 2, True, lambda x: x / 100, 0x1),
         BMSDp("battery_level", 4, 1, False, idx=0x1),
@@ -157,13 +157,13 @@ class BMS(BaseBMS):
         data["cell_voltages"] = BMS._cell_voltages(
             self._msg[0x2], cells=data.get("cell_count", 0), start=4
         )
-        data["temp_values"] = BMS._temp_values(
+        data["temperatures"] = BMS._temperatures(
             self._msg[0x3],
-            values=data.get("temp_sensors", 0),
+            values=data.get("temp_count", 0),
             start=4,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL,) * data.get("temp_sensors", 0),
+            types=(TempSensor.T.CELL,) * data.get("temp_count", 0),
         )
 
         return data

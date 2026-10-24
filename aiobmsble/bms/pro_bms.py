@@ -41,7 +41,7 @@ class BMS(BaseBMS):
         ),
         BMSDp("problem_code", 15, 4, False, lambda x: x & 0x7F),
         BMSDp(
-            "temp_values",
+            "temperatures",
             16,
             3,
             False,

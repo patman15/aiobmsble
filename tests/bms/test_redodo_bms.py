@@ -20,7 +20,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "current": -1.435,
     "cell_count": 8,
     "cell_voltages": [3.317, 3.319, 3.324, 3.323, 3.320, 3.314, 3.322, 3.317],
-    "delta_voltage": 0.01,
+    "delta_cell_voltage": 0.01,
     "power": -38.108,
     "battery_charging": False,
     "battery_level": 65,
@@ -29,9 +29,8 @@ _RESULT_DEFS: Final[BMSSample] = {
     "design_capacity": 105,
     "cycle_capacity": 1829.443,
     "runtime": 172825,
-    "temp_values": [TS(23), TS(22), TS(-2)],
-    "temp_sensors": 3,
-    "temperature": 14.333,
+    "temperatures": [TS(23), TS(22), TS(-2)],
+    "temp_count": 3,
     "cycles": 3,
     "problem": False,
     "problem_code": 0,
@@ -179,7 +178,7 @@ async def test_short_frame(
 
     bms = BMS(generate_ble_device())
 
-    assert (await bms.async_update()).get("temp_values") == []
+    assert (await bms.async_update()).get("temperatures") == []
 
     await bms.disconnect()
 
@@ -266,9 +265,8 @@ async def test_temp_sensor_detection(
         monkeypatch.setattr(MockRedodoBleakClient, "_RESP", bytes(_frame))
 
         assert await bms.async_update() == _RESULT_DEFS | {
-            "temp_sensors": expected[0],
-            "temp_values": expected[1],
-            "temperature": sum(expected[1]) / expected[0],
+            "temp_count": expected[0],
+            "temperatures": expected[1],
         }
 
     await bms.disconnect()

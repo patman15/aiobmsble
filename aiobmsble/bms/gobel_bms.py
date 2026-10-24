@@ -49,7 +49,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 28, 2, False, lambda x: bool(x & 0x4000)),
         BMSDp("dischrg_mosfet", 28, 2, False, lambda x: bool(x & 0x8000)),
         BMSDp("cell_count", 30, 2, False, lambda x: x & 0xFF),
-        BMSDp("temp_sensors", 92, 2, False, lambda x: x & 0xFF),
+        BMSDp("temp_count", 92, 2, False, lambda x: x & 0xFF),
     )
 
     _CELLV_START: Final[int] = 35
@@ -189,16 +189,16 @@ class BMS(BaseBMS):
             start=BMS._CELLV_START,
         )
 
-        result["temp_values"] = BMS._temp_values(
+        result["temperatures"] = BMS._temperatures(
             self._msg,
-            values=min(result.get("temp_sensors", 0), BMS._MAX_TEMP),
+            values=min(result.get("temp_count", 0), BMS._MAX_TEMP),
             start=BMS._TEMP_START,
             signed=True,
             divider=10,
         )
 
         # Append MOSFET temperature if valid (0xFFFF indicates no sensor)
-        mos_temp: list[TempSensor] = BMS._temp_values(
+        mos_temp: list[TempSensor] = BMS._temperatures(
             self._msg,
             start=BMS._TEMP_MOS_OFFSET,
             signed=True,
@@ -206,6 +206,6 @@ class BMS(BaseBMS):
             types=(TempSensor.T.MOSFET,),
         )
         if mos_temp[0] != -0.1:
-            result["temp_values"].append(mos_temp[0])
+            result["temperatures"].append(mos_temp[0])
 
         return result

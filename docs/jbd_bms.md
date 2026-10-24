@@ -63,7 +63,7 @@ reference implementation in case they need to be added in the future.
 
 ### Extended Field Layout
 
-The extended fields begin at offset `27 + (temp_sensors * 2)` in the
+The extended fields begin at offset `27 + (temp_count * 2)` in the
 response frame:
 
 | Offset (from ext_start) | Size | Field | Notes |
@@ -108,7 +108,7 @@ dd 03 00 22                         # header: resp, cmd, status, data_len=34
 41                                  # battery_level: 65%
 03                                  # MOSFET status
 04                                  # cell count: 4
-01                                  # temp_sensors: 1
+01                                  # temp_count: 1
 0b 3d                               # temp[0]: 14.6 °C (raw 2877 - 2731)
 -- extended fields start here --
 00                                  # humidity: 0
@@ -127,7 +127,7 @@ firmware begins populating them with independent data), the echo must be
 detected to avoid reporting spurious values:
 
 ```python
-ext_start: int = 27 + data.get("temp_sensors", 0) * 2
+ext_start: int = 27 + data.get("temp_count", 0) * 2
 if len(self._msg) >= ext_start + 7 + 3:  # +3 for CRC (2) + tail (1)
     learn_cap = int.from_bytes(self._msg[ext_start + 3 : ext_start + 5], "big")
     bal_cur = int.from_bytes(self._msg[ext_start + 5 : ext_start + 7], "big")

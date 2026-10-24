@@ -30,7 +30,7 @@ class BMS(JBDBMS):
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x1)),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2)),
         BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
-        BMSDp("temp_sensors", 26, 1, False, lambda x: min(x, BMS._MAX_TEMP_COUNT) + 2),
+        BMSDp("temp_count", 26, 1, False, lambda x: min(x, BMS._MAX_TEMP_COUNT) + 2),
         # extended frame fields, overwrite previous fields
         BMSDp("battery_health", 39, 1, False),
         BMSDp("cycle_charge", 43, 2, False, lambda x: x / 10),

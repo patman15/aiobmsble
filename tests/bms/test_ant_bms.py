@@ -17,7 +17,7 @@ BT_FRAME_SIZE: Final[int] = 20  # ANT BMS frame size
 
 _RESULT_DEFS: Final[BMSSample] = {
     "cell_count": 22,
-    "temp_sensors": 4,
+    "temp_count": 4,
     "voltage": 50.88,
     "current": 2.1,
     "battery_level": 10,
@@ -26,7 +26,6 @@ _RESULT_DEFS: Final[BMSSample] = {
     "design_capacity": 80,
     "total_charge": 15265,
     "cycles": 190,
-    "temperature": 29.333,
     "cycle_capacity": 506.651,
     "power": 106.0,
     "battery_charging": False,
@@ -54,8 +53,8 @@ _RESULT_DEFS: Final[BMSSample] = {
         2.337,
         2.335,
     ],
-    "temp_values": [TS(29.0)] * 4 + [TS(30.0, TS.T.MOSFET), TS(30.0, TS.T.BALANCER)],
-    "delta_voltage": 0.148,
+    "temperatures": [TS(29.0)] * 4 + [TS(30.0, TS.T.MOSFET), TS(30.0, TS.T.BALANCER)],
+    "delta_cell_voltage": 0.148,
     "problem": False,
     "problem_code": 0,
     "balancer": False,

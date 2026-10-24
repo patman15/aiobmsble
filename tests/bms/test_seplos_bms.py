@@ -26,7 +26,6 @@ _RESULT_DEFS: BMSSample = {
     "cycles": 9,
     "battery_level": 47.9,
     "battery_health": 99.9,
-    "temperature": 24.4,
     "problem_code": 0,
     "dischrg_mosfet": True,
     "chrg_mosfet": True,
@@ -59,12 +58,13 @@ _RESULT_DEFS: BMSSample = {
                 3.272,
                 3.272,
             ],
-            temp_values=(
+            temperatures=(
                 [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
                 + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
             ),
-            delta_voltage=0.002,
+            delta_cell_voltage=0.002,
             cell_count=16,
+            cycle_capacity=7019.841,
         ),
         PackSample(
             voltage=52.35,
@@ -92,52 +92,53 @@ _RESULT_DEFS: BMSSample = {
                 3.528,
                 3.529,
             ],
-            temp_values=(
+            temperatures=(
                 [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
                 + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
             ),
-            delta_voltage=0.003,
+            delta_cell_voltage=0.003,
             cell_count=16,
+            cycle_capacity=7021.182,
         ),
     ],
-    "cell_voltages": [
-        3.272,
-        3.272,
-        3.272,
-        3.271,
-        3.271,
-        3.271,
-        3.271,
-        3.27,
-        3.27,
-        3.271,
-        3.271,
-        3.271,
-        3.271,
-        3.272,
-        3.272,
-        3.272,
-        3.528,
-        3.528,
-        3.528,
-        3.527,
-        3.527,
-        3.527,
-        3.527,
-        3.526,
-        3.526,
-        3.527,
-        3.527,
-        3.527,
-        3.527,
-        3.528,
-        3.528,
-        3.529,
-    ],
+    # "cell_voltages": [ # TODO: remove
+    #     3.272,
+    #     3.272,
+    #     3.272,
+    #     3.271,
+    #     3.271,
+    #     3.271,
+    #     3.271,
+    #     3.27,
+    #     3.27,
+    #     3.271,
+    #     3.271,
+    #     3.271,
+    #     3.271,
+    #     3.272,
+    #     3.272,
+    #     3.272,
+    #     3.528,
+    #     3.528,
+    #     3.528,
+    #     3.527,
+    #     3.527,
+    #     3.527,
+    #     3.527,
+    #     3.526,
+    #     3.526,
+    #     3.527,
+    #     3.527,
+    #     3.527,
+    #     3.527,
+    #     3.528,
+    #     3.528,
+    #     3.529,
+    # ],
     "cell_count": 16,
-    "delta_voltage": 0.003,
+    "delta_cell_voltage": 0.003,
     "battery_charging": False,
-    "cycle_capacity": 7019.841,
+    "cycle_capacity": 14041.023,
     "power": -350.678,
     "runtime": 72064,
     "problem": False,
@@ -247,14 +248,11 @@ class MockSeplosBleakClient(MockBleakClient):
     ) -> None:
         """Send fragmented response."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         resp: bytearray = self._response(data)
         for notify_data in [
-            resp[i : min(len(resp), i + BT_FRAME_SIZE)]
-            for i in range(0, len(resp), BT_FRAME_SIZE)
+            resp[i : min(len(resp), i + BT_FRAME_SIZE)] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockSeplosBleakClient", notify_data)
 
@@ -266,9 +264,7 @@ class MockSeplosBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
         assert isinstance(char_specifier, str) and normalize_uuid_str(
             char_specifier
         ) == normalize_uuid_str("fff2")
@@ -286,15 +282,12 @@ class MockWrongCRCBleakClient(MockSeplosBleakClient):
     ) -> None:
         """Send fragmented response."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         resp: bytearray = self._response(data)
         resp[-2:] = bytearray(b"\00\00")  # make CRC invalid
         for notify_data in [
-            resp[i : min(len(resp), i + BT_FRAME_SIZE)]
-            for i in range(0, len(resp), BT_FRAME_SIZE)
+            resp[i : min(len(resp), i + BT_FRAME_SIZE)] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockInvalidBleakClient", notify_data)
 
@@ -328,16 +321,13 @@ class MockOversizedBleakClient(MockSeplosBleakClient):
     ) -> None:
         """Send fragmented response and add trash to each message."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         # add garbage at the end for robustness
         resp = self._response(data) + bytearray(b"\xc0\xff\xee")
 
         for notify_data in [
-            resp[i : min(len(resp), i + BT_FRAME_SIZE)]
-            for i in range(0, len(resp), BT_FRAME_SIZE)
+            resp[i : min(len(resp), i + BT_FRAME_SIZE)] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockOversizedBleakClient", notify_data)
 
@@ -477,15 +467,11 @@ async def test_redundant_response(
 
 # Alaramflags used: TB02, TB03, TB05, TB06, TB15
 #          skipped: TB09, TB04, TB16, TB07, TB08
-async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
     problem_resp: dict[str, bytearray] = MockSeplosBleakClient.RESP.copy()
-    problem_resp["EIC"] = bytearray(
-        b"\x00\x01\x0a\x01\xff\xff\xff\xff\xff\xff\x03\xff\xff\x4a\x75"
-    )
+    problem_resp["EIC"] = bytearray(b"\x00\x01\x0a\x01\xff\xff\xff\xff\xff\xff\x03\xff\xff\x4a\x75")
 
     monkeypatch.setattr(MockSeplosBleakClient, "RESP", problem_resp)
 

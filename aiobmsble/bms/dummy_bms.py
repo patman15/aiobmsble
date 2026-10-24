@@ -63,9 +63,7 @@ class BMS(BaseBMS):
     # def _raw_values() -> frozenset[BMSValue]:
     #     return frozenset({"runtime"})  # never calculate, e.g. runtime
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         # self._log.debug("RX BLE data: %s", data)
 
@@ -97,7 +95,7 @@ class BMS(BaseBMS):
         # TODO: parse data from self._frame here
 
         return {
-            "voltage": 12.0,
+            "battery_level": 73,
             "current": 1.5,
-            "temperature": 27.182,
+            "voltage": 12.0,
         }  # TODO: fixed values, replace parsed data

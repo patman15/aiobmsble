@@ -13,7 +13,7 @@ import logging
 from bleak.backends.device import BLEDevice
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.pro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -53,9 +53,7 @@ class MockProBMSBleakClient(MockBleakClient):
 
     _init_packet: bytearray = RECORDED_PACKETS["init_response"]
 
-    def __init__(
-        self, address_or_ble_device, disconnected_callback=None, **kwargs
-    ) -> None:
+    def __init__(self, address_or_ble_device, disconnected_callback=None, **kwargs) -> None:
         """Initialize the mock client."""
         super().__init__(address_or_ble_device, disconnected_callback, **kwargs)
         self._test_packet: bytearray = RECORDED_PACKETS["data_discharging"]
@@ -90,7 +88,7 @@ class MockProBMSBleakClient(MockBleakClient):
             if not self._streaming_task:
                 self._stop_streaming = False
                 self._streaming_task = asyncio.create_task(self._stream_data(), name="send_loop")
-                await asyncio.sleep(0) # yield control to allow task to start
+                await asyncio.sleep(0)  # yield control to allow task to start
 
     async def disconnect(self) -> None:
         """Stop streaming on disconnect."""
@@ -115,8 +113,7 @@ async def test_async_update_discharging(patch_bleak_client) -> None:
     assert await bms.async_update() == {
         "voltage": 13.08,
         "current": -2.454,  # 0x96090080: discharge
-        "temperature": 22.6,
-        "temp_values": [22.6],
+        "temperatures": [TS(22.6)],
         "battery_level": 51,
         "battery_charging": False,
         "cycle_charge": 65.73,
@@ -143,8 +140,7 @@ async def test_async_update_charging(patch_bleak_client) -> None:
     assert await bms.async_update() == {
         "voltage": 13.39,
         "current": 13.414,
-        "temperature": 21.8,
-        "temp_values": [21.8],
+        "temperatures": [TS(21.8)],
         "battery_level": 32,
         "battery_charging": True,
         "cycle_charge": 41.83,
@@ -169,8 +165,7 @@ async def test_async_update_with_protection(patch_bleak_client) -> None:
     assert await bms.async_update() == {
         "voltage": 13.08,
         "current": -2.454,  # 0x96090080: discharge
-        "temperature": 22.6,
-        "temp_values": [22.6],
+        "temperatures": [TS(22.6)],
         "battery_level": 51,
         "battery_charging": False,
         "cycle_charge": 65.73,
@@ -184,9 +179,7 @@ async def test_async_update_with_protection(patch_bleak_client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_update_incomplete_data(
-    patch_bleak_client, patch_bms_timeout
-) -> None:
+async def test_async_update_incomplete_data(patch_bleak_client, patch_bms_timeout) -> None:
     """Test handling of incomplete data packet."""
     device: BLEDevice = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client: MockProBMSBleakClient = MockProBMSBleakClient(device)
@@ -222,8 +215,7 @@ async def test_async_update_already_streaming(patch_bleak_client) -> None:
     assert await bms.async_update() == {
         "voltage": 13.39,
         "current": 13.414,
-        "temperature": 21.8,
-        "temp_values": [21.8],
+        "temperatures": [TS(21.8)],
         "battery_level": 32,
         "battery_charging": True,
         "cycle_charge": 41.83,
@@ -258,8 +250,10 @@ async def test_async_update_no_data_after_init(
                 self._notify_callback(None, RECORDED_PACKETS["init_response"])
 
             # Store task reference to prevent garbage collection
-            self._streaming_task = asyncio.create_task(send_wrong_packet(), name="send wrong packet")
-            await asyncio.sleep(0) # yield control to allow task to start
+            self._streaming_task = asyncio.create_task(
+                send_wrong_packet(), name="send wrong packet"
+            )
+            await asyncio.sleep(0)  # yield control to allow task to start
 
     monkeypatch.setattr(MockProBMSBleakClient, "write_gatt_char", mock_write)
 
@@ -273,9 +267,7 @@ async def test_async_update_no_data_after_init(
         result = await bms.async_update()
 
     assert not result
-    assert (
-        not bms._client.is_connected
-    ), "BMS should be disconnected if streaming is not working."
+    assert not bms._client.is_connected, "BMS should be disconnected if streaming is not working."
 
 
 @pytest.mark.parametrize(

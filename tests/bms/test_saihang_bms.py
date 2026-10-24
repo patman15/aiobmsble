@@ -62,15 +62,14 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     assert await bms.async_update() == {
         "voltage": 27.28,
-        "temperature": 18.275,
         "battery_charging": False,
         "battery_health": 100,
         "battery_level": 96,
         "cell_count": 8,
         "current": 0.0,
         "cycles": 2,
-        "temp_sensors": 4,
-        "temp_values": [
+        "temp_count": 4,
+        "temperatures": [
             TS(15.3, TS.T.CELL),
             TS(15.6, TS.T.CELL),
             TS(17.2, TS.T.MOSFET),
@@ -88,7 +87,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         ],
         "cycle_capacity": 2629.246,
         "cycle_charge": 96.38,
-        "delta_voltage": 0.129,
+        "delta_cell_voltage": 0.129,
         "design_capacity": 100.0,
         "balancer": 0,
         "chrg_mosfet": True,

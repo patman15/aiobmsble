@@ -78,9 +78,9 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
         "cell_count": 16,
-        "temp_sensors": 6,
+        "temp_count": 6,
         "battery_health": 99,
-        "temp_values": [
+        "temperatures": [
             TS(28.6, TS.T.CELL),
             TS(29.0, TS.T.CELL),
             TS(28.8, TS.T.CELL),
@@ -107,8 +107,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
             3.274,
         ],
         "battery_charging": False,
-        "delta_voltage": 0.002,
-        "temperature": 28.367,
+        "delta_cell_voltage": 0.002,
         "cycle_capacity": 8741.517,
         "power": 0.0,
         "problem": False,
@@ -125,9 +124,9 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
         "cell_count": 16,
-        "temp_sensors": 6,
+        "temp_count": 6,
         "battery_health": 99,
-        "temp_values": [
+        "temperatures": [
             TS(26.7, TS.T.CELL),
             TS(26.8, TS.T.CELL),
             TS(27.0, TS.T.CELL),
@@ -154,8 +153,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
             3.276,
         ],
         "battery_charging": False,
-        "delta_voltage": 0.003,
-        "temperature": 26.867,
+        "delta_cell_voltage": 0.003,
         "cycle_capacity": 7464.608,
         "power": -691.944,
         "runtime": 38836,

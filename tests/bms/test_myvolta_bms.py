@@ -130,14 +130,14 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
             0.001,
         ],
         "current": -0.56,
-        "delta_voltage": 4.103,
+        "delta_cell_voltage": 4.103,
         "battery_level": 94.2,
         "heater": False,
         "problem_code": 0,
         "power": -32.113,
         "battery_charging": False,
         "problem": False,
-        "temp_values": [
+        "temperatures": [
             17.1,
             17.2,
             17.2,
@@ -151,7 +151,6 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
             16.9,
             16.6,
         ],
-        "temperature": 16.95,
     }
     # query again to check already connected state
     await bms.async_update()

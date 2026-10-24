@@ -456,7 +456,7 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
     ref = ref | {
         "cell_count": 2,
         "cycle_capacity": 238,
-        "delta_voltage": 0.111,
+        "delta_cell_voltage": 0.111,
         "power": (
             -91
             if bms_data.get("current", 0) < 0
@@ -464,7 +464,6 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
         ),
         # battery is charging if current is positive
         "battery_charging": bms_data.get("current", 0) > 0,
-        "temperature": -34.396,
         "problem": False,
     }
     if bms_data.get("current", 0) < 0:
@@ -480,7 +479,7 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
             {"cell_voltages": [3.456, 3.567]},
             {
                 "cell_count": 2,
-                "delta_voltage": 0.111,
+                "delta_cell_voltage": 0.111,
                 "voltage": 7.023,
                 "problem": False,
             },
@@ -577,7 +576,7 @@ async def test_op_guard_device_info_async_update(
         ({"voltage": -1}, "negative overall voltage"),
         ({"cell_voltages": [5.907]}, "high cell voltage"),
         ({"cell_voltages": [-0.001]}, "negative cell voltage"),
-        ({"delta_voltage": 5.907}, "doubtful delta voltage"),
+        ({"delta_cell_voltage": 5.907}, "doubtful delta voltage"),
         ({"cycle_charge": 0}, "doubtful cycle charge"),
         ({"battery_level": 101}, "doubtful SoC"),
         ({"problem_code": 0x1}, "BMS problem code"),
@@ -922,7 +921,7 @@ def test_cell_voltages(
         "div-1",
     ],
 )
-def test_temp_values(
+def test_temperatures(
     data: bytes,
     values: int,
     start: int,
@@ -933,8 +932,8 @@ def test_temp_values(
     divider: int,
     expected: tuple[float, ...],
 ) -> None:
-    """Test the _temp_values method of BaseBMS with various input parameters."""
-    result: list[TempSensor] = BaseBMS._temp_values(
+    """Test the _temperatures method of BaseBMS with various input parameters."""
+    result: list[TempSensor] = BaseBMS._temperatures(
         data,
         values=values,
         start=start,

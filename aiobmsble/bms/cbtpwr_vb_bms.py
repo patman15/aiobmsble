@@ -139,17 +139,17 @@ class BMS(BaseBMS):
         await self._await_msg(BMS._cmd(0x42))
         result: BMSSample = {"cell_count": self._msg[BMS._CELL_POS]}
         temp_pos: Final[int] = BMS._CELL_POS + result.get("cell_count", 0) * 2 + 1
-        temp_sensors: Final[int] = int.from_bytes(self._msg[temp_pos : temp_pos + 1])
-        field_data_start: Final[int] = temp_pos + 2 * temp_sensors + 1
+        temp_count: Final[int] = int.from_bytes(self._msg[temp_pos : temp_pos + 1])
+        field_data_start: Final[int] = temp_pos + 2 * temp_count + 1
         if len(self._msg) < field_data_start + BMS._FIELDS_END:
             raise ValueError("BMS data incomplete.")
-        result["temp_sensors"] = temp_sensors
+        result["temp_count"] = temp_count
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=result.get("cell_count", 0), start=BMS._CELL_POS + 1
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperatures"] = BMS._temperatures(
             self._msg,
-            values=result.get("temp_sensors", 0),
+            values=result.get("temp_count", 0),
             start=temp_pos + 1,
             divider=10,
         )

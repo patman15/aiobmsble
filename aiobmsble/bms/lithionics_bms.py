@@ -47,7 +47,7 @@ class BMS(BaseBMS):
         BMSDp("voltage", 0, 1, False, lambda x: x / 100, _Msg.prim),
         BMSDp("cell_voltages", 1, 4, False, lambda x: x / 100, _Msg.prim),
         BMSDp(
-            "temp_values",
+            "temperatures",
             5,
             2,
             False,
@@ -74,7 +74,7 @@ class BMS(BaseBMS):
         BMSDp("current", 6, 1, False, lambda x: x / 10, _Msg.prim),
         BMSDp("power", 7, 1, False, lambda x: x, _Msg.prim),
         BMSDp("battery_charging", 5, 1, False, lambda x: x == 1, _Msg.prim),
-        BMSDp("temp_values", 8, 1, False, lambda x: round((x - 32) * 5 / 9, 3), _Msg.prim),
+        BMSDp("temperatures", 8, 1, False, lambda x: round((x - 32) * 5 / 9, 3), _Msg.prim),
         BMSDp(
             "problem_code",
             9,
@@ -86,8 +86,8 @@ class BMS(BaseBMS):
     )
     _PFIELDS: Final[tuple[BMSPDp, ...]] = (
         BMSPDp("cell_count", 5, 1, False, int),
-        BMSPDp("temp_values", 6, 2, False),
-        BMSPDp("delta_voltage", 8, 2, False),
+        BMSPDp("temperatures", 6, 2, False),
+        BMSPDp("delta_cell_voltage", 8, 2, False),
     )
 
     def __init__(
@@ -184,9 +184,9 @@ class BMS(BaseBMS):
         result: PackSample = {}
         for field in BMS._PFIELDS:
             values: list[str] = fields[field.pos : field.pos + field.size]
-            if field.key == "temp_values":
+            if field.key == "temperatures":
                 result[field.key] = [TempSensor(float(value)) for value in values]
-            elif field.key == "delta_voltage":
+            elif field.key == "delta_cell_voltage":
                 result[field.key] = (BMS._int(values[1]) - BMS._int(values[0])) / 100
             else:
                 result[field.key] = field.fct(BMS._int(values[0]))
@@ -244,7 +244,7 @@ class BMS(BaseBMS):
                 result[field.key] = [
                     field.fct(BMS._int(msg[i])) for i in range(start + field.pos, end)
                 ]
-            elif field.key == "temp_values":
+            elif field.key == "temperatures":
                 result[field.key] = [
                     TempSensor(field.fct(BMS._int(msg[i])))
                     for i in range(start + field.pos, end)

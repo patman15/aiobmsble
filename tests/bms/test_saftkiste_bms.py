@@ -54,7 +54,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     ],
     "current": -0.11,
     "cycles": 33,
-    "delta_voltage": 0.006,
+    "delta_cell_voltage": 0.006,
     "design_capacity": 300,
     "power": -1.522,
     "problem": False,
@@ -66,8 +66,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "balancer": False,
     "heater": False,
     "problem_code": 0,
-    "temp_values": [TS(6.89, TS.T.CELL), TS(7.66, TS.T.PCB)],
-    "temperature": 7.275,
+    "temperatures": [TS(6.89, TS.T.CELL), TS(7.66, TS.T.PCB)],
 }
 
 

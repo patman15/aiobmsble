@@ -53,15 +53,14 @@ _RESULT_MAIN_DATA: Final[BMSSample] = {
     "cycle_capacity": 4193.316,
     "cycle_charge": 315.05,
     "cycles": 1,
-    "delta_voltage": 0.003,
+    "delta_cell_voltage": 0.003,
     "design_capacity": 324,
     "dischrg_mosfet": True,
     "power": 0.0,
     "problem": False,
     "problem_code": 0,
-    "temp_sensors": 1,
-    "temp_values": [TS(20.9), TS(21.1, TS.T.MOSFET)],
-    "temperature": 21.0,
+    "temp_count": 1,
+    "temperatures": [TS(20.9), TS(21.1, TS.T.MOSFET)],
     "voltage": 13.31,
 }
 
@@ -280,11 +279,11 @@ def _build_test_frame(reg_values: dict[int, int]) -> bytearray:
     ("reg_values", "expected_key", "expected_value"),
     [
         # Single cell - delta should be 0
-        ({15: 1, 16: 3329}, "delta_voltage", 0),
+        ({15: 1, 16: 3329}, "delta_cell_voltage", 0),
         # Zero cells - empty cell_voltages list
         ({15: 0}, "cell_voltages", []),
-        # Zero temp sensors with invalid MOSFET temp - empty temp_values list
-        ({46: 0, 57: 0xFFFF}, "temp_values", []),
+        # Zero temp sensors with invalid MOSFET temp - empty temperatures list
+        ({46: 0, 57: 0xFFFF}, "temperatures", []),
         # Alarm flags set (6-byte big-endian: 0x000100020003)
         ({8: 0x0001, 9: 0x0002, 10: 0x0003}, "problem_code", 0x000100020003),
         # Zero capacity values are included as 0 (framework pattern)
@@ -333,7 +332,7 @@ async def test_mos_temp_ffff_invalid(
     result: BMSSample = await bms.async_update()
 
     # Should only have one temperature (not the invalid MOSFET temp)
-    assert result.get("temp_values", []) == [25.0]
+    assert result.get("temperatures", []) == [25.0]
 
     await bms.disconnect()
 

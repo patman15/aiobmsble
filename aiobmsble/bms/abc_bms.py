@@ -32,7 +32,7 @@ class BMS(BaseBMS):
         0xC4: {0xF9},
     }
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("temp_sensors", 4, 1, False, idx=0xF2),
+        BMSDp("temp_count", 4, 1, False, idx=0xF2),
         BMSDp("voltage", 2, 3, False, lambda x: x / 1000, 0xF0),
         BMSDp("current", 5, 3, True, lambda x: x / 1000, 0xF0),
         BMSDp("design_capacity", 8, 3, False, lambda x: x // 1000, 0xF0),
@@ -160,10 +160,10 @@ class BMS(BaseBMS):
                 byteorder="little",
                 size=2,
             )[::2],
-            "temp_values": BMS._temp_values(
+            "temperatures": BMS._temperatures(
                 self._msg[0xF2],
                 start=5,
-                values=result.get("temp_sensors", 0),
+                values=result.get("temp_count", 0),
                 byteorder="little",
             ),
         }

@@ -282,7 +282,7 @@ class BaseBMS(ABC):
                 data.get("problem_code", False),
                 data.get("voltage") is not None and data.get("voltage", 0) <= 0,
                 any(v <= 0 or v > BaseBMS._MAX_CELL_VOLT for v in cell_voltages),
-                data.get("delta_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
+                data.get("delta_cell_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
                 data.get("cycle_charge") is not None
                 and data.get("cycle_charge", 0.0) <= 0.0,
                 battery_level > 100,
@@ -667,7 +667,7 @@ class BaseBMS(ABC):
         ]
 
     @staticmethod
-    def _temp_values(
+    def _temperatures(
         data: bytes,
         *,
         start: int,

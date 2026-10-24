@@ -23,7 +23,7 @@ _RESULT_DEFS: BMSSample = {
     "cycle_charge": 74.23,
     "design_capacity": 100,
     "cycle_capacity": 3935.675,
-    "delta_voltage": 0.004,
+    "delta_cell_voltage": 0.004,
     "cycles": 239,
     "cell_count": 16,
     "cell_voltages": [
@@ -44,8 +44,7 @@ _RESULT_DEFS: BMSSample = {
         3.31,
         3.308,
     ],
-    "temp_values": [TS(t, TS.T.CELL) for t in (22.2, 22.4, 22.7, 22.4)],
-    "temperature": 22.425,
+    "temperatures": [TS(t, TS.T.CELL) for t in (22.2, 22.4, 22.7, 22.4)],
     "battery_charging": False,
     "runtime": 69590,
     "power": -203.597,

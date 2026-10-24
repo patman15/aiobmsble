@@ -108,21 +108,21 @@ class BMS(BaseBMS):
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
         await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x39, count=0x1))
-        result["temp_values"] = BMS._temp_values(
+        result["temperatures"] = BMS._temperatures(
             self._msg, start=3, divider=10, types=(TempSensor.T.MOSFET,)
         )
 
         await self._await_msg(
             BMS._cmd_modbus(dev_id=0x1, addr=0x2E, count=BMS._MAX_TEMP + 1)
         )
-        result["temp_sensors"] = int.from_bytes(self._msg[3:5], "big")
-        result["temp_values"].extend(
-            BMS._temp_values(
+        result["temp_count"] = int.from_bytes(self._msg[3:5], "big")
+        result["temperatures"].extend(
+            BMS._temperatures(
                 self._msg,
-                values=result.get("temp_sensors", 0),
+                values=result.get("temp_count", 0),
                 start=5,
                 divider=10,
-                types=(TempSensor.T.CELL,) * result.get("temp_sensors", 0),
+                types=(TempSensor.T.CELL,) * result.get("temp_count", 0),
             )
         )
 
