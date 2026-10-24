@@ -387,9 +387,10 @@ _RESULT_DEFS: Final[BMSSample] = {
                 3.314,
                 3.312,
             ],
-            "delta_cell_voltage": 0.004,
             "cell_count": 4,
+            "delta_cell_voltage": 0.004,
             "cycle_charge": 138.0,
+            "power": -36.387,
         },
         {
             "voltage": 13.27,
@@ -405,9 +406,10 @@ _RESULT_DEFS: Final[BMSSample] = {
                 3.311,
                 3.307,
             ],
-            "delta_cell_voltage": 0.004,
             "cell_count": 4,
+            "delta_cell_voltage": 0.004,
             "cycle_charge": 138.0,
+            "power": -38.881,
         },
     ],
     "battery_health": 100,
@@ -438,7 +440,7 @@ _RESULT_DEFS_MIN: Final[BMSSample] = {
     "pack_count": 1,
     "packs": [_RESULT_DEFS["packs"][0]],
     "battery_health": 100,
-#    "cell_voltages": _RESULT_DEFS["cell_voltages"][:4], # TODO: remove
+    #    "cell_voltages": _RESULT_DEFS["cell_voltages"][:4], # TODO: remove
     "cell_count": 4,
     "current": -2.74,
     "cycle_capacity": 1829,

@@ -117,12 +117,12 @@ _COMMON_CALCS: Final[tuple[_C, ...]] = (
     _C("cycle_charge", _fs("design_capacity", "battery_level"), _c_cycle_charge),
     _C("battery_level", _fs("design_capacity", "cycle_charge"), _c_battery_level),
     _C("cycle_capacity", _fs("voltage", "cycle_charge"), _c_cycle_capacity),
+    _C("power", _fs("voltage", "current"), _c_power),
 )
 
 # Calculations only meaningful on the main sample
 _BMS_ONLY_CALCS: Final[tuple[_C, ...]] = (
     _C("cycles", _fs("design_capacity", "total_charge"), _c_cycles),
-    _C("power", _fs("voltage", "current"), _c_power),
     _C("battery_charging", _fs("current"), _c_battery_charging),
     _C("runtime", _fs("current", "cycle_charge"), _c_runtime),
 )

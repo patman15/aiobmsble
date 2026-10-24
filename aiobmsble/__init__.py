@@ -116,12 +116,13 @@ class BatterySample(TypedDict, total=False):
     battery_health: float | int  # [%]
     cell_count: int  # [#]
     cell_voltages: list[float]  # [V]
-    current: float  # [A]
+    current: float  # [A] (positive: charging)
     cycles: int  # [#]
     cycle_charge: int | float  # [Ah]
     cycle_capacity: int | float  # [Wh]
     delta_cell_voltage: float  # [V]
     design_capacity: int  # [Ah]
+    power: float  # [W] (positive: charging)
     temp_count: int  # [#]
     temperatures: list[TempSensor]  # [°C]
     voltage: float  # [V]
@@ -137,7 +138,6 @@ class BMSSample(BatterySample, total=False):
     # BMS-specific fields
     battery_charging: bool  # True: battery charging
     battery_mode: BMSMode  # BMS charging mode
-    power: float  # [W] (positive: charging)
     problem: bool  # True: problem detected
     runtime: int  # [s]
 
