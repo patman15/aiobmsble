@@ -5,7 +5,7 @@ from typing import Final, cast
 import pytest
 
 from aiobmsble import BMSSample, BMSValue, _sample_calc
-from aiobmsble._sample_calc import _C, _validated_calc_registry, derive_from_packs
+from aiobmsble._sample_calc import _C, _validate_calc_registry, derive_missing_fields
 
 
 def _noop_formula(_data: BMSSample) -> bool:
@@ -45,7 +45,7 @@ def _noop_formula(_data: BMSSample) -> bool:
                     _noop_formula,
                 ),
             ),
-            "Unknown calculation requirements \\['unknown_requirement'\\] for 'voltage'.",
+            "Unknown BMSSample calculation requirements \\['unknown_requirement'\\] for 'voltage'.",
         ),
     ],
     ids=[
@@ -56,57 +56,32 @@ def _noop_formula(_data: BMSSample) -> bool:
     ],
 )
 def test_validated_calculation_registry_invalid_entries(
-    monkeypatch: pytest.MonkeyPatch,
-    registry: tuple[_C, ...],
-    error: str,
+    registry: tuple[_C, ...], error: str
 ) -> None:
     """Check invalid calculation registry entries raise errors."""
 
-    def _mock_registry() -> tuple[_C, ...]:
-        return registry
-
-    _validated_calc_registry.cache_clear()
-    monkeypatch.setattr(_sample_calc, "BMSSample_Calc_registry", _mock_registry)
-
     with pytest.raises(ValueError, match=error):
-        _validated_calc_registry()
-
-    _validated_calc_registry.cache_clear()
+        _validate_calc_registry(registry, BMSSample)
 
 
-def test_validated_calculation_registry_valid_entry(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_validated_calculation_registry_valid_entry() -> None:
     """Check valid calculation registry entries are returned unchanged."""
-    registry: Final[tuple[_C, ...]] = (
-        _C("voltage", frozenset({"current"}), _noop_formula),
-    )
+    registry: Final[tuple[_C, ...]] = (_C("voltage", frozenset({"current"}), _noop_formula),)
 
-    def _mock_registry() -> tuple[_C, ...]:
-        return registry
-
-    _validated_calc_registry.cache_clear()
-    monkeypatch.setattr(_sample_calc, "BMSSample_Calc_registry", _mock_registry)
-
-    assert _validated_calc_registry() == registry
-
-    _validated_calc_registry.cache_clear()
-
-
-# Test derive_from_packs() functionality.
+    assert _validate_calc_registry(registry, BMSSample) == registry
 
 
 def test_derive_from_packs_no_packs() -> None:
     """Check that data without packs is left unchanged."""
     data: BMSSample = {"voltage": 12.0}
-    derive_from_packs(data)
+    derive_missing_fields(data)
     assert data == {"voltage": 12.0}
 
 
 def test_derive_from_packs_empty_packs() -> None:
     """Check that data with an empty packs list is left unchanged."""
     data: BMSSample = {"voltage": 12.0, "packs": []}
-    derive_from_packs(data)
+    derive_missing_fields(data)
     assert data == {"voltage": 12.0, "packs": []}
 
 
@@ -118,14 +93,24 @@ def test_derive_from_packs_pack_delta_and_count() -> None:
             {"cell_voltages": [3.0, 3.4]},
         ]
     }
-    derive_from_packs(data)
+    derive_missing_fields(data)
 
     assert data == {
         "packs": [
-            {"cell_voltages": [3.1, 3.3, 3.2], "delta_cell_voltage": 0.2, "cell_count": 3},
-            {"cell_voltages": [3.0, 3.4], "delta_cell_voltage": 0.4, "cell_count": 2},
+            {
+                "cell_voltages": [3.1, 3.3, 3.2],
+                "delta_cell_voltage": 0.2,
+                "cell_count": 3,
+                "voltage": 9.6,
+            },
+            {
+                "cell_voltages": [3.0, 3.4],
+                "delta_cell_voltage": 0.4,
+                "cell_count": 2,
+                "voltage": 6.4,
+            },
         ],
-        "cell_voltages": [3.1, 3.3, 3.2, 3.0, 3.4],
+        "voltage": 8.0,
         "delta_cell_voltage": 0.4,
     }
 
@@ -141,7 +126,7 @@ def test_derive_from_packs_keeps_existing_pack_values() -> None:
             },
         ]
     }
-    derive_from_packs(data)
+    derive_missing_fields(data)
 
     assert data == {
         "packs": [
@@ -149,10 +134,11 @@ def test_derive_from_packs_keeps_existing_pack_values() -> None:
                 "cell_voltages": [3.1, 3.3, 3.2],
                 "delta_cell_voltage": 9.9,
                 "cell_count": 99,
+                "voltage": 9.6,
             },
         ],
         "cell_count": 99,
-        "cell_voltages": [3.1, 3.3, 3.2],
+        "voltage": 9.6,
         "delta_cell_voltage": 9.9,
     }
 
@@ -160,7 +146,7 @@ def test_derive_from_packs_keeps_existing_pack_values() -> None:
 def test_derive_from_packs_skips_packs_without_cell_voltages() -> None:
     """Check packs without cell_voltages get no delta_cell_voltage/cell_count."""
     data: BMSSample = {"packs": [{"voltage": 12.0}]}
-    derive_from_packs(data)
+    derive_missing_fields(data)
 
     assert data == {"packs": [{"voltage": 12.0}], "voltage": 12.0}
 
@@ -168,9 +154,9 @@ def test_derive_from_packs_skips_packs_without_cell_voltages() -> None:
 def test_derive_from_packs_empty_cell_voltages() -> None:
     """Check packs with an empty cell_voltages list do not raise."""
     data: BMSSample = {"packs": [{"cell_voltages": []}]}
-    derive_from_packs(data)
+    derive_missing_fields(data)
 
-    assert data == {"packs": [{"cell_voltages": []}], "cell_voltages": []}
+    assert data == {"packs": [{"cell_voltages": []}]}
 
 
 def test_derive_from_packs_aggregate_values() -> None:
@@ -201,7 +187,7 @@ def test_derive_from_packs_aggregate_values() -> None:
             },
         ]
     }
-    derive_from_packs(data)
+    derive_missing_fields(data)
 
     assert data == {
         "packs": [
@@ -215,8 +201,8 @@ def test_derive_from_packs_aggregate_values() -> None:
                 "cycles": 42,
                 "design_capacity": 100,
                 "voltage": 12.0,
-                "delta_cell_voltage": 0.2,
                 "cell_count": 2,
+                "delta_cell_voltage": 0.2,
             },
             {
                 "battery_health": 98.0,
@@ -228,14 +214,12 @@ def test_derive_from_packs_aggregate_values() -> None:
                 "cycles": 123,
                 "design_capacity": 150,
                 "voltage": 12.4,
-                "delta_cell_voltage": 0.4,
                 "cell_count": 2,
+                "delta_cell_voltage": 0.4,
             },
         ],
-        "battery_health": 98.0,
-        "battery_level": 54.4,
-        "cell_voltages": [3.1, 3.3, 3.0, 3.4],
         "cell_count": 2,
+        "battery_health": 98.0,
         "current": -3.0,
         "cycle_charge": 25.0,
         "cycle_capacity": 115.1,
@@ -243,6 +227,10 @@ def test_derive_from_packs_aggregate_values() -> None:
         "cycles": 123,
         "delta_cell_voltage": 0.4,
         "voltage": 12.2,
+        "battery_level": 54.4,
+        "battery_charging": False,
+        "power": -36.6,
+        "runtime": 30000,
     }
 
 
@@ -254,14 +242,24 @@ def test_derive_from_packs_cell_count_mismatch() -> None:
             {"cell_voltages": [3.0, 3.4, 3.2]},
         ]
     }
-    derive_from_packs(data)
+    derive_missing_fields(data)
 
     assert data == {
         "packs": [
-            {"cell_voltages": [3.1, 3.3], "delta_cell_voltage": 0.2, "cell_count": 2},
-            {"cell_voltages": [3.0, 3.4, 3.2], "delta_cell_voltage": 0.4, "cell_count": 3},
+            {
+                "cell_voltages": [3.1, 3.3],
+                "delta_cell_voltage": 0.2,
+                "cell_count": 2,
+                "voltage": 6.4,
+            },
+            {
+                "cell_voltages": [3.0, 3.4, 3.2],
+                "delta_cell_voltage": 0.4,
+                "cell_count": 3,
+                "voltage": 9.6,
+            },
         ],
-        "cell_voltages": [3.1, 3.3, 3.0, 3.4, 3.2],
+        "voltage": 8.0,
         "delta_cell_voltage": 0.4,
     }
 
@@ -292,7 +290,7 @@ def test_derive_from_packs_does_not_override_native_values() -> None:
         "cell_count": 99,
         "delta_cell_voltage": 99.0,
     }
-    derive_from_packs(data)
+    derive_missing_fields(data)
 
     assert data == {
         "packs": [
@@ -302,8 +300,10 @@ def test_derive_from_packs_does_not_override_native_values() -> None:
                 "cycle_charge": 10.0,
                 "design_capacity": 100,
                 "voltage": 12.0,
-                "delta_cell_voltage": 0.2,
                 "cell_count": 2,
+                "delta_cell_voltage": 0.2,
+                "battery_level": 10.0,
+                "cycle_capacity": 120.0,
             },
             {
                 "cell_voltages": [3.0, 3.4],
@@ -311,17 +311,22 @@ def test_derive_from_packs_does_not_override_native_values() -> None:
                 "cycle_charge": 15.0,
                 "design_capacity": 100,
                 "voltage": 12.4,
-                "delta_cell_voltage": 0.4,
                 "cell_count": 2,
+                "delta_cell_voltage": 0.4,
+                "battery_level": 15.0,
+                "cycle_capacity": 186.0,
             },
         ],
-        "cell_voltages": [3.1, 3.3, 3.0, 3.4],
         "current": 99.0,
         "cycle_charge": 99.0,
         "design_capacity": 999,
         "voltage": 99.0,
         "cell_count": 99,
         "delta_cell_voltage": 99.0,
+        "cycle_capacity": 306.0,
+        "battery_level": 2.5,
+        "battery_charging": True,
+        "power": 9801.0,
     }
 
 
@@ -333,7 +338,7 @@ def test_derive_from_packs_partial_availability() -> None:
             {"cell_voltages": [3.0, 3.4]},  # no current
         ]
     }
-    derive_from_packs(data)
+    derive_missing_fields(data)
 
     assert data == {
         "packs": [
@@ -342,11 +347,17 @@ def test_derive_from_packs_partial_availability() -> None:
                 "current": 1.0,
                 "delta_cell_voltage": 0.2,
                 "cell_count": 2,
+                "voltage": 6.4,
             },
-            {"cell_voltages": [3.0, 3.4], "delta_cell_voltage": 0.4, "cell_count": 2},
+            {
+                "cell_voltages": [3.0, 3.4],
+                "delta_cell_voltage": 0.4,
+                "cell_count": 2,
+                "voltage": 6.4,
+            },
         ],
         "cell_count": 2,
-        "cell_voltages": [3.1, 3.3, 3.0, 3.4],
+        "voltage": 6.4,
         "delta_cell_voltage": 0.4,
     }
 
@@ -364,7 +375,7 @@ def test_derive_from_packs_single_pack() -> None:
             },
         ]
     }
-    derive_from_packs(data)
+    derive_missing_fields(data)
 
     assert data == {
         "packs": [
@@ -374,17 +385,22 @@ def test_derive_from_packs_single_pack() -> None:
                 "cycle_charge": 20.0,
                 "design_capacity": 100,
                 "voltage": 12.0,
-                "delta_cell_voltage": 0.2,
                 "cell_count": 2,
+                "delta_cell_voltage": 0.2,
+                "battery_level": 20.0,
+                "cycle_capacity": 240.0,
             },
         ],
         "cell_count": 2,
-        "cell_voltages": [3.1, 3.3],
         "current": 5.0,
         "cycle_charge": 20.0,
-        "delta_cell_voltage": 0.2,
+        "cycle_capacity": 240.0,
         "design_capacity": 100,
+        "delta_cell_voltage": 0.2,
         "voltage": 12.0,
+        "battery_level": 20.0,
+        "battery_charging": True,
+        "power": 60.0,
     }
 
 

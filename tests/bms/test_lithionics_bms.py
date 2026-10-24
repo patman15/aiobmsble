@@ -57,7 +57,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cycle_charge": 159.4,
         "cycle_capacity": 8368.5,
         "cell_count": 4,
-        "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+#        "cell_voltages": [3.29, 3.31, 3.37, 3.25], # TODO: remove
         "delta_cell_voltage": 0.08,
         "temp_values": [TS(26.667)],
         "problem_code": 0,
@@ -68,6 +68,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
                 "temp_values": [TS(25.4), TS(27.1)],
                 "delta_cell_voltage": 0.08,
                 "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+                "voltage": 13.22,
             }
         ],
     },
@@ -171,13 +172,21 @@ async def test_module_info_sorted(
             "temp_values": [TS(25.4), TS(27.1)],
             "delta_cell_voltage": 0.08,
             "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+            "voltage": 13.22,
         },
         {
             "cell_count": 4,
             "temp_values": [TS(30.0), TS(31.0)],
             "delta_cell_voltage": 0.08,
         }
-        | ({"cell_voltages": [3.30, 3.31, 3.32, 3.33]} if cell_count else {}),
+        | (
+            {
+                "cell_voltages": [3.30, 3.31, 3.32, 3.33],
+                "voltage": 13.26,
+            }
+            if cell_count
+            else {}
+        ),
     ]
 
     await bms.disconnect()
