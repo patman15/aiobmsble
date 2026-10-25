@@ -58,7 +58,7 @@ _RESULT_DEFS: BMSSample = {
                 3.272,
                 3.272,
             ],
-            temperatures=(
+            temperature=(
                 [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
                 + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
             ),
@@ -93,7 +93,7 @@ _RESULT_DEFS: BMSSample = {
                 3.528,
                 3.529,
             ],
-            temperatures=(
+            temperature=(
                 [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
                 + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
             ),

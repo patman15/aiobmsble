@@ -123,7 +123,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
         "power": 0.0,
         "battery_charging": False,
         "cell_voltages": [3.297, 3.295, 3.297, 3.292],
-        "temperatures": [
+        "temperature": [
             TS(23.3, TS.T.AMBIENT),
             TS(24.1, TS.T.MOSFET),
             TS(22.7, TS.T.CELL),
@@ -165,7 +165,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.295,
             3.294,
         ],
-        "temperatures": [TS(18.0, TS.T.AMBIENT), TS(19.7, TS.T.MOSFET)]
+        "temperature": [TS(18.0, TS.T.AMBIENT), TS(19.7, TS.T.MOSFET)]
         + [TS(v, TS.T.CELL) for v in (18.0, 18.0, 18.0, 18.8)],
         "delta_cell_voltage": 0.012,
         "runtime": 62589,
@@ -195,7 +195,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.255,
             3.256,
         ],
-        "temperatures": [TS(25.5, TS.T.AMBIENT), TS(25.2, TS.T.MOSFET)]
+        "temperature": [TS(25.5, TS.T.AMBIENT), TS(25.2, TS.T.MOSFET)]
         + [TS(v, TS.T.CELL) for v in (27.0, 26.0, 28.0, 27.3)],
         "voltage": 52.16,
         "current": -16.2,
@@ -234,7 +234,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.314,
             3.311,
         ],
-        "temperatures": [
+        "temperature": [
             TS(27.0, TS.T.AMBIENT),
             TS(29.0, TS.T.MOSFET),
             TS(26.0, TS.T.CELL),
@@ -278,7 +278,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.315,
             3.317,
         ],
-        "temperatures": [
+        "temperature": [
             TS(32.0, TS.T.AMBIENT),
             TS(34.0, TS.T.MOSFET),
             TS(29.0, TS.T.CELL),

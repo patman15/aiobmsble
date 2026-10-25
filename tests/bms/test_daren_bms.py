@@ -80,7 +80,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cell_count": 16,
         "temp_count": 6,
         "battery_health": 99,
-        "temperatures": [
+        "temperature": [
             TS(28.6, TS.T.CELL),
             TS(29.0, TS.T.CELL),
             TS(28.8, TS.T.CELL),
@@ -126,7 +126,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cell_count": 16,
         "temp_count": 6,
         "battery_health": 99,
-        "temperatures": [
+        "temperature": [
             TS(26.7, TS.T.CELL),
             TS(26.8, TS.T.CELL),
             TS(27.0, TS.T.CELL),

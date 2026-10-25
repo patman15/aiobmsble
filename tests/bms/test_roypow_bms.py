@@ -32,7 +32,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         "battery_charging": True,
         "cell_count": 4,
         "cell_voltages": [3.375, 3.370, 3.369, 3.372],
-        "temperatures": [TS(19), TS(19), TS(19), TS(20)],
+        "temperature": [TS(19), TS(19), TS(19), TS(20)],
         "delta_cell_voltage": 0.006,
         "problem": False,
         "problem_code": 0,

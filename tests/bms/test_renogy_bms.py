@@ -33,7 +33,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "problem": False,
     "problem_code": 0,
     "runtime": 406883,
-    "temperatures": [TS(17.0)] * 2,
+    "temperature": [TS(17.0)] * 2,
     "temp_count": 2,
     "voltage": 13.6,
     "chrg_mosfet": False,

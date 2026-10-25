@@ -209,7 +209,7 @@ class BMS(BaseBMS):
             byteorder="little",
         )
         result["temp_count"] = min(self._msg[BMS._TEMP_POS], BMS._MAX_TEMPS)
-        result["temperatures"] = BMS._temperatures(
+        result["temperature"] = BMS._temperature(
             self._msg,
             values=result["temp_count"] + 2,  # + MOSFET, balancer temperature
             start=BMS._CELL_POS + result["cell_count"] * 2,

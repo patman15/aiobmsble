@@ -33,7 +33,7 @@ type CommonValue = Literal[
     "delta_cell_voltage",
     "design_capacity",
     "temp_count",
-    "temperatures",
+    "temperature",
     "voltage",
 ]
 
@@ -124,7 +124,7 @@ class BatterySample(TypedDict, total=False):
     design_capacity: int  # [Ah]
     power: float  # [W] (positive: charging)
     temp_count: int  # [#]
-    temperatures: list[TempSensor]  # [°C]
+    temperature: list[TempSensor]  # [°C]
     voltage: float  # [V]
 
 

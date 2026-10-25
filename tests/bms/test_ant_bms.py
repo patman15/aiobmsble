@@ -53,7 +53,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         2.337,
         2.335,
     ],
-    "temperatures": [TS(29.0)] * 4 + [TS(30.0, TS.T.MOSFET), TS(30.0, TS.T.BALANCER)],
+    "temperature": [TS(29.0)] * 4 + [TS(30.0, TS.T.MOSFET), TS(30.0, TS.T.BALANCER)],
     "delta_cell_voltage": 0.148,
     "problem": False,
     "problem_code": 0,

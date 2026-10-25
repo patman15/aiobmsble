@@ -667,7 +667,7 @@ class BaseBMS(ABC):
         ]
 
     @staticmethod
-    def _temperatures(
+    def _temperature(
         data: bytes,
         *,
         start: int,

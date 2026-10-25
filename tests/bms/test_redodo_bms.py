@@ -29,7 +29,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "design_capacity": 105,
     "cycle_capacity": 1829.443,
     "runtime": 172825,
-    "temperatures": [TS(23), TS(22), TS(-2)],
+    "temperature": [TS(23), TS(22), TS(-2)],
     "temp_count": 3,
     "cycles": 3,
     "problem": False,
@@ -178,7 +178,7 @@ async def test_short_frame(
 
     bms = BMS(generate_ble_device())
 
-    assert (await bms.async_update()).get("temperatures") == []
+    assert (await bms.async_update()).get("temperature") == []
 
     await bms.disconnect()
 
@@ -266,7 +266,7 @@ async def test_temp_sensor_detection(
 
         assert await bms.async_update() == _RESULT_DEFS | {
             "temp_count": expected[0],
-            "temperatures": expected[1],
+            "temperature": expected[1],
         }
 
     await bms.disconnect()

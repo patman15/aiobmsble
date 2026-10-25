@@ -47,7 +47,7 @@ class BMS(BaseBMS):
         ),
         BMSDp("design_capacity", 4, 4, False, idx=0x7),
         BMSDp("battery_level", 4, 1, False, idx=0xB),
-        BMSDp("temperatures", 4, 2, False, lambda x: [TS((x - 500) / 10)], 0x0C),
+        BMSDp("temperature", 4, 2, False, lambda x: [TS((x - 500) / 10)], 0x0C),
         BMSDp("cycle_capacity", 4, 2, False, idx=0x36),
         BMSDp("battery_health", 4, 1, False, idx=0xE),
     )

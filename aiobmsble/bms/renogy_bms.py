@@ -121,7 +121,7 @@ class BMS(BaseBMS):
         )
 
         result["temp_count"] = BMS._read_int16(self._msg, BMS._TEMP_POS)
-        result["temperatures"] = BMS._temperatures(
+        result["temperature"] = BMS._temperature(
             self._msg,
             values=min(16, result.get("temp_count", 0)),
             start=BMS._TEMP_POS + 2,

@@ -161,8 +161,8 @@ class BMS(BaseBMS):
             MsgT.TEMPS5,
             # MsgT.TEMPS6, MsgT.TEMPS7, MsgT.TEMPS8,
         ):
-            result.setdefault("temperatures", []).extend(
-                self._temperatures(
+            result.setdefault("temperature", []).extend(
+                self._temperature(
                     self._msg[msg_type],
                     values=4,
                     start=7,

@@ -44,7 +44,7 @@ _RESULT_DEFS: BMSSample = {
         3.31,
         3.308,
     ],
-    "temperatures": [TS(t, TS.T.CELL) for t in (22.2, 22.4, 22.7, 22.4)],
+    "temperature": [TS(t, TS.T.CELL) for t in (22.2, 22.4, 22.7, 22.4)],
     "battery_charging": False,
     "runtime": 69590,
     "power": -203.597,

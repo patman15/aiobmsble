@@ -32,7 +32,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "battery_charging": False,
     "problem_code": 0,
     "problem": False,
-    "temperatures": [TS(17.0, TS.T.PCB)]
+    "temperature": [TS(17.0, TS.T.PCB)]
     + [TS(v, TS.T.CELL) for v in (17.0, -56.0, 0.0, 0.0, 0.0, 0.0)],
 }
 

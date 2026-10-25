@@ -194,7 +194,7 @@ def bms_data_fixture(request: pytest.FixtureRequest) -> BMSSample:
         "current": request.param,
         "cycle_charge": 34,
         "cell_voltages": [3.456, 3.567],
-        "temperatures": [TS(v) for v in (-273.15, 0.01, 35.555, 100.0)],
+        "temperature": [TS(v) for v in (-273.15, 0.01, 35.555, 100.0)],
     }
 
 

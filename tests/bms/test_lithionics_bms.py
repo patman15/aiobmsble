@@ -38,7 +38,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "problem_code": 0,
         "cell_count": 4,
         "cell_voltages": [3.5, 3.5, 3.5, 3.49],
-        "temperatures": [TS(12.778), TS(8.889)],
+        "temperature": [TS(12.778), TS(8.889)],
         "cycle_charge": 319.0,
         "total_charge": 6391,
         "cycle_capacity": 4462.81,
@@ -59,13 +59,13 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cell_count": 4,
 #        "cell_voltages": [3.29, 3.31, 3.37, 3.25], # TODO: remove
         "delta_cell_voltage": 0.08,
-        "temperatures": [TS(26.667)],
+        "temperature": [TS(26.667)],
         "problem_code": 0,
         "problem": False,
         "packs": [
             {
                 "cell_count": 4,
-                "temperatures": [TS(25.4), TS(27.1)],
+                "temperature": [TS(25.4), TS(27.1)],
                 "delta_cell_voltage": 0.08,
                 "cell_voltages": [3.29, 3.31, 3.37, 3.25],
                 "voltage": 13.22,
@@ -169,14 +169,14 @@ async def test_module_info_sorted(
     assert result.get("packs") == [
         {
             "cell_count": 4,
-            "temperatures": [TS(25.4), TS(27.1)],
+            "temperature": [TS(25.4), TS(27.1)],
             "delta_cell_voltage": 0.08,
             "cell_voltages": [3.29, 3.31, 3.37, 3.25],
             "voltage": 13.22,
         },
         {
             "cell_count": 4,
-            "temperatures": [TS(30.0), TS(31.0)],
+            "temperature": [TS(30.0), TS(31.0)],
             "delta_cell_voltage": 0.08,
         }
         | (

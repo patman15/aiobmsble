@@ -72,7 +72,7 @@ _RESULT_DEFS: Final[BMSSample] = {
             3.379,
             3.38,
         ],
-        "temperatures": [TS(34.0)] * 4,
+        "temperature": [TS(34.0)] * 4,
         "delta_cell_voltage": 0.011,
         "problem": False,
         "problem_code": 0,

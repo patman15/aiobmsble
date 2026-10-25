@@ -256,7 +256,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "heater_current": 0.0,
         "power": 123.369,
         "battery_charging": True,
-        "temperatures": [TS(18.1), TS(18.6), TS(22.8, TS.T.MOSFET)],
+        "temperature": [TS(18.1), TS(18.6), TS(22.8, TS.T.MOSFET)],
         "temp_count": 7,
         "problem": False,
         "problem_code": 0,
@@ -279,7 +279,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "balance_current": 0.0,
         "temp_count": 255,
         "problem_code": 0,
-        "temperatures": [
+        "temperature": [
             TS(31.0, TS.T.MOSFET),
             TS(28.4),
             TS(29.2),
@@ -311,7 +311,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "balance_current": 0.0,
         "temp_count": 255,
         "problem_code": 0,
-        "temperatures": [
+        "temperature": [
             TS(12.9, TS.T.MOSFET),
             TS(13.4),
             TS(12.8),
@@ -361,7 +361,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "balance_current": 0.0,
         "temp_count": 255,
         "problem_code": 0,
-        "temperatures": [
+        "temperature": [
             TS(12.9, TS.T.MOSFET),
             TS(13.4),
             TS(12.8),
@@ -414,7 +414,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cell_count": 8,
         "delta_cell_voltage": 0.005,
         "battery_mode": BMSMode.BULK,
-        "temperatures": [
+        "temperature": [
             TS(26.2, TS.T.MOSFET),
             TS(23.3),
             TS(23.6),
@@ -714,10 +714,10 @@ async def test_hide_temp_count(
     else:
         ref_result |= {"temp_count": 251}
 
-    temperatures: list[TS] = ref_result.get("temperatures", [])
-    temperatures.pop(1)  # remove sensor 1
-    temperatures.pop(1)  # remove sensor 2
-    ref_result["temperatures"] = temperatures.copy()
+    temperature: list[TS] = ref_result.get("temperature", [])
+    temperature.pop(1)  # remove sensor 1
+    temperature.pop(1)  # remove sensor 2
+    ref_result["temperature"] = temperature.copy()
 
     assert await bms.async_update() == ref_result
 

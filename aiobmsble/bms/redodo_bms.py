@@ -128,7 +128,7 @@ class BMS(BaseBMS):
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=BMS._MAX_CELLS, start=16, byteorder="little"
         )
-        result["temperatures"] = BMS._temperatures(
+        result["temperature"] = BMS._temperature(
             self._msg, values=BMS._MAX_TEMP, start=52, byteorder="little"
         )
         # Increase the sensor count when higher-index sensors report nonzero values
@@ -137,11 +137,11 @@ class BMS(BaseBMS):
                 self._temp_count,
                 next(
                     i
-                    for i in range(min(BMS._MAX_TEMP, len(result["temperatures"])), 1, -1)
-                    if result["temperatures"][i - 1] != 0.0
+                    for i in range(min(BMS._MAX_TEMP, len(result["temperature"])), 1, -1)
+                    if result["temperature"][i - 1] != 0.0
                 ),
             )
-        result["temperatures"] = result["temperatures"][: self._temp_count]
+        result["temperature"] = result["temperature"][: self._temp_count]
         result["temp_count"] = self._temp_count
 
         return result

@@ -108,14 +108,14 @@ class BMS(BaseBMS):
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=result.get("cell_count", 0), start=45
         )
-        result["temperatures"] = BMS._temperatures(
+        result["temperature"] = BMS._temperature(
             self._msg,
             values=result.get("temp_count", 0),
             start=87,
             offset=2730,
             divider=10,
             types=(TempSensor.T.CELL,) * result.get("temp_count", 0),
-        ) + BMS._temperatures(
+        ) + BMS._temperature(
             self._msg,
             values=2,
             start=107,
@@ -123,6 +123,6 @@ class BMS(BaseBMS):
             divider=10,
             types=(TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
-        result["temp_count"] = len(result["temperatures"])
+        result["temp_count"] = len(result["temperature"])
 
         return result

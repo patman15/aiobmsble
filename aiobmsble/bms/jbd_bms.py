@@ -249,7 +249,7 @@ class BMS(BaseBMS):
         result: BMSSample = {}
         await self._await_cmd_resp(0x03)
         result = BMS._decode_data(self._FIELDS, self._msg)
-        result["temperatures"] = BMS._temperatures(
+        result["temperature"] = BMS._temperature(
             self._msg,
             values=result.get("temp_count", 0),
             start=27,

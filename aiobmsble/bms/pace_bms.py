@@ -151,7 +151,7 @@ class BMS(BaseBMS):
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=result["cell_count"], start=BMS._CELL_POS, gap=2
         )
-        result["temperatures"] = BMS._temperatures(
+        result["temperature"] = BMS._temperature(
             self._msg,
             values=6,
             start=14,

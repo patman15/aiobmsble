@@ -246,7 +246,7 @@ class BMS(BaseBMS):
             cells=result.get("cell_count", 0),
             start=BMS._CELL_POS + 1,
         )
-        result["temperatures"] = BMS._temperatures(
+        result["temperature"] = BMS._temperature(
             self._msg[0x8C],
             values=result["temp_count"],
             start=BMS._CELL_POS + result.get("cell_count", 0) * 2 + 2,

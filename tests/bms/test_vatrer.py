@@ -25,7 +25,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         "cell_count": 16,
         "runtime": 28814,
         "temp_count": 4,
-        "temperatures": [TS(v) for v in (18.0, 20.0, 19.0, 20.0, 20.0)]
+        "temperature": [TS(v) for v in (18.0, 20.0, 19.0, 20.0, 20.0)]
         + [TS(20.0, TS.T.MOSFET)],
         "battery_charging": False,
         "power": -261.243,

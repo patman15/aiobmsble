@@ -78,7 +78,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
             3.384,
             3.376,
         ],
-        "temperatures": [TS(21.0)] * 4,
+        "temperature": [TS(21.0)] * 4,
         "battery_charging": True,
         "cell_count": 4,
         "delta_cell_voltage": 0.008,

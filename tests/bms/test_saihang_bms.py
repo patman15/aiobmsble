@@ -69,7 +69,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "current": 0.0,
         "cycles": 2,
         "temp_count": 4,
-        "temperatures": [
+        "temperature": [
             TS(15.3, TS.T.CELL),
             TS(15.6, TS.T.CELL),
             TS(17.2, TS.T.MOSFET),

@@ -27,7 +27,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         "cell_voltages": [3.328, 3.326, 3.326, 3.326],
         "delta_cell_voltage": 0.002,
         "design_capacity": 200,
-        "temperatures": [TS(6.2), TS(7.3)],
+        "temperature": [TS(6.2), TS(7.3)],
         "temp_count": 2,
         "cycle_capacity": 2553.6,
         "power": 0.0,

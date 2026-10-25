@@ -34,7 +34,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "runtime": 6246,
     "cell_count": 4,
     "cell_voltages": [3.43, 3.425, 3.432, 3.417],
-    "temperatures": [TS(t, TS.T.CELL) for t in (22.4, 22.3, 21.7)],
+    "temperature": [TS(t, TS.T.CELL) for t in (22.4, 22.3, 21.7)],
     "delta_cell_voltage": 0.015,
     "problem": False,
     "problem_code": 0,

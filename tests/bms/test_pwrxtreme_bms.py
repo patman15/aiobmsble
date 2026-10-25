@@ -35,7 +35,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_level": 99,
         "cycle_charge": 212.0,
         "cycles": 2,
-        "temperatures": [TS(20.45, TS.T.GENERIC)],
+        "temperature": [TS(20.45, TS.T.GENERIC)],
         "problem_code": 0,
         "cell_voltages": [3.34, 3.339, 3.34, 3.337],
         "battery_charging": False,

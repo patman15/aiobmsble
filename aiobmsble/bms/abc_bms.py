@@ -160,7 +160,7 @@ class BMS(BaseBMS):
                 byteorder="little",
                 size=2,
             )[::2],
-            "temperatures": BMS._temperatures(
+            "temperature": BMS._temperature(
                 self._msg[0xF2],
                 start=5,
                 values=result.get("temp_count", 0),

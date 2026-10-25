@@ -45,7 +45,7 @@ _RESULT_DEFS: Final[BMSSample] = {
             3.422,
             3.429,
         ],
-        "temperatures": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
+        "temperature": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
         "delta_cell_voltage": 0.014,
         "balancer": False,
         "chrg_mosfet": True,
@@ -80,7 +80,7 @@ class MockTianPwrBleakClient(MockBleakClient):
         0x85: (  # Mosfet status frame
             b"\x55\x14\x85\x08\x23\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x87: (  # Temperatures frame
+        0x87: (  # temperature frame
             b"\x55\x14\x87\x00\xe6\x00\xe6\x00\xe6\x00\xe6\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
         0x88: (  # Cell voltages frame

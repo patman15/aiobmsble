@@ -217,7 +217,7 @@ class BMS(BaseBMS):
                     self._log.debug("MOS temperature invalid, deactivating")
                     self._mos_avail = False
                 else:
-                    result["temperatures"] = [
+                    result["temperature"] = [
                         TempSensor(
                             int.from_bytes(
                                 self._msg[BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2],
@@ -247,8 +247,8 @@ class BMS(BaseBMS):
 
         rt1_msg: Final[bytes] = next(iter(rt_msgs.values()))
         # add temperature sensors
-        result.setdefault("temperatures", []).extend(
-            BMS._temperatures(
+        result.setdefault("temperature", []).extend(
+            BMS._temperature(
                 rt1_msg,
                 values=result.get("temp_count", 0),
                 start=proto_def.max_cells * 2 + BMS._HEAD_LEN,

@@ -378,7 +378,7 @@ _RESULT_DEFS: Final[BMSSample] = {
             "current": -2.74,
             "design_capacity": 150,
             "battery_level": 92,
-            "temperatures": [TS(14.0)],
+            "temperature": [TS(14.0)],
             "cycle_capacity": 1829,
             "battery_health": 100,
             "cell_voltages": [
@@ -397,7 +397,7 @@ _RESULT_DEFS: Final[BMSSample] = {
             "current": -2.93,
             "design_capacity": 150,
             "battery_level": 92,
-            "temperatures": [TS(14.0)],
+            "temperature": [TS(14.0)],
             "cycle_capacity": 1814,
             "battery_health": 100,
             "cell_voltages": [

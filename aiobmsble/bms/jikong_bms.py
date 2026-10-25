@@ -270,7 +270,7 @@ class BMS(BaseBMS):
             await self._await_msg(data=BMS._cmd(0x96), char=self._char_write_handle)
 
         data: BMSSample = self._conv_data(self._msg, self._prot_offset, self._sw_version)
-        data["temperatures"] = BMS._temp_count(
+        data["temperature"] = BMS._temp_count(
             self._msg, self._temp_pos(), data.get("temp_count", 0)
         )
 

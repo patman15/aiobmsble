@@ -189,7 +189,7 @@ class BMS(BaseBMS):
             start=BMS._CELLV_START,
         )
 
-        result["temperatures"] = BMS._temperatures(
+        result["temperature"] = BMS._temperature(
             self._msg,
             values=min(result.get("temp_count", 0), BMS._MAX_TEMP),
             start=BMS._TEMP_START,
@@ -198,7 +198,7 @@ class BMS(BaseBMS):
         )
 
         # Append MOSFET temperature if valid (0xFFFF indicates no sensor)
-        mos_temp: list[TempSensor] = BMS._temperatures(
+        mos_temp: list[TempSensor] = BMS._temperature(
             self._msg,
             start=BMS._TEMP_MOS_OFFSET,
             signed=True,
@@ -206,6 +206,6 @@ class BMS(BaseBMS):
             types=(TempSensor.T.MOSFET,),
         )
         if mos_temp[0] != -0.1:
-            result["temperatures"].append(mos_temp[0])
+            result["temperature"].append(mos_temp[0])
 
         return result

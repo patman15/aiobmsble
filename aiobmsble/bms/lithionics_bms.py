@@ -47,7 +47,7 @@ class BMS(BaseBMS):
         BMSDp("voltage", 0, 1, False, lambda x: x / 100, _Msg.prim),
         BMSDp("cell_voltages", 1, 4, False, lambda x: x / 100, _Msg.prim),
         BMSDp(
-            "temperatures",
+            "temperature",
             5,
             2,
             False,
@@ -74,7 +74,7 @@ class BMS(BaseBMS):
         BMSDp("current", 6, 1, False, lambda x: x / 10, _Msg.prim),
         BMSDp("power", 7, 1, False, lambda x: x, _Msg.prim),
         BMSDp("battery_charging", 5, 1, False, lambda x: x == 1, _Msg.prim),
-        BMSDp("temperatures", 8, 1, False, lambda x: round((x - 32) * 5 / 9, 3), _Msg.prim),
+        BMSDp("temperature", 8, 1, False, lambda x: round((x - 32) * 5 / 9, 3), _Msg.prim),
         BMSDp(
             "problem_code",
             9,
@@ -86,7 +86,7 @@ class BMS(BaseBMS):
     )
     _PFIELDS: Final[tuple[BMSPDp, ...]] = (
         BMSPDp("cell_count", 5, 1, False, int),
-        BMSPDp("temperatures", 6, 2, False),
+        BMSPDp("temperature", 6, 2, False),
         BMSPDp("delta_cell_voltage", 8, 2, False),
     )
 
@@ -184,7 +184,7 @@ class BMS(BaseBMS):
         result: PackSample = {}
         for field in BMS._PFIELDS:
             values: list[str] = fields[field.pos : field.pos + field.size]
-            if field.key == "temperatures":
+            if field.key == "temperature":
                 result[field.key] = [TempSensor(float(value)) for value in values]
             elif field.key == "delta_cell_voltage":
                 result[field.key] = (BMS._int(values[1]) - BMS._int(values[0])) / 100
@@ -244,7 +244,7 @@ class BMS(BaseBMS):
                 result[field.key] = [
                     field.fct(BMS._int(msg[i])) for i in range(start + field.pos, end)
                 ]
-            elif field.key == "temperatures":
+            elif field.key == "temperature":
                 result[field.key] = [
                     TempSensor(field.fct(BMS._int(msg[i])))
                     for i in range(start + field.pos, end)
