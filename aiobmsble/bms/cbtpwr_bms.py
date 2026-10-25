@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor as TS
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -30,7 +30,7 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 4, 4, False, lambda x: x / 1000, 0x0B),
         BMSDp("current", 8, 4, True, lambda x: x / 1000, 0x0B),
-        BMSDp("temperature", 4, 2, True, lambda x: [TempSensor(x)], idx=0x09),
+        BMSDp("temperature", 4, 2, True, lambda x: [TS(x)], idx=0x09),
         BMSDp("battery_level", 4, 1, False, idx=0x0A),
         BMSDp("design_capacity", 4, 2, False, idx=0x15),
         BMSDp("cycles", 6, 2, False, idx=0x15),

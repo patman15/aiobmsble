@@ -15,7 +15,7 @@ fixed-length (48 V, 16 cells): 1,01594,0525,048,048,0,00000,000000,080,000100
 
 ### Status Code
 
-Status codes are masked with `_PROBLEM_MASK` so only genuine fault bits raise
+Status codes are masked with `_PRB_MASK` so only genuine fault bits raise
 `problem`. Benign state bits (notably byte 1 bit 0, "AUX Contacts State", set in
 the normal idle value) no longer trip it.
 For details, see Lithionics' `RV-C J1939 PGN Table Rev4`, section 6 *UART-CAN Mapping* and the *BMS Status Code Flags* table.
