@@ -15,44 +15,44 @@ from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "temp_sensors": 4,
-        "voltage": 54.74,
-        "current": 0.0,
-        "battery_level": 60,
-        "battery_health": 100,
-        "cycle_charge": 138.96,
-        "cycles": 0,
-        "temperature": 23.333,
-        "cycle_capacity": 7606.67,
-        "power": 0.0,
-        "design_capacity": 230,
-        "battery_charging": False,
-        "cell_count": 16,
-        "cell_voltages": [
-            3.415,
-            3.419,
-            3.419,
-            3.422,
-            3.421,
-            3.422,
-            3.425,
-            3.424,
-            3.421,
-            3.425,
-            3.421,
-            3.421,
-            3.422,
-            3.42,
-            3.422,
-            3.429,
-        ],
-        "temp_values": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
-        "delta_voltage": 0.014,
-        "balancer": False,
-        "chrg_mosfet": True,
-        "dischrg_mosfet": True,
-        "problem": False,
-        "problem_code": 0,
+    "temp_sensors": 4,
+    "voltage": 54.74,
+    "current": 0.0,
+    "battery_level": 60,
+    "battery_health": 100,
+    "cycle_charge": 138.96,
+    "cycles": 0,
+    "temperature": 23.333,
+    "cycle_capacity": 7606.67,
+    "power": 0.0,
+    "design_capacity": 230,
+    "battery_charging": False,
+    "cell_count": 16,
+    "cell_voltages": [
+        3.415,
+        3.419,
+        3.419,
+        3.422,
+        3.421,
+        3.422,
+        3.425,
+        3.424,
+        3.421,
+        3.425,
+        3.421,
+        3.421,
+        3.422,
+        3.42,
+        3.422,
+        3.429,
+    ],
+    "temp_values": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
+    "delta_voltage": 0.014,
+    "balancer": False,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
+    "problem": False,
+    "problem_code": 0,
 }
 
 
@@ -93,18 +93,10 @@ class MockTianPwrBleakClient(MockBleakClient):
         0x8A: (  # Cell voltages frame
             b"\x55\x14\x8a\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x90: (
-            b"\x55\x14\x90\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
-        ),
-        0x91: (
-            b"\x55\x14\x91\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
-        ),
-        0x94: (
-            b"\x55\x14\x91\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
-        ),
-        0x95: (
-            b"\x55\x14\x91\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
-        ),
+        0x90: (b"\x55\x14\x90\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"),
+        0x91: (b"\x55\x14\x91\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"),
+        0x94: (b"\x55\x14\x91\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"),
+        0x95: (b"\x55\x14\x91\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"),
     }
 
     def _response(
@@ -127,13 +119,9 @@ class MockTianPwrBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
-        self._notify_callback(
-            "MockTianPwrBleakClient", self._response(char_specifier, data)
-        )
+        self._notify_callback("MockTianPwrBleakClient", self._response(char_specifier, data))
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
@@ -208,7 +196,7 @@ async def test_invalid_response(
 
 
 async def test_missing_message(
-    monkeypatch, patch_bleak_client, patch_bms_timeout
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
 ) -> None:
     """Test data up date with BMS returning no message type 83 but 90."""
 
@@ -219,7 +207,7 @@ async def test_missing_message(
         "RESP",
         MockTianPwrBleakClient.RESP
         | {
-            0x83: bytearray(
+            0x83: (
                 b"\x55\x14\x90\x00\x3c\x15\x62\x01\x18\x00\xe6\x00\xfa\x00\x00\x30\x30\x00\x64\xaa"
             )
         },
@@ -232,43 +220,26 @@ async def test_missing_message(
         await bms.async_update()
 
 
-@pytest.fixture(
-    name="problem_response",
-    params=[
-        (
-            bytearray(
-                b"\x55\x14\x84\x10\x04\x59\xd8\x36\x48\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xaa"
-            ),
-            "first_bit",
-        ),
-        (
-            bytearray(
-                b"\x55\x14\x84\x10\x04\x59\xd8\x36\x48\x00\x00\x80\x00\x00\x00\x00\x00\x00\x00\xaa"
-            ),
-            "last_bit",
-        ),
+@pytest.mark.parametrize(
+    ("problem_response", "expected"),
+    [
+        (b"\x00\x00\x00\x00\x00\x00\x00\x01", 0x1),
+        (b"\x80\x00\x00\x00\x00\x00\x00\x00", 0x0),
+        (b"\x40\x00\x00\x00\x00\x00\x00\x00", 0x4000000000000000),
+        (b"\x00\x00\x00\x03\x00\x00\x00\x00", 0x0),
     ],
-    ids=lambda param: param[1],
+    ids=["first_bit", "sleep_bit", "last_bit", "mosfet_bits"],
 )
-def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
-    """Return faulty response frame."""
-    assert (
-        isinstance(request.param, tuple)
-        and isinstance(request.param[0], bytearray)
-        and isinstance(request.param[1], str)
-    )
-    return request.param
-
-
 async def test_problem_response(
-    monkeypatch, patch_bleak_client, problem_response: tuple[bytearray, str]
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: bytes, expected: int
 ) -> None:
     """Test data update with BMS returning error flags."""
 
     monkeypatch.setattr(
         MockTianPwrBleakClient,
         "RESP",
-        MockTianPwrBleakClient.RESP | {0x84: problem_response[0]},
+        MockTianPwrBleakClient.RESP
+        | {0x84: MockTianPwrBleakClient.RESP[0x84][:-9] + problem_response + b"\xaa"},
     )
 
     patch_bleak_client(MockTianPwrBleakClient)
@@ -276,9 +247,6 @@ async def test_problem_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = await bms.async_update()
-    assert result == _RESULT_DEFS | {
-        "problem": True,
-        "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 63),
-    }
+    assert result == _RESULT_DEFS | {"problem": bool(expected), "problem_code": expected}
 
     await bms.disconnect()
