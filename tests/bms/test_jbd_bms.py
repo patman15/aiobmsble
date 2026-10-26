@@ -46,6 +46,11 @@ _RESULT_DEFS: Final[BMSSample] = {
 
 
 _RESULT_UNIT_BASE: Final[BMSSample] = {
+    "current": -0.58,
+    "cycle_charge": 47.19,
+    "design_capacity": 62,
+    "cycle_capacity": 626.683,
+    "power": -7.702,
     "temp_sensors": 3,
     "voltage": 13.28,
     "battery_level": 72,
@@ -64,20 +69,12 @@ _RESULT_UNIT_BASE: Final[BMSSample] = {
     "dischrg_mosfet": True,
 }
 # Fogstar Drift 628 Ah capture (control byte 0x88 after NTC temps): 100 mA/100 mAh
-_RESULT_100MA: Final[BMSSample] = _RESULT_UNIT_BASE | {
+_RESULT_10D: Final[BMSSample] = _RESULT_UNIT_BASE | {
     "current": -5.8,
     "cycle_charge": 471.9,
     "design_capacity": 628,
     "cycle_capacity": 6266.832,
     "power": -77.024,
-}
-# same capture with the flag cleared: default 10 mA/10 mAh units
-_RESULT_10MA: Final[BMSSample] = _RESULT_UNIT_BASE | {
-    "current": -0.58,
-    "cycle_charge": 47.19,
-    "design_capacity": 62,
-    "cycle_capacity": 626.683,
-    "power": -7.702,
 }
 
 
@@ -121,9 +118,7 @@ class MockJBDBleakClient(MockBleakClient):
         **kwargs: Any,
     ) -> None:
         """Initialize MockBleakClient."""
-        super().__init__(
-            address_or_ble_device, disconnected_callback, services, **kwargs
-        )
+        super().__init__(address_or_ble_device, disconnected_callback, services, **kwargs)
         self._services = ["ff01", "ff02"]
 
     def _response(
@@ -140,8 +135,7 @@ class MockJBDBleakClient(MockBleakClient):
             self.UNLOCKED = True
             return (
                 MockJBDBleakClient.ACK_MSG
-                if sum(_msg[2:-1]) & 0xFF == _msg[-1]
-                and _msg[4:-1] == self.DEFAULT_SECRET
+                if sum(_msg[2:-1]) & 0xFF == _msg[-1] and _msg[4:-1] == self.DEFAULT_SECRET
                 else b"\xff\xaa\x15\x01\x01\x17"
             )
 
@@ -155,9 +149,7 @@ class MockJBDBleakClient(MockBleakClient):
         return b""
 
     async def _send_data(self, char_specifier, data) -> None:
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         # always send two responses, to test timeout behaviour
         for resp in (
@@ -252,7 +244,7 @@ class Mock10mALongBleakClient(Mock100mABleakClient):
 
 @pytest.mark.parametrize(
     ("client", "expected"),
-    [(Mock100mABleakClient, _RESULT_100MA), (Mock10mALongBleakClient, _RESULT_10MA)],
+    [(Mock100mABleakClient, _RESULT_10D), (Mock10mALongBleakClient, _RESULT_UNIT_BASE)],
     ids=["100mA_flag_set", "10mA_flag_clear"],
 )
 async def test_update_unit_scale(
@@ -287,9 +279,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-@pytest.mark.parametrize(
-    "secret", ["000000", "wrong"], ids=["correct_secret", "wrong_secret"]
-)
+@pytest.mark.parametrize("secret", ["000000", "wrong"], ids=["correct_secret", "wrong_secret"])
 async def test_update_secret(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client, secret: str
 ) -> None:
@@ -341,9 +331,7 @@ async def test_invalid_init(
 
 
 @pytest.mark.parametrize("client", [MockJBDBleakClient, MockOversizedBleakClient])
-async def test_device_info(
-    patch_bleak_client, patch_bms_timeout, client: object
-) -> None:
+async def test_device_info(patch_bleak_client, patch_bms_timeout, client: object) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bms_timeout()
     patch_bleak_client(client)
@@ -388,9 +376,7 @@ async def test_invalid_response(
 
     patch_bms_timeout()
 
-    monkeypatch.setattr(
-        MockJBDBleakClient, "_response", lambda _s, _c, _d: wrong_response
-    )
+    monkeypatch.setattr(MockJBDBleakClient, "_response", lambda _s, _c, _d: wrong_response)
 
     patch_bleak_client(MockJBDBleakClient)
 
