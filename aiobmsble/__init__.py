@@ -132,7 +132,7 @@ class PackSample(BatterySample, total=False):
     """Dictionary representing a sample of a battery sub-system."""
 
 
-class BMSSample(BatterySample, total=False):
+class BMSSample(PackSample, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
 
     # BMS-specific fields

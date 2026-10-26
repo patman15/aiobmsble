@@ -180,7 +180,7 @@ class BMS(BaseBMS):
         await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=8)
         if not result.get("pack_count"):  # zero on all packs except the master
-            result |= BMSSample(**pack)  # overwrite with pack data if pack is individual device
+            result |= {**pack}  # overwrite with pack data if pack is individual device
         else:
             result["packs"] = [pack]
         return result
