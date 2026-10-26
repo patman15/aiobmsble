@@ -35,8 +35,8 @@ async def scan_devices() -> dict[str, tuple[BLEDevice, AdvertisementData]]:
     """Scan for BLE devices and return results."""
     logger.info("starting scan ...")
     try:
-        scan_result: dict[str, tuple[BLEDevice, AdvertisementData]] = (
-            await BleakScanner.discover(return_adv=True)
+        scan_result: dict[str, tuple[BLEDevice, AdvertisementData]] = await BleakScanner.discover(
+            return_adv=True
         )
     except BleakError as exc:
         logger.error("Could not scan for BT devices: %s", exc)
@@ -47,9 +47,7 @@ async def scan_devices() -> dict[str, tuple[BLEDevice, AdvertisementData]]:
     return scan_result
 
 
-async def _try_query(
-    bms_cls: type[BaseBMS], ble_dev: BLEDevice, secret: str = ""
-) -> bool:
+async def _try_query(bms_cls: type[BaseBMS], ble_dev: BLEDevice, secret: str = "") -> bool:
     """Attempt to query the BMS once. Returns True on success, False on failure."""
     bms_inst: BaseBMS = (
         bms_cls(ble_device=ble_dev, config=BMSConfig(secret=secret))
@@ -64,7 +62,7 @@ async def _try_query(
             data: BMSSample = await bms.async_update()
         logger.info("BMS info: %s", repr(info).replace(", '", ",\n\t'"))
         logger.info("BMS data: %s", repr(data).replace(", '", ",\n\t'"))
-    except (BleakError, TimeoutError) as exc:
+    except (BleakError, TimeoutError, ConnectionError, ValueError) as exc:
         logger.error(
             "Failed to query BMS%s: %s",
             " with secret" if secret else "",
@@ -133,9 +131,7 @@ async def identify_bms_from_json(json_str: str) -> None:
     await log_advertisement_issues(adv_dict)  # Log any potential issues
 
     # Identify BMS
-    if (
-        bms_cls_result := await bms_identify(adv_data, adv_dict.get("address", ""))
-    ) is not None:
+    if (bms_cls_result := await bms_identify(adv_data, adv_dict.get("address", ""))) is not None:
         logger.info("Detected BMS type: %s", bms_cls_result.bms_id())
         return
 
@@ -161,9 +157,7 @@ async def detect_bms() -> None:
 
             if not await _try_query(bms_cls, ble_dev):
                 if bms_cls.accept_secret:
-                    secret: str = getpass.getpass(
-                        f"Enter secret for {bms_cls.__name__}: "
-                    )
+                    secret: str = getpass.getpass(f"Enter secret for {bms_cls.__name__}: ")
                     await _try_query(bms_cls, ble_dev, secret)
 
     logger.info("done.")
@@ -176,9 +170,7 @@ def setup_logging(args: argparse.Namespace) -> None:
     if args.logfile:
         file_handler = logging.FileHandler(args.logfile)
         file_handler.setLevel(loglevel)
-        file_handler.setFormatter(
-            logging.Formatter("%(asctime)s - %(levelname)s: %(message)s")
-        )
+        file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s: %(message)s"))
         logger.addHandler(file_handler)
 
     logger.setLevel(loglevel)
@@ -197,9 +189,7 @@ def main() -> None:
         help="JSON string containing advertisement data to identify BMS type",
     )
     parser.add_argument("-l", "--logfile", type=str, help="Path to the log file")
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Enable debug logging"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging")
 
     args: argparse.Namespace = parser.parse_args()
     setup_logging(args)
