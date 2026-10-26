@@ -129,8 +129,8 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
 @pytest.mark.parametrize(
     ("wrong_response"),
-    [b"", b"\xf0\xff", b"\x00\xff\x03", b"\xf0\xff\x43\x01\x01\xe7\x80\x69\xff", b"\xf0\xff\x11"],
-    ids=["empty", "no_type", "wrong_SOF", "wrong_CRC", "wrong_type"],
+    [b"", b"\xf0\xff", b"\x00\xff\x03", _PROTO_DEFS[b"\xf0\xff\x02"], b"\xf0\xff\x43\x01\x01\xe7\x80\x69\xff", b"\xf0\xff\x11"],
+    ids=["empty", "no_type", "wrong_SOF", "wrong_response", "wrong_CRC", "wrong_type"],
 )
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
@@ -151,7 +151,7 @@ async def test_invalid_response(
     bms = BMS(generate_ble_device(), BMSConfig(secret="123456"))
 
     result: BMSSample = {}
-    with pytest.raises(TimeoutError):
+    with pytest.raises((TimeoutError, ValueError)):
         result = await bms.async_update()
 
     assert not result

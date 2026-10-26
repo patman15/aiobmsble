@@ -34,7 +34,7 @@ def _advertisement_matches(
             - "manufacturer_data_start" (bytes): A byte sequence that the data should start with.
             - "manufacturer_id" (int): A manufacturer ID to match.
             - "oui" (str): Organizationally Unique Identifier of BD_ADDR (first 3 bytes)
-            - "service_data_uuid" (str): A specific service data UUID to match.
+            - "service_data_uuid" (str): A specific service data UUID to match or "" for abscense.
             - "service_uuid" (str): A specific service 128-bit UUID to match.
 
         adv_data (AdvertisementData): An object containing the advertisement data to be checked.
@@ -49,9 +49,11 @@ def _advertisement_matches(
     ) and service_uuid not in adv_data.service_uuids:
         return False
 
-    if (
-        service_data_uuid := matcher.get("service_data_uuid")
-    ) and service_data_uuid not in adv_data.service_data:
+    if (service_data_uuid := matcher.get("service_data_uuid")) is not None and (
+        service_data_uuid not in adv_data.service_data
+        if service_data_uuid
+        else adv_data.service_data
+    ):
         return False
 
     if (oui := matcher.get("oui")) and not mac_addr.lower().startswith(oui.lower()[:8]):
