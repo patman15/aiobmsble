@@ -31,20 +31,27 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"manufacturer": "V-TAC", "model": "TBESS"}
     _FRAME_START: Final[int] = 0xEF
     _FRAME_END: Final[int] = 0x16
-    _FRAME_LENGTHS: Final[dict[int, int]] = {
-        0x73: 112,
-        0xDB: 124,
-        0xDC: 72,
-        0xD0: 163,
-    }
-    _FRAME_TAGS: Final[dict[int, bytes]] = {
-        0x73: b"\x00\x55",
-        0xDB: b"\x00\x61",
-        0xDC: b"\x00\x2d",
-        0xD0: b"\x00\x88",
-    }
+    _FRAME_COMMAND_POS: Final[int] = 2
+    _FRAME_ADDRESS_POS: Final[int] = 1
+    _FRAME_TAG: Final[slice] = slice(22, 24)
+    _PACK_COUNT_POS: Final[int] = 26
     _SUMMARY_CMD: Final[int] = 0x73
     _DETAIL_CMD: Final[int] = 0xDB
+    _CONFIG_CMD: Final[int] = 0xDC
+    _INFO_CMD: Final[int] = 0xD0
+    _SYSTEM_ADDRESS: Final[int] = 0x01
+    _FRAME_LENGTHS: Final[dict[int, int]] = {
+        _SUMMARY_CMD: 112,
+        _DETAIL_CMD: 124,
+        _CONFIG_CMD: 72,
+        _INFO_CMD: 163,
+    }
+    _FRAME_TAGS: Final[dict[int, bytes]] = {
+        _SUMMARY_CMD: b"\x00\x55",
+        _DETAIL_CMD: b"\x00\x61",
+        _CONFIG_CMD: b"\x00\x2d",
+        _INFO_CMD: b"\x00\x88",
+    }
     _CELLS: Final[int] = 16
     _CELL_START: Final[int] = 34
     _CELL_TEMPERATURE_START: Final[int] = 68
@@ -128,7 +135,7 @@ class BMS(BaseBMS):
             if len(self._frame) < 3:
                 continue
 
-            command: int = self._frame[2]
+            command: int = self._frame[BMS._FRAME_COMMAND_POS]
             if command not in BMS._FRAME_LENGTHS:
                 self._log.debug("unknown frame command 0x%02X", command)
                 self._frame.clear()
@@ -143,7 +150,11 @@ class BMS(BaseBMS):
 
     def _process_frame(self, frame: bytes) -> None:
         """Validate a complete frame and retain the system status or pack data."""
-        command: int = frame[2] if len(frame) > 2 else -1
+        command: int = (
+            frame[BMS._FRAME_COMMAND_POS]
+            if len(frame) > BMS._FRAME_COMMAND_POS
+            else -1
+        )
         expected_length: int | None = BMS._FRAME_LENGTHS.get(command)
         if expected_length is None or len(frame) != expected_length:
             self._log.debug("incorrect frame length: %s", len(frame))
@@ -152,14 +163,16 @@ class BMS(BaseBMS):
         if (
             frame[0] != BMS._FRAME_START
             or frame[-1] != BMS._FRAME_END
-            or frame[22:24] != BMS._FRAME_TAGS[command]
+            or frame[BMS._FRAME_TAG] != BMS._FRAME_TAGS[command]
         ):
             self._log.debug("incorrect frame markers or tag for command 0x%02X", command)
             return
 
         if command == BMS._SUMMARY_CMD:
-            if frame[1] != 0x01:
-                self._log.debug("unexpected system status address 0x%02X", frame[1])
+            if frame[BMS._FRAME_ADDRESS_POS] != BMS._SYSTEM_ADDRESS:
+                self._log.debug(
+                    "unexpected system status address 0x%02X", frame[BMS._FRAME_ADDRESS_POS]
+                )
                 return
             self._process_summary(frame)
         elif command == BMS._DETAIL_CMD:
@@ -167,7 +180,7 @@ class BMS(BaseBMS):
 
     def _process_summary(self, frame: bytes) -> None:
         """Retain system status and use its pack count for the following details."""
-        pack_count: int = frame[26]
+        pack_count: int = frame[BMS._PACK_COUNT_POS]
         if pack_count < 1:
             self._log.debug("system status reports no packs")
             self._summary = None
