@@ -31,13 +31,10 @@ class BMS(BaseBMS):
         BMSDp("cycles", 61, 4, False),
         BMSDp("cell_count", 75, 2, False),
         BMSDp("design_capacity", 77, 2, False, lambda x: x // 10),
-        BMSDp("temperature", 39, 2, True),
         BMSDp("problem_code", 55, 6, False),
         BMSDp("balancer", 79, 2, False),
     )
-    _OPT_FIELDS: Final[
-        tuple[Literal["cycle_charge", "cycles", "design_capacity"], ...]
-    ] = (
+    _OPT_FIELDS: Final[tuple[Literal["cycle_charge", "cycles", "design_capacity"], ...]] = (
         "cycle_charge",
         "cycles",
         "design_capacity",
@@ -86,9 +83,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "1001"
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if (
@@ -100,9 +95,7 @@ class BMS(BaseBMS):
             self._frame.clear()
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         # verify that data is long enough
         if len(self._frame) < self._exp_len:
@@ -135,9 +128,9 @@ class BMS(BaseBMS):
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg, values=1, start=39, types=(TempSensor.T.PCB,)
-        ) + BMS._temp_values(
+        ) + BMS._temperature(
             self._msg,
             values=BMS._MAX_TEMP,
             start=69,

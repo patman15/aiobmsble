@@ -17,7 +17,7 @@ cell voltage delta, and temperature.
 ## Relation to VatrerBMS
 
 This device shares its exact register table with `VatrerBMS`: voltage,
-current, SOC, cycle_charge, cycles, delta_voltage, cell_count and
+current, SOC, cycle_charge, cycles, delta_cell_voltage, cell_count and
 cell_voltages all decode correctly using Vatrer's field offsets and
 scaling, verified byte-for-byte against real captured data.
 
@@ -45,7 +45,7 @@ overriding only the register field map and the query/parsing method.
 | reg5 | `design_capacity` | ×0.01 Ah (100.00 Ah on the reference unit) |
 | reg6 | `cycles` | count |
 | reg7 | `battery_health` (SOH) | % |
-| reg13 | `delta_voltage` | mV, ÷1000 |
+| reg13 | `delta_cell_voltage` | mV, ÷1000 |
 | reg16 | MOS_T temperature | °C |
 | reg17 | ENV_T temperature | °C |
 | reg21 | `cell_count` | count (4 on the reference unit) |

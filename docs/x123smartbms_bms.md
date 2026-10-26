@@ -89,7 +89,7 @@ header; the driver resynchronizes on any byte position until the checksum matche
 
 The specific cell information (offsets 24-29) rotates through all cells, one per
 frame. The driver collects `(voltage, temperature)` per cell number and only
-reports `cell_voltages` / per-cell temperatures once the complete set has been
+reports `cell_voltages` / per-cell temperature once the complete set has been
 received.
 
 ### Key/value pairs (offset 47: key, offset 48: value)

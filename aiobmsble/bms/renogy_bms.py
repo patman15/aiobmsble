@@ -120,10 +120,10 @@ class BMS(BaseBMS):
             divider=10,
         )
 
-        result["temp_sensors"] = BMS._read_int16(self._msg, BMS._TEMP_POS)
-        result["temp_values"] = BMS._temp_values(
+        result["temp_count"] = BMS._read_int16(self._msg, BMS._TEMP_POS)
+        result["temperature"] = BMS._temperature(
             self._msg,
-            values=min(16, result.get("temp_sensors", 0)),
+            values=min(16, result.get("temp_count", 0)),
             start=BMS._TEMP_POS + 2,
             divider=10,
         )  # TODO: add other sensors, but all are 0 in test.

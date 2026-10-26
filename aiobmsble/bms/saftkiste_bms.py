@@ -142,7 +142,7 @@ class BMS(BaseBMS):
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg[0x2], cells=BMS._MAX_CELLS, start=17, byteorder="little"
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg[0x2],
             start=27,
             values=2,

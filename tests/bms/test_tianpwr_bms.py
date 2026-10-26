@@ -15,14 +15,13 @@ from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "temp_sensors": 4,
+        "temp_count": 4,
         "voltage": 54.74,
         "current": 0.0,
         "battery_level": 60,
         "battery_health": 100,
         "cycle_charge": 138.96,
         "cycles": 0,
-        "temperature": 23.333,
         "cycle_capacity": 7606.67,
         "power": 0.0,
         "design_capacity": 230,
@@ -46,8 +45,8 @@ _RESULT_DEFS: Final[BMSSample] = {
             3.422,
             3.429,
         ],
-        "temp_values": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
-        "delta_voltage": 0.014,
+        "temperature": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
+        "delta_cell_voltage": 0.014,
         "balancer": False,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
@@ -81,7 +80,7 @@ class MockTianPwrBleakClient(MockBleakClient):
         0x85: (  # Mosfet status frame
             b"\x55\x14\x85\x08\x23\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
-        0x87: (  # Temperatures frame
+        0x87: (  # temperature frame
             b"\x55\x14\x87\x00\xe6\x00\xe6\x00\xe6\x00\xe6\x00\x00\x00\x00\x00\x00\x00\x00\xaa"
         ),
         0x88: (  # Cell voltages frame

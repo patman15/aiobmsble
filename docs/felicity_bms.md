@@ -46,19 +46,19 @@ Example real-time response (16S FLB48314TG1-H pack, 3 packs in parallel, during 
 |-----------------|--------------|---------|
 | `Batt`          | `BattList`   | `[[voltage mV], [current dA]]` |
 | `Batsoc`        | `BatsocList` | `[[SoC ‱, SoH ‱, capacity mAh]]` |
-| `BTemp`         | `BtemList`   | temperatures (d°C) |
+| `BTemp`         | `BtemList`   | temperature (d°C) |
 | —               | `BatcelList` | cell voltages (mV) |
 
 This was verified on a 3-pack stack: `Batt` current equals the sum of the three packs'
 `BattList` currents (e.g. 197.7 A vs. 71.8 + 62.7 + 64.4 A) and is identical on all three
 devices at any instant, and `Batsoc` capacity equals 3 × the `BatsocList` capacity
 (1 050 000 mAh vs. 350 000 mAh). Since every BLE device represents a single pack, the
-plugin reads voltage, current, SoC, cells, and temperatures from the `…List` keys.
+plugin reads voltage, current, SoC, cells, and temperature from the `…List` keys.
 
 ## Scaling and filler values
 
 - voltage: mV (`/1000`), current: dA (`/10`, positive = charging), SoC: ‱ (`/100`),
-  cell voltages: mV (`/1000`), temperatures: d°C (`/10`)
+  cell voltages: mV (`/1000`), temperature: d°C (`/10`)
 - Unused slots are filled with `65535` (`0xFFFF`), `32767` (`0x7FFF`), `-1`, or `null`;
   the second inner array of `BattList`/`BatcelList`/`Templist` belongs to a second
   module slot and is all filler on single-module packs.

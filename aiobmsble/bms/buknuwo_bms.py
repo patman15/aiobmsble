@@ -20,7 +20,7 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"manufacturer": "Buknuwo", "model": "smart battery"}
     _HEAD: Final[bytes] = b"\x01\x03"  # dev, read (0x03)
     _MIN_LEN: Final[int] = 5  # length of frame, including SOF and checksum
-    _MAX_TEMP: Final[int] = 10  # maximum number of cell temperatures
+    _MAX_TEMP: Final[int] = 10  # maximum number of cell temperature
     _PRB_MASK: Final[int] = 0xFF3FFF7F007F
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 3, 2, True, lambda x: x / 100),
@@ -108,21 +108,21 @@ class BMS(BaseBMS):
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
         await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x39, count=0x1))
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg, start=3, divider=10, types=(TempSensor.T.MOSFET,)
         )
 
         await self._await_msg(
             BMS._cmd_modbus(dev_id=0x1, addr=0x2E, count=BMS._MAX_TEMP + 1)
         )
-        result["temp_sensors"] = int.from_bytes(self._msg[3:5], "big")
-        result["temp_values"].extend(
-            BMS._temp_values(
+        result["temp_count"] = int.from_bytes(self._msg[3:5], "big")
+        result["temperature"].extend(
+            BMS._temperature(
                 self._msg,
-                values=result.get("temp_sensors", 0),
+                values=result.get("temp_count", 0),
                 start=5,
                 divider=10,
-                types=(TempSensor.T.CELL,) * result.get("temp_sensors", 0),
+                types=(TempSensor.T.CELL,) * result.get("temp_count", 0),
             )
         )
 

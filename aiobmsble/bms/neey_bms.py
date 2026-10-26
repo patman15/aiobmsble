@@ -43,7 +43,7 @@ class BMS(BaseBMS):
     _MIN_FRAME: Final[int] = 10  # header length
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 201, "<f", lambda x: round(x, 3)),
-        BMSDp("delta_voltage", 209, "<f", lambda x: round(x, 3)),
+        BMSDp("delta_cell_voltage", 209, "<f", lambda x: round(x, 3)),
         BMSDp("problem_code", 216, "B", lambda x: x if x in (1, 3, 7, 8, 9, 10, 11) else 0),
         BMSDp("balancer", 216, "B", lambda x: (x == 0x5)),
         BMSDp("balance_current", 218, "<f", lambda x: round(x, 3)),
@@ -202,10 +202,10 @@ class BMS(BaseBMS):
             data: BMSSample = self._conv_data(
                 (BMS._FIELDS if self._proto == "v2" else BMS._FIELDS_v1), self._msg
             )
-            data["temp_values"] = (
-                BMS._temp_values(self._msg, values=4, start=226)
+            data["temperature"] = (
+                BMS._temperature(self._msg, values=4, start=226)
                 if self._proto == "v2"
-                else BMS._temp_values(self._msg, values=2, start=221)
+                else BMS._temperature(self._msg, values=2, start=221)
             )
 
             data["cell_voltages"] = BMS._cell_voltages(
@@ -237,7 +237,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _temp_values(
+    def _temperature(
         data: bytes,
         *,
         start: int,

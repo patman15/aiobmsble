@@ -46,7 +46,7 @@ class BMS(BaseBMS):
         ),
         BMSDp("cycle_charge", 54, 4, False, lambda x: x / 1e6),
         BMSDp("total_charge", 58, 4, False, lambda x: x // 1000),
-        BMSDp("delta_voltage", 82, 2, False, lambda x: x / 1000),
+        BMSDp("delta_cell_voltage", 82, 2, False, lambda x: x / 1000),
         BMSDp("power", 62, 4, True, float),
         BMSDp("chrg_mosfet", 46, 1, False, lambda x: x == 0x1),
         BMSDp("dischrg_mosfet", 47, 1, False, lambda x: x == 0x1),
@@ -208,13 +208,13 @@ class BMS(BaseBMS):
             start=BMS._CELL_POS,
             byteorder="little",
         )
-        result["temp_sensors"] = min(self._msg[BMS._TEMP_POS], BMS._MAX_TEMPS)
-        result["temp_values"] = BMS._temp_values(
+        result["temp_count"] = min(self._msg[BMS._TEMP_POS], BMS._MAX_TEMPS)
+        result["temperature"] = BMS._temperature(
             self._msg,
-            values=result["temp_sensors"] + 2,  # + MOSFET, balancer temperature
+            values=result["temp_count"] + 2,  # + MOSFET, balancer temperature
             start=BMS._CELL_POS + result["cell_count"] * 2,
             byteorder="little",
-            types=(TempSensor.T.GENERIC,) * result["temp_sensors"]
+            types=(TempSensor.T.GENERIC,) * result["temp_count"]
             + (TempSensor.T.MOSFET, TempSensor.T.BALANCER),
         )
         result.update(
@@ -222,7 +222,7 @@ class BMS(BaseBMS):
                 BMS._FIELDS,
                 self._msg,
                 byteorder="little",
-                start=(result["temp_sensors"] + result["cell_count"]) * 2,
+                start=(result["temp_count"] + result["cell_count"]) * 2,
             )
         )
 

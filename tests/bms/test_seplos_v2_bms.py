@@ -18,7 +18,7 @@ BT_FRAME_SIZE = 20
 
 _RESULT_DEFS: BMSSample = {
     "cell_count": 16,
-    "temp_sensors": 6,
+    "temp_count": 6,
     "voltage": 54.43,
     "current": 11.8,
     "battery_level": 98.2,
@@ -26,7 +26,6 @@ _RESULT_DEFS: BMSSample = {
     "cycle_charge": 298.53,
     "cycles": 214,
     "design_capacity": 304,
-    "temperature": 24.4,
     "cycle_capacity": 16248.988,
     "power": 642.274,
     "battery_charging": True,
@@ -48,9 +47,9 @@ _RESULT_DEFS: BMSSample = {
         3.4,
         3.399,
     ],
-    "temp_values": [TS(v, TS.T.CELL) for v in (23.2, 23.1, 22.9, 23.4)]
+    "temperature": [TS(v, TS.T.CELL) for v in (23.2, 23.1, 22.9, 23.4)]
     + [TS(29.3, TS.T.AMBIENT), TS(24.5, TS.T.MOSFET)],
-    "delta_voltage": 0.022,
+    "delta_cell_voltage": 0.022,
     "pack_count": 1,
     "balancer": 2,
     "chrg_mosfet": True,

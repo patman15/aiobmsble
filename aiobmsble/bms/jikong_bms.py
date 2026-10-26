@@ -39,7 +39,7 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 190, 1, False),
         BMSDp("chrg_mosfet", 198, 1, False, bool),
         BMSDp("dischrg_mosfet", 199, 1, False, bool),
-        BMSDp("temp_sensors", 214, 1, False),
+        BMSDp("temp_count", 214, 1, False),
         BMSDp("heater", 215, 1, False, bool),
         BMSDp("heater_current", 236, 2, True, lambda x: x / 1000),
     )
@@ -231,7 +231,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _temp_sensors(
+    def _temp_count(
         data: bytes, temp_pos: list[tuple[int, int, TempSensor.T]], mask: int
     ) -> list[TempSensor]:
         return [
@@ -251,7 +251,7 @@ class BMS(BaseBMS):
             data[70 + (offs >> 1) : 74 + (offs >> 1)], byteorder="little"
         ).bit_count()
 
-        result["delta_voltage"] = (
+        result["delta_cell_voltage"] = (
             int.from_bytes(data[76 + (offs >> 1) : 78 + (offs >> 1)], byteorder="little") / 1000
         )
 
@@ -270,8 +270,8 @@ class BMS(BaseBMS):
             await self._await_msg(data=BMS._cmd(0x96), char=self._char_write_handle)
 
         data: BMSSample = self._conv_data(self._msg, self._prot_offset, self._sw_version)
-        data["temp_values"] = BMS._temp_sensors(
-            self._msg, self._temp_pos(), data.get("temp_sensors", 0)
+        data["temperature"] = BMS._temp_count(
+            self._msg, self._temp_pos(), data.get("temp_count", 0)
         )
 
         data["problem_code"] = (

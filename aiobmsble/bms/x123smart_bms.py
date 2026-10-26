@@ -251,7 +251,7 @@ class BMS(BaseBMS):
 
         return {
             "cell_voltages": cell_v,
-            "temp_values": cell_t,
+            "temperature": cell_t,
             "chrg_mosfet": bool(cell_s & 0x1),
             "dischrg_mosfet": bool(cell_s & 0x1),
             "problem_code": cell_s & 0x0EFC,

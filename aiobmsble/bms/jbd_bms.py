@@ -42,7 +42,7 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x1)),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2)),
         BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
-        BMSDp("temp_sensors", 26, 1, False),  # count is not limited
+        BMSDp("temp_count", 26, 1, False),  # count is not limited
     )  # general protocol v4
     accept_secret: bool = True
 
@@ -249,9 +249,9 @@ class BMS(BaseBMS):
         result: BMSSample = {}
         await self._await_cmd_resp(0x03)
         result = BMS._decode_data(self._FIELDS, self._msg)
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg,
-            values=result.get("temp_sensors", 0),
+            values=result.get("temp_count", 0),
             start=27,
             signed=False,
             offset=2731,

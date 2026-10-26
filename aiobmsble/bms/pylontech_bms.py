@@ -130,7 +130,7 @@ class BMS(BaseBMS):
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=3)
         # Modbus exposes only min/max cell aggregates (0x1018, 0x1019), not per-cell values.
         result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=2, start=7)
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg, values=2, start=11, divider=10
         )
 

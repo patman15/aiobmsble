@@ -57,7 +57,6 @@ class BMS(BaseBMS):
         BMSDp("cycles", 46, 2, False, idx=_EIA_LEN),
         BMSDp("battery_level", 48, 2, False, lambda x: x / 10, _EIA_LEN),
         BMSDp("battery_health", 50, 2, False, lambda x: x / 10, _EIA_LEN),
-        BMSDp("temperature", 20, 2, True, lambda x: x / 10, _EIB_LEN),  # avg. ctemp
         BMSDp("problem_code", 1, 9, False, lambda x: x & BMS._PRB_MASK, _EIC_LEN),
         BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), _EIC_LEN),
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), _EIC_LEN),
@@ -229,7 +228,7 @@ class BMS(BaseBMS):
             )
 
             # add temperature sensors (4x cell temperature + 4 reserved)
-            pack_sample["temp_values"] = BMS._temp_values(
+            pack_sample["temperature"] = BMS._temperature(
                 self._msg[pack << 8 | BMS._PIB_LEN],
                 values=4,
                 start=BMS._TEMP_START,
@@ -237,7 +236,7 @@ class BMS(BaseBMS):
                 offset=2731,
                 divider=10,
                 types=(TempSensor.T.CELL,) * 4,
-            ) + BMS._temp_values(
+            ) + BMS._temperature(
                 self._msg[pack << 8 | BMS._PIB_LEN],
                 values=2,
                 start=BMS._TEMP_START + 16,

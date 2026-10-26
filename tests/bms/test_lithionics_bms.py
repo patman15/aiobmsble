@@ -38,12 +38,11 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "problem_code": 0,
         "cell_count": 4,
         "cell_voltages": [3.5, 3.5, 3.5, 3.49],
-        "temp_values": [TS(12.778), TS(8.889)],
-        "temperature": 10.834,
+        "temperature": [TS(12.778), TS(8.889)],
         "cycle_charge": 319.0,
         "total_charge": 6391,
         "cycle_capacity": 4462.81,
-        "delta_voltage": 0.01,
+        "delta_cell_voltage": 0.01,
         "power": -41.97,
         "battery_charging": False,
         "runtime": 382800,
@@ -58,18 +57,18 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cycle_charge": 159.4,
         "cycle_capacity": 8368.5,
         "cell_count": 4,
-        "cell_voltages": [3.29, 3.31, 3.37, 3.25],
-        "delta_voltage": 0.08,
-        "temp_values": [TS(26.667)],
-        "temperature": 26.667,
+#        "cell_voltages": [3.29, 3.31, 3.37, 3.25], # TODO: remove
+        "delta_cell_voltage": 0.08,
+        "temperature": [TS(26.667)],
         "problem_code": 0,
         "problem": False,
         "packs": [
             {
                 "cell_count": 4,
-                "temp_values": [TS(25.4), TS(27.1)],
-                "delta_voltage": 0.08,
+                "temperature": [TS(25.4), TS(27.1)],
+                "delta_cell_voltage": 0.08,
                 "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+                "voltage": 13.22,
             }
         ],
     },
@@ -170,16 +169,24 @@ async def test_module_info_sorted(
     assert result.get("packs") == [
         {
             "cell_count": 4,
-            "temp_values": [TS(25.4), TS(27.1)],
-            "delta_voltage": 0.08,
+            "temperature": [TS(25.4), TS(27.1)],
+            "delta_cell_voltage": 0.08,
             "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+            "voltage": 13.22,
         },
         {
             "cell_count": 4,
-            "temp_values": [TS(30.0), TS(31.0)],
-            "delta_voltage": 0.08,
+            "temperature": [TS(30.0), TS(31.0)],
+            "delta_cell_voltage": 0.08,
         }
-        | ({"cell_voltages": [3.30, 3.31, 3.32, 3.33]} if cell_count else {}),
+        | (
+            {
+                "cell_voltages": [3.30, 3.31, 3.32, 3.33],
+                "voltage": 13.26,
+            }
+            if cell_count
+            else {}
+        ),
     ]
 
     await bms.disconnect()

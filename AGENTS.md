@@ -92,7 +92,7 @@ The documentation workflow runs those commands on pushes to `main`; generated ou
 - Matchers must be unique across plugins so BLE auto-detection is reliable. A matcher can use the `MatcherPattern` fields defined in `aiobmsble/__init__.py`.
 - Store returned telemetry in the `BMSSample` `TypedDict`, not a dataclass. Include the required common fields available from the device and use `BaseBMS._add_missing_values()`/the existing calculation helpers for consistent derived values.
 - Validate incoming frames according to the protocol (for example, start marker, length, allowed message type, and checksum/CRC). Discard invalid frames; only signal completion when a valid complete response is available.
-- Prefer `BaseBMS` helpers such as `_decode_data()`, `_cell_voltages()`, `_temp_values()`, `_check_integrity()`, and `_cmd_modbus()` before duplicating behavior.
+- Prefer `BaseBMS` helpers such as `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_check_integrity()`, and `_cmd_modbus()` before duplicating behavior.
 - Use recorded frames/advertisements from real devices in tests; do not fabricate protocol frames. Keep names and comments in English, use Google-style docstrings, and do not add `# pragma: no cover` (the contribution guide explicitly prohibits it).
 - Follow the Ruff configuration in `pyproject.toml`, including its import sorting, complexity, docstring, async, logging, and typing rules. Tests have a per-file exception for Ruff `SLF`; protected-access is also ignored by the configured pylint plugin for `tests/**`.
 
@@ -303,7 +303,7 @@ message/pack identifier when several replies contribute to one update), and
   only inspects `self._msg` after it returns.
 - All field decoding happens afterwards, inside `_async_update()` (or a small
   helper it calls): read `self._msg`/`self._msg[key]` and convert it via
-  `_decode_data()`, `_cell_voltages()`, `_temp_values()`, `_decode_pack()`, or
+  `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_decode_pack()`, or
   protocol-specific parsing.
 
 This keeps the handler synchronous and side-effect-free beyond frame
@@ -325,7 +325,7 @@ retried.
 - Define a class-level `_FIELDS` variable containing `BMSDp` entries for
   scalar values, including scaling and signedness, and pass the relevant
   tagged message from `_msg` to `_decode_data()`.
-- Decode cell voltages and temperatures using shared helpers where their data
+- Decode cell voltages and temperature using shared helpers where their data
   layout is compatible.
 - Return a `BMSSample` using the project's canonical field names.
 - Clear or preserve notification state intentionally, depending on whether the

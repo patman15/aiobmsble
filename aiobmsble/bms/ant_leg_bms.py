@@ -173,7 +173,7 @@ class BMS(BaseBMS):
                 )  # leads to `cycles` not available when level == 0
 
         # ANT-BMS carries 6 slots for temp sensors but only 4 looks like being connected by default
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg, values=4, start=91, size=2, byteorder="big", signed=True
         )
 

@@ -43,7 +43,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
-        self._temp_sensors: int = 1  # default to 1 temp sensor
+        self._temp_count: int = 1  # default to 1 temp sensor
         self._msg: bytes = b""
 
     @staticmethod
@@ -128,20 +128,20 @@ class BMS(BaseBMS):
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=BMS._MAX_CELLS, start=16, byteorder="little"
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg, values=BMS._MAX_TEMP, start=52, byteorder="little"
         )
         # Increase the sensor count when higher-index sensors report nonzero values
         with contextlib.suppress(StopIteration):
-            self._temp_sensors = max(
-                self._temp_sensors,
+            self._temp_count = max(
+                self._temp_count,
                 next(
                     i
-                    for i in range(min(BMS._MAX_TEMP, len(result["temp_values"])), 1, -1)
-                    if result["temp_values"][i - 1] != 0.0
+                    for i in range(min(BMS._MAX_TEMP, len(result["temperature"])), 1, -1)
+                    if result["temperature"][i - 1] != 0.0
                 ),
             )
-        result["temp_values"] = result["temp_values"][: self._temp_sensors]
-        result["temp_sensors"] = self._temp_sensors
+        result["temperature"] = result["temperature"][: self._temp_count]
+        result["temp_count"] = self._temp_count
 
         return result

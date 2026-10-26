@@ -91,8 +91,7 @@ _PROTO_DEFS: Final[dict[str, dict[str, bytearray]]] = {
 
 _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     "v1": {
-        "delta_voltage": 0.008,
-        "temperature": 50.24,
+        "delta_cell_voltage": 0.008,
         "voltage": 52.313,
         "balance_current": -4.082,
         "cell_count": 16,
@@ -115,7 +114,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
             3.272,
         ],
         "balancer": True,
-        "temp_values": [TS(50.24), TS(50.24)],
+        "temperature": [TS(50.24), TS(50.24)],
         "problem": False,
         "problem_code": 0,
     },
@@ -146,13 +145,12 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "current": 2.026,
         "cycle_capacity": 9296.836,
         "cycle_charge": 177.407,
-        "delta_voltage": 0.013,
+        "delta_cell_voltage": 0.013,
         "design_capacity": 320,
         "power": 106.171,
         "problem": False,
         "problem_code": 0,
-        "temp_values": [TS(v) for v in (28.2, 28.09, 31.4, 61.9)],
-        "temperature": 37.398,
+        "temperature": [TS(v) for v in (28.2, 28.09, 31.4, 61.9)],
         "voltage": 52.404,
     },
 }

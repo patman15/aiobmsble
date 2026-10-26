@@ -75,10 +75,9 @@ _RESULT_DEFS: Final[BMSSample] = {
         "design_capacity": 100,
         "cycle_charge": 91.0,
         "cycle_capacity": round(13.24 * 91.0, 3),
-        "temp_values": [TS(15.0)] * 2,
-        "temperature": 15.0,
+        "temperature": [TS(15.0)] * 2,
         "cell_voltages": [3.312, 3.311],
-        "delta_voltage": 0.001,
+        "delta_cell_voltage": 0.001,
         "cell_count": 2,
         "battery_charging": False,
         "problem": False,
@@ -168,7 +167,7 @@ async def test_device_info_empty_sn_no_exception(
 async def test_negative_temperature(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client
 ) -> None:
-    """Test that negative temperatures (int16) decode correctly."""
+    """Test that negative temperature (int16) decode correctly."""
     monkeypatch.setattr(
         MockPylontechBleakClient,
         "RESP",
@@ -177,7 +176,7 @@ async def test_negative_temperature(
     patch_bleak_client(MockPylontechBleakClient)
     bms = BMS(generate_ble_device())
     result: BMSSample = await bms.async_update()
-    assert result.get("temp_values") == [TS(-2.0), TS(-2.0)]
+    assert result.get("temperature") == [TS(-2.0), TS(-2.0)]
     await bms.disconnect()
 
 

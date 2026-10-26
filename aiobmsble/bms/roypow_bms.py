@@ -44,7 +44,7 @@ class BMS(BaseBMS):
             0x4,
         ),
         BMSDp("runtime", 30, 2, False, lambda x: x * 60, 0x4),
-        BMSDp("temp_sensors", 13, 1, False, idx=0x3),
+        BMSDp("temp_count", 13, 1, False, idx=0x3),
         BMSDp("cycles", 9, 2, False, idx=0x4),
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x4), 0x3),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2), 0x3),
@@ -175,9 +175,9 @@ class BMS(BaseBMS):
             cells=max(0, (len(self._msg.get(0x2, b"")) - 11) // 2),
             start=9,
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg.get(0x3, b""),
-            values=result.get("temp_sensors", 0),
+            values=result.get("temp_count", 0),
             start=14,
             size=1,
             signed=False,
