@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from enum import Enum
 from functools import lru_cache
-from typing import Final
+from typing import Final, cast
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
@@ -180,7 +180,7 @@ class BMS(BaseBMS):
         await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=8)
         if not result.get("pack_count"):  # zero on all packs except the master
-            result |= BMSSample(**pack)  # overwrite with pack data if pack is individual device
+            result |= cast(BMSSample, pack)  # overwrite if pack is individual device
         else:
             result["packs"] = [pack]
         return result
