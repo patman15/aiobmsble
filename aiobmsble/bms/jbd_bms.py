@@ -44,6 +44,12 @@ class BMS(BaseBMS):
         BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
         BMSDp("temp_sensors", 26, 1, False),  # count is not limited
     )  # general protocol v4
+    _FIELDS_D10: tuple[BMSDp, ...] = (
+        BMSDp("current", 6, 2, True, lambda x: x / 10),
+        BMSDp("cycle_charge", 8, 2, False, lambda x: x / 10),
+        BMSDp("design_capacity", 10, 2, False, lambda x: x // 10),
+    )  # overrides for BMS reporting 100 mA / 100 mAh units
+
     accept_secret: bool = True
 
     def __init__(
@@ -247,9 +253,15 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        result: BMSSample = {}
+
         await self._await_cmd_resp(0x03)
-        result = BMS._decode_data(self._FIELDS, self._msg)
+        result: BMSSample = BMS._decode_data(self._FIELDS, self._msg)
+
+        # check for /10 scaling flag
+        ctrl: Final[int] = 27 + 2 * result.get("temp_sensors", 0)
+        if int.from_bytes(self._msg[ctrl : ctrl + 1]) & 0x80:
+            result |= BMS._decode_data(self._FIELDS_D10, self._msg)
+
         result["temp_values"] = BMS._temp_values(
             self._msg,
             values=result.get("temp_sensors", 0),
