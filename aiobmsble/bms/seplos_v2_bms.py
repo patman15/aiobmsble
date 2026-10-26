@@ -26,6 +26,8 @@ class BMS(BaseBMS):
     _MIN_LEN: Final[int] = 10
     _MAX_SUBS: Final[int] = 0xF
     _CELL_POS: Final[int] = 9
+    _PACK_POS: Final[int] = 42
+    _SWV_POS: Final[int] = 38
     _PRB_MAX: Final[int] = 8  # max number of alarm event bytes
     _PRB_MASK: Final[int] = ~(0x80FFC0)  # mask alarm event 6-8 (internal bits)
     _PFIELDS: Final[tuple[BMSDp, ...]] = (  # Seplos V2: single machine data
@@ -38,9 +40,7 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 15, 2, False, lambda x: x / 10),
     )
     _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
-    _CMDS: Final[frozenset[tuple[int, bytes]]] = frozenset(
-        {(0x51, b""), (0x61, b"\x00")}
-    )
+    _CMDS: Final[frozenset[tuple[int, bytes]]] = frozenset({(0x51, b""), (0x61, b"\x00")})
 
     def __init__(
         self,
@@ -86,14 +86,14 @@ class BMS(BaseBMS):
         self._exp_reply = {0x51}
         await self._await_msg(BMS._cmd(0x51))
         _dat: Final[bytes] = self._msg[0x51]
+        if len(_dat) <= BMS._SWV_POS:
+            raise ValueError("BMS data incomplete")
         return {
             "model": b2str(_dat[26:36]),
-            "sw_version": f"{int(_dat[37])}.{int(_dat[38])}",
+            "sw_version": f"{int(_dat[BMS._SWV_POS-1])}.{int(_dat[BMS._SWV_POS])}",
         }
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if (
             len(data) > BMS._MIN_LEN
@@ -104,9 +104,7 @@ class BMS(BaseBMS):
             self._frame.clear()
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         # verify that data is long enough
         if len(self._frame) < self._exp_len:
@@ -157,9 +155,7 @@ class BMS(BaseBMS):
         assert cmd in (0x47, 0x51, 0x61, 0x62, 0x04)  # allow only read commands
         frame = bytearray([*BMS._HEAD, BMS._CMD_VER, address, 0x46, cmd])
         frame.extend(len(data).to_bytes(2, "big", signed=False) + data)
-        frame.extend(
-            int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL
-        )
+        frame.extend(int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL)
         return bytes(frame)
 
     async def _async_update(self) -> BMSSample:
@@ -170,27 +166,29 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd, data=data))
 
         result: BMSSample = {}
-        # get extension pack count from manufacturer information (only main unit != 0)
-        result["pack_count"] = self._msg[0x51][42]
-
         result["cell_count"] = self._msg[0x61][BMS._CELL_POS]
-        result["temp_sensors"] = self._msg[0x61][
-            BMS._CELL_POS + result["cell_count"] * 2 + 1
-        ]
+        temp_pos: Final[int] = BMS._CELL_POS + result["cell_count"] * 2 + 1
+        if len(self._msg[0x51]) <= BMS._PACK_POS or len(self._msg[0x61]) <= temp_pos:
+            raise ValueError("BMS data incomplete")
+
+        # get extension pack count from manufacturer information (only main unit != 0)
+        result["pack_count"] = self._msg[0x51][BMS._PACK_POS]
+        result["temp_sensors"] = self._msg[0x61][temp_pos]
         ct_blk_len: Final[int] = (result["cell_count"] + result["temp_sensors"]) * 2 + 2
 
         if (BMS._GSMD_LEN + ct_blk_len) > len(self._msg[0x61]):
-            raise ValueError("message too short to decode data")
+            raise ValueError("BMS data incomplete")
 
-        result |= BMS._decode_data(
-            BMS._PFIELDS, self._msg[0x61], start=BMS._CELL_POS + ct_blk_len
-        )
+        result |= BMS._decode_data(BMS._PFIELDS, self._msg[0x61], start=BMS._CELL_POS + ct_blk_len)
 
         states_pos: Final[int] = (
             (BMS._CELL_POS + ct_blk_len)
             + (result["cell_count"] + result["temp_sensors"])
             + (3 + 19)
         )
+        cst_alarm_pos: Final[int] = states_pos + 1
+        if len(self._msg[0x61]) <= cst_alarm_pos:
+            raise ValueError("BMS data incomplete")
 
         # get switches from parallel data (main pack)
         states: Final[int] = self._msg[0x61][states_pos]
@@ -200,7 +198,6 @@ class BMS(BaseBMS):
             "heater": bool(states & 0x8),
         }
 
-        cst_alarm_pos: Final[int] = states_pos + 1
         balance_pos: Final[int] = cst_alarm_pos + 1 + self._msg[0x61][cst_alarm_pos]
         balance_len: Final[int] = min((result["cell_count"] + 7) // 8, 8)  # round up
         result["balancer"] = int.from_bytes(
