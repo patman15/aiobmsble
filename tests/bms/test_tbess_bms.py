@@ -7,7 +7,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, PackSample, TempSensor as TS
 from aiobmsble.bms.tbess_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -56,16 +56,16 @@ _PROTO_DEFS: Final[dict[str, bytes]] = {
     ),
 }
 
-_RESULT_DEFS: Final[BMSSample] = {
-    "packs": [
-        {
-            "voltage": 52.92,
-            "current": -6.43,
-            "battery_level": 69.9,
-            "battery_health": 100.0,
-            "cycles": 27,
-            "cycle_charge": 6358,
-            "cell_voltages": [
+_RESULT_DEFS: Final[BMSSample] = BMSSample(
+    packs=[
+        PackSample(
+            voltage=52.92,
+            current=-6.43,
+            battery_level=69.9,
+            battery_health=100.0,
+            cycles=27,
+            cycle_charge=6358,
+            cell_voltages=[
                 3.308,
                 3.307,
                 3.308,
@@ -83,7 +83,7 @@ _RESULT_DEFS: Final[BMSSample] = {
                 3.308,
                 3.307,
             ],
-            "temp_values": [
+            temp_values=[
                 TS(23.1, TS.T.CELL),
                 TS(23.3, TS.T.CELL),
                 TS(23.1, TS.T.CELL),
@@ -91,17 +91,17 @@ _RESULT_DEFS: Final[BMSSample] = {
                 TS(25.3, TS.T.MOSFET),
                 TS(24.7, TS.T.AMBIENT),
             ],
-            "cell_count": 16,
-            "delta_voltage": 0.004,
-        },
-        {
-            "voltage": 52.92,
-            "current": -7.8,
-            "battery_level": 70.8,
-            "battery_health": 100.0,
-            "cycles": 26,
-            "cycle_charge": 6181,
-            "cell_voltages": [
+            cell_count=16,
+            delta_voltage=0.004,
+        ),
+        PackSample(
+            voltage=52.92,
+            current=-7.8,
+            battery_level=70.8,
+            battery_health=100.0,
+            cycles=26,
+            cycle_charge=6181,
+            cell_voltages=[
                 3.308,
                 3.306,
                 3.309,
@@ -119,7 +119,7 @@ _RESULT_DEFS: Final[BMSSample] = {
                 3.309,
                 3.306,
             ],
-            "temp_values": [
+            temp_values=[
                 TS(22.9, TS.T.CELL),
                 TS(23.0, TS.T.CELL),
                 TS(22.8, TS.T.CELL),
@@ -127,11 +127,11 @@ _RESULT_DEFS: Final[BMSSample] = {
                 TS(25.4, TS.T.MOSFET),
                 TS(24.2, TS.T.AMBIENT),
             ],
-            "cell_count": 16,
-            "delta_voltage": 0.004,
-        },
+            cell_count=16,
+            delta_voltage=0.004,
+        ),
     ],
-    "cell_voltages": [
+    cell_voltages=[
         3.308,
         3.307,
         3.308,
@@ -165,23 +165,23 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.309,
         3.306,
     ],
-    "cell_count": 16,
-    "delta_voltage": 0.004,
-    "pack_count": 2,
-    "voltage": 52.9,
-    "current": -16.6,
-    "design_capacity": 5600,
-    "battery_level": 70.46,
-    "cycle_charge": 12539,
-    "total_charge": 12288,
-    "cycles": 27,
-    "battery_health": 100.0,
-    "cycle_capacity": 663313.1,
-    "power": -878.14,
-    "battery_charging": False,
-    "runtime": 2719301,
-    "problem": False,
-}
+    cell_count=16,
+    delta_voltage=0.004,
+    pack_count=2,
+    voltage=52.9,
+    current=-16.6,
+    design_capacity=5600,
+    battery_level=70.46,
+    cycle_charge=12539,
+    total_charge=12288,
+    cycles=27,
+    battery_health=100.0,
+    cycle_capacity=663313.1,
+    power=-878.14,
+    battery_charging=False,
+    runtime=2719301,
+    problem=False,
+)
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -269,9 +269,9 @@ async def test_fragmented_and_concatenated_frames() -> None:
     assert bms._msg_event.is_set()
     assert len(bms._ready_samples) == 1
     result: BMSSample = await bms._async_update()
-    assert result["pack_count"] == 2
-    assert [pack["current"] for pack in result["packs"]] == [-6.43, -7.8]
-    assert result["voltage"] == 52.9
+    assert result.get("pack_count") == 2
+    assert [pack.get("current") for pack in result.get("packs", [])] == [-6.43, -7.8]
+    assert result.get("voltage") == 52.9
 
 
 @pytest.mark.parametrize(
@@ -332,11 +332,14 @@ async def test_summary_pack_count_controls_detail_collection() -> None:
 
     result: BMSSample = await bms._async_update()
 
-    assert result["pack_count"] == 1
-    assert result["design_capacity"] == 5600
-    assert result["packs"][0]["voltage"] == _RESULT_DEFS["packs"][0]["voltage"]
-    assert result["packs"][0]["cell_voltages"] == _RESULT_DEFS["packs"][0]["cell_voltages"]
-    assert len(result["packs"]) == 1
+    packs = result.get("packs", [])
+    expected_pack = _RESULT_DEFS.get("packs", [])[0]
+
+    assert result.get("pack_count") == 1
+    assert result.get("design_capacity") == 5600
+    assert len(packs) == 1
+    assert packs[0].get("voltage") == expected_pack.get("voltage")
+    assert packs[0].get("cell_voltages") == expected_pack.get("cell_voltages")
     assert "current" in result
     assert "cell_voltages" not in result
 
