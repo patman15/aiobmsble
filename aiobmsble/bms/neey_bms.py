@@ -6,7 +6,8 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from functools import lru_cache
-from struct import unpack_from
+from math import isfinite
+from struct import error as StructError, unpack_from
 from typing import Any, Final, Literal, NamedTuple
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -43,7 +44,7 @@ class BMS(BaseBMS):
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 201, "<f", lambda x: round(x, 3)),
         BMSDp("delta_voltage", 209, "<f", lambda x: round(x, 3)),
-        BMSDp("problem_code", 216, "B", lambda x: x if x in {1, 3, 7, 8, 9, 10, 11} else 0),
+        BMSDp("problem_code", 216, "B", lambda x: x if x in (1, 3, 7, 8, 9, 10, 11) else 0),
         BMSDp("balancer", 216, "B", lambda x: (x == 0x5)),
         BMSDp("balance_current", 218, "<f", lambda x: round(x, 3)),
         BMSDp("current", 222, "<f", lambda x: round(x, 3)),
@@ -197,20 +198,24 @@ class BMS(BaseBMS):
             self._log.debug("requesting cell info")
             await self._await_msg(data=BMS._cmd(b"\x02"))
 
-        data: BMSSample = self._conv_data(
-            (BMS._FIELDS if self._proto == "v2" else BMS._FIELDS_v1), self._msg
-        )
-        data["temp_values"] = (
-            BMS._temp_values(self._msg, values=4, start=226)
-            if self._proto == "v2"
-            else BMS._temp_values(self._msg, values=2, start=221)
-        )
+        try:
+            data: BMSSample = self._conv_data(
+                (BMS._FIELDS if self._proto == "v2" else BMS._FIELDS_v1), self._msg
+            )
+            data["temp_values"] = (
+                BMS._temp_values(self._msg, values=4, start=226)
+                if self._proto == "v2"
+                else BMS._temp_values(self._msg, values=2, start=221)
+            )
 
-        data["cell_voltages"] = BMS._cell_voltages(
-            self._msg, cells=24, start=9, byteorder="little", size=4
-        )
+            data["cell_voltages"] = BMS._cell_voltages(
+                self._msg, cells=24, start=9, byteorder="little", size=4
+            )
+        except StructError as exc:
+            raise ValueError("BMS data incomplete.") from exc
+        finally:
+            self._msg_event.clear()  # clear event for next update
 
-        self._msg_event.clear()  # clear event for next update
         return data
 
     @staticmethod
@@ -255,6 +260,8 @@ class BMS(BaseBMS):
         """Return BMS data from status message."""
         result: BMSSample = {}
         for field in fields:
-            result[field.key] = field.fct(unpack_from(field.fmt, data, field.pos)[0])
+            # NaN and inf cannot be converted to integers
+            if isfinite(value := unpack_from(field.fmt, data, field.pos)[0]):
+                result[field.key] = field.fct(value)
 
         return result
