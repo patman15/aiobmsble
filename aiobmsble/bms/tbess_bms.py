@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from collections import deque
+from enum import IntEnum
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -28,6 +29,14 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     """V-TAC TBESS BMS implementation."""
 
+    class _Cmd(IntEnum):
+        """TBESS protocol frame command codes."""
+
+        SUMMARY = 0x73
+        DETAIL = 0xDB
+        CONFIG = 0xDC
+        INFO = 0xD0
+
     INFO: BMSInfo = {"manufacturer": "V-TAC", "model": "TBESS"}
     _FRAME_START: Final[int] = 0xEF
     _FRAME_END: Final[int] = 0x16
@@ -35,22 +44,18 @@ class BMS(BaseBMS):
     _FRAME_ADDRESS_POS: Final[int] = 1
     _FRAME_TAG: Final[slice] = slice(22, 24)
     _PACK_COUNT_POS: Final[int] = 26
-    _SUMMARY_CMD: Final[int] = 0x73
-    _DETAIL_CMD: Final[int] = 0xDB
-    _CONFIG_CMD: Final[int] = 0xDC
-    _INFO_CMD: Final[int] = 0xD0
     _SYSTEM_ADDRESS: Final[int] = 0x01
     _FRAME_LENGTHS: Final[dict[int, int]] = {
-        _SUMMARY_CMD: 112,
-        _DETAIL_CMD: 124,
-        _CONFIG_CMD: 72,
-        _INFO_CMD: 163,
+        _Cmd.SUMMARY: 112,
+        _Cmd.DETAIL: 124,
+        _Cmd.CONFIG: 72,
+        _Cmd.INFO: 163,
     }
     _FRAME_TAGS: Final[dict[int, bytes]] = {
-        _SUMMARY_CMD: b"\x00\x55",
-        _DETAIL_CMD: b"\x00\x61",
-        _CONFIG_CMD: b"\x00\x2d",
-        _INFO_CMD: b"\x00\x88",
+        _Cmd.SUMMARY: b"\x00\x55",
+        _Cmd.DETAIL: b"\x00\x61",
+        _Cmd.CONFIG: b"\x00\x2d",
+        _Cmd.INFO: b"\x00\x88",
     }
     _CELLS: Final[int] = 16
     _CELL_START: Final[int] = 34
@@ -168,14 +173,14 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame markers or tag for command 0x%02X", command)
             return
 
-        if command == BMS._SUMMARY_CMD:
+        if command == BMS._Cmd.SUMMARY:
             if frame[BMS._FRAME_ADDRESS_POS] != BMS._SYSTEM_ADDRESS:
                 self._log.debug(
                     "unexpected system status address 0x%02X", frame[BMS._FRAME_ADDRESS_POS]
                 )
                 return
             self._process_summary(frame)
-        elif command == BMS._DETAIL_CMD:
+        elif command == BMS._Cmd.DETAIL:
             self._process_detail(frame)
 
     def _process_summary(self, frame: bytes) -> None:
