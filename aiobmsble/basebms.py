@@ -79,7 +79,8 @@ class BaseBMS(ABC):
         ) -> tuple[str, MutableMapping[str, Any]]:
             """Process the logging message."""
             prefix: Final[str] = str(self.extra.get("prefix") if self.extra else "")
-            return (f"{prefix} {msg}", kwargs)
+            # prefix must not act as format directive
+            return (f"{prefix.replace('%', '%%')} {msg}", kwargs)
 
     def __init__(
         self,

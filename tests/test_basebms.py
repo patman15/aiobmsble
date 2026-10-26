@@ -702,6 +702,18 @@ def test_get_bms_module() -> None:
     assert DummyBMS.get_bms_module() == "aiobmsble.bms.dummy_bms"
 
 
+def test_log_prefix_name_not_format_string(
+    patch_bleak_client: Callable[..., None], caplog: pytest.LogCaptureFixture
+) -> None:
+    """Check that format directives in the device name are logged literally."""
+    patch_bleak_client(MockBleakClient)
+
+    with caplog.at_level(DEBUG):
+        MinTestBMS(generate_ble_device(name="Mock%s%5sBMS"))
+    assert "Mock%s%5sBMS|5566: " in caplog.text
+    assert "initializing" in caplog.text
+
+
 async def test_no_notify(
     patch_bleak_client: Callable[..., None], caplog: pytest.LogCaptureFixture
 ) -> None:

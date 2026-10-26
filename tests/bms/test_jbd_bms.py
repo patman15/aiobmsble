@@ -345,6 +345,25 @@ async def test_device_info(patch_bleak_client, patch_bms_timeout, client: object
         assert await bms.device_info() == {"sw_version": "8.0"}
 
 
+async def test_device_info_short(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that a valid but too short basic info reply is rejected."""
+
+    monkeypatch.setattr(
+        MockJBDBleakClient,
+        "RESP",
+        MockJBDBleakClient.RESP
+        | {MockJBDBleakClient.CMD_INFO: b"\xdd\x03\x00\x01\x00\xff\xff\x77"},
+    )
+    patch_bleak_client(MockJBDBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.device_info()
+
+    await bms.disconnect()
+
+
 @pytest.fixture(
     name="wrong_response",
     params=[
