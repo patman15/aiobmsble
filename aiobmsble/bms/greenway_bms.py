@@ -63,8 +63,7 @@ class BMS(BaseBMS):
         (MsgT.VERSION, MsgT.MANUF, MsgT.CELL_TYPE, MsgT.SERIAL)
     )
     _MSG_SET: Final[frozenset[int]] = frozenset(
-        [field.idx for field in _FIELDS]
-        + [MsgT.TEMP, MsgT.CELL_VOLTAGES1, MsgT.CELL_VOLTAGES2]
+        [field.idx for field in _FIELDS] + [MsgT.TEMP, MsgT.CELL_VOLTAGES1, MsgT.CELL_VOLTAGES2]
     )
 
     def __init__(
@@ -112,6 +111,8 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(addr))
 
         ver: bytes = self._msg[MsgT.VERSION][BMS._LEN_POS + 1 : -1]
+        if len(ver) < 4:
+            raise ValueError("BMS data incomplete.")
         return BMSInfo(
             manufacturer=b2str(self._msg[MsgT.MANUF][BMS._LEN_POS + 1 : -1]),
             model=b2str(self._msg[MsgT.BMS_TYPE][BMS._LEN_POS + 1 : -1]),
@@ -121,9 +122,7 @@ class BMS(BaseBMS):
             sw_version=f"{ver[1]}.{ver[0]}",
         )
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -151,9 +150,7 @@ class BMS(BaseBMS):
             )
             return
 
-        if not self._check_integrity(
-            self._frame, crc_sum, slice(None, -1), slice(-1, None)
-        ):
+        if not self._check_integrity(self._frame, crc_sum, slice(None, -1), slice(-1, None)):
             return
 
         self._msg[self._frame[3]] = bytes(self._frame)
