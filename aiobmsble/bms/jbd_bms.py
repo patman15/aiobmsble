@@ -28,6 +28,7 @@ class BMS(BaseBMS):
     _INFO_LEN: Final[int] = 7  # minimum frame size
     _BASIC_INFO: Final[int] = 23  # basic info data length
     _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
+    _POS_SWVER: Final[int] = 22  # position of SW version
     _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4
     _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
@@ -43,6 +44,11 @@ class BMS(BaseBMS):
         BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
         BMSDp("temp_sensors", 26, 1, False),  # count is not limited
     )  # general protocol v4
+    _FIELDS_D10: tuple[BMSDp, ...] = (
+        BMSDp("current", 6, 2, True, lambda x: x / 10),
+        BMSDp("cycle_charge", 8, 2, False, lambda x: x / 10),
+        BMSDp("design_capacity", 10, 2, False, lambda x: x // 10),
+    )  # overrides for BMS reporting 100 mA / 100 mAh units
 
     accept_secret: bool = True
 
@@ -67,23 +73,25 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in (
+                "12???BL*",  # SBL connect battery
+                "24???BL*",  # SBL connect battery
                 "@KsM:*",  # RVPOWER
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery
+                "OGR-*",  # OGRPHY
+                "SBL-*",  # SBL
                 "SJ-???-*",  # Supervolt Jumbo
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
-                "SBL-*",  # SBL
-                "OGR-*",  # OGRPHY
+                "TITAN-*", # Titan battery
                 "TZ-H*",  # CERRNSS battery
-                "12???BL*",  # SBL connect battery
-                "24???BL*",  # SBL connect battery
             )
         ] + [
             MatcherPattern(oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True)
             for oui in (
                 "10:A5:62",  # CHINS
+                "70:3E:97",
                 "A2:C2:37",
                 "A4:C1:37",
                 "A4:C1:38",
@@ -91,7 +99,6 @@ class BMS(BaseBMS):
                 "A5:C2:39",
                 "A5:C2:3A",
                 "AA:C2:37",
-                "70:3E:97",
             )
         ]
 
@@ -113,7 +120,10 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         await self._await_cmd_resp(0x03)
-        result: BMSInfo = {"sw_version": f"{self._msg[22] >> 4}.{self._msg[22] & 0xF}"}
+        if len(self._msg) <= BMS._POS_SWVER:
+            raise ValueError("BMS data incomplete.")
+        sw_version: Final[int] = self._msg[BMS._POS_SWVER]
+        result: BMSInfo = {"sw_version": f"{sw_version >> 4}.{sw_version & 0xF}"}
         try:
             await self._await_cmd_resp(0x05)
             result["hw_version"] = b2str(self._msg[4 : self._msg[3] + 4])
@@ -243,9 +253,15 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        result: BMSSample = {}
+
         await self._await_cmd_resp(0x03)
-        result = BMS._decode_data(self._FIELDS, self._msg)
+        result: BMSSample = BMS._decode_data(self._FIELDS, self._msg)
+
+        # check for /10 scaling flag
+        ctrl: Final[int] = 27 + 2 * result.get("temp_sensors", 0)
+        if int.from_bytes(self._msg[ctrl : ctrl + 1]) & 0x80:
+            result |= BMS._decode_data(self._FIELDS_D10, self._msg)
+
         result["temp_values"] = BMS._temp_values(
             self._msg,
             values=result.get("temp_sensors", 0),
