@@ -19,15 +19,20 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"manufacturer": "Rolls", "model": "VB-series LFP (RD-RJ8S150A)"}
     _DEV_ID: Final[int] = 0xD2
+    _HEAD_LEN: Final[int] = 3  # device id, function code, byte count
+    _CRC_POS: Final[int] = -2
+    _BLOCK_REGS: Final[int] = 0x10  # registers per read request
     _MAX_CELLS: Final[int] = 16  # cell block is padded with zeros up to 16 cells
     _MAX_TEMPS: Final[int] = 5  # temperature block, unused sensors read as zero
-    _CRC_POS: Final[int] = -2
+    # start register of each block read, also used as message index in _FIELDS
+    _BLOCKS: Final[tuple[int, ...]] = (0x0000, 0x0020, 0x0030)
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("voltage", 3, 2, False, lambda x: x / 10),
-        BMSDp("current", 5, 2, False, lambda x: (30000 - x) / 10),
+        BMSDp("voltage", 0x08 * 2, 2, False, lambda x: x / 10, 0x0020),  # 0x0028
+        BMSDp("current", 0x09 * 2, 2, False, lambda x: (30000 - x) / 10, 0x0020),
+        BMSDp("battery_level", 0x0A * 2, 2, False, lambda x: x / 10, 0x0020),
+        BMSDp("cycle_charge", 0x00 * 2, 2, False, lambda x: x / 10, 0x0030),  # Ah
+        BMSDp("cycles", 0x03 * 2, 2, False, idx=0x0030),  # 0x0033
     )
-    # register 0x0031: cell count, temperature sensor count, cycle count
-    _FIELDS_COUNTS: Final[tuple[BMSDp, ...]] = (BMSDp("cycles", 7, 2, False),)
 
     def __init__(
         self,
@@ -94,37 +99,21 @@ class BMS(BaseBMS):
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
 
-        # cell voltages, register 0x0000, block of 16 registers (mV), unused cells
-        # read as zero and are skipped by _cell_voltages
-        await self._await_msg(
-            self._cmd_modbus(dev_id=BMS._DEV_ID, addr=0x0000, count=BMS._MAX_CELLS)
-        )
-        result: BMSSample = {
-            "cell_voltages": BMS._cell_voltages(
-                self._msg, cells=BMS._MAX_CELLS, start=3
+        msgs: dict[int, bytes] = {}
+        for addr in BMS._BLOCKS:
+            await self._await_msg(
+                self._cmd_modbus(dev_id=BMS._DEV_ID, addr=addr, count=BMS._BLOCK_REGS)
             )
-        }
+            msgs[addr] = self._msg
 
-        # temperatures, register 0x0020, raw value is degrees C + 40, zero means unused
-        await self._await_msg(
-            self._cmd_modbus(dev_id=BMS._DEV_ID, addr=0x0020, count=BMS._MAX_TEMPS)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, msgs, start=BMS._HEAD_LEN)
+        # unused cells read as zero and are skipped by _cell_voltages
+        result["cell_voltages"] = BMS._cell_voltages(
+            msgs[0x0000], cells=BMS._MAX_CELLS, start=BMS._HEAD_LEN
         )
+        # raw temperature value is degrees C + 40, zero means unused sensor
         result["temp_values"] = BMS._temp_values(
-            self._msg, values=BMS._MAX_TEMPS, start=3, offset=40
-        )
-
-        # cell count, temperature sensor count and cycles, register 0x0031
-        await self._await_msg(self._cmd_modbus(dev_id=BMS._DEV_ID, addr=0x0031, count=3))
-        result |= BMS._decode_data(BMS._FIELDS_COUNTS, self._msg)
-
-        # pack voltage + current, register 0x0028, 2 registers
-        await self._await_msg(self._cmd_modbus(dev_id=BMS._DEV_ID, addr=0x0028, count=2))
-        result |= BMS._decode_data(BMS._FIELDS, self._msg)
-
-        # state of charge, register 0x002a, 1 register (0.1 %)
-        await self._await_msg(self._cmd_modbus(dev_id=BMS._DEV_ID, addr=0x002A, count=1))
-        result["battery_level"] = (
-            int.from_bytes(self._msg[3:5], byteorder="big") / 10
+            msgs[0x0020], values=BMS._MAX_TEMPS, start=BMS._HEAD_LEN, offset=40
         )
 
         return result
