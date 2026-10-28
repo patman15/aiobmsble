@@ -1,6 +1,6 @@
 # PaceEX BMS
 
-Each pack provides a separate Bluetooth device.
+Each pack *can* provide a separate Bluetooth device.
 
 ## Main Data
 The system level query(0x0a00) is answered only by the pack acting as main pack in a parallel stack, all others reply with an all-zero payload.

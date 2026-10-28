@@ -131,6 +131,8 @@ class BatterySample(TypedDict, total=False):
 class PackSample(BatterySample, total=False):
     """Dictionary representing a sample of a battery sub-system."""
 
+    # check pace_bms.py before adding items
+
 
 class BMSSample(BatterySample, total=False):
     """Dictionary representing a sample of battery management system (BMS) data."""
