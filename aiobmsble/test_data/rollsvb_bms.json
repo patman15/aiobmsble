@@ -9,9 +9,8 @@
     },
     "type": "rollsvb_bms",
     "_comments": [
-      "source: Apple PacketLogger capture of 'Rolls LFP Connect' app connecting",
-      "to a Rolls VB24-150LFP (RD-RJ8S150A internal BMS)",
-      "device name is 'RD' + MAC address with colons stripped"
+      "source: Apple PacketLogger capture of 'Rolls LFP Connect' app",
+      "Rolls VB24-150LFP (RD-RJ8S150A internal BMS); name is 'RD' + MAC address"
     ]
   }
 ]

@@ -17,28 +17,24 @@ from aiobmsble.basebms import BaseBMS, crc_modbus
 class BMS(BaseBMS):
     """Rolls VB-series LFP battery class implementation."""
 
-    INFO: BMSInfo = {"manufacturer": "Rolls", "model": "VB-series LFP (RD-RJ8S150A)"}
+    INFO: BMSInfo = {"manufacturer": "Rolls", "model": "VB-series", "model_id": "RD-RJ8S150A"}
     _DEV_ID: Final[int] = 0xD2
     _HEAD_LEN: Final[int] = 3  # device id, function code, byte count
     _CRC_POS: Final[int] = -2
-    _BLOCK_REGS: Final[int] = 0x10  # registers per read request
-    _MAX_CELLS: Final[int] = 16  # cell block is padded with zeros up to 16 cells
-    _MAX_TEMPS: Final[int] = 5  # temperature block, unused sensors read as zero
-    # start register of each block read, also used as message index in _FIELDS
-    _BLOCKS: Final[tuple[int, ...]] = (0x0000, 0x0020, 0x0030)
+    _REG_COUNT: Final[int] = 0x10  # request size
+    _MAX_CELLS: Final[int] = 16
+    _MAX_TEMPS: Final[int] = 6
+    _BLOCKS: Final[tuple[int, ...]] = (0x0000, 0x0020, 0x0030)  # used as message index in _FIELDS
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("voltage", 0x08 * 2, 2, False, lambda x: x / 10, 0x0020),  # 0x0028
-        BMSDp("current", 0x09 * 2, 2, False, lambda x: (30000 - x) / 10, 0x0020),
-        BMSDp("battery_level", 0x0A * 2, 2, False, lambda x: x / 10, 0x0020),
-        BMSDp("cycle_charge", 0x00 * 2, 2, False, lambda x: x / 10, 0x0030),  # Ah
-        BMSDp("cycles", 0x03 * 2, 2, False, idx=0x0030),  # 0x0033
+        BMSDp("voltage", 0x08 * 2, 2, False, lambda x: x / 10, 0x20),
+        BMSDp("current", 0x09 * 2, 2, False, lambda x: (30000 - x) / 10, 0x20),
+        BMSDp("battery_level", 0x0A * 2, 2, False, lambda x: x / 10, 0x20),
+        BMSDp("cycle_charge", 0x00 * 2, 2, False, lambda x: x / 10, 0x30),
+        BMSDp("cycles", 0x03 * 2, 2, False, idx=0x30),
     )
 
     def __init__(
-        self,
-        ble_device: BLEDevice,
-        config: BMSConfig | None = None,
-        logger_name: str = "",
+        self, ble_device: BLEDevice, config: BMSConfig | None = None, logger_name: str = ""
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -49,7 +45,7 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": "RD????????????",  # "RD" + MAC without colons
+                "local_name": "RD????????????",
                 "service_data_uuid": normalize_uuid_str("ffe1"),
                 "connectable": True,
             }
@@ -70,9 +66,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -85,11 +79,7 @@ class BMS(BaseBMS):
             return
 
         if not self._check_integrity(
-            data,
-            crc_modbus,
-            slice(None, BMS._CRC_POS),
-            slice(BMS._CRC_POS, None),
-            "little",
+            data, crc_modbus, slice(None, BMS._CRC_POS), slice(BMS._CRC_POS, None), "little"
         ):
             return
 
@@ -102,18 +92,16 @@ class BMS(BaseBMS):
         msgs: dict[int, bytes] = {}
         for addr in BMS._BLOCKS:
             await self._await_msg(
-                self._cmd_modbus(dev_id=BMS._DEV_ID, addr=addr, count=BMS._BLOCK_REGS)
+                self._cmd_modbus(dev_id=BMS._DEV_ID, addr=addr, count=BMS._REG_COUNT)
             )
             msgs[addr] = self._msg
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, msgs, start=BMS._HEAD_LEN)
-        # unused cells read as zero and are skipped by _cell_voltages
         result["cell_voltages"] = BMS._cell_voltages(
-            msgs[0x0000], cells=BMS._MAX_CELLS, start=BMS._HEAD_LEN
+            msgs[0x00], cells=BMS._MAX_CELLS, start=BMS._HEAD_LEN
         )
-        # raw temperature value is degrees C + 40, zero means unused sensor
         result["temp_values"] = BMS._temp_values(
-            msgs[0x0020], values=BMS._MAX_TEMPS, start=BMS._HEAD_LEN, offset=40
+            msgs[0x20], values=BMS._MAX_TEMPS, start=BMS._HEAD_LEN, offset=40
         )
 
         return result

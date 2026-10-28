@@ -54,21 +54,21 @@ _RESULT: Final[BMSSample] = {
 }
 
 
-# real device responses while charging at 25 A (78.5 % charged, 17 degrees C)
+# device while charging at 25 A (78.5% SoC, 17 °C)
 _RESP_CHARGING: Final[dict[bytes, bytes]] = {
-    # cell voltages, reg 0x0000, 16 registers
+    # cell voltages, addr 0x0000, 16 registers
     b"\xd2\x03\x00\x00\x00\x10\x57\xa5": (
         b"\xd2\x03\x20\x0d\x44\x0d\x44\x0d\x44\x0d\x42\x0d\x43\x0d\x44\x0d"
         b"\x44\x0d\x43\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
         b"\x00\x00\x00\xaa\xb9"
     ),
-    # temperatures, voltage, current and state of charge, reg 0x0020, 16 registers
+    # temperatures, voltage, current, and SoC, addr 0x0020, 16 registers
     b"\xd2\x03\x00\x20\x00\x10\x56\x6f": (
         b"\xd2\x03\x20\x00\x39\x00\x39\x00\x00\x00\x00\x00\x00\x00\x00\x00"
         b"\x00\x00\x00\x01\x0f\x74\x34\x03\x11\x0d\x44\x0d\x42\x00\x39\x00"
         b"\x39\x00\x01\x79\x91"
     ),
-    # remaining charge, cell count, temperature sensors, cycles, reg 0x0030
+    # remaining charge, cell count, temperature sensors, cycles, addr 0x0030
     b"\xd2\x03\x00\x30\x00\x10\x57\xaa": (
         b"\xd2\x03\x20\x04\x9a\x00\x08\x00\x02\x00\x02\x00\x00\x00\x01\x00"
         b"\x01\x0d\x43\x00\x04\x02\xa0\x00\x00\x00\x00\x00\x00\x00\x00\x00"
