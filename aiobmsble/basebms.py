@@ -6,7 +6,8 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from abc import ABC, abstractmethod
 import asyncio
-from collections.abc import Callable, MutableMapping
+from collections import defaultdict
+from collections.abc import Callable, Iterable, MutableMapping
 from contextlib import suppress
 from functools import lru_cache
 from itertools import takewhile
@@ -29,12 +30,16 @@ from aiobmsble import (
     BMSConfig,
     BMSDp,
     BMSInfo,
+    BMSLimits,
     BMSPDp,
     BMSSample,
     BMSValue,
+    Limit,
+    LimitDp,
     MatcherPattern,
     PackSample,
     TempSensor,
+    Threshold,
     __version__,
 )
 from aiobmsble._boundedbytearr import BoundedByteArray
@@ -238,6 +243,28 @@ class BaseBMS(ABC):
                 pass
 
         return info
+
+    @final
+    async def limits(self) -> BMSLimits:
+        """Return a dictionary of thresholds configured in the BMS.
+
+        The values are trip/recovery points of the BMS Limits, not the
+        operating envelope. Empty if the BMS does not report any, see `BMSLimits`.
+        """
+
+        async with self._op_lock:
+            disconnect: Final[bool] = not self._client.is_connected
+            await self._connect()
+            limits: Final[BMSLimits] = await self._fetch_limits()
+            if disconnect:
+                await self.disconnect()
+
+            self._log.debug("BMS limits %s", limits)
+            return limits
+
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the thresholds via BLE (default: none available)."""
+        return {}
 
     @staticmethod
     def _raw_values() -> frozenset[BMSValue]:
@@ -605,6 +632,32 @@ class BaseBMS(ABC):
                 int.from_bytes(msg[pos:end], byteorder=byteorder, signed=field.signed)
             )
         return result
+
+    @staticmethod
+    def _decode_limits(
+        data: bytes,
+        fields: Iterable[LimitDp],
+        *,
+        byteorder: Literal["little", "big"] = "big",
+    ) -> BMSLimits:
+        """Decode thresholds from a raw frame using a field table."""
+        values: defaultdict[Limit, dict[str, float]] = defaultdict(dict)
+
+        for field in fields:
+            if field.pos < 0 or field.pos + field.size > len(data):
+                continue  # field not present in this (shorter) frame
+            raw: int = int.from_bytes(
+                data[field.pos : field.pos + field.size],
+                byteorder=byteorder,
+                signed=field.signed,
+            )
+            if raw == field.invalid:
+                continue
+            # rounding removes binary float artifacts, e.g. 2800 * 0.001
+            values[field.prot][field.attr] = round(raw * field.scale - field.offset, 6)
+
+        # a threshold without a trip point is meaningless -> drop it
+        return {prot: Threshold(**attrs) for prot, attrs in values.items() if "trip" in attrs}
 
     @staticmethod
     def _decode_pack(

@@ -51,6 +51,7 @@ The template also shows optional overrides as comments:
 - `_raw_values()` — return a set of `BMSValue` keys that should **not** be auto-calculated by `BaseBMS._add_missing_values()`, e.g. `runtime`.
 - `accept_secret` — set to `True` if the BMS requires a password/secret for authentication.
 - `_fetch_device_info()` — override to query device information from the BMS directly instead of reading BLE standard service `0x180A`.
+- `_fetch_limits()` — override to query the protection thresholds (trip/recovery points) of the BMS, returned by `limits()` as `BMSLimits`.
 
 ### Deriving from an existing plugin
 
