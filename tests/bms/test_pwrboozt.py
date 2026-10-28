@@ -86,6 +86,8 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "cycle_charge": 294.0,
         "power": 173.242,
         "cycle_capacity": 3976.056,
+        "heater": False,
+        "problem_code": 0,
         "problem": False,
     }
 
@@ -123,9 +125,7 @@ async def test_invalid_response(
 
     patch_bms_timeout()
 
-    monkeypatch.setattr(
-        MockPwrBBleakClient, "_MSG", wrong_response
-    )
+    monkeypatch.setattr(MockPwrBBleakClient, "_MSG", wrong_response)
 
     patch_bleak_client(MockPwrBBleakClient)
 
