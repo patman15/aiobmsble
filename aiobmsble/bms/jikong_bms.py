@@ -39,7 +39,9 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 190, 1, False),
         BMSDp("chrg_mosfet", 198, 1, False, bool),
         BMSDp("dischrg_mosfet", 199, 1, False, bool),
-        BMSDp("temp_sensors", 214, 2, True),
+        BMSDp("temp_sensors", 214, 1, False),
+        BMSDp("heater", 215, 1, False, bool),
+        BMSDp("heater_current", 236, 2, True, lambda x: x / 1000),
     )
 
     def __init__(
@@ -101,9 +103,7 @@ class BMS(BaseBMS):
             "serial_number": b2str(self._msg[86:94]),
         }
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Retrieve BMS data update."""
 
         if data.startswith(BMS._BT_MODULE_MSG):
@@ -112,21 +112,16 @@ class BMS(BaseBMS):
                 return
 
         if (
-            len(self._frame) >= self._INFO_LEN
-            and (data.startswith((BMS._HEAD_RSP, BMS._HEAD_CMD)))
+            len(self._frame) >= self._INFO_LEN and (data.startswith((BMS._HEAD_RSP, BMS._HEAD_CMD)))
         ) or not self._frame.startswith(BMS._HEAD_RSP):
             self._frame.clear()
 
         self._frame.extend(data)
 
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         # verify that data is long enough
-        if (
-            len(self._frame) < BMS._INFO_LEN and self._frame.startswith(BMS._HEAD_RSP)
-        ) or len(self._frame) < BMS._TYPE_POS + 1:
+        if len(self._frame) < BMS._INFO_LEN and not self._frame.startswith(BMS._READY_MSG):
             return
 
         # check that message type is expected
@@ -153,9 +148,7 @@ class BMS(BaseBMS):
             self._log.debug("wrong data length (%i)", len(self._frame))
             del self._frame[BMS._INFO_LEN :]
 
-        if not self._check_integrity(
-            self._frame, crc_sum, slice(None, -1), slice(-1, None)
-        ):
+        if not self._check_integrity(self._frame, crc_sum, slice(None, -1), slice(-1, None)):
             return
 
         self._msg = bytes(self._frame)
@@ -176,10 +169,7 @@ class BMS(BaseBMS):
                 ) or char.uuid == normalize_uuid_str(BMS.uuid_tx()):
                     if "notify" in char.properties:
                         char_notify_handle = char.handle
-                    if (
-                        "write" in char.properties
-                        or "write-without-response" in char.properties
-                    ):
+                    if "write" in char.properties or "write-without-response" in char.properties:
                         self._char_write_handle = char.handle
         self._log.debug(
             "received characteristic handles #%i (notify), #%i (write).",
@@ -198,7 +188,9 @@ class BMS(BaseBMS):
         try:
             self._sw_version = lstr2int(_bms_info.get("sw_version", "0"))
         except ValueError:
-            self._log.debug("invalid sw_version '%s', assuming 0", _bms_info.get("sw_version"))
+            self._log.debug(
+                "invalid sw_version '%s', assuming 0", _bms_info.get("sw_version")
+            )
             self._sw_version = 0
         self._log.debug("device information: %s", _bms_info)
         self._prot_offset = -32 if self._sw_version < 11 else 0
@@ -213,9 +205,7 @@ class BMS(BaseBMS):
         """Assemble a Jikong BMS command."""
         assert len(value) <= 13
         assert 0 <= cmd <= 0xFF
-        frame: bytes = (
-            BMS._HEAD_CMD + bytes([cmd, len(value)]) + value + bytes(13 - len(value))
-        )
+        frame: bytes = BMS._HEAD_CMD + bytes([cmd, len(value)]) + value + bytes(13 - len(value))
 
         return bytes(frame) + crc_sum(frame).to_bytes(1)
 
@@ -248,11 +238,7 @@ class BMS(BaseBMS):
             TempSensor(value / 10, T)
             for idx, pos, T in temp_pos
             if mask & (1 << idx)
-            and (
-                value := int.from_bytes(
-                    data[pos : pos + 2], byteorder="little", signed=True
-                )
-            )
+            and (value := int.from_bytes(data[pos : pos + 2], byteorder="little", signed=True))
             != -2000
         ]
 
@@ -260,25 +246,18 @@ class BMS(BaseBMS):
     def _conv_data(data: bytes, offs: int, sw_majv: int) -> BMSSample:
         """Return BMS data from status message."""
 
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, data, byteorder="little", start=offs
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, data, byteorder="little", start=offs)
         result["cell_count"] = int.from_bytes(
             data[70 + (offs >> 1) : 74 + (offs >> 1)], byteorder="little"
         ).bit_count()
 
         result["delta_voltage"] = (
-            int.from_bytes(
-                data[76 + (offs >> 1) : 78 + (offs >> 1)], byteorder="little"
-            )
-            / 1000
+            int.from_bytes(data[76 + (offs >> 1) : 78 + (offs >> 1)], byteorder="little") / 1000
         )
 
         if sw_majv >= 15:
             result["battery_mode"] = (
-                BMSMode(data[280 + offs])
-                if data[280 + offs] in BMSMode
-                else BMSMode.UNKNOWN
+                BMSMode(data[280 + offs]) if data[280 + offs] in BMSMode else BMSMode.UNKNOWN
             )
 
         return result
@@ -290,9 +269,7 @@ class BMS(BaseBMS):
             self._log.debug("requesting cell info")
             await self._await_msg(data=BMS._cmd(0x96), char=self._char_write_handle)
 
-        data: BMSSample = self._conv_data(
-            self._msg, self._prot_offset, self._sw_version
-        )
+        data: BMSSample = self._conv_data(self._msg, self._prot_offset, self._sw_version)
         data["temp_values"] = BMS._temp_sensors(
             self._msg, self._temp_pos(), data.get("temp_sensors", 0)
         )
