@@ -6,7 +6,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, Limit, TempSensor as TS, Threshold
 from aiobmsble.bms.humsienk_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -122,20 +122,14 @@ async def test_limits(patch_bleak_client) -> None:
     patch_bleak_client(MockHumsienkBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.limits() == {
-        "cell_ovp": 3.65,
-        "cell_ovp_recovery": 3.33,
-        "cell_uvp": 2.5,
-        "cell_uvp_recovery": 2.8,
-        "charge_ocp": 1100.0,
-        "discharge_ocp": 3000.0,
-        "charge_temp_high": 60.0,
-        "charge_temp_high_recovery": 55.0,
-        "charge_temp_low": 0.0,
-        "charge_temp_low_recovery": 5.0,
-        "discharge_temp_high": 65.0,
-        "discharge_temp_high_recovery": 60.0,
-        "discharge_temp_low": -20.0,
-        "discharge_temp_low_recovery": -15.0,
+        Limit.CELL_OVP: Threshold(trip=3.65, release=3.33),
+        Limit.CELL_UVP: Threshold(trip=2.5, release=2.8),
+        Limit.CHARGE_OCP: Threshold(trip=1100.0),
+        Limit.DISCHARGE_OCP: Threshold(trip=3000.0),
+        Limit.CHARGE_OTP: Threshold(trip=60.0, release=55.0),
+        Limit.CHARGE_UTP: Threshold(trip=0.0, release=5.0),
+        Limit.DISCHARGE_OTP: Threshold(trip=65.0, release=60.0),
+        Limit.DISCHARGE_UTP: Threshold(trip=-20.0, release=-15.0),
     }
     assert not bms.is_connected
 

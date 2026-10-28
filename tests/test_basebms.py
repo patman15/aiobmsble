@@ -25,8 +25,11 @@ from aiobmsble import (
     BMSLimits,
     BMSSample,
     BMSValue,
+    Limit,
+    LimitDp,
     MatcherPattern,
     TempSensor,
+    Threshold,
 )
 from aiobmsble.basebms import (
     BaseBMS,
@@ -215,7 +218,7 @@ class OpGuardTestBMS(MinTestBMS):
         try:
             await asyncio.sleep(0)
             await self._await_msg(b"mock_limits", wait_for_notify=False)
-            return {"cell_ovp": 3.65}
+            return {Limit.CELL_OVP: Threshold(trip=3.65)}
         finally:
             self._op_active = False
 
@@ -605,7 +608,7 @@ async def test_op_guard_device_info_async_update(
         bms.device_info(), bms.limits(), bms.async_update(raw=True)
     )
     assert info == {"model": "mock_model"}
-    assert limits == {"cell_ovp": 3.65}
+    assert limits == {Limit.CELL_OVP: Threshold(trip=3.65)}
     assert data == {"problem_code": 21}
 
     await bms.disconnect()
@@ -1391,3 +1394,23 @@ async def test_reconnect_with_running_alive_task(
     assert bms._alive_task is task
 
     await bms.disconnect()  # cleanup cancels the task
+
+
+def test_decode_limits() -> None:
+    """Verify limit decoding for scaling, offset, signedness, and dropped values."""
+    fields: tuple[LimitDp, ...] = (
+        LimitDp(Limit.CELL_OVP, "trip", 0, scale=0.001),
+        LimitDp(Limit.CELL_OVP, "release", 2, scale=0.001),
+        LimitDp(Limit.CHARGE_OCP, "trip", 4, size=1, invalid=0xFF),
+        LimitDp(Limit.CHARGE_OCP, "delay", 5, size=1),
+        LimitDp(Limit.CHARGE_UTP, "trip", 6, size=1, signed=True),
+        LimitDp(Limit.CHARGE_OTP, "release", 7, size=1, offset=-1.0),
+        LimitDp(Limit.MOS_OTP, "trip", 8),  # beyond end of frame
+        LimitDp(Limit.PACK_OVP, "trip", -1),  # invalid position
+    )
+    assert BaseBMS._decode_limits(
+        b"\x41\x0e\x3a\x0e\xff\x07\xec\x05", fields, byteorder="little"
+    ) == {
+        Limit.CELL_OVP: Threshold(trip=3.649, release=3.642),
+        Limit.CHARGE_UTP: Threshold(trip=-20.0),
+    }

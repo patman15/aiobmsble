@@ -64,12 +64,11 @@ class BMS(BaseBMS):
     #     return frozenset({"runtime"})  # never calculate, e.g. runtime
 
     # async def _fetch_limits(self) -> BMSLimits:
-    #     """Fetch the protection thresholds (trip points) via BLE."""
-    #     return BMSLimits(cell_ovp=3.65, cell_uvp=2.5)  # query from BMS instead
+    #     """Fetch the BMS limits via BLE."""
+    #     TODO: query from BMS and use _decode_limits
+    #     return {Limit.CELL_OVP: Threshold(trip=3.65, release=3.5)}
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         # self._log.debug("RX BLE data: %s", data)
 

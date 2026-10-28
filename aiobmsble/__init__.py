@@ -13,7 +13,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
-from enum import IntEnum, auto, unique
+from enum import IntEnum, StrEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Literal, NamedTuple, Self, TypedDict
 
@@ -205,35 +205,57 @@ class BMSInfo(TypedDict, total=False):
     hw_version: str
 
 
-class BMSLimits(TypedDict, total=False):
-    """Protection thresholds configured in the BMS.
+@unique
+class Limit(StrEnum):
+    """Protection functions a BMS may implement (value = stable key)."""
 
-    These are the trip points at which the BMS activates a protection, together
-    with the corresponding recovery (release) points if the BMS reports them.
-    They are not the operating envelope of the battery and must not be used as
-    charger/inverter set points. The values are static configuration and are
-    queried via `BaseBMS.limits()`.
+    # cell voltage
+    CELL_OVP = auto()
+    CELL_UVP = auto()
+    # pack voltage
+    PACK_OVP = auto()
+    PACK_UVP = auto()
+    # current
+    CHARGE_OCP = auto()
+    DISCHARGE_OCP = auto()
+    # temperature
+    CHARGE_OTP = auto()
+    CHARGE_UTP = auto()
+    DISCHARGE_OTP = auto()
+    DISCHARGE_UTP = auto()
+    MOS_OTP = auto()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Threshold:
+    """A single protection threshold as configured in the BMS.
+
+    Trip/release points at which the BMS activates/releases a protection.
     """
 
-    # cell voltage protection
-    cell_ovp: float  # [V] cell overvoltage protection trip point
-    cell_ovp_recovery: float  # [V] cell overvoltage protection release
-    cell_uvp: float  # [V] cell undervoltage protection trip point
-    cell_uvp_recovery: float  # [V] cell undervoltage protection release
+    trip: float  # trip point [V, A, °C]
+    release: float | None = None  # recovery point, if reported
+    delay: float | None = None  # [s] trip delay, if reported
 
-    # current protection
-    charge_ocp: float  # [A] charge overcurrent protection trip point
-    discharge_ocp: float  # [A] discharge overcurrent protection trip point
 
-    # temperature protection
-    charge_temp_high: float  # [°C] charge high temperature trip point
-    charge_temp_high_recovery: float  # [°C] charge high temperature release
-    charge_temp_low: float  # [°C] charge low temperature trip point
-    charge_temp_low_recovery: float  # [°C] charge low temperature release
-    discharge_temp_high: float  # [°C] discharge high temperature trip point
-    discharge_temp_high_recovery: float  # [°C] discharge high temperature release
-    discharge_temp_low: float  # [°C] discharge low temperature trip point
-    discharge_temp_low_recovery: float  # [°C] discharge low temperature release
+type BMSLimits = dict[Limit, Threshold]
+"""Thresholds configured in the BMS."""
+
+type ThresholdAttr = Literal["trip", "release", "delay"]
+
+
+@dataclass(frozen=True, slots=True)
+class LimitDp:
+    """Location and conversion of one threshold value in a raw frame."""
+
+    prot: Limit
+    attr: ThresholdAttr
+    pos: int  # byte offset in frame
+    size: int = 2  # size in bytes
+    scale: float = 1.0  # value = raw * scale + offset
+    offset: float = 0.0
+    signed: bool = False
+    invalid: int | None = None  # sentinel raw value meaning "disabled"
 
 
 class MatcherPattern(TypedDict, total=False):
