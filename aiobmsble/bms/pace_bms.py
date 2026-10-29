@@ -44,11 +44,12 @@ class BMS(BaseBMS):
     _CELL_POS: Final[int] = 12  # position of first cell voltage
     _HWV_POS: Final[int] = 65
     _SWV_POS: Final[int] = 10
+    _SYS_TEMP_POS: Final[int] = 53  # max/min cell temperature in 0x0a00 reply
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 1, 4, True, lambda x: x / 100),
         BMSDp("voltage", 5, 4, False, lambda x: x / 100),
         BMSDp("cycle_charge", 9, 4, False, lambda x: x / 100),
-        BMSDp("design_capacity", 13, 4, False, lambda x: x // 100),
+        BMSDp("design_capacity", 17, 4, False, lambda x: x // 100),
         BMSDp("battery_level", 21, 1, False),
         BMSDp("battery_health", 22, 1, False),
         BMSDp("pack_count", 0, 1, False),
@@ -182,5 +183,15 @@ class BMS(BaseBMS):
         if not result.get("pack_count"):  # zero on all packs except the master
             result |= cast(BMSSample, pack)  # overwrite if pack is individual device
         else:
+            result["temp_values"] = BMS._temp_values(
+                self._msg,
+                values=2,
+                start=BMS._SYS_TEMP_POS,
+                gap=2,
+                signed=False,
+                offset=2731,
+                divider=10,
+                types=(TempSensor.T.CELL,) * 2,
+            )
             result["packs"] = [pack]
         return result
