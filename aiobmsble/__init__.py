@@ -203,6 +203,7 @@ class BMSInfo(TypedDict, total=False):
     serial_number: str
     sw_version: str
     hw_version: str
+    chemistry: str  # battery chemistry, e.g. "LiFePO4", "NMC"
 
 
 @unique

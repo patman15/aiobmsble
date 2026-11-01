@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from contextlib import suppress
 from functools import lru_cache
 from typing import Final
 
@@ -70,6 +71,7 @@ class BMS(BaseBMS):
         LimitDp(Limit.DISCHARGE_UTP, "release", 42, scale=0.1, offset=273.1),
     )
     _CMDS: Final = frozenset({b"\x20", b"\x21", b"\x22"})
+    _CHEMISTRY: Final[dict[int, str]] = {1: "LiFePO4"}  # 0x40 frame, data offset 13
 
     def __init__(
         self,
@@ -113,10 +115,17 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         for cmd in (b"\x11", b"\xf5"):
             await self._await_msg(BMS._cmd(cmd))
-        return {
+        info: BMSInfo = {
             "model": b2str(self._msg[0x11][3:-2]),
             "hw_version": b2str(self._msg[0xF5][3:-2]),
         }
+
+        with suppress(TimeoutError):  # pack info (chemistry) is optional
+            await self._await_msg(BMS._cmd(b"\x40"))
+        if (msg := self._msg.get(0x40)) and (chem := BMS._CHEMISTRY.get(msg[16])):
+            info["chemistry"] = chem
+
+        return info
 
     async def _fetch_limits(self) -> BMSLimits:
         """Fetch the thresholds (0x58 configuration frame)."""

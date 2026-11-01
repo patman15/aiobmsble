@@ -6,7 +6,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, Limit, TempSensor as TS, Threshold
+from aiobmsble import BMSConfig, BMSLimits, BMSSample, Limit, TempSensor as TS, Threshold
 from aiobmsble.bms.humsienk_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -69,6 +69,10 @@ class MockHumsienkBleakClient(MockBleakClient):
         b"\xaa\x23\x00\x23\x00": (
             b"\xaa\x23\x04\xdc\xfb\xff\xff\xfc\x03"
         ),  # current redundant with 0x21
+        b"\xaa\x40\x00\x40\x00": (
+            b"\xaa\x40\x10\x00\x00\x00\x00\x00\x00\x00\x00\x20\x95\x09\x00\x04\x01\x01\x00"
+            b"\x14\x01"
+        ),  # pack info: 628 Ah, 4 cells, LiFePO4 (recorded from a 12V 640Ah pack)
         b"\xaa\x58\x00\x58\x00": (
             b"\xaa\x58\x30\x04\x00\x98\x3a\x42\x0e\x02\x0d\x04\x00\xc4\x09\xf0\x0a\x04\x00\xf8\x2a"
             b"\x10\x00\x30\x75\x14\x00\x66\x02\x50\x00\x03\x0d\xd1\x0c\xab\x0a\xdd\x0a\x35\x0d\x03"
@@ -110,27 +114,99 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-async def test_device_info(patch_bleak_client) -> None:
+@pytest.mark.parametrize(
+    ("pack_info", "expected"),
+    [
+        (None, {"chemistry": "LiFePO4"}),
+        (b"", {}),
+        (
+            (
+                b"\xaa\x40\x10\x00\x00\x00\x00\x00\x00\x00\x00\x20\x95\x09\x00\x04\x00"
+                b"\x01\x00\x13\x01"
+            ),
+            {},
+        ),
+    ],
+    ids=["lifepo4", "no_reply", "unknown_chemistry"],
+)
+async def test_device_info(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    pack_info: bytes | None,
+    expected: dict[str, str],
+) -> None:
     """Test that the BMS returns initialized dynamic device information."""
+    if pack_info is not None:
+        patch_bms_timeout()
+        monkeypatch.setattr(
+            MockHumsienkBleakClient,
+            "_RESP",
+            MockHumsienkBleakClient._RESP | {b"\xaa\x40\x00\x40\x00": pack_info},
+        )
+
     patch_bleak_client(MockHumsienkBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {"hw_version": "V02", "model": "BMC-04S001"}
+    assert (
+        await bms.device_info()
+        == {"hw_version": "V02", "model": "BMC-04S001"} | expected
+    )
 
 
-async def test_limits(patch_bleak_client) -> None:
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        (
+            None,  # recorded from a 12V 150Ah pack
+            {
+                Limit.CELL_OVP: Threshold(trip=3.65, release=3.33),
+                Limit.CELL_UVP: Threshold(trip=2.5, release=2.8),
+                Limit.CHARGE_OCP: Threshold(trip=1100.0),
+                Limit.DISCHARGE_OCP: Threshold(trip=3000.0),
+                Limit.CHARGE_OTP: Threshold(trip=60.0, release=55.0),
+                Limit.CHARGE_UTP: Threshold(trip=0.0, release=5.0),
+                Limit.DISCHARGE_OTP: Threshold(trip=65.0, release=60.0),
+                Limit.DISCHARGE_UTP: Threshold(trip=-20.0, release=-15.0),
+            },
+        ),
+        (
+            (  # recorded from a 12V 640Ah pack (BMC4S-20251021-OTAV14)
+                b"\xaa\x58\x30\x04\x00\xa9\xf4\x42\x0e\x16\x0d\x04\x00\xc4\x09\x86\x0b"
+                b"\x04\x00\xb8\x0b\x10\x00\xb8\x0b\xa0\x00\xc6\x11\x00\x50\xd1\x0c\x9f"
+                b"\x0c\xab\x0a\xbf\x0a\x03\x0d\xd1\x0c\xe3\x09\x15\x0a\x7a\x0d\x1e\x00"
+                b"\x02\x0d"
+            ),
+            {
+                Limit.CELL_OVP: Threshold(trip=3.65, release=3.35),
+                Limit.CELL_UVP: Threshold(trip=2.5, release=2.95),
+                Limit.CHARGE_OCP: Threshold(trip=300.0),
+                Limit.DISCHARGE_OCP: Threshold(trip=300.0),
+                Limit.CHARGE_OTP: Threshold(trip=55.0, release=50.0),
+                Limit.CHARGE_UTP: Threshold(trip=0.0, release=2.0),
+                Limit.DISCHARGE_OTP: Threshold(trip=60.0, release=55.0),
+                Limit.DISCHARGE_UTP: Threshold(trip=-20.0, release=-15.0),
+            },
+        ),
+    ],
+    ids=["150Ah", "640Ah"],
+)
+async def test_limits(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    config: bytes | None,
+    expected: BMSLimits,
+) -> None:
     """Test that the BMS returns the protection thresholds from the 0x58 frame."""
+    if config is not None:
+        monkeypatch.setattr(
+            MockHumsienkBleakClient,
+            "_RESP",
+            MockHumsienkBleakClient._RESP | {b"\xaa\x58\x00\x58\x00": config},
+        )
+
     patch_bleak_client(MockHumsienkBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.limits() == {
-        Limit.CELL_OVP: Threshold(trip=3.65, release=3.33),
-        Limit.CELL_UVP: Threshold(trip=2.5, release=2.8),
-        Limit.CHARGE_OCP: Threshold(trip=1100.0),
-        Limit.DISCHARGE_OCP: Threshold(trip=3000.0),
-        Limit.CHARGE_OTP: Threshold(trip=60.0, release=55.0),
-        Limit.CHARGE_UTP: Threshold(trip=0.0, release=5.0),
-        Limit.DISCHARGE_OTP: Threshold(trip=65.0, release=60.0),
-        Limit.DISCHARGE_UTP: Threshold(trip=-20.0, release=-15.0),
-    }
+    assert await bms.limits() == expected
     assert not bms.is_connected
 
 

@@ -204,7 +204,7 @@ class BaseBMS(ABC):
     async def device_info(self) -> BMSInfo:
         """Return a dictionary of device information.
 
-        keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
+        keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version, chemistry
         """
 
         async with self._op_lock:
