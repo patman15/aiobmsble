@@ -7,7 +7,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, Limit, TempSensor as TS, Threshold
 from aiobmsble.basebms import crc_xmodem
 from aiobmsble.bms.seplos_v2_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -74,7 +74,7 @@ class MockSeplosv2BleakClient(MockBleakClient):
     TAIL_CMD = 0x0D
     PROTOCOL = 0x10
     RESP: dict[bytes, bytes] = {
-        b"\x00\x46\x61\x00\x01\x00\xf7\xc1": (  # get single machine data, address is incorrect but device also ignores it
+        b"\x00\x46\x61\x00\x01\x00\xf7\xc1": (  # single machine data, address incorrect, device ignores it
             # 54.43V, 11.8A, 298.53Ah, 98.2%, 214 cycles, 306Ah, 16 cells, 6 temp sensors
             b"\x7e\x14\x00\x61\x00\x00\x6a\x00\x00\x10\x0d\x44\x0d\x47\x0d\x4c\x0d\x47\x0d\x45\x0d"
             b"\x46\x0d\x46\x0d\x58\x0d\x58\x0d\x59\x0d\x48\x0d\x44\x0d\x48\x0d\x43\x0d\x48\x0d\x47"
@@ -87,6 +87,17 @@ class MockSeplosv2BleakClient(MockBleakClient):
             b"\x7e\x14\x00\x51\x00\x00\x24\x43\x41\x4e\x3a\x50\x4e\x47\x5f\x44\x59\x45\x5f\x4c\x75"
             b"\x78\x70\x5f\x54\x42\x42\x31\x31\x30\x31\x2d\x53\x50\x37\x36\x20\x10\x06\x01\x01\x46"
             b"\x01\xa2\x6c\x0d"
+        ),
+        b"\x00\x46\x47\x00\x01\x00\xe7\x16": (  # protection parameters, group 0, from manual
+            b"\x7e\x14\x00\x47\x00\x00\xa9\x00\x3c\x0d\xac\x0d\x48\x0b\x54\x0c\x1c\x0e\x42\x0d\x48"
+            b"\x0a\x8c\x0c\x1c\x0d\x48\x05\xdc\x15\xe0\x15\x18\x12\x20\x12\xc0\x16\x80\x15\x18\x10"
+            b"\xe0\x12\xc0\x17\x70\x17\x0c\x0c\x9f\x0c\x81\x0a\xbf\x0a\xdd\x0c\xd1\x0c\x9f\x0a\x47"
+            b"\x0a\xab\x0c\xb3\x0c\x81\x0a\x47\x0a\xc9\x0c\xd1\x0c\x9f\x0a\x15\x0a\xab\x0a\xab\x0b"
+            b"\x0f\x0c\x9f\x0c\x81\x0a\xab\x0a\xc9\x0d\x03\x0c\xd1\x0a\x47\x0a\xab\x0e\x2f\x0d\xfd"
+            b"\x0e\x93\x0d\xfd\x2a\xf8\x29\x04\xd5\x08\xd6\xfc\x2e\xe0\xd1\x20\xb9\xb0\x07\xd0\x27"
+            b"\x10\x13\x88\x1b\x3c\x28\x1e\x14\x0a\x10\x0f\x0f\x64\x3c\x05\x05\x01\x01\x30\x1e\xf0"
+            b"\x30\x0f\x05\x60\x50\x64\x09\x00\x0d\x00\x08\xff\xff\xff\x3f\xbf\x1f\xaf\x1e\x45\x4d"
+            b"\x55\x31\x31\x30\x31\x31\x30\x45\xd2\x11\x0d"
         ),
         b"\x00\x46\x62\x00\x00\xa6\x8a": (  # GPD for main pack
             b"\x7e\x14\x00\x62\x00\x00\x30\x00\x00\x10\x0c\xf4\x0c\xee\x06\x0b\x93\x0b\x7f\x0b\xb6"
@@ -124,9 +135,7 @@ class MockSeplosv2BleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         resp: bytearray = self._response(char_specifier, data)
         for notify_data in [
@@ -158,9 +167,27 @@ async def test_device_info(patch_bleak_client) -> None:
     assert await bms.device_info() == {"sw_version": "16.6", "model": "B1101-SP76"}
 
 
-async def test_short_message(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_limits(patch_bleak_client) -> None:
+    """Test that the BMS returns the protection thresholds from the 0x47 frame."""
+    patch_bleak_client(MockSeplosv2BleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.limits() == {
+        Limit.CELL_OVP: Threshold(trip=3.65, release=3.4),
+        Limit.CELL_UVP: Threshold(trip=2.7, release=3.1),
+        Limit.PACK_OVP: Threshold(trip=57.6, release=54.0),
+        Limit.PACK_UVP: Threshold(trip=43.2, release=48.0),
+        Limit.CHARGE_OCP: Threshold(trip=120.0, delay=15.0),
+        Limit.DISCHARGE_OCP: Threshold(trip=120.0, delay=15.0),
+        Limit.CHARGE_OTP: Threshold(trip=55.0, release=50.0),
+        Limit.CHARGE_UTP: Threshold(trip=-10.0, release=0.0),
+        Limit.DISCHARGE_OTP: Threshold(trip=55.0, release=50.0),
+        Limit.DISCHARGE_UTP: Threshold(trip=-15.0, release=0.0),
+        Limit.MOS_OTP: Threshold(trip=100.0, release=85.0),
+    }
+    assert not bms.is_connected
+
+
+async def test_short_message(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test Seplos V2 BMS data update with short message (missing values)."""
 
     monkeypatch.setattr(
@@ -269,9 +296,7 @@ async def test_invalid_response(
 
     patch_bms_timeout()
 
-    monkeypatch.setattr(
-        MockSeplosv2BleakClient, "_response", lambda _s, _c, _d: wrong_response
-    )
+    monkeypatch.setattr(MockSeplosv2BleakClient, "_response", lambda _s, _c, _d: wrong_response)
 
     patch_bleak_client(MockSeplosv2BleakClient)
 
