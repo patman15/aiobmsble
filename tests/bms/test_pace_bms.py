@@ -45,6 +45,7 @@ _RESULT_DEFS: BMSSample = {
         3.308,
     ],
     "battery_charging": False,
+    "balancer": 0,
     "runtime": 62978,
     "power": -224.232,
     "problem": False,
@@ -221,6 +222,30 @@ async def test_update(patch_bleak_client, keep_alive_fixture) -> None:
     await bms.disconnect()
 
 
+async def test_update_balancer(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test balancing cell bit mask from 0x0A03 reply (recorded while balancing)."""
+
+    monkeypatch.setattr(
+        MockPaceBleakClient,
+        "_RESP",
+        MockPaceBleakClient._RESP
+        | {
+            b"\x9a\x00\x00\x0a\x03\x00\x00\x02\x01\x01\xf9\x9d\x9d": bytearray(
+                b"\x9a\x00\x00\x0a\x03\x00\x00\x0d\x02\x00\x00\x26\x06\x00\xb7\x1f"
+                b"\x00\x00\x00\x00\x00\xfc\xeb\x9d"
+            )
+        },
+    )
+    patch_bleak_client(MockPaceBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    # cells 1, 2, 3, 5, 6, 8, 9, 10, 11, 12, 13 balancing
+    assert (await bms.async_update()).get("balancer") == 0x1FB7
+
+    await bms.disconnect()
+
+
 @pytest.mark.parametrize(
     ("wrong_response"),
     [
@@ -339,6 +364,7 @@ async def test_pack_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     result = await bms.async_update()
     assert result == _RESULT_DEFS.get("packs", [])[0] | {
         "pack_count": 0,
+        "balancer": 0,
         "battery_charging": False,
         "temperature": 22.425,
         "cycle_capacity": 3935.675,

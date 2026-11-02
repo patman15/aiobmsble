@@ -36,12 +36,14 @@ class BMS(BaseBMS):
         SYS_INFO = b"\x00\x00\x0a\x00\x00\x00"
         PACK_INFO = b"\x00\x00\x0a\x01\x00\x00"
         CELL_INFO = b"\x00\x00\x0a\x02\x00\x00"
+        BALANCE = b"\x00\x00\x0a\x03\x00\x00"
 
     _HEAD: Final[bytes] = b"\x9a"
     _TAIL: Final[bytes] = b"\x9d"
     _FRM_TYPE: Final[slice] = slice(1, 7)
     _MIN_LEN: Final[int] = 11  # minimal frame length
     _CELL_POS: Final[int] = 12  # position of first cell voltage
+    _BAL_POS: Final[int] = 14  # position of balancing bit mask (LE, bit0 = cell 1)
     _HWV_POS: Final[int] = 65
     _SWV_POS: Final[int] = 10
     _FIELDS: Final[tuple[BMSDp, ...]] = (
@@ -177,8 +179,13 @@ class BMS(BaseBMS):
             divider=10,
             types=(TempSensor.T.CELL,) * 4 + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
+        await self._await_msg(BMS._cmd(BMS._Cmd.BALANCE, b"\x01\x01"))
+        balancer: Final[int] = int.from_bytes(
+            self._msg[BMS._BAL_POS : BMS._BAL_POS + 2], byteorder="little"
+        )
         await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=8)
+        result["balancer"] = balancer
         if not result.get("pack_count"):  # zero on all packs except the master
             result |= cast(BMSSample, pack)  # overwrite if pack is individual device
         else:
