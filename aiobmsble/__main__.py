@@ -62,7 +62,10 @@ async def _try_query(bms_cls: type[BaseBMS], ble_dev: BLEDevice, secret: str = "
             limits: BMSLimits = await bms.limits()
             data: BMSSample = await bms.async_update()
         logger.info("BMS info: %s", repr(info).replace(", '", ",\n\t'"))
-        logger.info("BMS limits: %s", repr(limits).replace(", '", ",\n\t'"))
+        logger.info(
+            "BMS limits: %s",
+            repr({str(k): v for k, v in limits.items()}).replace(", '", ",\n\t'"),
+        )
         logger.info("BMS data: %s", repr(data).replace(", '", ",\n\t'"))
     except (BleakError, TimeoutError, ConnectionError, ValueError) as exc:
         logger.error(

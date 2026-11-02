@@ -248,8 +248,9 @@ class BaseBMS(ABC):
     async def limits(self) -> BMSLimits:
         """Return a dictionary of thresholds configured in the BMS.
 
-        The values are trip/recovery points of the BMS Limits, not the
-        operating envelope. Empty if the BMS does not report any, see `BMSLimits`.
+        The values are trip/recovery points of the BMS protections, not the
+        operating envelope, and must not be used as charger/inverter set points.
+        Empty if the BMS does not report any, see `BMSLimits`.
         """
 
         async with self._op_lock:

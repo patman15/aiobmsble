@@ -1404,6 +1404,7 @@ def test_decode_limits() -> None:
         LimitDp(Limit.CHARGE_OCP, "trip", 4, size=1, invalid=0xFF),
         LimitDp(Limit.CHARGE_OCP, "delay", 5, size=1),
         LimitDp(Limit.CHARGE_UTP, "trip", 6, size=1, signed=True),
+        LimitDp(Limit.CHARGE_UTP, "release", 7, size=1, offset=20.0),
         LimitDp(Limit.CHARGE_OTP, "release", 7, size=1, offset=-1.0),
         LimitDp(Limit.MOS_OTP, "trip", 8),  # beyond end of frame
         LimitDp(Limit.PACK_OVP, "trip", -1),  # invalid position
@@ -1412,5 +1413,5 @@ def test_decode_limits() -> None:
         b"\x41\x0e\x3a\x0e\xff\x07\xec\x05", fields, byteorder="little"
     ) == {
         Limit.CELL_OVP: Threshold(trip=3.649, release=3.642),
-        Limit.CHARGE_UTP: Threshold(trip=-20.0),
+        Limit.CHARGE_UTP: Threshold(trip=-20.0, release=-15.0),
     }

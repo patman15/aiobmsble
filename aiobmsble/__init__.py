@@ -231,6 +231,8 @@ class Threshold:
     """A single protection threshold as configured in the BMS.
 
     Trip/release points at which the BMS activates/releases a protection.
+    They are not the operating envelope of the battery and must not be used as
+    charger/inverter set points.
     """
 
     trip: float  # trip point [V, A, °C]
@@ -252,7 +254,7 @@ class LimitDp:
     attr: ThresholdAttr
     pos: int  # byte offset in frame
     size: int = 2  # size in bytes
-    scale: float = 1.0  # value = raw * scale + offset
+    scale: float = 1.0  # value = raw * scale - offset
     offset: float = 0.0
     signed: bool = False
     invalid: int | None = None  # sentinel raw value meaning "disabled"
