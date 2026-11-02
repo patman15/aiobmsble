@@ -109,8 +109,13 @@ def test_alive_interval_requires_alive_override() -> None:
 
     for subclass, file_path in subclasses:
         if subclass.ALIVE_INTERVAL is not None:
-            assert "_alive" in subclass.__dict__, (
-                f"{subclass.__name__} sets ALIVE_INTERVAL but does not override _alive\n"
+            assert any(
+                "_alive" in base.__dict__
+                for base in inspect.getmro(subclass)
+                if base is not BaseBMS
+            ), (
+                f"{subclass.__name__} sets ALIVE_INTERVAL but does not override _alive "
+                "in its inheritance hierarchy\n"
                 f"File: {file_path}"
             )
 
