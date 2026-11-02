@@ -180,18 +180,18 @@ class BMS(BaseBMS):
         )
         await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=8)
+        result["temp_values"] = BMS._temp_values(
+            self._msg,
+            values=2,
+            start=BMS._SYS_TEMP_POS,
+            gap=2,
+            signed=False,
+            offset=2731,
+            divider=10,
+            types=(TempSensor.T.CELL_MAX, TempSensor.T.CELL_MIN),
+        )
         if not result.get("pack_count"):  # zero on all packs except the master
             result |= cast(BMSSample, pack)  # overwrite if pack is individual device
         else:
-            result["temp_values"] = BMS._temp_values(
-                self._msg,
-                values=2,
-                start=BMS._SYS_TEMP_POS,
-                gap=2,
-                signed=False,
-                offset=2731,
-                divider=10,
-                types=(TempSensor.T.CELL,) * 2,
-            )
             result["packs"] = [pack]
         return result

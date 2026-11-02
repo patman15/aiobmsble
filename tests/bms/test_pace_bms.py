@@ -49,7 +49,7 @@ _RESULT_DEFS: BMSSample = {
     "power": -224.232,
     "problem": False,
     "pack_count": 1,
-    "temp_values": [TS(t, TS.T.CELL) for t in (22.7, 22.2)],
+    "temp_values": [TS(22.7, TS.T.CELL_MAX), TS(22.2, TS.T.CELL_MIN)],
     "temperature": 22.45,
     "packs": [
         {
@@ -298,7 +298,7 @@ async def test_update_system_capacity(monkeypatch: pytest.MonkeyPatch, patch_ble
 
     result: BMSSample = await bms.async_update()
     assert result.get("design_capacity") == 324
-    assert result.get("temp_values") == [TS(t, TS.T.CELL) for t in (32.0, 31.5)]
+    assert result.get("temp_values") == [TS(32.0, TS.T.CELL_MAX), TS(31.5, TS.T.CELL_MIN)]
 
     await bms.disconnect()
 
