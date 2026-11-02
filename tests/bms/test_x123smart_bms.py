@@ -1,4 +1,4 @@
-r"""Test the 123\\SmartBMS implementation."""
+r"""Test the 123\\SmartBMS gen 3 implementation."""
 
 import asyncio
 from collections.abc import Buffer, Callable, Iterable
