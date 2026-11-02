@@ -137,6 +137,8 @@ class BMS(BaseBMS):
         """Update battery status information."""
         for cmd in (0x2, 0x3):
             await self._await_msg(BMS._cmd(cmd))
+        if not {0x2, 0x3}.issubset(self._msg.keys()):
+            raise ValueError("BMS data incomplete.")
 
         result: BMSSample = self._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         result["cell_voltages"] = BMS._cell_voltages(

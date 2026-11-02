@@ -662,5 +662,24 @@
       "source advmon (https://github.com/patman15/aiobmsble/issues/837)",
       "RVPOWER 12V 100Ah LiFePO4"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "TITAN-12V-120AHBH-0201",
+      "manufacturer_data": {
+        "123": "02ffff7d"
+      },
+      "service_uuids": [
+        "00001812-0000-1000-8000-00805f9b34fb",
+        "0000ff00-0000-1000-8000-00805f9b34fb"
+      ],
+      "rssi": -78,
+      "platform_data": ["F2:50:66:00:00:00"]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/825)",
+      "TITAN 12V 120Ah battery"
+    ]
   }
 ]
