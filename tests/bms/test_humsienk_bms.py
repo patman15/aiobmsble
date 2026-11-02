@@ -6,7 +6,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, Limit, TempSensor as TS, Threshold
 from aiobmsble.bms.humsienk_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -115,6 +115,23 @@ async def test_device_info(patch_bleak_client) -> None:
     patch_bleak_client(MockHumsienkBleakClient)
     bms = BMS(generate_ble_device())
     assert await bms.device_info() == {"hw_version": "V02", "model": "BMC-04S001"}
+
+
+async def test_limits(patch_bleak_client) -> None:
+    """Test that the BMS returns the protection thresholds from the 0x58 frame."""
+    patch_bleak_client(MockHumsienkBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.limits() == {
+        Limit.CELL_OVP: Threshold(trip=3.65, release=3.33),
+        Limit.CELL_UVP: Threshold(trip=2.5, release=2.8),
+        Limit.CHARGE_OCP: Threshold(trip=1100.0),
+        Limit.DISCHARGE_OCP: Threshold(trip=3000.0),
+        Limit.CHARGE_OTP: Threshold(trip=60.0, release=55.0),
+        Limit.CHARGE_UTP: Threshold(trip=0.0, release=5.0),
+        Limit.DISCHARGE_OTP: Threshold(trip=65.0, release=60.0),
+        Limit.DISCHARGE_UTP: Threshold(trip=-20.0, release=-15.0),
+    }
+    assert not bms.is_connected
 
 
 @pytest.mark.parametrize(
