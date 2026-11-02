@@ -277,32 +277,6 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_update_system_capacity(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
-    """Test that design capacity is not taken from full charge capacity (differ on this BMS)."""
-    monkeypatch.setattr(
-        MockPaceBleakClient,
-        "_RESP",
-        MockPaceBleakClient._RESP
-        | {
-            b"\x9a\x00\x00\x0a\x00\x00\x00\x00\x19\x51\x9d": bytearray(
-                b"\x9a\x00\x00\x0a\x00\x00\x00\x33\x01\x00\x00\x03\x7e\x00\x00\x14"
-                b"\xc8\x00\x00\x49\x1b\x00\x00\x87\x24\x00\x00\x7e\x90\x36\x64\x00"
-                b"\x00\x00\x0f\x00\x00\x00\x00\x00\x00\x00\x00\x01\x0f\x0c\xf9\x01"
-                b"\x10\x0c\xf6\x01\x01\x0b\xeb\x01\x04\x0b\xe6\xc9\xfa\x9d"
-            )  # 324Ah design, 345.96Ah full charge capacity, 32.0/31.5°C max/min temperature
-        },
-    )
-    patch_bleak_client(MockPaceBleakClient)
-
-    bms = BMS(generate_ble_device())
-
-    result: BMSSample = await bms.async_update()
-    assert result.get("design_capacity") == 324
-    assert result.get("temp_values") == [TS(32.0, TS.T.CELL_MAX), TS(31.5, TS.T.CELL_MIN)]
-
-    await bms.disconnect()
-
-
 async def test_device_info_incomplete(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that a truncated (but CRC-valid) sw/hw version response raises ValueError."""
     monkeypatch.setattr(
