@@ -69,10 +69,6 @@ class MockHumsienkBleakClient(MockBleakClient):
         b"\xaa\x23\x00\x23\x00": (
             b"\xaa\x23\x04\xdc\xfb\xff\xff\xfc\x03"
         ),  # current redundant with 0x21
-        b"\xaa\x40\x00\x40\x00": (
-            b"\xaa\x40\x10\x00\x00\x00\x00\x00\x00\x00\x00\x20\x95\x09\x00\x04\x01\x01\x00"
-            b"\x14\x01"
-        ),  # pack info: 628 Ah, 4 cells, LiFePO4 (recorded from a 12V 640Ah pack)
         b"\xaa\x58\x00\x58\x00": (
             b"\xaa\x58\x30\x04\x00\x98\x3a\x42\x0e\x02\x0d\x04\x00\xc4\x09\xf0\x0a\x04\x00\xf8\x2a"
             b"\x10\x00\x30\x75\x14\x00\x66\x02\x50\x00\x03\x0d\xd1\x0c\xab\x0a\xdd\x0a\x35\x0d\x03"
@@ -114,43 +110,11 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-@pytest.mark.parametrize(
-    ("pack_info", "expected"),
-    [
-        (None, {"chemistry": "LiFePO4"}),
-        (b"", {}),
-        (
-            (
-                b"\xaa\x40\x10\x00\x00\x00\x00\x00\x00\x00\x00\x20\x95\x09\x00\x04\x00"
-                b"\x01\x00\x13\x01"
-            ),
-            {},
-        ),
-    ],
-    ids=["lifepo4", "no_reply", "unknown_chemistry"],
-)
-async def test_device_info(
-    monkeypatch: pytest.MonkeyPatch,
-    patch_bleak_client,
-    patch_bms_timeout,
-    pack_info: bytes | None,
-    expected: dict[str, str],
-) -> None:
+async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    if pack_info is not None:
-        patch_bms_timeout()
-        monkeypatch.setattr(
-            MockHumsienkBleakClient,
-            "_RESP",
-            MockHumsienkBleakClient._RESP | {b"\xaa\x40\x00\x40\x00": pack_info},
-        )
-
     patch_bleak_client(MockHumsienkBleakClient)
     bms = BMS(generate_ble_device())
-    assert (
-        await bms.device_info()
-        == {"hw_version": "V02", "model": "BMC-04S001"} | expected
-    )
+    assert await bms.device_info() == {"hw_version": "V02", "model": "BMC-04S001"}
 
 
 @pytest.mark.parametrize(

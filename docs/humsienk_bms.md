@@ -20,7 +20,7 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 | `0x21` | Battery info (voltage, current, SOC, SOH, capacity, cycles, temps) |
 | `0x22` | Cell voltages (up to 24 cells, 2 bytes each, millivolts LE) |
 | `0x23` | Current info, redundant to 0x21 |
-| `0x40` | Pack info (rated capacity, cell count, chemistry), chemistry exposed via `device_info()` |
+| `0x40` | Pack info (rated capacity, cell count, chemistry), documented below, not decoded by the driver |
 | `0x58` | Configuration (protection thresholds, capacity, cell count), exposed via `limits()` |
 | `0xF5` | Firmware/hardware version (ASCII string) |
 
@@ -141,8 +141,8 @@ aa 40 10 00 00 00 00 00 00 00 00 20 95 09 00 04 01 01 00 14 01
 | 14 | 1 | u8 | *unknown* | Reads 1 on the recorded frame |
 | 15 | 1 | u8 | *unknown* | Reads 0 on the recorded frame |
 
-The driver reports `chemistry` in `device_info()` only for confirmed codes and
-treats a missing 0x40 reply as "unknown".
+The driver does not decode this frame; the layout is documented for reference
+(see [#136](https://github.com/patman15/aiobmsble/issues/136)).
 
 ## 0x58 — Configuration (48 data bytes)
 
