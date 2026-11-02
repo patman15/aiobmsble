@@ -8,7 +8,6 @@ from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.exc import BleakCharacteristicNotFoundError
 
 from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
@@ -18,10 +17,7 @@ class BMS(BaseBMS):
     """Super-B v2 BMS implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Super-B", "model": "Epsilon v2"}
-    _NOTIFY_CHAR: Final[tuple[str, ...]] = (
-        "e0fef452-9d2b-4005-a1e3-69fe1102b436",
-        "e0fef453-9d2b-4005-a1e3-69fe1102b436",
-    )
+    _NOTIFY_CHAR: Final[str] = "e0fef452-9d2b-4005-a1e3-69fe1102b436"
     _FRAME_LEN: Final[int] = 24
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 6, 4, True, lambda x: x / 1000, 0x2),
@@ -30,6 +26,8 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 19, 1, False, idx=0x0),
         BMSDp("runtime", 20, 4, False, idx=0x0),
         BMSDp("cycles", 18, 1, False, idx=0x0),
+        # BMSDp("problem", ?, 1, False, lambda x: not (x & 1), 0x0),
+        # BMSDp("balancer", ?, 1, False, lambda x: bool(x & 0x80), 0x0),
     )
     _CMDS: Final[set[int]] = {field.idx for field in _FIELDS}
 
@@ -79,16 +77,13 @@ class BMS(BaseBMS):
     ) -> None:
         await super()._init_connection(char_notify)
         # subscribe to second notify characteristic
-        for char in BMS._NOTIFY_CHAR:
-            try:
-                await self._client.start_notify(char, getattr(self, "_notification_handler"))
-                break
-            except BleakCharacteristicNotFoundError:
-                pass  # try next element
-        else:
-            raise BleakCharacteristicNotFoundError(BMS._NOTIFY_CHAR[-1])
+        await self._client.start_notify(
+            BMS._NOTIFY_CHAR, getattr(self, "_notification_handler")
+        )
 
-    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(
+        self, sender: BleakGATTCharacteristic, data: bytearray
+    ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data from %s: %s", str(sender)[:8], data)
 
