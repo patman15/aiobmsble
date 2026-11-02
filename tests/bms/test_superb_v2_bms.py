@@ -5,7 +5,6 @@ from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
-from bleak.exc import BleakCharacteristicNotFoundError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
@@ -25,6 +24,7 @@ RESP: dict[bytes, bytearray] = {
 
 
 _RESULT_DEFS: Final[BMSSample] = {
+    # "balancer": False,
     "battery_charging": False,
     "battery_health": 100,
     "battery_level": 35,
@@ -47,7 +47,6 @@ class MockSuperBv2BleakClient(MockBleakClient):
     """Emulate a Super-B v2 BMS BleakClient."""
 
     _QUERY_RESP: dict[bytes, bytearray] = RESP
-    _RESPONSE_CHAR: str = BMS._NOTIFY_CHAR[0]
     _NOTIFY_RESP: bytearray = bytearray(
         b"\x02\x0d\x00\x00\x00\x00\xff\xff\xf6\x5f\x33\x97\x00\x00\x09\x64\x00\x00\x00\x00\x00\x00"
         b"\x00\x00"
@@ -81,13 +80,12 @@ class MockSuperBv2BleakClient(MockBleakClient):
     async def start_notify(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[[BleakGATTCharacteristic, bytearray], None | Awaitable[None]],
+        callback: Callable[
+            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
+        ],
         **kwargs,
     ) -> None:
         """Mock start_notify."""
-        if char_specifier in BMS._NOTIFY_CHAR and char_specifier != self._RESPONSE_CHAR:
-            raise BleakCharacteristicNotFoundError(str(char_specifier))
-
         await super().start_notify(char_specifier, callback)
         self._send_info()
 
@@ -127,33 +125,6 @@ async def test_update(
     await bms.disconnect()
 
 
-async def test_fallback_notify_characteristic(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
-    """Test fallback to the second notification characteristic."""
-    monkeypatch.setattr(MockSuperBv2BleakClient, "_RESPONSE_CHAR", BMS._NOTIFY_CHAR[-1])
-    patch_bleak_client(MockSuperBv2BleakClient)
-
-    bms = BMS(generate_ble_device())
-
-    assert await bms.async_update() == _RESULT_DEFS
-
-    await bms.disconnect()
-
-
-async def test_no_known_characteritic(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
-    """Test fallback to the second notification characteristic."""
-    monkeypatch.setattr(MockSuperBv2BleakClient, "_RESPONSE_CHAR", "unavailable")
-    patch_bleak_client(MockSuperBv2BleakClient)
-
-    bms = BMS(generate_ble_device())
-
-    with pytest.raises(BleakCharacteristicNotFoundError):
-        await bms.async_update()
-
-    await bms.disconnect()
-
-
 async def test_update_chrg(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test Super-B v2 BMS data update while charging."""
 
@@ -178,6 +149,7 @@ async def test_update_chrg(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     bms = BMS(generate_ble_device())
 
     assert await bms.async_update() == {
+        # "balancer": False,
         "battery_charging": True,
         "battery_health": 100,
         "battery_level": 35,
@@ -209,7 +181,9 @@ async def test_invalid_response(
     """Test data up date with BMS returning invalid data."""
 
     patch_bms_timeout()
-    monkeypatch.setattr(MockSuperBv2BleakClient, "_NOTIFY_RESP", bytearray(wrong_response))
+    monkeypatch.setattr(
+        MockSuperBv2BleakClient, "_NOTIFY_RESP", bytearray(wrong_response)
+    )
     patch_bleak_client(MockSuperBv2BleakClient)
 
     bms = BMS(generate_ble_device())
