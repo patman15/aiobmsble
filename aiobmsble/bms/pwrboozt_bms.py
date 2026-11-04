@@ -20,27 +20,16 @@ class BMS(EJBMS):
     """PowerBoozt battery implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Powerboozt", "model": "battery"}
+    _PRB_MASK: Final[int] = 0x0FFC
     _FIELDS: tuple[BMSDp, ...] = (
-        # BMSDp(
-        #     "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
-        # ),
+        BMSDp("battery_charging", 45, 1, False, lambda x: bool(x & 0x1)),
         BMSDp("battery_level", 69, 1, False),
-        BMSDp("current", 54, 4, True, lambda x: x / 1000),
-        # BMSDp("cycle_charge", 7, 2, False, lambda x: x / 10, Cmd.CAP),
-        # BMSDp(
-        #     "temp_values", 48, 1, False, lambda x: [TempSensor(x - 40)], Cmd.RT
-        # ),  # only 1st sensor relevant
+        BMSDp("current", 54, 4, True, lambda x: (x & 0x7FFFFFFF) * (-1 if (x >> 31) else 1) / 1000),
         BMSDp("cycles", 67, 2, False),
         BMSDp("design_capacity", 70, 4, False, lambda x: x // 1000),
         BMSDp("voltage", 62, 2, False, lambda x: x / 1000),
-        # BMSDp(
-        #     "problem_code", 52, 2, False, lambda x: x & 0x0FFC, Cmd.RT
-        # ),  # mask status bits
-        # BMSDp("dischrg_mosfet", 52, 1, False, lambda x: bool(x & 0x10), Cmd.RT),
-        # BMSDp("chrg_mosfet", 52, 1, False, lambda x: bool(x & 0x20), Cmd.RT),
-        # BMSDp("balancer", 55, 2, False, int, idx=Cmd.RT),
-        # BMSDp("heater", 54, 1, False, bool, Cmd.RT),
-        # BMSDp("design_capacity", 66, 2, False, lambda x: x // 10, Cmd.RT),
+        BMSDp("problem_code", 44, 2, False, lambda x: x & BMS._PRB_MASK),  # mask status bits
+        BMSDp("heater", 104, 4, False, bool),
     )
 
     @staticmethod
@@ -70,9 +59,7 @@ class BMS(EJBMS):
         """Return 128-bit UUID of characteristic that provides write property."""
         return "fff2"
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if data.startswith(BMS._BT_MODULE_MSG):
@@ -85,14 +72,11 @@ class BMS(EJBMS):
 
         self._frame.extend(data)
 
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         exp_frame_len: Final[int] = (
             min(int(self._frame[7:11], 16), BMS._MAX_MSG_LEN)
-            if len(self._frame) > 10
-            and all(chr(c) in hexdigits for c in self._frame[7:11])
+            if len(self._frame) > 10 and all(chr(c) in hexdigits for c in self._frame[7:11])
             else BMS._MAX_MSG_LEN
         )
         self._frame = self._frame.replace(b"\x00", b"")
@@ -107,17 +91,13 @@ class BMS(EJBMS):
             self._frame.clear()
             return
 
-        if (len(self._frame) % 2) or not all(
-            chr(c) in hexdigits for c in self._frame[1:-1]
-        ):
+        if (len(self._frame) % 2) or not all(chr(c) in hexdigits for c in self._frame[1:-1]):
             self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
 
         if len(self._frame) != exp_frame_len:
-            self._log.debug(
-                "incorrect frame length %i != %i", len(self._frame), exp_frame_len
-            )
+            self._log.debug("incorrect frame length %i != %i", len(self._frame), exp_frame_len)
             self._frame.clear()
             return
 
@@ -131,9 +111,7 @@ class BMS(EJBMS):
 
         msg: Final[bytes] = bytes.fromhex(self._frame[1:-1].decode())
 
-        if not self._check_integrity(
-            msg, lambda x: crc_sum(x) ^ 0xFF, slice(1, -1), msg[-1]
-        ):
+        if not self._check_integrity(msg, lambda x: crc_sum(x) ^ 0xFF, slice(1, -1), msg[-1]):
             self._frame.clear()
             return
 
