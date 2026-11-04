@@ -17,8 +17,11 @@ from aiobmsble import (
     BMSConfig,
     BMSDp,
     BMSInfo,
+    BMSLimits,
     BMSPDp,
     BMSSample,
+    Limit,
+    LimitDp,
     MatcherPattern,
     PackSample,
     TempSensor,
@@ -58,20 +61,30 @@ class BMS(BaseBMS):
         BMSDp("pack_count", 26, 1, False),
         BMSDp("voltage", 28, 2, False, lambda x: x / 100),
         BMSDp("current", 30, 2, True, lambda x: x / 10),
-        BMSDp("design_capacity", 32, 2, False),
+        BMSDp("design_capacity", 32, 2, False, lambda x: x // 10),
+        BMSDp("cycle_charge", 36, 2, False, lambda x: x / 10),
         BMSDp("battery_level", 38, 2, False, lambda x: x / 100),
         BMSDp("battery_health", 40, 2, False, lambda x: x / 100),
         BMSDp("cycles", 82, 2, False),
-        BMSDp("cycle_charge", 101, 4, False),
         BMSDp("total_charge", 105, 4, False),
+    )
+    _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = (
+        LimitDp(Limit.PACK_OVP, "trip", 25 + 19, scale=0.01),  # payload 19: charge voltage
+        LimitDp(Limit.PACK_UVP, "trip", 25 + 23, scale=0.01),  # payload 23: discharge cutoff
+        LimitDp(Limit.CHARGE_OCP, "trip", 25 + 17, scale=0.1),  # payload 17: charge current
+        LimitDp(Limit.DISCHARGE_OCP, "trip", 25 + 21, scale=0.1),  # payload 21: discharge current
     )
     _PFIELDS: Final[tuple[BMSPDp, ...]] = (
         BMSPDp("voltage", 25, 2, False, lambda x: x / 100),
         BMSPDp("current", 27, 2, True, lambda x: x / 100),
         BMSPDp("battery_level", 29, 2, False, lambda x: x / 10),
-        BMSPDp("cycles", 79, 2, False),
-        BMSPDp("cycle_charge", 83, 2, False),
-        BMSPDp("battery_health", 91, 2, False, lambda x: x / 10),
+        BMSPDp("cycle_charge", 31, 2, False, lambda x: x / 10),
+        BMSPDp("cell_count", 33, 1, False),
+    )
+    _PDFIELDS: Final[tuple[BMSPDp, ...]] = (
+        BMSPDp("cycles", 0, 2, False),
+        BMSPDp("battery_health", 12, 2, False, lambda x: x / 10),
+        BMSPDp("design_capacity", 16, 2, False, lambda x: x // 10),
     )
 
     def __init__(
@@ -87,6 +100,8 @@ class BMS(BaseBMS):
         self._pending_packs: dict[int, bytes] = {}
         self._ready_samples: deque[tuple[bytes, dict[int, bytes]]] = deque()
         self._exp_len: int = 0
+        self._limits_src: bytes | None = None
+        self._limits_event: asyncio.Event = asyncio.Event()
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -122,6 +137,8 @@ class BMS(BaseBMS):
         self._pack_count = 0
         self._pending_packs.clear()
         self._ready_samples.clear()
+        self._limits_src = None
+        self._limits_event.clear()
         self._msg_event.clear()
         await super()._init_connection(char_notify)
 
@@ -179,6 +196,8 @@ class BMS(BaseBMS):
             self._pending_packs.clear()
             return
         self._summary = frame
+        self._limits_src = frame
+        self._limits_event.set()
         self._pack_count = pack_count
         self._pending_packs.clear()
 
@@ -199,6 +218,14 @@ class BMS(BaseBMS):
             self._pending_packs.clear()
             self._msg_event.set()
 
+    async def _fetch_limits(self) -> BMSLimits:
+        """Return the protection thresholds from the next system status frame."""
+        if self._limits_src is None:
+            self._limits_event.clear()
+            await asyncio.wait_for(self._limits_event.wait(), timeout=BMS.TIMEOUT)
+        assert self._limits_src is not None
+        return BMS._decode_limits(self._limits_src, BMS._LIMIT_FIELDS)
+
     async def _async_update(self) -> BMSSample:
         """Return system status and pack data after all reported packs respond."""
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
@@ -207,27 +234,30 @@ class BMS(BaseBMS):
         if not self._ready_samples:
             self._msg_event.clear()
 
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, summary)
+
         packs: list[PackSample] = []
         for pack_id in sorted(frames):
             frame: bytes = frames[pack_id]
             pack: PackSample = BMS._decode_pack(BMS._PFIELDS, frame)
-            pack["cell_voltages"] = BMS._cell_voltages(
-                frame,
-                cells=BMS._CELLS,
-                start=BMS._CELL_START,
-            )
+            cells: int = pack.get("cell_count", 0)
+            pack["cell_voltages"] = BMS._cell_voltages(frame, cells=cells, start=BMS._CELL_START)
+            temp_sensors: int = frame[BMS._CELL_START + 2 * cells]
+            pack["temp_sensors"] = temp_sensors
             pack["temp_values"] = BMS._temp_values(
                 frame,
-                start=BMS._CELL_TEMP_START,
-                values=6,
-                size=1,
-                gap=1,
+                start=BMS._CELL_START + 2 * cells + 1,
+                values=temp_sensors + 2,
+                size=2,
                 signed=False,
                 divider=10,
-                types=(TempSensor.T.CELL,) * 4 + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
+                types=(TempSensor.T.CELL,) * temp_sensors
+                + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
+            )
+            pack |= BMS._decode_pack(
+                BMS._PDFIELDS, frame, start=BMS._CELL_START + 2 * (cells + temp_sensors) + 5
             )
             packs.append(pack)
 
-        data: BMSSample = BMS._decode_data(BMS._FIELDS, summary)
-        data["packs"] = packs
-        return data
+        result["packs"] = packs
+        return result
