@@ -40,26 +40,20 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"manufacturer": "V-TAC", "model": "TBESS"}
     _FRAME_START: Final[int] = 0xEF
     _FRAME_END: Final[int] = 0x16
-    _FRAME_COMMAND_POS: Final[int] = 2
-    _FRAME_ADDRESS_POS: Final[int] = 1
-    _FRAME_TAG: Final[slice] = slice(22, 24)
+    _FRAME_CMD_POS: Final[int] = 2
+    _FRAME_ADDR_POS: Final[int] = 1
+    _LEN_POS: Final[int] = 22
     _PACK_COUNT_POS: Final[int] = 26
-    _SYSTEM_ADDRESS: Final[int] = 0x01
-    _FRAME_LENGTHS: Final[dict[int, int]] = {
+    _SYSTEM_ADDR: Final[int] = 0x01
+    _FRAME_LEN: Final[dict[int, int]] = {
         _Cmd.SUMMARY: 112,
         _Cmd.DETAIL: 124,
         _Cmd.CONFIG: 72,
         _Cmd.INFO: 163,
     }
-    _FRAME_TAGS: Final[dict[int, bytes]] = {
-        _Cmd.SUMMARY: b"\x00\x55",
-        _Cmd.DETAIL: b"\x00\x61",
-        _Cmd.CONFIG: b"\x00\x2d",
-        _Cmd.INFO: b"\x00\x88",
-    }
     _CELLS: Final[int] = 16
     _CELL_START: Final[int] = 34
-    _CELL_TEMPERATURE_START: Final[int] = 68
+    _CELL_TEMP_START: Final[int] = 68
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("pack_count", 26, 1, False),
         BMSDp("voltage", 28, 2, False, lambda x: x / 100),
@@ -92,6 +86,7 @@ class BMS(BaseBMS):
         self._pack_count: int = 0
         self._pending_packs: dict[int, bytes] = {}
         self._ready_samples: deque[tuple[bytes, dict[int, bytes]]] = deque()
+        self._exp_len: int = 0
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -132,56 +127,47 @@ class BMS(BaseBMS):
 
     def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Assemble complete frames from the continuous RX stream."""
-        self._log.debug("RX BLE data: %s", data)
-
-        for byte in data:
-            self._frame.append(byte)
-
-            if len(self._frame) < 3:
-                continue
-
-            command: int = self._frame[BMS._FRAME_COMMAND_POS]
-            if command not in BMS._FRAME_LENGTHS:
-                self._log.debug("unknown frame command 0x%02X", command)
-                self._frame.clear()
-                return
-
-            if len(self._frame) < BMS._FRAME_LENGTHS[command]:
-                continue
-
-            frame: bytes = bytes(self._frame)
-            self._frame.clear()
-            self._process_frame(frame)
-
-    def _process_frame(self, frame: bytes) -> None:
-        """Validate a complete frame and retain the system status or pack data."""
-        command: int = (
-            frame[BMS._FRAME_COMMAND_POS]
-            if len(frame) > BMS._FRAME_COMMAND_POS
-            else -1
-        )
-        expected_length: int | None = BMS._FRAME_LENGTHS.get(command)
-        if expected_length is None or len(frame) != expected_length:
-            self._log.debug("incorrect frame length: %s", len(frame))
-            return
-
         if (
-            frame[0] != BMS._FRAME_START
-            or frame[-1] != BMS._FRAME_END
-            or frame[BMS._FRAME_TAG] != BMS._FRAME_TAGS[command]
+            len(data) > BMS._LEN_POS + 2
+            and data[0] == BMS._FRAME_START
+            and (not self._frame or len(self._frame) >= self._exp_len)
         ):
-            self._log.debug("incorrect frame markers or tag for command 0x%02X", command)
+            self._exp_len = int.from_bytes(data[BMS._LEN_POS : BMS._LEN_POS + 2]) + 27
+            self._frame.clear()
+
+        self._frame.extend(data)
+
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
+
+        if len(self._frame) < self._exp_len:
             return
 
-        if command == BMS._Cmd.SUMMARY:
-            if frame[BMS._FRAME_ADDRESS_POS] != BMS._SYSTEM_ADDRESS:
+        if (cmd := self._frame[BMS._FRAME_CMD_POS]) not in BMS._FRAME_LEN:
+            self._log.debug("unknown frame type 0x%02X", cmd)
+            self._frame.clear()
+            return
+
+        del self._frame[self._exp_len :]
+
+        if BMS._FRAME_LEN[cmd] != len(self._frame):
+            self._log.debug("incorrect frame length")
+            self._frame.clear()
+            return
+
+        if self._frame[0] != BMS._FRAME_START or self._frame[-1] != BMS._FRAME_END:
+            self._log.debug("incorrect frame format")
+            self._frame.clear()
+            return
+
+        if cmd == BMS._Cmd.SUMMARY:
+            if self._frame[BMS._FRAME_ADDR_POS] != BMS._SYSTEM_ADDR:
                 self._log.debug(
-                    "unexpected system status address 0x%02X", frame[BMS._FRAME_ADDRESS_POS]
+                    "unexpected system status address 0x%02X", self._frame[BMS._FRAME_ADDR_POS]
                 )
                 return
-            self._process_summary(frame)
-        elif command == BMS._Cmd.DETAIL:
-            self._process_detail(frame)
+            self._process_summary(bytes(self._frame))
+        elif cmd == BMS._Cmd.DETAIL:
+            self._process_detail(bytes(self._frame))
 
     def _process_summary(self, frame: bytes) -> None:
         """Retain system status and use its pack count for the following details."""
@@ -201,10 +187,11 @@ class BMS(BaseBMS):
         if self._summary is None:
             self._log.debug("ignoring pack details before system status")
             return
-        if not 1 <= frame[1] <= self._pack_count:
-            self._log.debug("unexpected pack address 0x%02X", frame[1])
+        pack_address: int = frame[BMS._FRAME_ADDR_POS]
+        if not 1 <= pack_address <= self._pack_count:
+            self._log.debug("unexpected pack address 0x%02X", pack_address)
             return
-        self._pending_packs[frame[1]] = frame
+        self._pending_packs[pack_address] = frame
         if len(self._pending_packs) == self._pack_count:
             self._ready_samples.append((self._summary, self._pending_packs.copy()))
             self._summary = None
@@ -214,8 +201,7 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Return system status and pack data after all reported packs respond."""
-        while not self._ready_samples:
-            await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
         summary, frames = self._ready_samples.popleft()
         if not self._ready_samples:
@@ -232,7 +218,7 @@ class BMS(BaseBMS):
             )
             pack["temp_values"] = BMS._temp_values(
                 frame,
-                start=BMS._CELL_TEMPERATURE_START,
+                start=BMS._CELL_TEMP_START,
                 values=6,
                 size=1,
                 gap=1,
