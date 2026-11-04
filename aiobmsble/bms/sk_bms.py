@@ -28,6 +28,8 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 24, 2, False, lambda x: bool(x & 0x02)),
         BMSDp("dischrg_mosfet", 24, 2, False, lambda x: bool(x & 0x04)),
         BMSDp("current", 0, 2, True, lambda x: x / 100),
+        BMSDp("heater", 30, 2, False, lambda x: bool(x == 0x0010)),
+        BMSDp("balancer", 30, 2, False, lambda x: bool(x == 0x0100)),
         BMSDp("cell_count", 34, 2, False),
         BMSDp("temp_sensors", 40, 2, False),
     )
@@ -46,8 +48,7 @@ class BMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            {"local_name": f"SK{voltage}V*", "connectable": True}
-            for voltage in ("12", "24", "36")
+            {"local_name": f"SK{voltage}V*", "connectable": True} for voltage in ("12", "24", "36")
         ]
 
     @staticmethod
@@ -74,15 +75,13 @@ class BMS(BaseBMS):
 
         info.update(
             {
-                "model": b2str(self._msg[BMS._MODEL_START:BMS._MODEL_END]),
-                "serial_number": b2str(self._msg[BMS._MODEL_END:-2]),
+                "model": b2str(self._msg[BMS._MODEL_START : BMS._MODEL_END]),
+                "serial_number": b2str(self._msg[BMS._MODEL_END : -2]),
             }
         )
         return info
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Assemble and validate a fragmented Modbus response."""
         self._log.debug("RX BLE data: %s", data)
 
