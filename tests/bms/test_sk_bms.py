@@ -132,7 +132,7 @@ async def test_invalid_response(
     wrong_response: bytes,
 ) -> None:
     """Test update with invalid recorded response variants."""
-    patch_bms_timeout("sk_bms")
+    patch_bms_timeout()
     monkeypatch.setattr(MockSKBleakClient, "_RESP", wrong_response)
     patch_bleak_client(MockSKBleakClient)
 
