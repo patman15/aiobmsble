@@ -8,7 +8,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, PackSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, Limit, PackSample, TempSensor as TS, Threshold
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -154,46 +154,63 @@ class MockSeplosBleakClient(MockBleakClient):
     """Emulate a Seplos BMS BleakClient."""
 
     PKT_FRAME = 0x5  # header(3) + crc(2)
-    RESP: dict[str, bytearray] = {
-        "EIA": bytearray(
+    RESP: dict[str, bytes] = {
+        "EIA": (
             b"\x00\x04\x34\x14\x72\x00\x00\xff\xbd\xff\xff\x34\x64\x00\x00\x6d\x60\x00\x00\x00\xd5"
             b"\x00\x00\x6d\x60\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07\x08\x00\x00\x07\x08\x00"
             b"\x00\x02\x40\x01\xd0\x00\x02\x00\x09\x01\xdf\x03\xe7\xb3\x36"  # A3F6
         ),
-        "EIB": bytearray(
+        "EIB": (
             b"\x00\x04\x2c\x0c\xc9\x0c\xc6\x00\x02\x00\x07\x14\x72\x14\x72\x00\x00\x00\x00\x00\xfa"
             b"\x00\xee\x00\xf4\x00\x00\x00\x01\x01\xdf\x01\xdf\x00\x09\x03\xe7\x01\x0a\x01\x0a\x01"
             b"\x0a\x00\x00\x00\x00\x57\x96"
         ),
-        "EIC": bytearray(
+        "EIC": (
             b"\x00\x01\x0a\x01\x00\x00\x00\x00\x00\x00\x03\x00\x00\x7e\x35"
         ),  # discharge, dis/charge-FET on, no alarm
-        "EIX": bytearray(  # Note: unknown to the BMS implementation, just for testing
+        # recorded SPA replies (registers 0x1300 and 0x1335)
+        "SPA1300": (
+            b"\x00\x04\x6a\x00\x04\x00\x10\x15\x68\x15\xe0\x15\x7c\x16\x80\x12\xc0\x12\x20\x12\xc0"
+            b"\x10\xe0\x0d\x48\x0d\xac\x0d\x48\x0e\x10\x0c\x1c\x0b\x54\x0c\x1c\x0a\x8c\x07\xd0\x03"
+            b"\xe8\x01\xf4\x00\xcb\x00\xcd\x00\xd2\x00\x64\x01\x2c\x01\x2c\xff\x35\xff\x33\xff\x2e"
+            b"\x00\x64\xfe\xa2\x01\x2c\xfe\xd4\x00\x6a\x02\x58\x00\x05\x0b\xb8\x00\xcd\x00\x0a\x0d"
+            b"\xac\x0d\x48\x05\xdc\x03\xe8\x03\x20\x00\xc8\x00\x1e\x0c\x81\x0c\x9f\x0c\x9f\x0c\xd1"
+            b"\x0a\xdd\x0a\xbf\x71\xbc"
+        ),
+        "SPA1335": (
+            b"\x00\x04\x6a\x0a\xab\x0a\x47\x0c\x9f\x0c\xd1\x0c\xd1\x0d\x03\x0a\xc9\x0a\x47\x0a\xab"
+            b"\x0a\x15\x0c\x81\x0c\x9f\x0c\xd1\x0d\x03\x0a\xc9\x0a\xab\x0a\xab\x0a\x47\x0d\xfd\x0e"
+            b"\x61\x0d\xfd\x0e\xf7\x0b\x0f\x0a\xab\x0c\x9f\x0a\xab\x00\x0a\x0d\x48\x00\x0f\x00\x05"
+            b"\x03\xc0\x00\x96\x00\x64\x00\x46\x00\x32\x6d\x60\x6d\x60\x34\x64\x00\x30\x00\x3c\x00"
+            b"\xf0\x00\x0a\x00\x07\x00\x00\x00\x0d\x00\x00\x01\xf4\x01\x2c\x16\x80\x00\xb4\xff\x4c"
+            b"\x00\x05\x00\x08\x39\x20"
+        ),
+        "EIX": (  # Note: unknown to the BMS implementation, just for testing
             b"\x00\x04\x20\x14\x72\xfd\x30\x34\x64\x6d\x60\x00\xd5\x01\xdf\x03\xe7\x00\x09\x0c\xc7"
             b"\x0b\x9f\x0c\xc8\x0c\xc6\x0b\xa5\x0b\x99\x00\x00\x00\xb4\x62\xb0"
         ),
-        "PIA1": bytearray(
+        "PIA1": (
             b"\x01\x04\x22\x14\x72\xfd\x30\x34\x64\x6d\x60\x00\xd5\x01\xdf\x03\xe7\x00\x09\x0c\xc7"
             b"\x0b\x9f\x0c\xc8\x0c\xc6\x0b\xa5\x0b\x99\x00\x00\x00\xb4\x00\xb4\x6f\xf3"
         ),
-        "PIA2": bytearray(
+        "PIA2": (
             b"\x02\x04\x22\x14\x73\xfd\x31\x34\x64\x6d\x60\x00\xd5\x01\xe0\x03\xe7\x00\x0a\x0c\xc7"
             b"\x0b\x9f\x0c\xc8\x0c\xc6\x0b\xa5\x0b\x99\x00\x00\x00\xb4\x00\xb4\xa6\xe2"
         ),
-        "PIB1": bytearray(
+        "PIB1": (
             b"\x01\x04\x34\x0c\xc8\x0c\xc8\x0c\xc8\x0c\xc7\x0c\xc7\x0c\xc7\x0c\xc7\x0c\xc6\x0c\xc6"
             b"\x0c\xc7\x0c\xc7\x0c\xc7\x0c\xc7\x0c\xc8\x0c\xc8\x0c\xc8\x0b\xa5\x0b\x99\x0b\x9a\x0b"
             b"\xa4\x0a\xab\x0a\xab\x0a\xab\x0a\xab\x0b\xc4\x0b\xb5\x97\x1f"
         ),
-        "PIB2": bytearray(
+        "PIB2": (
             b"\x02\x04\x34\x0d\xc8\x0d\xc8\x0d\xc8\x0d\xc7\x0d\xc7\x0d\xc7\x0d\xc7\x0d\xc6\x0d\xc6"
             b"\x0d\xc7\x0d\xc7\x0d\xc7\x0d\xc7\x0d\xc8\x0d\xc8\x0d\xc9\x0b\xa5\x0b\x99\x0b\x9a\x0b"
             b"\xa4\x0a\xab\x0a\xab\x0a\xab\x0a\xab\x0b\xc4\x0b\xb5\x53\xf1"
         ),
-        "PIB3": bytearray(  # Note: incorrect answer for testing battery packet count mismatch
+        "PIB3": (  # Note: incorrect answer for testing battery packet count mismatch
             b"\x02\x04\x34"
         )
-        + bytearray(54),
+        + bytes(54),
     }
 
     def _crc16(self, data: bytes | bytearray) -> int:
@@ -221,22 +238,19 @@ class MockSeplosBleakClient(MockBleakClient):
         )
 
         if device == 0x00:  # EMS device
-            if start == 0x2000:
-                assert length == len(self.RESP["EIA"])
-                return self.RESP["EIA"].copy()
-            if start == 0x2100:
-                assert length == len(self.RESP["EIB"])
-                return self.RESP["EIB"].copy()
-            if start == 0x2200:
-                assert length == len(self.RESP["EIC"])
-                return self.RESP["EIC"].copy()
+            if start in (0x1300, 0x1335):  # system parameter (SPA) blocks
+                return bytearray(self.RESP[f"SPA{start:04X}"])
+            if start in (0x2000, 0x2100, 0x2200):
+                key = {0x2000: "EIA", 0x2100: "EIB", 0x2200: "EIC"}[start]
+                assert length == len(self.RESP[key])
+                return bytearray(self.RESP[key])
         if device and device <= 0x10:  # BMS battery packs
             if start == 0x1000:
                 assert length == len(self.RESP[f"PIA{device}"])
-                return self.RESP[f"PIA{device}"].copy()
+                return bytearray(self.RESP[f"PIA{device}"])
             if start == 0x1100:
                 assert length == len(self.RESP[f"PIB{device}"])
-                return self.RESP[f"PIB{device}"].copy()
+                return bytearray(self.RESP[f"PIB{device}"])
 
         return bytearray()
 
@@ -247,14 +261,11 @@ class MockSeplosBleakClient(MockBleakClient):
     ) -> None:
         """Send fragmented response."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         resp: bytearray = self._response(data)
         for notify_data in [
-            resp[i : min(len(resp), i + BT_FRAME_SIZE)]
-            for i in range(0, len(resp), BT_FRAME_SIZE)
+            resp[i : min(len(resp), i + BT_FRAME_SIZE)] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockSeplosBleakClient", notify_data)
 
@@ -266,9 +277,7 @@ class MockSeplosBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
         assert isinstance(char_specifier, str) and normalize_uuid_str(
             char_specifier
         ) == normalize_uuid_str("fff2")
@@ -286,15 +295,12 @@ class MockWrongCRCBleakClient(MockSeplosBleakClient):
     ) -> None:
         """Send fragmented response."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         resp: bytearray = self._response(data)
         resp[-2:] = bytearray(b"\00\00")  # make CRC invalid
         for notify_data in [
-            resp[i : min(len(resp), i + BT_FRAME_SIZE)]
-            for i in range(0, len(resp), BT_FRAME_SIZE)
+            resp[i : min(len(resp), i + BT_FRAME_SIZE)] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockInvalidBleakClient", notify_data)
 
@@ -315,7 +321,7 @@ class MockInvalidMessageBleakClient(MockSeplosBleakClient):
     """Emulate a Seplos BMS BleakClient returning unknown message type."""
 
     def _response(self, data: Buffer) -> bytearray:
-        return self.RESP["EIX"]
+        return bytearray(self.RESP["EIX"])
 
 
 class MockOversizedBleakClient(MockSeplosBleakClient):
@@ -328,16 +334,13 @@ class MockOversizedBleakClient(MockSeplosBleakClient):
     ) -> None:
         """Send fragmented response and add trash to each message."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         # add garbage at the end for robustness
         resp = self._response(data) + bytearray(b"\xc0\xff\xee")
 
         for notify_data in [
-            resp[i : min(len(resp), i + BT_FRAME_SIZE)]
-            for i in range(0, len(resp), BT_FRAME_SIZE)
+            resp[i : min(len(resp), i + BT_FRAME_SIZE)] for i in range(0, len(resp), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockOversizedBleakClient", notify_data)
 
@@ -356,12 +359,32 @@ class MockRedundantMessageBleakClient(MockSeplosBleakClient):
 
         if self.patch_main and device == 0x00:  # EMS device
             if start & 0xF000 == 0x2000:
-                return self.RESP["EIA"].copy()
+                return bytearray(self.RESP["EIA"])
         if self.patch_pkg and device and device <= 0x10:  # BMS battery packs
             if start & 0xF000 == 0x1000:
-                return self.RESP[f"PIA{device}"].copy()
+                return bytearray(self.RESP[f"PIA{device}"])
 
         return super()._response(data)
+
+
+async def test_limits(patch_bleak_client) -> None:
+    """Test that the BMS returns the protection thresholds from the SPA blocks."""
+    patch_bleak_client(MockSeplosBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.limits() == {
+        Limit.PACK_OVP: Threshold(trip=57.6, release=55.0),
+        Limit.PACK_UVP: Threshold(trip=43.2, release=48.0),
+        Limit.CELL_OVP: Threshold(trip=3.6, release=3.4),
+        Limit.CELL_UVP: Threshold(trip=2.7, release=3.1),
+        Limit.CHARGE_OCP: Threshold(trip=210.0, release=203.0, delay=10.0),
+        Limit.DISCHARGE_OCP: Threshold(trip=210.0, delay=10.0),
+        Limit.CHARGE_OTP: Threshold(trip=55.0, release=50.0),
+        Limit.CHARGE_UTP: Threshold(trip=-10.0, release=0.0),
+        Limit.DISCHARGE_OTP: Threshold(trip=60.0, release=55.0),
+        Limit.DISCHARGE_UTP: Threshold(trip=-15.0, release=0.0),
+        Limit.MOS_OTP: Threshold(trip=110.0, release=85.0),
+    }
+    assert not bms.is_connected
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
@@ -477,15 +500,11 @@ async def test_redundant_response(
 
 # Alaramflags used: TB02, TB03, TB05, TB06, TB15
 #          skipped: TB09, TB04, TB16, TB07, TB08
-async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
-    problem_resp: dict[str, bytearray] = MockSeplosBleakClient.RESP.copy()
-    problem_resp["EIC"] = bytearray(
-        b"\x00\x01\x0a\x01\xff\xff\xff\xff\xff\xff\x03\xff\xff\x4a\x75"
-    )
+    problem_resp: dict[str, bytes] = MockSeplosBleakClient.RESP.copy()
+    problem_resp["EIC"] = b"\x00\x01\x0a\x01\xff\xff\xff\xff\xff\xff\x03\xff\xff\x4a\x75"
 
     monkeypatch.setattr(MockSeplosBleakClient, "RESP", problem_resp)
 

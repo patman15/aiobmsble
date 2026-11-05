@@ -50,6 +50,8 @@ _RESULT_DEFS: BMSSample = {
     "power": -224.232,
     "problem": False,
     "pack_count": 1,
+    "temp_values": [TS(22.7, TS.T.CELL_MAX), TS(22.2, TS.T.CELL_MIN)],
+    "temperature": 22.45,
     "packs": [
         {
             "current": -3.84,
