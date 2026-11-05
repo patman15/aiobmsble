@@ -106,9 +106,7 @@
       "rssi": -50
     },
     "type": "ej_bms",
-    "_comments": [
-      "Chins Battery, tested on Cerbo GX"
-    ]
+    "_comments": ["Chins Battery, tested on Cerbo GX"]
   },
   {
     "advertisement": {

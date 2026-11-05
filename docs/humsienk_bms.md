@@ -20,8 +20,8 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 | `0x21` | Battery info (voltage, current, SOC, SOH, capacity, cycles, temps) |
 | `0x22` | Cell voltages (up to 24 cells, 2 bytes each, millivolts LE) |
 | `0x23` | Current info, redundant to 0x21 |
-| `0x40` | Battery chemistry type — single byte at data offset 13 indicating pack composition (e.g. 0=NMC/ternary, 1=LiFePO4). Could be exposed via BMSInfo once a "chemistry" field exists in the schema (see [#136](https://github.com/patman15/aiobmsble/issues/136)) |
-| `0x58` | Configuration (protection thresholds, capacity, cell count) |
+| `0x40` | Pack info (rated capacity, cell count, chemistry), documented below, not decoded by the driver |
+| `0x58` | Configuration (protection thresholds, capacity, cell count), exposed via `limits()` |
 | `0xF5` | Firmware/hardware version (ASCII string) |
 
 ## Write Commands (not implemented)
@@ -124,15 +124,38 @@ Each is a 24-bit bitmap where bit 0 = cell 1, bit 1 = cell 2, etc.
 
 Up to 24 cells, 2 bytes each (unsigned 16-bit LE, millivolts).
 
+## 0x40 — Pack Info (16 data bytes)
+
+Recorded from a 12 V 640 Ah LiFePO4 pack (firmware `BMC4S-20251021-OTAV14`):
+
+```
+aa 40 10 00 00 00 00 00 00 00 00 20 95 09 00 04 01 01 00 14 01
+```
+
+| Offset | Size | Type | Field | Description |
+|--------|------|------|-------|-------------|
+| 0 | 8 | | *unknown* | Reads all zero on the recorded frame |
+| 8 | 4 | u32 LE | rated_capacity | Rated capacity in mAh (628000 on the recorded frame) |
+| 12 | 1 | u8 | cell_count | Number of cells in series |
+| 13 | 1 | u8 | chemistry | Battery chemistry, `1` = LiFePO4 (confirmed). `0` is presumed NMC/ternary but has not been observed |
+| 14 | 1 | u8 | *unknown* | Reads 1 on the recorded frame |
+| 15 | 1 | u8 | *unknown* | Reads 0 on the recorded frame |
+
+The driver does not decode this frame; the layout is documented for reference
+(see [#136](https://github.com/patman15/aiobmsble/issues/136)).
+
 ## 0x58 — Configuration (48 data bytes)
 
 All fields are 2-byte unsigned LE unless noted, giving 24 values.
 
 > **Warning:** These are **protection trip points**. They do not track the
 > operating envelope, in either direction, and must not be fed to a charge
-> controller as operating limits.
+> controller as operating limits. The driver exposes the voltage, current
+> (level 1 for discharge), and temperature trip/recovery points via
+> `BMS.limits()` as `BMSLimits`; cell count, capacity, delays, and the unknown
+> fields are not exposed.
 >
-> Measured on a 12 V 640 Ah pack, against its
+> Measured on a 12 V 640 Ah pack (frame recorded in the tests), against its
 > [datasheet](https://www.humsienk.com/collections/12v-batteries/products/12v-640ah-bluetooth-lifepo4-battery)
 > rating of 250 A maximum continuous and a 0–45 °C charge range:
 >

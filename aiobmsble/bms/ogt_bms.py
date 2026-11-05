@@ -57,9 +57,7 @@ class BMS(BaseBMS):
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
         self._type: str = (
-            self.name[9]
-            if len(self.name) > 10 and set(self.name[10:]).issubset(digits)
-            else "?"
+            self.name[9] if len(self.name) > 10 and set(self.name[10:]).issubset(digits) else "?"
         )
         self._key: int = (
             sum(BMS._CRY_SEQ[int(c, 16)] for c in (f"{int(self.name[10:]):0>4X}"))
@@ -76,13 +74,9 @@ class BMS(BaseBMS):
         self._exp_reply: int = 0x0
         self._response: BMS._Response = BMS._Response(0, 0)
         self._fields: tuple[BMSDp, ...] = (
-            BMS._FIELDS_A
-            if self._type == "A"
-            else BMS._FIELDS_B if self._type == "B" else ()
+            BMS._FIELDS_A if self._type == "A" else BMS._FIELDS_B if self._type == "B" else ()
         )
-        self._header: str = (
-            "+RAA" if self._type == "A" else "+R16" if self._type == "B" else ""
-        )
+        self._header: str = "+RAA" if self._type == "A" else "+R16" if self._type == "B" else ""
         if not self._fields:
             self._log.exception("unknown device type '%c'", self._type)
 
@@ -116,9 +110,7 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         return {"serial_number": self.name[10:]}
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         self._log.debug("RX BLE data: %s", data)
 
         self._response = self._ogt_response(data)
@@ -139,9 +131,9 @@ class BMS(BaseBMS):
         """Descramble a response from the BMS."""
 
         try:
-            msg: Final[str] = bytes(
-                (resp[x] ^ self._key) for x in range(len(resp))
-            ).decode(encoding="ascii")
+            msg: Final[str] = bytes((resp[x] ^ self._key) for x in range(len(resp))).decode(
+                encoding="ascii"
+            )
         except UnicodeDecodeError:
             return BMS._Response(-1, 0)
 
@@ -151,15 +143,15 @@ class BMS(BaseBMS):
             return BMS._Response(-1, 0)
         if msg[4:7] == "Err":
             return BMS._Response(0, 0)
-        if not msg.endswith("\r\n") or not all(c in hexdigits for c in msg[4:-2]):
+        if len(msg) % 2 or not msg.endswith("\r\n") or not all(c in hexdigits for c in msg[4:-2]):
             return BMS._Response(-1, 0)
 
         # 16-bit value in network order (plus optional multiplier for 24-bit values)
         # multiplier has 1 as minimum due to current value in A type battery
         signed: bool = len(msg) > 12
-        value: int = int.from_bytes(
-            bytes.fromhex(msg[6:10]), byteorder="little", signed=signed
-        ) * (max(int(msg[10:12], 16), 1) if signed else 1)
+        value: int = int.from_bytes(bytes.fromhex(msg[6:10]), byteorder="little", signed=signed) * (
+            max(int(msg[10:12], 16), 1) if signed else 1
+        )
         return BMS._Response(int(msg[4:6], 16), value)
 
     def _ogt_command(self, reg: int, length: int) -> bytes:
@@ -199,9 +191,7 @@ class BMS(BaseBMS):
                 if self._response.reg <= 0:
                     self._log.debug("cell count: %i", cell_reg)
                     break
-                result.setdefault("cell_voltages", []).append(
-                    self._response.value / 1000
-                )
+                result.setdefault("cell_voltages", []).append(self._response.value / 1000)
 
         # remove remaining runtime if battery is charging
         if result.get("runtime") == 0xFFFF * 60:

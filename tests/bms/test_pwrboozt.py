@@ -26,10 +26,9 @@ class MockPwrBBleakClient(MockBleakClient):
     """Emulate a PowerBoozt BleakClient."""
 
     _MSG: bytes = (
-        b":01540100EC000102030405060D360D360D380D3000000000000000000000000000000000000000"
-        b"0000000000F00100003D3D3D3D10DD0000320A7FFFFFFF34D4000804003D62000493E00004BDCC0"
-        b"00493E0000105F0010600010000000000000000000000000000000000000000000000000000EB"
-        b"\x00~\x00\x00\x00"
+        b":01540100EC000102030405060D4E0D4C0D510D4700000000000000000000000000000000000000000000000"
+        b"0F00200003636363610D1800003167FFFFFFF3532000A0400036300019A280001A48E00019A28000105F0020"
+        b"600010000000000000000000000000000000000000000000000000000F0\x00~\x00\x00\x00"
     )
 
     def _response(
@@ -67,25 +66,23 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
     assert await bms.async_update() == {
-        "battery_level": 98,
-        "current": 12.81,
-        "cycles": 61,
-        "design_capacity": 300,
-        "voltage": 13.524,
-        "cell_voltages": [
-            3.382,
-            3.382,
-            3.384,
-            3.376,
-        ],
-        "temp_values": [TS(21.0)] * 4,
-        "battery_charging": True,
+        "battery_charging": False,
+        "battery_level": 99,
+        "current": -0.79,
+        "cycles": 3,
+        "design_capacity": 105,
+        "voltage": 13.618,
+        "problem_code": 0,
+        "heater": False,
+        "cell_voltages": [3.406, 3.404, 3.409, 3.399],
+        "temp_values": [TS(14.0)] * 4,
         "cell_count": 4,
-        "delta_voltage": 0.008,
-        "temperature": 21.0,
-        "cycle_charge": 294.0,
-        "power": 173.242,
-        "cycle_capacity": 3976.056,
+        "delta_voltage": 0.01,
+        "temperature": 14.0,
+        "cycle_charge": 103.95,
+        "power": -10.758,
+        "runtime": 473696,
+        "cycle_capacity": 1415.591,
         "problem": False,
     }
 
@@ -123,9 +120,7 @@ async def test_invalid_response(
 
     patch_bms_timeout()
 
-    monkeypatch.setattr(
-        MockPwrBBleakClient, "_MSG", wrong_response
-    )
+    monkeypatch.setattr(MockPwrBBleakClient, "_MSG", wrong_response)
 
     patch_bleak_client(MockPwrBBleakClient)
 
@@ -136,4 +131,5 @@ async def test_invalid_response(
         result = await bms.async_update()
 
     assert not result
+    assert not bms._msg, "invalid frame must not be stored"
     await bms.disconnect()

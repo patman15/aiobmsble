@@ -22,6 +22,7 @@ class BMS(BaseBMS):
     _CRC_POS: Final[int] = -2
     _TEMP_POS: Final[int] = 37
     _CELL_POS: Final[int] = 3
+    _MIN_LEN: Final[int] = 5
     FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),
         BMSDp("current", 3, 2, True, lambda x: x / 100),
@@ -75,9 +76,7 @@ class BMS(BaseBMS):
             "sw_version": b2str(self._msg[55:59]),
         }
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -85,8 +84,8 @@ class BMS(BaseBMS):
             self._log.debug("incorrect SOF")
             return
 
-        if data[2] + 5 != len(data):
-            self._log.debug("incorrect frame length: %i != %i", len(data), data[2] + 5)
+        if data[2] + BMS._MIN_LEN != len(data):
+            self._log.debug("incorrect frame length: %i != %i", len(data), data[2] + BMS._MIN_LEN)
             return
 
         if not self._check_integrity(
@@ -130,9 +129,9 @@ class BMS(BaseBMS):
         )  # TODO: add other sensors, but all are 0 in test.
 
         await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13EC, count=0x8))
-        result["problem_code"] = int.from_bytes(self._msg[3:17], byteorder="big") & (
-            ~0xE
-        )
+        if len(self._msg) < BMS._MIN_LEN + 0x8 * 2:
+            raise ValueError("BMS data incomplete.")
+        result["problem_code"] = int.from_bytes(self._msg[3:17], byteorder="big") & (~0xE)
         result["chrg_mosfet"] = bool(self._msg[16] & 0x2)
         result["dischrg_mosfet"] = bool(self._msg[16] & 0x4)
         result["heater"] = bool(self._msg[17] & 0x20)

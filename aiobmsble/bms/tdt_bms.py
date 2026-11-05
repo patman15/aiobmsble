@@ -133,9 +133,7 @@ class BMS(BaseBMS):
         }
 
     @staticmethod
-    def _merge_fields(
-        base: tuple[BMSDp, ...], overrides: tuple[BMSDp, ...]
-    ) -> tuple[BMSDp, ...]:
+    def _merge_fields(base: tuple[BMSDp, ...], overrides: tuple[BMSDp, ...]) -> tuple[BMSDp, ...]:
         """Merge overrides into base fields, matching by name."""
         override_map: dict[str, BMSDp] = {f.key: f for f in overrides}
         return tuple(override_map.get(f.key, f) for f in base)
@@ -144,12 +142,8 @@ class BMS(BaseBMS):
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         try:
-            await self._await_msg(
-                data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False
-            )
-            if (
-                ret := int.from_bytes(await self._client.read_gatt_char(BMS._UUID_CFG))
-            ) != 0x1:
+            await self._await_msg(data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False)
+            if (ret := int.from_bytes(await self._client.read_gatt_char(BMS._UUID_CFG))) != 0x1:
                 self._log.debug("error unlocking BMS: %X", ret)
         except BleakCharacteristicNotFoundError:
             self._log.debug("skipping unlock step")
@@ -159,9 +153,7 @@ class BMS(BaseBMS):
         if _bms_info.get("sw_version", "")[:-1].endswith("1."):
             self._fields = self._merge_fields(BMS._FIELDS, BMS._FIELDS_v1)
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if (
@@ -169,15 +161,11 @@ class BMS(BaseBMS):
             and data[0] == BMS._RSP_HEAD
             and len(self._frame) >= self._exp_len
         ):
-            self._exp_len = min(
-                BMS._INFO_LEN + int.from_bytes(data[6:8]), BMS._MAX_MSG_LEN
-            )
+            self._exp_len = min(BMS._INFO_LEN + int.from_bytes(data[6:8]), BMS._MAX_MSG_LEN)
             self._frame.clear()
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         # verify that data is long enough
         if len(self._frame) < max(BMS._INFO_LEN, self._exp_len):
@@ -243,10 +231,15 @@ class BMS(BaseBMS):
         else:
             raise TimeoutError
 
-        result: BMSSample = {"cell_count": self._msg[0x8C][BMS._CELL_POS]}
-        result["temp_sensors"] = self._msg[0x8C][
-            BMS._CELL_POS + result["cell_count"] * 2 + 1
-        ]
+        result: BMSSample = {
+            "cell_count": int.from_bytes(
+                self._msg[0x8C][BMS._CELL_POS : BMS._CELL_POS + 1] or b"\x00"
+            )
+        }
+        temp_pos: Final[int] = BMS._CELL_POS + result["cell_count"] * 2 + 1
+        if len(self._msg[0x8C]) <= temp_pos:
+            raise ValueError("BMS data incomplete.")
+        result["temp_sensors"] = self._msg[0x8C][temp_pos]
 
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg[0x8C],
@@ -260,14 +253,13 @@ class BMS(BaseBMS):
             signed=False,
             offset=2730,
             divider=10,
-            types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET)
-            + (TempSensor.T.CELL,) * 4,
+            types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET) + (TempSensor.T.CELL,) * 4,
         )
         idx: Final[int] = result.get("cell_count", 0) + result.get("temp_sensors", 0)
+        if len(self._msg[0x8D]) <= BMS._CELL_POS + idx + 8:
+            raise ValueError("BMS data incomplete.")
 
-        result |= BMS._decode_data(
-            self._fields, self._msg, start=BMS._CELL_POS + idx * 2 + 2
-        )
+        result |= BMS._decode_data(self._fields, self._msg, start=BMS._CELL_POS + idx * 2 + 2)
         result["problem_code"] = int.from_bytes(
             self._msg[0x8D][BMS._CELL_POS + idx + 6 : BMS._CELL_POS + idx + 8]
         )

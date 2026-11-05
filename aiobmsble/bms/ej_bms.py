@@ -207,7 +207,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         raw_data: Final[dict[int, bytes]] = await self._query_bms()
 
-        if len(raw_data) != len(BMS.Cmd) or not all(raw_data.values()):
+        if raw_data.keys() != set(BMS.Cmd) or not all(raw_data.values()):
             return {}
 
         result: BMSSample = self._decode_data(BMS._FIELDS, raw_data) | BMSSample(

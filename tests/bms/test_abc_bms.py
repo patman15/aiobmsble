@@ -2,17 +2,41 @@
 
 import asyncio
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.abc_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests, verify_device_info
+
+_RESULT_DEFS: Final[BMSSample] = {
+    "temp_sensors": 1,
+    "voltage": 27.554,
+    "current": 0.0,
+    "battery_level": 99,
+    "cycle_charge": 106.048,
+    "cycles": 7,
+    "cell_count": 8,
+    "cell_voltages": [3.442, 3.496, 3.375, 3.464, 3.457, 3.429, 3.359, 3.42],
+    "temp_values": [TS(20, TS.T.GENERIC)],
+    "delta_voltage": 0.137,
+    "design_capacity": 100,
+    "cycle_capacity": 2922.047,
+    "power": 0.0,
+    "battery_charging": False,
+    "temperature": 20.0,
+    "problem": False,
+    "balancer": False,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
+    "heater": False,
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -91,15 +115,11 @@ class MockABCBleakClient(MockBleakClient):
             0xC3: [0xF5, 0xF6, 0xF7, 0xF8, 0xFA],
             0xC4: [0xF9],
         }.get(bytearray(data)[1], []):
-            self._notify_callback(
-                "MockABCBleakClient", self._response(char_specifier, cmd)
-            )
+            self._notify_callback("MockABCBleakClient", self._response(char_specifier, cmd))
             await asyncio.sleep(0)
 
 
-async def test_update(
-    patch_bleak_client, patch_bms_timeout, keep_alive_fixture: bool
-) -> None:
+async def test_update(patch_bleak_client, patch_bms_timeout, keep_alive_fixture: bool) -> None:
     """Test ABC BMS data update."""
 
     patch_bms_timeout()  # required for optional F9 response
@@ -107,28 +127,7 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == {
-        "temp_sensors": 1,
-        "voltage": 27.554,
-        "current": 0.0,
-        "battery_level": 99,
-        "cycle_charge": 106.048,
-        "cycles": 7,
-        "cell_count": 8,
-        "cell_voltages": [3.442, 3.496, 3.375, 3.464, 3.457, 3.429, 3.359, 3.42],
-        "temp_values": [20],
-        "delta_voltage": 0.137,
-        "design_capacity": 100,
-        "cycle_capacity": 2922.047,
-        "power": 0.0,
-        "battery_charging": False,
-        "temperature": 20.0,
-        "problem": False,
-        "balancer": False,
-        "chrg_mosfet": True,
-        "dischrg_mosfet": True,
-        "heater": False,
-    }
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
@@ -137,11 +136,45 @@ async def test_update(
     await bms.disconnect()
 
 
+class MockRepeatABCBleakClient(MockABCBleakClient):
+    """Emulate an ABC BMS that repeats cell voltage parts."""
+
+    async def write_gatt_char(
+        self,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        data: Buffer,
+        response: bool | None = None,
+    ) -> None:
+        """Issue write command to GATT and send repeated cell voltage parts."""
+        await super().write_gatt_char(char_specifier, data, response)
+
+        if bytearray(data)[1] != 0xC2:
+            return
+
+        assert self._notify_callback is not None
+        for cmd in (0xF45, 0xF41):
+            self._notify_callback("MockABCBleakClient", self._response(char_specifier, cmd))
+            await asyncio.sleep(0)
+
+
+async def test_repeated_cell_parts(patch_bleak_client, patch_bms_timeout) -> None:
+    """Test that repeated or out of sequence cell voltage parts are ignored."""
+
+    patch_bms_timeout()
+    patch_bleak_client(MockRepeatABCBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = await bms.async_update()
+    assert result.get("cell_voltages") == _RESULT_DEFS["cell_voltages"]
+    assert result.get("cell_count") == 8
+
+    await bms.disconnect()
+
+
 async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
-    await verify_device_info(
-        patch_bleak_client, MockABCBleakClient, BMS, {"model": "SOK-BMS"}
-    )
+    await verify_device_info(patch_bleak_client, MockABCBleakClient, BMS, {"model": "SOK-BMS"})
 
 
 @pytest.fixture(
@@ -236,8 +269,6 @@ async def test_problem_response(
 
     result: BMSSample = await bms.async_update()
     assert result.get("problem", False)  # expect a problem report
-    assert result.get("problem_code", 0) == (
-        0x1 if problem_response[1] == "first_bit" else 0x8000
-    )
+    assert result.get("problem_code", 0) == (0x1 if problem_response[1] == "first_bit" else 0x8000)
 
     await bms.disconnect()

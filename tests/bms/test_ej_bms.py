@@ -133,6 +133,17 @@ class MockEJinvalidBleakClient(MockEJBleakClient):
         )  # TODO: put numbers
 
 
+class MockEJwrongCmdBleakClient(MockEJBleakClient):
+    """Emulate a E&J technology BMS BleakClient replying with unexpected commands."""
+
+    def _response(
+        self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
+    ) -> bytearray:
+        if int(bytes(data)[3:5], 16) == 0x02:
+            return bytearray(b":009031001E00000002000A000AD8~")  # CAP reply to RT request
+        return bytearray(b":009131001E00000002000A000AD7~")  # unknown command 0x11
+
+
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test E&J technology BMS data update."""
 
@@ -215,6 +226,17 @@ async def test_invalid(patch_bleak_client) -> None:
     """Test E&J technology BMS data update."""
 
     patch_bleak_client(MockEJinvalidBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    assert await bms.async_update() == {}
+    await bms.disconnect()
+
+
+async def test_unexpected_reply(patch_bleak_client) -> None:
+    """Test E&J technology BMS data update with replies to wrong commands."""
+
+    patch_bleak_client(MockEJwrongCmdBleakClient)
 
     bms = BMS(generate_ble_device())
 

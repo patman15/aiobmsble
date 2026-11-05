@@ -131,13 +131,13 @@ class BMS(BaseBMS):
         result["temp_values"] = BMS._temp_values(
             self._msg, values=BMS._MAX_TEMP, start=52, byteorder="little"
         )
-        # Determine number of temp sensors by checking if value is persistently 0
+        # Increase the sensor count when higher-index sensors report nonzero values
         with contextlib.suppress(StopIteration):
             self._temp_sensors = max(
                 self._temp_sensors,
                 next(
                     i
-                    for i in range(BMS._MAX_TEMP, 1, -1)
+                    for i in range(min(BMS._MAX_TEMP, len(result["temp_values"])), 1, -1)
                     if result["temp_values"][i - 1] != 0.0
                 ),
             )

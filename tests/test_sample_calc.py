@@ -165,6 +165,14 @@ def test_derive_from_packs_skips_packs_without_cell_voltages() -> None:
     assert data == {"packs": [{"voltage": 12.0}], "voltage": 12.0}
 
 
+def test_derive_from_packs_empty_cell_voltages() -> None:
+    """Check packs with an empty cell_voltages list do not raise."""
+    data: BMSSample = {"packs": [{"cell_voltages": []}]}
+    derive_from_packs(data)
+
+    assert data == {"packs": [{"cell_voltages": []}], "cell_voltages": []}
+
+
 def test_derive_from_packs_aggregate_values() -> None:
     """Check aggregate values are computed across packs."""
     data: BMSSample = {

@@ -51,6 +51,7 @@ class BMS(BaseBMS):
         return [
             {
                 "service_uuid": BMS.uuid_services()[0],
+                "service_data_uuid": "",
                 "connectable": True,
                 "manufacturer_id": m_id,
             }

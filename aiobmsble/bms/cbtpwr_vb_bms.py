@@ -36,12 +36,10 @@ class BMS(BaseBMS):
         BMSDp("cycles", 7, 2, False),
         BMSDp("problem_code", 15, 6, False, lambda x: x & 0xFFF000FF000F),
     )
+    _FIELDS_END: Final[int] = max(field.pos + field.size for field in _FIELDS)
 
     def __init__(
-        self,
-        ble_device: BLEDevice,
-        config: BMSConfig | None = None,
-        logger_name: str = ""
+        self, ble_device: BLEDevice, config: BMSConfig | None = None, logger_name: str = ""
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
@@ -74,9 +72,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe9"
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if len(data) > BMS._LEN_POS + 4 and data.startswith(BMS._HEAD):
@@ -91,9 +87,7 @@ class BMS(BaseBMS):
                 self._exp_len = 0
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         if len(self._frame) < min(self._exp_len + BMS._MIN_LEN, BMS.BLE_MAX_ATTR_SIZE):
             return
@@ -103,9 +97,7 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if (len(self._frame) % 2) or not all(
-            chr(c) in hexdigits for c in self._frame[1:-1]
-        ):
+        if (len(self._frame) % 2) or not all(chr(c) in hexdigits for c in self._frame[1:-1]):
             self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
@@ -136,9 +128,7 @@ class BMS(BaseBMS):
         assert len(data) <= 0xFFF
         cdat: Final[bytes] = data + int.to_bytes(dev_id)
         frame = bytearray([BMS._CMD_VER, dev_id, 0x46, cmd])
-        frame.extend(
-            int.to_bytes(len(cdat) * 2 + (BMS.lencs(len(cdat) * 2) << 12), 2, "big")
-        )
+        frame.extend(int.to_bytes(len(cdat) * 2 + (BMS.lencs(len(cdat) * 2) << 12), 2, "big"))
         frame.extend(cdat)
         frame.extend(int.to_bytes(lrc_modbus(frame.hex().upper().encode()), 2, "big"))
         return BMS._HEAD + frame.hex().upper().encode() + BMS._TAIL
@@ -149,7 +139,11 @@ class BMS(BaseBMS):
         await self._await_msg(BMS._cmd(0x42))
         result: BMSSample = {"cell_count": self._msg[BMS._CELL_POS]}
         temp_pos: Final[int] = BMS._CELL_POS + result.get("cell_count", 0) * 2 + 1
-        result["temp_sensors"] = self._msg[temp_pos]
+        temp_sensors: Final[int] = int.from_bytes(self._msg[temp_pos : temp_pos + 1])
+        field_data_start: Final[int] = temp_pos + 2 * temp_sensors + 1
+        if len(self._msg) < field_data_start + BMS._FIELDS_END:
+            raise ValueError("BMS data incomplete.")
+        result["temp_sensors"] = temp_sensors
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=result.get("cell_count", 0), start=BMS._CELL_POS + 1
         )
@@ -163,7 +157,7 @@ class BMS(BaseBMS):
         result |= BMS._decode_data(
             BMS._FIELDS,
             self._msg,
-            start=temp_pos + 2 * result["temp_sensors"] + 1,
+            start=field_data_start,
         )
 
         await self._await_msg(BMS._cmd(0x81, 1, b"\x01\x00"), max_size=20)

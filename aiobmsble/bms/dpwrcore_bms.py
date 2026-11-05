@@ -35,6 +35,7 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"manufacturer": "D-powercore", "model": "smart BMS"}
     _PAGE_LEN: Final[int] = 20
+    _MIN_LEN: Final[int] = 8  # header, command, CRC, CR/LF
     _MAX_CELLS: Final[int] = 32
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 6, 2, False, lambda x: x / 10, Cmd.LEGINFO1),
@@ -120,7 +121,7 @@ class BMS(BaseBMS):
         await self._await_msg(bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False)
 
         if page == data[1] & 0xF:  # check if last page
-            if not self._check_integrity(
+            if len(self._frame) < BMS._MIN_LEN or not self._check_integrity(
                 self._frame, BMS._crc, slice(3, -4), slice(-4, -2)
             ):
                 self._frame.clear()

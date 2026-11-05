@@ -26,18 +26,19 @@ class BMS(BaseBMS):
     _CMD_BI: Final[bytes] = b"get dev basice infor"
     _CMD_DT: Final[bytes] = b"get Date"
     _CMD_RT: Final[bytes] = b"get dev real infor"
+    _MAX_VAL: Final[int] = 0xFFFFFFFF  # limit JSON numbers to 32 bit
     _FIELDS: Final[
         list[
             tuple[
                 Literal["voltage", "current", "cycle_charge", "battery_level"],
                 str,
-                Callable[[list[Any]], float],
+                Callable[[list[list[int]]], float],
             ]
         ]
     ] = [
         ("voltage", "BattList", lambda x: x[0][0] / 1000),
         ("current", "BattList", lambda x: x[1][0] / 10),
-        ("cycle_charge", "BatsocList", lambda x: (int(x[0][0]) * int(x[0][2])) / 1e7),
+        ("cycle_charge", "BatsocList", lambda x: (x[0][0] * x[0][2]) / 1e7),
         ("battery_level", "BatsocList", lambda x: x[0][0] / 100),
     ]
 
@@ -54,9 +55,7 @@ class BMS(BaseBMS):
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
-        return [
-            {"local_name": pattern, "connectable": True} for pattern in ("F07*", "F10*")
-        ]
+        return [{"local_name": pattern, "connectable": True} for pattern in ("F07*", "F10*")]
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
@@ -83,18 +82,14 @@ class BMS(BaseBMS):
             "serial_number": str(self._msg.get("DevSN", "")),
         }
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if data.startswith(BMS._HEAD):
             self._frame.clear()
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         if not data.endswith(BMS._TAIL):
             return
@@ -106,28 +101,37 @@ class BMS(BaseBMS):
             return
 
         if (ver := self._msg.get("CommVer", 0)) != 1:
-            self._log.debug("unknown protocol version (%i)", ver)
+            self._log.debug("unknown protocol version (%s)", ver)
             return
 
         self._msg_event.set()
 
     @staticmethod
+    def _int(value: str) -> int:
+        """Convert a JSON value to an integer within the 32 bit range."""
+        if abs(result := int(value)) > BMS._MAX_VAL:
+            raise ValueError(f"value out of range: {result}")
+        return result
+
+    @staticmethod
     def _conv_data(data: dict[str, Any]) -> BMSSample:
         result: BMSSample = {}
         for key, itm, func in BMS._FIELDS:
-            result[key] = func(data.get(itm, []))
+            values: list[list[int]] = [[BMS._int(value) for value in row] for row in data.get(itm, [])]
+            result[key] = func(values)
         return result
 
     @staticmethod
     def _conv_cells(data: dict[str, Any]) -> list[float]:
-        return [value / 1000 for value in data.get("BatcelList", [])[0]]
+        return [BMS._int(value) / 1000 for value in data.get("BatcelList", [])[0]]
 
     @staticmethod
-    def _conv_temp(data: dict[str, Any]) -> list[TempSensor]:
+    def _conv_temp(data: dict[str, object]) -> list[TempSensor]:
+        temp_list = data.get("BtemList")
+        if not isinstance(temp_list, list) or not temp_list:
+            raise ValueError("invalid temperature data")
         return [
-            TempSensor(value / 10)
-            for value in data.get("BtemList", [])[0]
-            if value != 0x7FFF
+            TempSensor(temp / 10) for value in temp_list[0] if (temp := BMS._int(value)) != 0x7FFF
         ]
 
     async def _async_update(self) -> BMSSample:
@@ -141,10 +145,9 @@ class BMS(BaseBMS):
                 | {"temp_values": BMS._conv_temp(self._msg)}
                 | {"cell_voltages": BMS._conv_cells(self._msg)}
                 | {
-                    "problem_code": int(
-                        self._msg.get("Bwarn", 0) + self._msg.get("Bfault", 0)
-                    )
+                    "problem_code": BMS._int(self._msg.get("Bwarn", 0))
+                    + BMS._int(self._msg.get("Bfault", 0))
                 }
             )
-        except (IndexError, TypeError) as exc:
+        except (IndexError, OverflowError, TypeError, ValueError) as exc:
             raise ValueError("BMS data incomplete.") from exc

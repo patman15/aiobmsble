@@ -1,5 +1,6 @@
 {
     "python.envFile": "${workspaceFolder}/.envFile",
+    "files.eol": "\n",
     "python.testing.pytestArgs": [
         "tests"
     ],
