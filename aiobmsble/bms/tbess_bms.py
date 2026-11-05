@@ -128,6 +128,14 @@ class BMS(BaseBMS):
         """Return the characteristic used by this notification-only protocol."""
         return "fff1"
 
+    async def _fetch_limits(self) -> BMSLimits:
+        """Return the protection thresholds from the next system status frame."""
+        if self._limits_src is None:
+            self._limits_event.clear()
+            await asyncio.wait_for(self._limits_event.wait(), timeout=BMS.TIMEOUT)
+        assert self._limits_src is not None
+        return BMS._decode_limits(self._limits_src, BMS._LIMIT_FIELDS)
+
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
@@ -217,14 +225,6 @@ class BMS(BaseBMS):
             self._pack_count = 0
             self._pending_packs.clear()
             self._msg_event.set()
-
-    async def _fetch_limits(self) -> BMSLimits:
-        """Return the protection thresholds from the next system status frame."""
-        if self._limits_src is None:
-            self._limits_event.clear()
-            await asyncio.wait_for(self._limits_event.wait(), timeout=BMS.TIMEOUT)
-        assert self._limits_src is not None
-        return BMS._decode_limits(self._limits_src, BMS._LIMIT_FIELDS)
 
     async def _async_update(self) -> BMSSample:
         """Return system status and pack data after all reported packs respond."""
