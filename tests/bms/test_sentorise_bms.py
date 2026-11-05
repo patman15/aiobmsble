@@ -5,14 +5,35 @@ from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
+import pytest
 
-from aiobmsble import BMSConfig, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.sentorise_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests, verify_device_info
 
 BT_FRAME_SIZE = 20
+
+_RESULT_DEFS: Final[BMSSample] = {
+    "battery_level": 41,
+    "battery_health": 100,
+    "cycles": 83,
+    "voltage": 13.17,
+    "current": 3.4,
+    "temperature": 21.0,
+    "battery_charging": True,
+    "cycle_capacity": 648.227,
+    "cycle_charge": 49.22,
+    "design_capacity": 100,
+    "cell_count": 4,
+    "cell_voltages": [3.295, 3.295, 3.296, 3.291],
+    "delta_voltage": 0.005,
+    "temp_values": [TS(20.0, TS.T.CELL), TS(22.0, TS.T.GENERIC)],
+    "power": 44.778,
+    "problem": False,
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -32,16 +53,16 @@ class MockSentoriseBleakClient(MockBleakClient):
             b"\x00\x00\x00\x00\x61\x30\x30\x32\x2d\x32\x35\x30\x38\x31\x36\x2d\x63\x30\x38\x35\x2d"
             b"\x34\x73\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x25\x8c"
         ),
-        b"\x01\x03\xd0\x00\x00\x26\xfc\xd0": (
-            b"\x01\x03\x4c\x0c\xdf\x0c\xdf\x0c\xe0\x0c\xdb\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49"
+        b"\x01\x03\xd0\x00\x00\x25\xbc\xd1": (
+            b"\x01\x03\x4a\x0c\xdf\x0c\xdf\x0c\xe0\x0c\xdb\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49"
             b"\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee"
             b"\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49\xee\x49"
-            b"\xee\x49\xee\x49\x0c\xe0\x0c\xdb\x00\x03\x00\x04\x00\x05\x05\x25\xe1\x0a"
+            b"\xee\x49\xee\x49\x0c\xe0\x0c\xdb\x00\x03\x00\x04\x00\x05\x77\xb6"
         ),
-        b"\x01\x03\xd0\x26\x00\x19\x5d\x0b": (
-            b"\x01\x03\x32\x02\x58\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-            b"\x02\x6c\x02\x58\x02\x58\x00\x22\x00\x00\x00\x29\x00\x64\x13\x3a\x27\x10\x27\x10\x00"
-            b"\x53\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xa4\xef"
+        b"\x01\x03\xd0\x25\x00\x1a\xed\x0a": (
+            b"\x01\x03\x34\x05\x25\x02\x58\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x02\x6c\x02\x58\x02\x58\x00\x22\x00\x00\x00\x29\x00\x64\x13\x3a\x27\x10\x27"
+            b"\x10\x00\x53\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x79\x09"
         ),
         b"\x01\x03\xd1\x15\x00\x0c\x6d\x37": (
             b"\x01\x03\x18\x24\x0c\x00\x00\x02\xa7\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -76,25 +97,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == {
-        "battery_level": 99,
-        "battery_health": 100,
-        "cycles": 1,
-        "chrg_mosfet": True,
-        "dischrg_mosfet": True,
-        "voltage": 13.69,
-        "current": 3.88,
-        "temperature": 19.1,
-        "battery_charging": True,
-        "cycle_capacity": 1133.258,
-        "cycle_charge": 82.78,
-        "design_capacity": 90,
-        "temp_sensors": 1,
-        "temp_values": [TS(18.7, TS.T.MOSFET), TS(19.5, TS.T.CELL)],
-        "power": 53.117,
-        "problem": True,
-        "problem_code": 0x480000000,
-    }
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()
@@ -117,50 +120,61 @@ async def test_device_info(patch_bleak_client) -> None:
     )
 
 
-# @pytest.mark.parametrize(
-#     ("wrong_response"),
-#     [
-#         b"",
-#         b"\x01\x03",
-#         (
-#             b"\x01\x04\x1a\x01\x84\x05\x59\x00\x63\x00\x64\x20\x56\x20\xa1\x23\x28\x00\x01\x00\x00"
-#             b"\x00\x04\x80\x00\x2d\x00\x00\x00\x2d\xdb"
-#         ),
-#         (
-#             b"\x01\x03\x1a\x01\x84\x05\x59\x00\x63\x00\x64\x20\x56\x20\xa1\x23\x28\x00\x01\x00\x00"
-#             b"\x00\x04\x80\x00\x2d\x00\x00\x00\xff\xff"
-#         ),
-#         b"\x01\x03\x0f\x60\xf4",
-#     ],
-#     ids=[
-#         "empty",
-#         "minimal",
-#         "wrong_SOF",
-#         "wrong_CRC",
-#         "wrong_length",
-#     ],
-# )
-# async def test_invalid_response(
-#     monkeypatch: pytest.MonkeyPatch,
-#     patch_bleak_client,
-#     patch_bms_timeout,
-#     wrong_response: bytes,
-# ) -> None:
-#     """Test data up date with BMS returning invalid data."""
+_CMD_STATUS: Final[bytes] = b"\x01\x03\xd0\x25\x00\x1a\xed\x0a"
 
-#     patch_bms_timeout()
-#     monkeypatch.setattr(
-#         MockSentoriseBleakClient,
-#         "_RESP",
-#         {b"\x01\x03\x00\x00\x00\x0d\x84\x0f": bytearray(wrong_response)},
-#     )
-#     patch_bleak_client(MockSentoriseBleakClient)
 
-#     bms = BMS(generate_ble_device())
+@pytest.mark.parametrize(
+    ("wrong_response"),
+    [
+        b"",
+        b"\x01\x03",
+        b"\x01\x04" + MockSentoriseBleakClient._RESP[_CMD_STATUS][2:],
+        MockSentoriseBleakClient._RESP[_CMD_STATUS][:-2] + b"\xff\xff",
+        MockSentoriseBleakClient._RESP[_CMD_STATUS][:-3],
+    ],
+    ids=["empty", "minimal", "wrong_SOF", "wrong_CRC", "too_short"],
+)
+async def test_invalid_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
+) -> None:
+    """Test data update with BMS returning invalid data."""
 
-#     result: BMSSample = {}
-#     with pytest.raises(TimeoutError):
-#         result = await bms.async_update()
+    patch_bms_timeout()
+    monkeypatch.setattr(
+        MockSentoriseBleakClient,
+        "_RESP",
+        MockSentoriseBleakClient._RESP | {_CMD_STATUS: wrong_response},
+    )
+    patch_bleak_client(MockSentoriseBleakClient)
 
-#     assert not result
-#     await bms.disconnect()
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = {}
+    with pytest.raises(TimeoutError):
+        result = await bms.async_update()
+
+    assert not result
+    await bms.disconnect()
+
+
+async def test_wrong_reply_length(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that a valid frame with unexpected register count is rejected."""
+
+    frame: bytes = b"\x01\x03\x02" + MockSentoriseBleakClient._RESP[_CMD_STATUS][3:5]
+    monkeypatch.setattr(
+        MockSentoriseBleakClient,
+        "_RESP",
+        MockSentoriseBleakClient._RESP
+        | {_CMD_STATUS: frame + crc_modbus(frame).to_bytes(2, "little")},
+    )
+    patch_bleak_client(MockSentoriseBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="unexpected reply length"):
+        await bms.async_update()
+
+    await bms.disconnect()

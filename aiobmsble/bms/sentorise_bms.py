@@ -9,7 +9,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -17,22 +17,23 @@ class BMS(BaseBMS):
     """Sentorise BMS implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Sentorise", "model": "smart battery"}
+    _DEV_ID: Final[int] = 0x01
     _HEAD: Final[bytes] = b"\x01\x03"  # dev, read (0x03)
     _MIN_LEN: Final[int] = 5  # length of frame, including SOF and checksum
-    _MAX_TEMP: Final[int] = 10  # maximum number of cell temperatures
+    _MAX_TEMP: Final[int] = 9  # maximum number of cell temperatures
     _MAX_CELLS: Final[int] = 32
-    _PRB_MASK: Final[int] = 0xFF3FFF7F007F
+    _CELL_NA: Final[int] = 0xEE49  # placeholder for unused cell slots
+    _REG_INFO: Final[tuple[int, int]] = (0xC002, 0x30)  # serial, vendor, firmware
+    _REG_CELLS: Final[tuple[int, int]] = (0xD000, 0x25)  # cell voltages
+    _REG_STATUS: Final[tuple[int, int]] = (0xD025, 0x1A)  # voltage, temp, current, SoC, ...
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        # BMSDp("current", 3, 2, True, lambda x: x / 100),
-        # BMSDp("voltage", 5, 2, False, lambda x: x / 100),
-        # BMSDp("battery_level", 7, 2, False),
-        # BMSDp("battery_health", 9, 2, False),
-        # BMSDp("cycle_charge", 11, 2, False, lambda x: x / 100),
-        # BMSDp("design_capacity", 15, 2, False, lambda x: x // 100),
-        # BMSDp("cycles", 17, 2, False),
-        # BMSDp("chrg_mosfet", 25, 1, False, lambda x: bool(x & 0x4)),
-        # BMSDp("dischrg_mosfet", 25, 1, False, lambda x: bool(x & 0x8)),
-        # BMSDp("problem_code", 21, 6, False, lambda x: x & BMS._PRB_MASK),
+        BMSDp("voltage", 3, 2, False, lambda x: x / 100),
+        BMSDp("current", 29, 2, True, lambda x: x / 10),
+        BMSDp("battery_level", 33, 2, False),
+        BMSDp("battery_health", 35, 2, False),
+        BMSDp("cycle_charge", 37, 2, False, lambda x: x / 100),
+        BMSDp("design_capacity", 41, 2, False, lambda x: x // 100),
+        BMSDp("cycles", 43, 2, False),
     )
 
     def __init__(
@@ -70,8 +71,9 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0xC002, count=0x30))
-        return {
+        info: BMSInfo = await super()._fetch_device_info()
+        await self._read_registers(*BMS._REG_INFO)
+        return info | {
             "serial_number": b2str(self._msg[3:35]),
             "model": b2str(self._msg[35:67]),
             "sw_version": b2str(self._msg[67:99]),
@@ -106,32 +108,30 @@ class BMS(BaseBMS):
         self._msg = bytes(self._frame)
         self._msg_event.set()
 
+    async def _read_registers(self, addr: int, count: int) -> None:
+        """Request registers and verify the reply has the requested size."""
+        await self._await_msg(BMS._cmd_modbus(dev_id=BMS._DEV_ID, addr=addr, count=count))
+        if self._msg[2] != 2 * count:
+            raise ValueError(f"unexpected reply length {self._msg[2]} for 0x{addr:04X}")
+
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        result: BMSSample = BMSSample()
-        # await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x0, count=0xD))
-        # result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
+        await self._read_registers(*BMS._REG_STATUS)
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
+        result["temp_values"] = BMS._temp_values(
+            self._msg,
+            start=5,
+            values=BMS._MAX_TEMP,
+            offset=400,
+            divider=10,
+            types=(TempSensor.T.CELL,) * BMS._MAX_TEMP,
+        ) + BMS._temp_values(self._msg, start=23, offset=400, divider=10)
 
-        await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0xD000, count=0x26))
-        result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=BMS._MAX_CELLS, start=3)
-
-        # await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x39, count=0x1))
-        # result["temp_values"] = BMS._temp_values(
-        #     self._msg, start=3, divider=10, types=(TempSensor.T.MOSFET,)
-        # )
-
-        # await self._await_msg(
-        #     BMS._cmd_modbus(dev_id=0x1, addr=0x2E, count=BMS._MAX_TEMP + 1)
-        # )
-        # result["temp_sensors"] = int.from_bytes(self._msg[3:5], "big")
-        # result["temp_values"].extend(
-        #     BMS._temp_values(
-        #         self._msg,
-        #         values=result.get("temp_sensors", 0),
-        #         start=5,
-        #         divider=10,
-        #         types=(TempSensor.T.CELL,) * result.get("temp_sensors", 0),
-        #     )
-        # )
+        await self._read_registers(*BMS._REG_CELLS)
+        result["cell_voltages"] = [
+            voltage
+            for voltage in BMS._cell_voltages(self._msg, cells=BMS._MAX_CELLS, start=3)
+            if voltage != BMS._CELL_NA / 1000
+        ]
 
         return result
