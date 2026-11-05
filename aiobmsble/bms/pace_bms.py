@@ -180,10 +180,6 @@ class BMS(BaseBMS):
             divider=10,
             types=(TempSensor.T.CELL,) * 4 + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
-        await self._await_msg(BMS._cmd(BMS._Cmd.BALANCE, b"\x01\x01"))
-        balancer: Final[int] = int.from_bytes(
-            self._msg[BMS._BAL_POS : BMS._BAL_POS + 2], byteorder="little"
-        )
         await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=8)
         result["temp_values"] = BMS._temp_values(
@@ -196,7 +192,10 @@ class BMS(BaseBMS):
             divider=10,
             types=(TempSensor.T.CELL_MAX, TempSensor.T.CELL_MIN),
         )
-        result["balancer"] = balancer
+        await self._await_msg(BMS._cmd(BMS._Cmd.BALANCE, b"\x01\x01"))
+        result["balancer"] = int.from_bytes(
+            self._msg[BMS._BAL_POS : BMS._BAL_POS + 2], byteorder="little"
+        )
         if not result.get("pack_count"):  # zero on all packs except the master
             result |= cast(BMSSample, pack)  # overwrite if pack is individual device
         else:
