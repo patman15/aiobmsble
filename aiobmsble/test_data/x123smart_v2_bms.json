@@ -1,0 +1,15 @@
+[
+  {
+    "advertisement": {
+      "local_name": "EC:FE:7E:00:00:00",
+      "platform_data": ["EC:FE:7E:00:00:00"],
+      "rssi": -83,
+      "manufacturer_data": { "133": "ff02c623" },
+      "service_uuids": ["da2b84f1-6279-48de-bdc0-afbea0226079"]
+    },
+    "type": "x123smart_v2_bms",
+    "_comments": [
+      "source advmon https://github.com/patman15/BMS_BLE-HA/issues/860"
+    ]
+  }
+]

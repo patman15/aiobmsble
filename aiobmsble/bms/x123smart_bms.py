@@ -29,7 +29,7 @@ from aiobmsble.basebms import BaseBMS
 class BMS(BaseBMS):
     r"""123\\SmartBMS gen3 implementation."""
 
-    INFO: BMSInfo = {"manufacturer": "123electric", "model": "123\\SmartBMS"}
+    INFO: BMSInfo = {"manufacturer": "123electric", "model": "123\\SmartBMS", "model_id": "gen 3"}
 
     accept_secret: bool = True  # requires a 4-digit PIN for authentication
 
@@ -159,9 +159,7 @@ class BMS(BaseBMS):
         """Send the keep-alive ping while connected."""
         await self._await_msg(BMS._PING, wait_for_notify=False)
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle notifications: split CR-terminated ASCII lines."""
         self._log.debug("RX BLE data: %s", data)
         self._frame.extend(data)
@@ -282,9 +280,7 @@ class BMS(BaseBMS):
                 raise ValueError("BMS data incomplete.")
             elements: list[str] = line.decode("ascii", errors="ignore").split("_")
             cell_v.append(BMS._parse_int(elements[3]) * BMS._V_SCALE)
-            cell_t.append(
-                TempSensor(BMS._parse_int(elements[4]) - BMS._T_OFFS, TempSensor.T.CELL)
-            )
+            cell_t.append(TempSensor(BMS._parse_int(elements[4]) - BMS._T_OFFS, TempSensor.T.CELL))
             cell_s |= BMS._parse_int(elements[5])
             if len(elements) >= 7:
                 cell_s |= BMS._parse_int(elements[6]) << 8
