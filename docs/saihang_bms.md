@@ -7,16 +7,17 @@ The BMS returns a large, contiguous block of registers containing real-time tele
 
 ## Device Identification
 
-- **Local Name**: `SH*` (e.g., SH-BMS)
+- **Local Name**: `SH*`, `HL*` (e.g., SH-BMS)
 - **Service UUID**: `0000fffa-0000-1000-8000-00805f9b34fb` (Short: `fffa`)
+- **Service Data UUID**: `0000180a-0000-1000-8000-00805f9b34fb` (Short: `180a`, empty)
 - **Notification Characteristic**: `0000fffc-0000-1000-8000-00805f9b34fb` (read/notify)
 - **Write Characteristic**: `0000fffb-0000-1000-8000-00805f9b34fb` (write)
 
 ### Device Discovery
 
 The Saihang BMS is detected using:
-- A local name matching the prefix `SH`
-- Service UUID `fffa`
+- A local name matching the prefix `SH` plus service UUID `fffa`, or
+- Service UUID `fffa` together with service data UUID `180a` (for devices without an advertised name)
 - The device must be connectable.
 
 ## Protocol Mechanics
