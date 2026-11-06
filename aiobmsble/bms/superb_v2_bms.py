@@ -17,7 +17,7 @@ class BMS(BaseBMS):
     """Super-B v2 BMS implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Super-B", "model": "Epsilon v2"}
-    _NOTIFY_CHAR: Final[str] = "e0fef452-9d2b-4005-a1e3-69fe1102b436"
+    _NOTIFY_CHAR: Final[str] = "e0fef453-9d2b-4005-a1e3-69fe1102b436"
     _FRAME_LEN: Final[int] = 24
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 6, 4, True, lambda x: x / 1000, 0x2),
@@ -56,7 +56,7 @@ class BMS(BaseBMS):
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
-        return ("cf9ccdf7-eee9-43ce-87a5-82b54af5324e",)
+        return ("cf9ccdf7-eee9-43ce-87a5-82b54af5324e", "e0fef452-9d2b-4005-a1e3-69fe1102b436")
 
     @staticmethod
     def uuid_rx() -> str:
@@ -77,13 +77,9 @@ class BMS(BaseBMS):
     ) -> None:
         await super()._init_connection(char_notify)
         # subscribe to second notify characteristic
-        await self._client.start_notify(
-            BMS._NOTIFY_CHAR, getattr(self, "_notification_handler")
-        )
+        await self._client.start_notify(BMS._NOTIFY_CHAR, getattr(self, "_notification_handler"))
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data from %s: %s", str(sender)[:8], data)
 
