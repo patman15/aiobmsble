@@ -70,7 +70,7 @@ class BMS(BaseBMS):
                 "L-12*",  # vv *** LiTime *** vv
                 "L-24*",
                 "L-51*",
-                "LT-12???BG-A0[7-9]*",  # LiTime based on serial #
+                "LT-12???BG-A0[47-9]*",  # LiTime based on serial #
                 "LT-24???B-A00[3-9]*",
                 "LT-24???B-A0[1-9]*",
                 "LT-24???B-A[1-9]*",
