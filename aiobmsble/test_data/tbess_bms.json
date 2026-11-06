@@ -1,0 +1,13 @@
+[
+  {
+    "advertisement": {
+      "service_uuids": [
+        "0000e0ff-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "tbess_bms",
+    "_comments": [
+      "Service UUID provided for the device advertisement; the notification capture discovers GATT service FFF0."
+    ]
+  }
+]
