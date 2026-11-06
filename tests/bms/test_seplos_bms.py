@@ -386,6 +386,24 @@ async def test_limits(patch_bleak_client) -> None:
     assert not bms.is_connected
 
 
+async def test_limits_unexpected_reply(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that a valid but unexpected reply to a SPA request is reported as incomplete."""
+    monkeypatch.setattr(
+        MockSeplosBleakClient,
+        "RESP",
+        MockSeplosBleakClient.RESP | {"SPA1300": MockSeplosBleakClient.RESP["EIA"]},
+    )
+    patch_bleak_client(MockSeplosBleakClient)
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.limits()
+
+    await bms.disconnect()
+
+
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test Seplos BMS data update."""
 

@@ -72,7 +72,7 @@ class BMS(BaseBMS):
         return [
             {"local_name": "BMS-[0-9A-F]*", "connectable": True},
             {
-                "local_name": "B[0-9][0-9]*",
+                "local_name": "B[0-9D][0-9]*",
                 "manufacturer_id": 65535,
                 "manufacturer_data_start": [0x4E],
                 "connectable": True,
