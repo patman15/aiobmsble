@@ -122,6 +122,23 @@ transmitted per frame, rotating, so the full cycle takes roughly 20 s.
 
 Bits 1-3 are ORed into `problem_code` (`0x0E` mask).
 
+## Protection thresholds (`limits()`)
+
+Requested with `S2@` (settings). The reply is ASCII, `_`-separated, with a checksum
+as last field. Fields used for `BMSLimits` (index in the reply, checksum excluded):
+
+| Index | Field | Scale | Limit |
+|-------|-------|-------|-------|
+| 0 | V-min | 0.005 V/bit | `CELL_UVP` |
+| 1 | V-max | 0.005 V/bit | `CELL_OVP` |
+| 2 | T-min charge | 1 °C/bit, offset `0x114` | `CHARGE_UTP` |
+| 3 | T-max | 1 °C/bit, offset `0x114` | `CHARGE_OTP`, `DISCHARGE_OTP` |
+| 6 | T-min discharge | 1 °C/bit, offset `0x114` | `DISCHARGE_UTP` |
+
+Older firmware sends shorter replies; missing fields are skipped. Hysteresis and
+restart values are not reported as `Threshold.release`, as the app does not define
+their relation to the trip points.
+
 ## Notes
 
 - Temperature decode follows the official documentation: `°C = raw - 0x114`

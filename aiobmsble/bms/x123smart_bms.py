@@ -11,7 +11,18 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSLimits,
+    BMSSample,
+    Limit,
+    LimitDp,
+    MatcherPattern,
+    TempSensor,
+    Threshold,
+)
 from aiobmsble.basebms import BaseBMS
 
 
@@ -50,6 +61,15 @@ class BMS(BaseBMS):
     _T_OFFS: Final[int] = 0x114  # temperature offset
     _TAGS: set[str] = set(_MSG_FMT.keys())
     _V_SCALE: Final[float] = 0.005  # voltage scale factor
+    # S2@ settings reply: field index in the ASCII message (checksum excluded)
+    _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = (
+        LimitDp(Limit.CELL_UVP, "trip", 0, scale=_V_SCALE),  # V-min
+        LimitDp(Limit.CELL_OVP, "trip", 1, scale=_V_SCALE),  # V-max
+        LimitDp(Limit.CHARGE_UTP, "trip", 2, offset=_T_OFFS),  # charge T-min
+        LimitDp(Limit.CHARGE_OTP, "trip", 3, offset=_T_OFFS),  # T-max
+        LimitDp(Limit.DISCHARGE_OTP, "trip", 3, offset=_T_OFFS),  # T-max (shared)
+        LimitDp(Limit.DISCHARGE_UTP, "trip", 6, offset=_T_OFFS),  # discharge T-min
+    )
 
     def __init__(
         self,
@@ -114,6 +134,26 @@ class BMS(BaseBMS):
             return result * num
         except ValueError:
             return 0
+
+    @staticmethod
+    def _parse_limits(elements: list[str]) -> BMSLimits:
+        """Decode thresholds from the ASCII fields of the S2@ reply."""
+        values: dict[Limit, dict[str, float]] = {}
+        for field in BMS._LIMIT_FIELDS:
+            if field.pos >= len(elements):
+                continue  # field not present in this firmware
+            raw: int = BMS._parse_int(elements[field.pos])
+            values.setdefault(field.prot, {})[field.attr] = round(
+                raw * field.scale - field.offset, 6
+            )
+        return {prot: Threshold(**attrs) for prot, attrs in values.items()}
+
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the protection thresholds from the settings reply (S2@)."""
+        self._msg.pop(BMS._LMSG, None)  # discard stale reply
+        await self._await_msg(b"S2@" + BMS._CR)
+        reply: Final[bytes] = self._msg.pop(BMS._LMSG, b"")
+        return BMS._parse_limits(reply.decode("ascii", errors="ignore").split("_")[:-1])
 
     async def _alive(self) -> None:
         """Send the keep-alive ping while connected."""

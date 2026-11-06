@@ -1,0 +1,16 @@
+[
+  {
+    "advertisement": {
+      "local_name": "RDAC233F000000",
+      "service_data": {
+        "0000ffe1-0000-1000-8000-00805f9b34fb": "ac233f000000"
+      },
+      "rssi": -68
+    },
+    "type": "rollsvb_bms",
+    "_comments": [
+      "source: Apple PacketLogger capture of 'Rolls LFP Connect' app",
+      "Rolls VB24-150LFP (RD-RJ8S150A internal BMS); name is 'RD' + MAC address"
+    ]
+  }
+]

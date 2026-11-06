@@ -160,7 +160,8 @@ from `BaseBMS`.
 
 A typical plugin contains:
 
-1. A module docstring identifying the supported BMS.
+1. Use `aiobmsble/bms/dummy_bms.py` as the base for the general module layout
+  and follow its module-header format, including the project and license lines.
 2. A `BMS(BaseBMS)` implementation, or a `BMS(<ParentPlugin>)` implementation
    when reusing an existing protocol (see "Deriving from an existing plugin").
 3. An `INFO` mapping with default manufacturer and model information.

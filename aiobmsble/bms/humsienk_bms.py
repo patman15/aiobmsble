@@ -11,7 +11,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSLimits,
+    BMSSample,
+    Limit,
+    LimitDp,
+    MatcherPattern,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
@@ -41,6 +51,23 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 9, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("balancer", 11, 3, False, idx=0x20),  # bit 0 = cell 1
         BMSDp("problem_code", 7, 4, False, lambda x: x & BMS._ALARM_MASK, 0x20),
+    )
+    # offsets within the 0x58 configuration payload, temperatures in deciKelvin
+    _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = (
+        LimitDp(Limit.CELL_OVP, "trip", 4, scale=0.001),
+        LimitDp(Limit.CELL_OVP, "release", 6, scale=0.001),
+        LimitDp(Limit.CELL_UVP, "trip", 10, scale=0.001),
+        LimitDp(Limit.CELL_UVP, "release", 12, scale=0.001),
+        LimitDp(Limit.CHARGE_OCP, "trip", 16, scale=0.1),
+        LimitDp(Limit.DISCHARGE_OCP, "trip", 20, scale=0.1),  # level 1
+        LimitDp(Limit.CHARGE_OTP, "trip", 28, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_OTP, "release", 30, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_UTP, "trip", 32, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_UTP, "release", 34, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_OTP, "trip", 36, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_OTP, "release", 38, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_UTP, "trip", 40, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_UTP, "release", 42, scale=0.1, offset=273.1),
     )
     _CMDS: Final = frozenset({b"\x20", b"\x21", b"\x22"})
 
@@ -90,6 +117,13 @@ class BMS(BaseBMS):
             "model": b2str(self._msg[0x11][3:-2]),
             "hw_version": b2str(self._msg[0xF5][3:-2]),
         }
+
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the thresholds (0x58 configuration frame)."""
+        await self._await_msg(BMS._cmd(b"\x58"))
+        return BMS._decode_limits(
+            self._msg[0x58][3:-2], BMS._LIMIT_FIELDS, byteorder="little"
+        )
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
