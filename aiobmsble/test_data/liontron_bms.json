@@ -1,0 +1,21 @@
+[
+  {
+    "advertisement": {
+      "local_name": "08201501111",
+      "manufacturer_data": {
+        "529": "00004000293b807123c03f15729b03e000b3b3b3b4000000002580"
+      },
+      "service_data": {
+        "0000262a-0000-1000-8000-00805f9b34fb": "46003e"
+      },
+      "service_uuids": ["0000ff00-0000-1000-8000-00805f9b34fb"],
+      "rssi": -52,
+      "platform_data": ["A4:C1:38:00:00:00"]
+    },
+    "type": "liontron_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/857)",
+      "Liontron battery"
+    ]
+  }
+]
