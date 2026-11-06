@@ -23,13 +23,12 @@ class BMS(BaseBMS):
         b"\x0b",
         b"\x08",
         b"\x38",
+        b"\xba",
     )  # alternative device IDs
     _MIN_LEN: Final[int] = 5  # minimal frame length, including SOF and checksum
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 15, 2, False, lambda x: x / 10),
-        BMSDp(
-            "current", 12, 3, False, lambda x: (x & 0xFFFF) * -(1 ** (x >> 16)) / 100
-        ),
+        BMSDp("current", 12, 3, False, lambda x: (x & 0xFFFF) * -(1 ** (x >> 16)) / 100),
         BMSDp("battery_level", 5, 2, False),
         BMSDp(
             "runtime",
@@ -73,9 +72,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
