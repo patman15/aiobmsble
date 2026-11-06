@@ -11,5 +11,18 @@
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/655)"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "HL12100---01428",
+      "service_data": { "0000180a-0000-1000-8000-00805f9b34fb": "" },
+      "service_uuids": ["0000fffa-0000-1000-8000-00805f9b34fb"],
+      "rssi": -91
+    },
+    "type": "saihang_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/859)",
+      "Sandisolar / Sun Show 12.8V 100Ah"
+    ]
   }
 ]
