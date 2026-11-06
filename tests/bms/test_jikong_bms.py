@@ -225,7 +225,6 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     "JK02_24S": {
         "cell_count": 16,
         "delta_voltage": 0.005,
-        "temperature": 19.833,
         "voltage": 52.971,
         "current": 2.329,
         "balance_current": 0.002,
@@ -291,7 +290,6 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "power": -187.233,
         "battery_charging": False,
         "runtime": 72613,
-        "temperature": 29.9,
         "problem": False,
         "balancer": False,
         "chrg_mosfet": True,
@@ -342,7 +340,6 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cycle_capacity": 2623.198,
         "power": 1696.834,
         "battery_charging": True,
-        "temperature": 16.367,
         "problem": False,
         "balancer": False,
         "chrg_mosfet": True,
@@ -393,7 +390,6 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cycle_capacity": 2623.198,
         "power": 1696.834,
         "battery_charging": True,
-        "temperature": 16.367,
         "problem": False,
         "balancer": False,
         "chrg_mosfet": True,
@@ -431,7 +427,6 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "power": -335.885,
         "battery_charging": False,
         "runtime": 69336,
-        "temperature": 24.633,
         "problem": False,
     },
 }
@@ -506,9 +501,7 @@ class MockJikongBleakClient(MockBleakClient):
             return bytearray()
 
         if frame.startswith(self.HEAD_CMD + self.CMD_INFO):
-            return (
-                bytearray(b"\x41\x54\x0d\x0a") + self._FRAME["cell"]
-            )  # added AT\r\n command
+            return bytearray(b"\x41\x54\x0d\x0a") + self._FRAME["cell"]  # added AT\r\n command
         if frame.startswith(self.HEAD_CMD + self.DEV_INFO):
             return self._FRAME["dev"]
 
@@ -517,9 +510,7 @@ class MockJikongBleakClient(MockBleakClient):
     async def _send_confirm(self) -> None:
         assert self._notify_callback, "send confirm called but notification not enabled"
         await asyncio.sleep(0)
-        self._notify_callback(
-            "MockJikongBleakClient", self._FRAME.get("ack", bytearray())
-        )
+        self._notify_callback("MockJikongBleakClient", self._FRAME.get("ack", bytearray()))
 
     async def write_gatt_char(
         self,
@@ -529,9 +520,7 @@ class MockJikongBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
         self._notify_callback(
             "MockJikongBleakClient", bytearray(b"\x41\x54\x0d\x0a")
         )  # interleaved AT\r\n command
@@ -593,9 +582,7 @@ class MockStreamBleakClient(MockJikongBleakClient):
     """Mock JiKong BMS that already sends battery data (no request required)."""
 
     async def _send_all(self) -> None:
-        assert (
-            self._notify_callback
-        ), "send_all frames called but notification not enabled"
+        assert self._notify_callback, "send_all frames called but notification not enabled"
         for resp in self._FRAME.values():
             self._notify_callback("MockJikongBleakClient", resp)
             await asyncio.sleep(0)
@@ -723,13 +710,9 @@ async def test_hide_temp_sensors(
     # modify result dict to match removed temp#1, temp#2
     ref_result: BMSSample = deepcopy(_RESULT_DEFS[protocol_type])
     if protocol_type == "JK02_24S":
-        ref_result |= {"temp_sensors": 3, "temperature": 18.1}
-    elif protocol_type == "JK02_32S":
-        ref_result |= {"temp_sensors": 251, "temperature": 31.0}
-    elif protocol_type in ("JK02_32S_v15", "JK02_32S_v19.05"):
-        ref_result |= {"temp_sensors": 251, "temperature": 18.0}
-    elif protocol_type == "JK02_32S_v19.27":
-        ref_result |= {"temp_sensors": 251, "temperature": 25.225}
+        ref_result |= {"temp_sensors": 3}
+    else:
+        ref_result |= {"temp_sensors": 251}
 
     temp_values: list[TS] = ref_result.get("temp_values", [])
     temp_values.pop(1)  # remove sensor 1
@@ -750,9 +733,7 @@ async def test_stream_update(
     """Test Jikong BMS data update."""
 
     _frames: dict[str, bytearray] = deepcopy(_PROTO_DEFS[protocol_type])
-    _prot_offset: Literal[-32, 0] = (
-        -32 if lstr2int(_frames["dev"][30:38].decode()) < 11 else 0
-    )
+    _prot_offset: Literal[-32, 0] = -32 if lstr2int(_frames["dev"][30:38].decode()) < 11 else 0
 
     monkeypatch.setattr(MockStreamBleakClient, "_FRAME", _frames)
     patch_bleak_client(MockStreamBleakClient)
@@ -861,9 +842,7 @@ async def test_invalid_device(patch_bleak_client) -> None:
 
     result: BMSSample = {}
 
-    with pytest.raises(
-        ConnectionError, match=r"^Failed to detect characteristics from.*"
-    ):
+    with pytest.raises(ConnectionError, match=r"^Failed to detect characteristics from.*"):
         result = await bms.async_update()
 
     assert not result

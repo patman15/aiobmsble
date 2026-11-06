@@ -26,7 +26,6 @@ _RESULT_DEFS: Final[BMSSample] = {
     "design_capacity": 80,
     "total_charge": 15265,
     "cycles": 190,
-    "temperature": 29.333,
     "cycle_capacity": 506.651,
     "power": 106.0,
     "battery_charging": False,

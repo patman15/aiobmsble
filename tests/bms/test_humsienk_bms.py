@@ -97,7 +97,6 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cycle_capacity": 833.23,
         "runtime": 198657,
         "delta_voltage": 0.011,
-        "temperature": 30.5,
         "temp_values": [TS(v, TS.T.CELL) for v in (35.0, 26.0, 26.0, 26.0)]
         + [TS(44.0, TS.T.MOSFET), TS(26.0, TS.T.AMBIENT)],
         "chrg_mosfet": True,
@@ -121,7 +120,6 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "power": 23.29,
         "cycle_capacity": 8487.712,
         "delta_voltage": 0.018,
-        "temperature": 23.167,
         "temp_values": [TS(v, TS.T.CELL) for v in (17.0, 26.0, 26.0, 26.0)]
         + [TS(18.0, TS.T.MOSFET), TS(26.0, TS.T.AMBIENT)],
         "chrg_mosfet": True,

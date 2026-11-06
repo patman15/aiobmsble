@@ -21,7 +21,6 @@ _RESULT_DEFS: Final[BMSSample] = {
     "battery_health": 100,
     "voltage": 53.21,
     "current": 0,
-    "temperature": 27.0,
     "pack_count": 2,
     "design_capacity": 60,
     "packs": [
@@ -123,6 +122,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycle_charge": 54.6,
     "power": 0.0,
     "cycle_capacity": 2905.266,
+    "temp_values": [TS(27.0)],
     "problem": False,
 }
 

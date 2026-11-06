@@ -53,7 +53,6 @@ async def test_update(patch_bleak_client) -> None:
         "delta_voltage": 0.002,
         "dischrg_mosfet": True,
         "power": -44.038,
-        "temperature": 6.0,
         "temp_values": [6.0],
         "problem": False,
         "problem_code": 0,

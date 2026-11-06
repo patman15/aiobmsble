@@ -84,7 +84,6 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "dischrg_mosfet": True,
         "voltage": 13.69,
         "current": 3.88,
-        "temperature": 19.1,
         "battery_charging": True,
         "cycle_capacity": 1133.258,
         "cycle_charge": 82.78,

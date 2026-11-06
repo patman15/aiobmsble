@@ -26,7 +26,6 @@ _RESULT_DEFS: BMSSample = {
     "cycle_charge": 298.53,
     "cycles": 214,
     "design_capacity": 304,
-    "temperature": 24.4,
     "cycle_capacity": 16248.988,
     "power": 642.274,
     "battery_charging": True,

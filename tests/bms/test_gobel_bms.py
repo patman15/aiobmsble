@@ -61,7 +61,6 @@ _RESULT_MAIN_DATA: Final[BMSSample] = {
     "problem_code": 0,
     "temp_sensors": 1,
     "temp_values": [TS(20.9), TS(21.1, TS.T.MOSFET)],
-    "temperature": 21.0,
     "voltage": 13.31,
 }
 

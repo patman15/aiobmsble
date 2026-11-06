@@ -62,7 +62,6 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     assert await bms.async_update() == {
         "voltage": 27.28,
-        "temperature": 18.275,
         "battery_charging": False,
         "battery_health": 100,
         "battery_level": 96,

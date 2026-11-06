@@ -27,7 +27,6 @@ _RESULT_DEFS: Final[BMSSample] = {
         "battery_level": 96,
         "cycle_charge": 98.056,
         "cycles": 2,
-        "temperature": 19.25,
         "cycle_capacity": 1321.795,
         "power": 4.718,
         "battery_charging": True,

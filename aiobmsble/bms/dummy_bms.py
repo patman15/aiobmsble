@@ -100,7 +100,7 @@ class BMS(BaseBMS):
         # TODO: parse data from self._frame here
 
         return {
-            "voltage": 12.0,
+            "battery_level": 73,
             "current": 1.5,
-            "temperature": 27.182,
+            "voltage": 12.0,
         }  # TODO: fixed values, replace parsed data

@@ -39,7 +39,6 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cell_count": 4,
         "cell_voltages": [3.5, 3.5, 3.5, 3.49],
         "temp_values": [TS(12.778), TS(8.889)],
-        "temperature": 10.834,
         "cycle_charge": 319.0,
         "total_charge": 6391,
         "cycle_capacity": 4462.81,
@@ -61,7 +60,6 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cell_voltages": [3.29, 3.31, 3.37, 3.25],
         "delta_voltage": 0.08,
         "temp_values": [TS(26.667)],
-        "temperature": 26.667,
         "problem_code": 0,
         "problem": False,
         "packs": [

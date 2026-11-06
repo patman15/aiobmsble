@@ -10,7 +10,16 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSPDp, BMSSample, MatcherPattern, PackSample
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPDp,
+    BMSSample,
+    MatcherPattern,
+    PackSample,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -36,7 +45,7 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 10, 2, False),
         BMSDp("voltage", 14, 2, False, lambda x: x / 100),
         BMSDp("current", 16, 2, True),
-        BMSDp("temperature", 18, 2, True, lambda x: x / 10),
+        BMSDp("temp_values", 18, 2, True, lambda x: [TS(x / 10)]),
         BMSDp("pack_count", 42, 2, False),
         BMSDp("design_capacity", 108, 2, False),
         # BMSDp("problem_code", 100, 8, False), # not verified

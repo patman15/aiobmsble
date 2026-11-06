@@ -51,7 +51,6 @@ _RESULT_DEFS: BMSSample = {
     "problem": False,
     "pack_count": 1,
     "temp_values": [TS(22.7, TS.T.CELL_MAX), TS(22.2, TS.T.CELL_MIN)],
-    "temperature": 22.45,
     "packs": [
         {
             "current": -3.84,
@@ -344,7 +343,6 @@ async def test_pack_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
         "pack_count": 0,
         "balancer": 0x1FB7,
         "battery_charging": False,
-        "temperature": 22.425,
         "cycle_capacity": 3935.675,
         "power": -203.597,
         "runtime": 69590,

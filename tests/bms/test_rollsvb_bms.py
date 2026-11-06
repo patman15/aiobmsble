@@ -45,7 +45,6 @@ _RESULT: Final[BMSSample] = {
     "cycle_capacity": 3114.86,
     "cycles": 2,
     "temp_values": [TS(17.0, TS.T.GENERIC), TS(17.0, TS.T.GENERIC)],
-    "temperature": 17.0,
     "cell_count": 8,
     "delta_voltage": 0.003,
     "power": 0.0,
