@@ -27,6 +27,9 @@ class BMS(BaseBMS):
     _TEMP_POS: Final[int] = 109  # position of first temperature sensor in pack
     _HEAD_LEN: Final[int] = 5
     _MIN_LEN: Final[int] = 7  # HEAD, CMD, VER, DEV, LEN, CRC (2 bytes)
+    _SYS_KEY: Final[int] = 0x016E  # device 1, length 0x6E
+    _PACK_LEN: Final[int] = 0xA4
+    _MAX_PACKS: Final[int] = 0x10
 
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("battery_level", 8, 2, False),
@@ -52,7 +55,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
-        self._pkglen: int = 0
+        self._exp_len: int = 0
         self._msg: dict[int, bytes] = {}
 
     @staticmethod
@@ -84,40 +87,33 @@ class BMS(BaseBMS):
     def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
-        if (
-            len(data) >= BMS._MIN_LEN
-            and data[0:3] == BMS._HEAD+ BMS._PROT+ BMS._CMD
-        ):
+        if len(data) >= BMS._MIN_LEN and data.startswith(BMS._HEAD + BMS._PROT + BMS._CMD):
             self._frame.clear()
-            self._pkglen = data[4] + BMS._MIN_LEN
+            self._exp_len = data[4] + BMS._MIN_LEN
 
         self._frame.extend(data)
         self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         # verify that data is long enough
-        if self._pkglen and len(self._frame) < self._pkglen:
+        if not self._exp_len or len(self._frame) < self._exp_len:
             return
 
-        if (crc := crc_modbus(self._frame[: self._pkglen - 2])) != int.from_bytes(
-            self._frame[self._pkglen - 2 : self._pkglen], "little"
-        ):
-            self._log.debug(
-                "invalid checksum 0x%X != 0x%X",
-                int.from_bytes(self._frame[self._pkglen - 2 : self._pkglen], "little"),
-                crc,
-            )
-            self._frame.clear()
-            return
-
-        if len(self._frame) != self._pkglen:
+        if len(self._frame) != self._exp_len:
             self._log.debug(
                 "wrong data length (%i!=%s): %s",
                 len(self._frame),
-                self._pkglen,
+                self._exp_len,
                 self._frame,
             )
 
-        self._msg[int(self._frame[3]) << 8 | int(self._frame[4])] = bytes(self._frame)
+        frame: Final[bytes] = bytes(self._frame[: self._exp_len])
+        self._frame.clear()
+        self._exp_len = 0
+
+        if not self._check_integrity(frame, crc_modbus, slice(None, -2), slice(-2, None), "little"):
+            return
+
+        self._msg[frame[3] << 8 | frame[4]] = frame
         self._msg_event.set()
 
     @staticmethod
@@ -135,14 +131,20 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        # await self._await_reply(BMS._cmd(0, 0xf3, 0xea64, 0x1))
+        self._msg.clear()
         await self._await_msg(BMS._cmd(1, 0x7654, 0x37))
+        if BMS._SYS_KEY not in self._msg:
+            raise ValueError("BMS data incomplete.")
 
-        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg[0x016E], start=BMS._HEAD_LEN)
+        result: BMSSample = BMS._decode_data(
+            BMS._FIELDS, self._msg[BMS._SYS_KEY], start=BMS._HEAD_LEN
+        )
 
-        for pack in range(1, 1 + result.get("pack_count", 0)):
+        for pack in range(1, 1 + min(result.get("pack_count", 0), BMS._MAX_PACKS)):
             await self._await_msg(BMS._cmd(pack, 0x75F8, 0x52))
-            pack_response: bytes = self._msg[pack << 8 | 0xA4]
+            if (pack_key := pack << 8 | BMS._PACK_LEN) not in self._msg:
+                raise ValueError("BMS data incomplete.")
+            pack_response: bytes = self._msg[pack_key]
 
             pack_sample: PackSample = BMS._decode_pack(
                 BMS._PFIELDS, pack_response, start=BMS._HEAD_LEN
@@ -154,7 +156,5 @@ class BMS(BaseBMS):
                 pack_response, values=pack_response[BMS._TEMPNUM_POS], start=BMS._TEMP_POS
             )
             result.setdefault("packs", []).append(pack_sample)
-
-        self._msg.clear()
 
         return result

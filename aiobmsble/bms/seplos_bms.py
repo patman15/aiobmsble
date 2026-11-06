@@ -216,6 +216,8 @@ class BMS(BaseBMS):
         payload = bytearray()
         for start in BMS._SPA_BLOCKS:
             await self._await_msg(BMS._cmd(0x0, 0x4, start, BMS._SPA_LEN))
+            if BMS._SPA_LEN not in self._msg:
+                raise ValueError("BMS data incomplete.")
             payload += self._msg.pop(BMS._SPA_LEN)[BMS._HEAD_LEN : -BMS._CRC_LEN]
         return BMS._decode_limits(bytes(payload), BMS._LIMIT_FIELDS)
 
