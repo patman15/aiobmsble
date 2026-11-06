@@ -45,6 +45,7 @@ _RESULT_DEFS: BMSSample = {
         3.308,
     ],
     "battery_charging": False,
+    "balancer": 0x1FB7,
     "runtime": 62978,
     "power": -224.232,
     "problem": False,
@@ -115,9 +116,9 @@ class MockPaceBleakClient(MockBleakClient):
             b"\x10\x0c\xec\x01\x03\x0b\x8e\x01\x01\x0b\x89\x99\x16\x9d"
         ),  # system values: voltage 53.01, current -4.23, battery level 74, cycle: 239
         b"\x9a\x00\x00\x0a\x03\x00\x00\x02\x01\x01\xf9\x9d\x9d": (
-            b"\x9a\x00\x00\x0a\x03\x00\x00\x0d\x02\x00\x00\x0e\x06\x00\x00\x00"
-            b"\x00\x00\x00\x00\x00\x18\xae\x9d"
-        ),
+            b"\x9a\x00\x00\x0a\x03\x00\x00\x0d\x02\x00\x00\x26\x06\x00\xb7\x1f"
+            b"\x00\x00\x00\x00\x00\xfc\xeb\x9d"
+        ),  # cells 1, 2, 3, 5, 6, 8, 9, 10, 11, 12, 13 balancing
         b"\x9a\x00\x00\x00\x07\x00\x00\x00\x6c\xc8\x9d": (
             b"\x9a\x00\x00\x00\x07\x00\x00\x06\x19\x0a\x12\x11\x0c\x14\x3b\x2c\x9d"
         ),  # date/time: 25-10-18 17:12:20
@@ -341,6 +342,7 @@ async def test_pack_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     result = await bms.async_update()
     assert result == _RESULT_DEFS.get("packs", [])[0] | {
         "pack_count": 0,
+        "balancer": 0x1FB7,
         "battery_charging": False,
         "temperature": 22.425,
         "cycle_capacity": 3935.675,

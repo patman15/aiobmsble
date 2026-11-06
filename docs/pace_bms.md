@@ -29,4 +29,11 @@ pack level query, answered by every pack; command `9a 00 00 0a 01 00 00 02 01 01
 | battery_health   | 12     | 1      | -          |
 | cycles           | 13     | 2      | -          |
 
+## Balancing Data
+pack level query, answered by every pack
+Queried using the command `9a 00 00 0a 03 00 00 02 01 01 f9 9d 9d`
+| Value    | Offset | Length | Conversion |
+|----------|--------|--------|------------|
+| balancer | 6      | 2      | little endian bit mask, bit 0 = cell 1 |
+
 

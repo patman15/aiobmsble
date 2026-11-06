@@ -300,3 +300,44 @@ async def test_wrong_length(
 
     assert await bms.async_update() == _RESULT_DEFS
     await bms.disconnect()
+
+
+_REQ_SYS: Final[bytes] = b"\xfa\xf3\x16\x76\x54\x01\x00\x37\xc7\x24"
+_REQ_PACK1: Final[bytes] = b"\xfa\xf3\x16\x75\xf8\x01\x00\x52\x62\x5f"
+_REQ_PACK2: Final[bytes] = b"\xfa\xf3\x16\x75\xf8\x02\x00\x52\x92\x5f"
+
+
+@pytest.mark.parametrize("request_frame", [_REQ_SYS, _REQ_PACK2], ids=["system", "pack"])
+async def test_unexpected_reply(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, request_frame: bytes
+) -> None:
+    """Test that a valid but unexpected reply is reported as incomplete data."""
+
+    monkeypatch.setattr(
+        MockEpochProBleakClient,
+        "RESP",
+        MockEpochProBleakClient.RESP | {request_frame: MockEpochProBleakClient.RESP[_REQ_PACK1]},
+    )
+    patch_bleak_client(MockEpochProBleakClient)
+
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice"))
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.async_update()
+
+    await bms.disconnect()
+
+
+async def test_pack_count_limited(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that the number of queried packs is bounded."""
+
+    monkeypatch.setattr(BMS, "_MAX_PACKS", 1)
+    patch_bleak_client(MockEpochProBleakClient)
+
+    bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice"))
+
+    result: BMSSample = await bms.async_update(raw=True)
+    assert result.get("pack_count") == 2
+    assert len(result.get("packs", [])) == 1
+
+    await bms.disconnect()
