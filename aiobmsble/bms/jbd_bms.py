@@ -194,7 +194,7 @@ class BMS(BaseBMS):
         self._frame.extend(data)
         self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
-        if len(self._frame) < self._exp_len:
+        if not self._frame or len(self._frame) < self._exp_len:
             return
 
         # check correct frame ending
