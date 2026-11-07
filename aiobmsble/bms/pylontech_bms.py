@@ -10,7 +10,16 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSLimits,
+    BMSSample,
+    Limit,
+    LimitDp,
+    MatcherPattern,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -22,6 +31,8 @@ class BMS(BaseBMS):
     _REG_SN: Final[tuple[int, int]] = (0x2000, 8)
     # Contiguous block 0x1016-0x1022 = 13 registers
     _INFO_BLOCK: Final[tuple[int, int]] = (0x1016, 13)
+    # Contiguous block 0x1023-0x1024 = 2 registers (charge voltage / discharge cutoff)
+    _LIMIT_BLOCK: Final[tuple[int, int]] = (0x1023, 2)
 
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 0, 2, False, lambda x: x / 100),
@@ -30,6 +41,11 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 14, 2, False),
         BMSDp("power", 16, 2, False, float),
         BMSDp("design_capacity", 24, 2, False, lambda x: x // 10),
+    )
+    # Response data starts at byte 3 (after slave id, function code, byte count)
+    _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = (
+        LimitDp(Limit.PACK_OVP, "trip", 3, scale=0.01),  # charge voltage limit
+        LimitDp(Limit.PACK_UVP, "trip", 5, scale=0.01),  # discharge cutoff voltage
     )
 
     def __init__(
@@ -118,6 +134,15 @@ class BMS(BaseBMS):
             pass
 
         return info
+
+    async def _fetch_limits(self) -> BMSLimits:
+        """Read charge voltage limit and discharge cutoff voltage registers."""
+        await self._await_msg(
+            BMS._cmd_modbus(
+                dev_id=BMS._DEV_ID, addr=BMS._LIMIT_BLOCK[0], count=BMS._LIMIT_BLOCK[1]
+            )
+        )
+        return BMS._decode_limits(self._msg, BMS._LIMIT_FIELDS, byteorder="big")
 
     async def _async_update(self) -> BMSSample:
         """Read current BMS state and return a BMSSample."""

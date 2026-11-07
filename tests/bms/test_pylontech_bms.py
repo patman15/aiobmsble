@@ -9,7 +9,7 @@ from bleak.backends.scanner import AdvertisementData
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, Limit, TempSensor as TS, Threshold
 from aiobmsble.bms.pylontech_bms import BMS
 from aiobmsble.test_data import adv_dict_to_advdata
 from aiobmsble.utils import _advertisement_matches
@@ -20,6 +20,7 @@ from tests.test_basebms import BMSBasicTests
 # Modbus request bytes (used as keys in mock response dict)
 _REQ_MAIN: Final[bytes] = b"\x01\x03\x10\x16\x00\x0d\x61\x0b"
 _REQ_SN: Final[bytes] = b"\x01\x03\x20\x00\x00\x08\x4f\xcc"
+_REQ_LIMITS: Final[bytes] = b"\x01\x03\x10\x23\x00\x02\x31\x01"
 
 # Recorded Modbus responses
 _RESP_MAIN: Final[bytes] = (
@@ -36,6 +37,7 @@ _RESP_MAIN_COLD: Final[bytes] = (
     b"\x00\x5b\x00\x63\x00\x3f\x00\x00\x0b\x90\x03\xe8\x03\xe8\xbd\x16"
 )
 _RESP_SN_ZERO: Final[bytes] = b"\x01\x03\x10" + b"\x00" * 16 + b"\xe4\x59"
+_RESP_LIMITS: Final[bytes] = b"\x01\x03\x04\x05\x82\x04\x38\x59\xc5"
 
 TX_UUID: Final[str] = BMS.uuid_tx()
 
@@ -71,6 +73,7 @@ class MockPylontechBleakClient(MockBleakClient):
     RESP: dict[bytes, bytes] = {
         _REQ_MAIN: _RESP_MAIN,
         _REQ_SN: _RESP_SN,
+        _REQ_LIMITS: _RESP_LIMITS,
     }
 
     def _response(self, char_specifier: str | int, cmd: bytes) -> bytes:
@@ -106,6 +109,17 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
+    await bms.disconnect()
+
+
+async def test_limits(patch_bleak_client) -> None:
+    """Test that charge voltage limit and discharge cutoff are reported as trip points."""
+    patch_bleak_client(MockPylontechBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.limits() == {
+        Limit.PACK_OVP: Threshold(trip=14.10),
+        Limit.PACK_UVP: Threshold(trip=10.80),
+    }
     await bms.disconnect()
 
 

@@ -64,10 +64,20 @@ Modbus RTU over BLE SPP. Device address `0x01`, function code `0x03`
 
 | Register | Type | Scale | Unit | Description |
 |----------|------|-------|------|-------------|
-| 0x1023 | uint16 | ×0.01 | V | Charge voltage limit (e.g. 1410 = 14.10 V) |
-| 0x1024 | uint16 | ×0.01 | V | Discharge cutoff voltage (e.g. 1080 = 10.80 V) |
 | 0x2000–0x2007 | ASCII | – | – | Serial number (16 chars across 8 registers) |
 | 0x2008–0x200D | – | – | – | Telink GModule internal config, not BMS data |
+
+### Protection limits (`limits()`)
+
+Read in a single request (0x1023–0x1024, 2 registers):
+
+| Register | Type | Scale | Unit | Limit | Description |
+|----------|------|-------|------|-------|-------------|
+| 0x1023 | uint16 | ×0.01 | V | `PACK_OVP` (trip) | Charge voltage limit (e.g. 1410 = 14.10 V) |
+| 0x1024 | uint16 | ×0.01 | V | `PACK_UVP` (trip) | Discharge cutoff voltage (e.g. 1080 = 10.80 V) |
+
+Register 0x1021 (BMS dynamic allowed current) varies with SoC and temperature
+and is therefore not reported as a fixed limit.
 
 ### Notes on cell_voltages and temperature
 
