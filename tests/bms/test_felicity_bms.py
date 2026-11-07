@@ -1,6 +1,7 @@
 """Test the Felicity implementation."""
 
 from collections.abc import Buffer
+from logging import DEBUG
 from typing import Final
 from uuid import UUID
 
@@ -179,22 +180,16 @@ async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_cli
     await bms.disconnect()
 
 
-@pytest.fixture(
-    name="wrong_response",
-    params=[
-        (b'"CommVer":1,"wifiSN":"F100011002424470238"}', "invalid frame start"),
-        (b'{"CommVer":1,"wifiSN":"F100011002424470238"', "invalid frame end"),
-        (b'{"CommVer":2,"wifiSN":"F100011002424470238"}', "invalid protocol"),
-        (b'{"CommVer":"x","wifiSN":"F100011002424470238"}', "non-numeric protocol"),
+@pytest.mark.parametrize(
+    "wrong_response",
+    [
+        b'"CommVer":1,"wifiSN":"F100011002424470238"}',
+        b'{"CommVer":1,"wifiSN":"F100011002424470238"',
+        b'{"CommVer":2,"wifiSN":"F100011002424470238"}',
+        b'{"CommVer":"x","wifiSN":"F100011002424470238"}',
     ],
-    ids=lambda param: param[1],
+    ids=["invalid frame start", "invalid frame end", "invalid protocol", "non-numeric protocol"],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytes:
-    """Return faulty response frame."""
-    assert isinstance(request.param[0], bytes)
-    return request.param[0]
-
-
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
@@ -214,6 +209,30 @@ async def test_invalid_response(
         result = await bms.async_update()
 
     assert not result
+    await bms.disconnect()
+
+
+async def test_stale_data_clearance(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test data up date with BMS returning invalid data."""
+
+    patch_bms_timeout()
+
+    monkeypatch.setattr(
+        MockFelicityBleakClient, "RESP", RESP_VALUE | {"rt": b"{" + bytes(1199) + RESP_VALUE["rt"]}
+    )  # ensure that real message starts at a chunk boundary
+    monkeypatch.setattr("tests.bms.test_felicity_bms.BT_FRAME_SIZE", 300)
+    patch_bleak_client(MockFelicityBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with caplog.at_level(DEBUG):
+        assert await bms.async_update() == _RESULT_DEFS
+    assert "frame buffer overflow" in caplog.text
     await bms.disconnect()
 
 

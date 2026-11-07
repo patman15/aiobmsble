@@ -1,7 +1,8 @@
 """Test the BLE Battery Management System base class functions."""
 
 import asyncio
-from collections.abc import Buffer, Callable
+from collections.abc import Awaitable, Buffer, Callable
+import inspect
 from logging import DEBUG
 from string import hexdigits
 from types import UnionType
@@ -13,7 +14,7 @@ from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.backends.service import BleakGATTServiceCollection
+from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
@@ -118,9 +119,7 @@ class MinTestBMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "afe2"
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
         # do not set event to make tests fail if wait_for_notify is not set
@@ -240,9 +239,7 @@ class WMTestBMS(MinTestBMS):
     def _wr_response(self, char: int | str) -> bool:
         return bool("write" in self._char_tx_properties)
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
         self._data = data
@@ -274,9 +271,7 @@ class BMSBasicTests:
         for matcher in self.bms_class.matcher_dict_list():
 
             if manufacturer_id := matcher.get("manufacturer_id"):
-                assert (
-                    manufacturer_id == manufacturer_id & 0xFFFF
-                ), f"incorrect {manufacturer_id=}"
+                assert manufacturer_id == manufacturer_id & 0xFFFF, f"incorrect {manufacturer_id=}"
 
             if service_uuid := matcher.get("service_uuid"):
                 assert UUID(service_uuid), f"incorrect {service_uuid=}"
@@ -289,8 +284,7 @@ class BMSBasicTests:
             if oui := matcher.get("oui"):
                 parts: list[str] = oui.split(":")
                 assert len(parts) == 3 and all(
-                    len(part) == 2 and all(c in hexdigits for c in part)
-                    for part in parts
+                    len(part) == 2 and all(c in hexdigits for c in part) for part in parts
                 ), f"incorrect {oui=}"
                 await aiooui.async_load()
                 if aiooui.get_vendor(oui) is None:
@@ -301,6 +295,21 @@ class BMSBasicTests:
                         # 0x80,  # 	Reserved for future use
                         # 0xC0,  # Static random device address
                     ), f"random private address OUI ({oui}) cannot be used for filtering!"
+
+    async def test_empty_notification(self) -> None:
+        """Verify that notification handler does not crash with empty input."""
+        bms: BaseBMS = self.bms_class(generate_ble_device())
+        handler: Callable[..., None | Awaitable[None]] = bms._notification_handler  # type: ignore[attr-defined]
+        char = BleakGATTCharacteristic(
+            None, 1, "0001", ["notify"], lambda: 512, BleakGATTService(None, 0, "fff0")
+        )
+        try:
+            if inspect.isawaitable(result := handler(char, b"")):
+                await result
+        except BufferError as exc:
+            pytest.fail(f"{self.bms_class.__name__}: {exc!r}")
+        finally:
+            await bms.disconnect()
 
     async def test_result_value_types(
         self,
@@ -316,9 +325,7 @@ class BMSBasicTests:
 
         def _is_typed_dict(tp: Any) -> bool:
             return (
-                isinstance(tp, type)
-                and issubclass(tp, dict)
-                and hasattr(tp, "__required_keys__")
+                isinstance(tp, type) and issubclass(tp, dict) and hasattr(tp, "__required_keys__")
             )
 
         def _is_instance_of_type(value: Any, expected_type: Any) -> bool:
@@ -385,14 +392,10 @@ class BMSBasicTests:
         await bms.disconnect()
 
         hints: dict[str, Any] = get_type_hints(BMSSample)
-        assert isinstance(
-            result, dict
-        ), "async_update must return a dict-like BMSSample"
+        assert isinstance(result, dict), "async_update must return a dict-like BMSSample"
 
         for key, value in result.items():
-            assert (
-                key in hints
-            ), f"Unexpected result key '{key}' not defined in BMSSample"
+            assert key in hints, f"Unexpected result key '{key}' not defined in BMSSample"
             expected_type = hints[key]
             assert _is_instance_of_type(
                 value, expected_type
@@ -460,9 +463,7 @@ async def test_device_info_fail(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client: Callable[..., None]
 ) -> None:
     """Test only BMS default information is returned if characteristic 0x180a does not exit."""
-    monkeypatch.setattr(
-        BleakGATTServiceCollection, "get_service", lambda obj, char: None
-    )
+    monkeypatch.setattr(BleakGATTServiceCollection, "get_service", lambda obj, char: None)
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     await bms.async_update()  # run update to have connection open
@@ -472,9 +473,7 @@ async def test_device_info_fail(
 
 
 @pytest.mark.parametrize("connected", [False, True], ids=["disconnected", "connected"])
-async def test_limits_default(
-    patch_bleak_client: Callable[..., None], connected: bool
-) -> None:
+async def test_limits_default(patch_bleak_client: Callable[..., None], connected: bool) -> None:
     """Verify that limits() defaults to empty and restores the connection state."""
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
@@ -498,9 +497,7 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
         "cycle_capacity": 238,
         "delta_cell_voltage": 0.111,
         "power": (
-            -91
-            if bms_data.get("current", 0) < 0
-            else 0 if bms_data.get("current") == 0 else 147
+            -91 if bms_data.get("current", 0) < 0 else 0 if bms_data.get("current") == 0 else 147
         ),
         # battery is charging if current is positive
         "battery_charging": bms_data.get("current", 0) > 0,
@@ -598,9 +595,7 @@ async def test_op_guard_device_info_async_update(
 ) -> None:
     """Verify device_info, limits, and async_update are serialized for one BMS instance."""
     patch_bleak_client()
-    bms: OpGuardTestBMS = OpGuardTestBMS(
-        generate_ble_device(), BMSConfig(keep_alive=True)
-    )
+    bms: OpGuardTestBMS = OpGuardTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
     await bms._connect()
 
     info, limits, data = await asyncio.gather(
@@ -817,9 +812,7 @@ async def test_context_mgr_fail(
     patch_bleak_client(MockBleakClient)
 
     with pytest.raises(ValueError, match="usage of context manager*"):
-        async with MinTestBMS(
-            generate_ble_device(), BMSConfig(keep_alive=False)
-        ) as bms:
+        async with MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=False)) as bms:
             await bms.async_update()
 
 
@@ -845,9 +838,7 @@ def test_crc_calculations() -> None:
 
     for crc_fn, expected_crc in test_fn:
         calculated_crc: int = crc_fn(data)
-        assert (
-            calculated_crc == expected_crc
-        ), f"Expected {expected_crc}, got {calculated_crc}"
+        assert calculated_crc == expected_crc, f"Expected {expected_crc}, got {calculated_crc}"
 
 
 @pytest.mark.parametrize(
@@ -1052,9 +1043,7 @@ def test_decode_data(
     expected: BMSSample,
 ) -> None:
     """Test the _decode_data method of BaseBMS with various input parameters."""
-    result: BMSSample = BaseBMS._decode_data(
-        fields, data, byteorder=byteorder, start=start
-    )
+    result: BMSSample = BaseBMS._decode_data(fields, data, byteorder=byteorder, start=start)
     assert result == expected
 
 
@@ -1105,6 +1094,7 @@ def test_lstr2int(data: str, expected: int) -> None:
 # ---------------------------------------------------------------------------
 
 TEST_TIMEOUT = 0.01  # very short timeout
+
 
 async def test_connect_timeout_fires(
     monkeypatch: pytest.MonkeyPatch,
@@ -1174,9 +1164,7 @@ async def test_connect_timeout_cleanup(
 class MockGATTService:
     """Mock BLE GATT service for get_GATT_profile()."""
 
-    def __init__(
-        self, name: str, characteristics: list["MockGATTCharacteristic"]
-    ) -> None:
+    def __init__(self, name: str, characteristics: list["MockGATTCharacteristic"]) -> None:
         """Initialize mock GATT service."""
         self._name: str = name
         self.characteristics: list[MockGATTCharacteristic] = characteristics
@@ -1319,9 +1307,7 @@ async def test_get_gatt_profile_error(
         raise BleakError("mock error")
 
     # Monkeypatch services property to raise BleakError
-    monkeypatch.setattr(
-        MockGATTProfileBleakClient, "services", property(raise_bleak_error)
-    )
+    monkeypatch.setattr(MockGATTProfileBleakClient, "services", property(raise_bleak_error))
 
     assert "mock error" in await bms.get_GATT_profile()
 

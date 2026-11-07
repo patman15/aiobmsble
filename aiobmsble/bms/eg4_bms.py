@@ -89,7 +89,7 @@ class BMS(BaseBMS):
         if (
             len(data) > BMS._MIN_LEN
             and data.startswith(BMS._HEAD)
-            and len(self._frame) >= self._exp_len
+            and (not self._frame or len(self._frame) >= self._exp_len)
         ):
             self._exp_len = BMS._MIN_LEN + data[2]
             self._frame.clear()
@@ -104,12 +104,9 @@ class BMS(BaseBMS):
         del self._frame[self._exp_len :]
 
         if not self._check_integrity(
-            self._frame,
-            crc_modbus,
-            slice(None, -2),
-            slice(-2, None),
-            "little",
+            self._frame, crc_modbus, slice(None, -2), slice(-2, None), "little"
         ):
+            self._frame.clear()
             return
 
         self._msg = bytes(self._frame)

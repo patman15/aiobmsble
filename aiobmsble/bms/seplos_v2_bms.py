@@ -49,31 +49,30 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 9, 2, False, lambda x: x / 10),
         BMSDp("battery_health", 15, 2, False, lambda x: x / 10),
     )
-    # 0x47 parameter table: parameter n (2-byte) at byte 2n-9, 1-byte parameters follow
-        # discharge current is reported negative, scale inverts it
+    # discharge current is reported negative, scale inverts it
     _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = (
-        LimitDp(Limit.CELL_OVP, "trip", 17, scale=0.001),  # #13
-        LimitDp(Limit.CELL_OVP, "release", 19, scale=0.001),  # #14
-        LimitDp(Limit.CELL_UVP, "trip", 21, scale=0.001),  # #15
-        LimitDp(Limit.CELL_UVP, "release", 23, scale=0.001),  # #16
-        LimitDp(Limit.PACK_OVP, "trip", 37, scale=0.01),  # #23
-        LimitDp(Limit.PACK_OVP, "release", 39, scale=0.01),  # #24
-        LimitDp(Limit.PACK_UVP, "trip", 41, scale=0.01),  # #25
-        LimitDp(Limit.PACK_UVP, "release", 43, scale=0.01),  # #26
-        LimitDp(Limit.CHARGE_OTP, "trip", 57, scale=0.1, offset=273.1),  # #33
-        LimitDp(Limit.CHARGE_OTP, "release", 59, scale=0.1, offset=273.1),  # #34
-        LimitDp(Limit.CHARGE_UTP, "trip", 61, scale=0.1, offset=273.1),  # #35
-        LimitDp(Limit.CHARGE_UTP, "release", 63, scale=0.1, offset=273.1),  # #36
-        LimitDp(Limit.DISCHARGE_OTP, "trip", 73, scale=0.1, offset=273.1),  # #41
-        LimitDp(Limit.DISCHARGE_OTP, "release", 75, scale=0.1, offset=273.1),  # #42
-        LimitDp(Limit.DISCHARGE_UTP, "trip", 77, scale=0.1, offset=273.1),  # #43
-        LimitDp(Limit.DISCHARGE_UTP, "release", 79, scale=0.1, offset=273.1),  # #44
-        LimitDp(Limit.MOS_OTP, "trip", 105, scale=0.1, offset=273.1),  # #57
-        LimitDp(Limit.MOS_OTP, "release", 107, scale=0.1, offset=273.1),  # #58
-        LimitDp(Limit.CHARGE_OCP, "trip", 117, scale=0.01),  # #63
-        LimitDp(Limit.DISCHARGE_OCP, "trip", 119, scale=-0.01, signed=True),  # #64
-        LimitDp(Limit.CHARGE_OCP, "delay", 136, size=1),  # #76
-        LimitDp(Limit.DISCHARGE_OCP, "delay", 137, size=1),  # #77
+        LimitDp(Limit.CELL_OVP, "trip", 17, scale=0.001),
+        LimitDp(Limit.CELL_OVP, "release", 19, scale=0.001),
+        LimitDp(Limit.CELL_UVP, "trip", 21, scale=0.001),
+        LimitDp(Limit.CELL_UVP, "release", 23, scale=0.001),
+        LimitDp(Limit.PACK_OVP, "trip", 37, scale=0.01),
+        LimitDp(Limit.PACK_OVP, "release", 39, scale=0.01),
+        LimitDp(Limit.PACK_UVP, "trip", 41, scale=0.01),
+        LimitDp(Limit.PACK_UVP, "release", 43, scale=0.01),
+        LimitDp(Limit.CHARGE_OTP, "trip", 57, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_OTP, "release", 59, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_UTP, "trip", 61, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_UTP, "release", 63, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_OTP, "trip", 73, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_OTP, "release", 75, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_UTP, "trip", 77, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_UTP, "release", 79, scale=0.1, offset=273.1),
+        LimitDp(Limit.MOS_OTP, "trip", 105, scale=0.1, offset=273.1),
+        LimitDp(Limit.MOS_OTP, "release", 107, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_OCP, "trip", 117, scale=0.01),
+        LimitDp(Limit.DISCHARGE_OCP, "trip", 119, scale=-0.01, signed=True),
+        LimitDp(Limit.CHARGE_OCP, "delay", 136, size=1),
+        LimitDp(Limit.DISCHARGE_OCP, "delay", 137, size=1),
     )
     _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
     _CMDS: Final[frozenset[tuple[int, bytes]]] = frozenset({(0x51, b""), (0x61, b"\x00")})
@@ -95,11 +94,10 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": pattern,
+                "local_name": "BP[0-2][0-9]*",
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
             }
-            for pattern in ("BP0?", "BP1?", "BP2?")
         ]
 
     @staticmethod
@@ -134,7 +132,7 @@ class BMS(BaseBMS):
         if (
             len(data) > BMS._MIN_LEN
             and data.startswith(BMS._HEAD)
-            and (len(self._frame) >= self._exp_len or not self._frame)
+            and (not self._frame or len(self._frame) >= self._exp_len)
         ):
             self._exp_len = min(BMS._MIN_LEN + int.from_bytes(data[5:7]), BMS._MAX_MSG_LEN)
             self._frame.clear()
@@ -148,19 +146,23 @@ class BMS(BaseBMS):
 
         if not self._frame.endswith(BMS._TAIL):
             self._log.debug("incorrect frame end: 0x%X", self._frame[-1])
+            self._frame.clear()
             return
 
         if self._frame[1] != BMS._RSP_VER:
             self._log.debug("unknown frame version: V%.1f", self._frame[1] / 10)
+            self._frame.clear()
             return
 
         if self._frame[4]:
             self._log.debug("BMS reported error code: 0x%X", self._frame[4])
+            self._frame.clear()
             return
 
         if not self._check_integrity(
             self._frame, lambda x: crc_xmodem(x[1:-3]), slice(None, None), slice(-3, -1)
         ):
+            self._frame.clear()
             return
 
         self._log.debug(
@@ -176,6 +178,8 @@ class BMS(BaseBMS):
             self._msg_event.set()
         except KeyError:
             self._log.debug("unexpected reply: 0x%X", self._frame[3])
+        finally:
+            self._frame.clear()
 
     async def _fetch_limits(self) -> BMSLimits:
         """Fetch the protection thresholds (0x47 parameter frame, group 0)."""
@@ -224,9 +228,7 @@ class BMS(BaseBMS):
         result |= BMS._decode_data(BMS._PFIELDS, self._msg[0x61], start=BMS._CELL_POS + ct_blk_len)
 
         states_pos: Final[int] = (
-            (BMS._CELL_POS + ct_blk_len)
-            + (result["cell_count"] + result["temp_count"])
-            + (3 + 19)
+            (BMS._CELL_POS + ct_blk_len) + (result["cell_count"] + result["temp_count"]) + (3 + 19)
         )
         cst_alarm_pos: Final[int] = states_pos + 1
         if len(self._msg[0x61]) <= cst_alarm_pos:
