@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.bms.felicity_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -44,38 +44,44 @@ RESP_VALUE: Final[dict[str, bytes]] = {
     ),
 }
 
-
 _RESULT_DEFS: Final[BMSSample] = {
-        "voltage": 54.07,
-        "current": 64.7,
-        "battery_level": 78.0,
-        "cycle_charge": 273.0,
-        "cycle_capacity": 14761.11,
-        "power": 3498.329,
-        "battery_charging": True,
-        "cell_count": 16,
-        "cell_voltages": [
-            3.378,
-            3.38,
-            3.379,
-            3.38,
-            3.379,
-            3.38,
-            3.38,
-            3.382,
-            3.389,
-            3.381,
-            3.38,
-            3.381,
-            3.38,
-            3.38,
-            3.379,
-            3.38,
-        ],
-        "temperature": [TS(34.0)] * 4,
-        "delta_cell_voltage": 0.011,
-        "problem": False,
-        "problem_code": 0,
+    "voltage": 54.07,
+    "current": 64.7,
+    "battery_level": 78.0,
+    "cycle_charge": 273.0,
+    "cycle_capacity": 14761.11,
+    "power": 3498.329,
+    "battery_charging": True,
+    "cell_count": 16,
+    "cell_voltages": [
+        3.378,
+        3.38,
+        3.379,
+        3.38,
+        3.379,
+        3.38,
+        3.38,
+        3.382,
+        3.389,
+        3.381,
+        3.38,
+        3.381,
+        3.38,
+        3.38,
+        3.379,
+        3.38,
+    ],
+    "temperature": [TS(34.0)] * 4,
+    "delta_cell_voltage": 0.011,
+    "problem": False,
+    "problem_code": 0,
+}
+
+_INFO_DEFS: Final[BMSInfo] = {
+    "fw_version": "519",
+    "sw_version": "2.06",
+    "model_id": "112",
+    "serial_number": "100011002424470238",
 }
 
 
@@ -119,9 +125,7 @@ class MockFelicityBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().write_gatt_char(char_specifier, data)
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         resp: bytes = self._response(char_specifier, data)
         for notify_data in [
@@ -150,17 +154,10 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockFelicityBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "519",
-        "sw_version": "2.06",
-        "model_id": "112",
-        "serial_number": "100011002424470238",
-    }
+    assert await bms.device_info() == _INFO_DEFS
 
 
-async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test Felicity BMS data update with problem response."""
 
     prb_resp: dict[str, bytes] = RESP_VALUE.copy()
@@ -207,9 +204,7 @@ async def test_invalid_response(
     """Test data up date with BMS returning invalid data."""
 
     patch_bms_timeout()
-    monkeypatch.setattr(
-        MockFelicityBleakClient, "_response", lambda _s, _c_, d: wrong_response
-    )
+    monkeypatch.setattr(MockFelicityBleakClient, "_response", lambda _s, _c_, d: wrong_response)
     patch_bleak_client(MockFelicityBleakClient)
 
     bms = BMS(generate_ble_device())

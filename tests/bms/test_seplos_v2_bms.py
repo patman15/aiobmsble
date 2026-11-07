@@ -1,6 +1,7 @@
 """Test the Seplos v2 implementation."""
 
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -16,7 +17,7 @@ from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
 
-_RESULT_DEFS: BMSSample = {
+_RESULT_DEFS: Final[BMSSample] = {
     "cell_count": 16,
     "temp_count": 6,
     "voltage": 54.43,

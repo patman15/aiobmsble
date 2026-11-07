@@ -268,7 +268,7 @@ async def test_device_info_incomplete(monkeypatch: pytest.MonkeyPatch, patch_ble
         "_RESP",
         MockPaceBleakClient._RESP
         | {
-            b"\x9a\x00\x00\x00\x01\x00\x00\x00\xe4\xc8\x9d": bytearray(
+            b"\x9a\x00\x00\x00\x01\x00\x00\x00\xe4\xc8\x9d": (
                 b"\x9a\x00\x00\x00\x01\x00\x00\x05\x00\x00\x00\x00\x00\x75\xd7\x9d"
             )
         },
@@ -290,7 +290,7 @@ async def test_cell_block_incomplete(monkeypatch: pytest.MonkeyPatch, patch_blea
         "_RESP",
         MockPaceBleakClient._RESP
         | {
-            b"\x9a\x00\x00\x0a\x02\x00\x00\x02\x01\x01\x28\x9c\x9d": bytearray(
+            b"\x9a\x00\x00\x0a\x02\x00\x00\x02\x01\x01\x28\x9c\x9d": (
                 b"\x9a\x00\x00\x0a\x02\x00\x00\x00\xa1\x50\x9d"
             )
         },
@@ -313,7 +313,7 @@ async def test_pack_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
         "_RESP",
         MockPaceBleakClient._RESP
         | {
-            b"\x9a\x00\x00\x0a\x00\x00\x00\x00\x19\x51\x9d": bytearray(
+            b"\x9a\x00\x00\x0a\x00\x00\x00\x00\x19\x51\x9d": (
                 b"\x9a\x00\x00\x0a\x00\x00\x00\x33" + bytes(51) + b"\x48\xde\x9d"
             )
         },
@@ -322,7 +322,7 @@ async def test_pack_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
 
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    result = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result == _RESULT_DEFS.get("packs", [])[0] | {
         "pack_count": 0,
         "balancer": 0x1FB7,

@@ -54,25 +54,25 @@ class TestBasicBMS(BMSBasicTests):
 class MockRenogyBleakClient(MockBleakClient):
     """Emulate a Renogy BMS BleakClient."""
 
-    RESP: dict[bytes, bytearray] = {
-        b"\x30\x03\x13\x88\x00\x22\x45\x5c": bytearray(
+    RESP: dict[bytes, bytes] = {
+        b"\x30\x03\x13\x88\x00\x22\x45\x5c": (
             b"\x30\x03\x44\x00\x04\x00\x23\x00\x21\x00\x21\x00\x21\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xaa\x00"
             b"\xaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x25\x74"
         ),  # cell count (4/16), cell [0.1 V] (3.5, 3.3, 3.3, 3.3), temp count (2/16), temp [0.1°C] (17,17)
-        b"\x30\x03\x13\xf0\x00\x1c\x44\x95": bytearray(  # Serial, name, sw-version
+        b"\x30\x03\x13\xf0\x00\x1c\x44\x95": (  # Serial, name, sw-version
             b"\x30\x03\x38\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\xc8\x32\x30\x32\x31\x30\x35"
             b"\x32\x36\x00\x00\x00\x00\x00\x00\x00\x00\x20\x20\x20\x20\x20\x20\x20\x20\x52\x42\x54"
             b"\x31\x30\x30\x4c\x46\x50\x31\x32\x2d\x42\x54\x20\x20\x30\x31\x30\x30\x55\x2f"
         ),  # 08È20210526        RBT100LFP12-BT  0100
-        BASE_VALUE_CMD: bytearray(
+        BASE_VALUE_CMD: (
             b"\x30\x03\x0e\xff\xaa\x00\x88\x00\x01\x7b\xb0\x00\x01\x86\xa0\x00\x0f\xe0\x1e"
         ),  # -0.86A, 13.6V, 97.2Ah [mAh], 100Ah [mAh], (15 cycles (generated))
-        b"\x30\x03\x13\xec\x00\x08\x85\x5c": bytearray(
+        b"\x30\x03\x13\xec\x00\x08\x85\x5c": (
             b"\x30\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x96\xa1"
         ),  # alarm flags
-        b"\x30\x03\x14\x02\x00\x08\xe4\x1d": bytearray(
+        b"\x30\x03\x14\x02\x00\x08\xe4\x1d": (
             b"\x30\x03\x10\x52\x42\x54\x31\x30\x30\x4c\x46\x50\x31\x32\x2d\x42\x54\x20\x20\x58\xbb"
         ),  # RBT100LFP12-BT
     }
@@ -85,7 +85,7 @@ class MockRenogyBleakClient(MockBleakClient):
         ) != normalize_uuid_str("ffd1"):
             return bytearray()
 
-        return self.RESP.get(cmd, bytearray())
+        return bytearray(self.RESP.get(cmd, b""))
 
     async def write_gatt_char(
         self,
@@ -151,16 +151,16 @@ async def test_device_info(patch_bleak_client) -> None:
     ],
     ids=lambda param: param[1],
 )
-def fix_response(request) -> bytearray:
+def fix_response(request) -> bytes:
     """Return faulty response frame."""
-    return bytearray(request.param[0])
+    return request.param[0]
 
 
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     patch_bms_timeout,
-    wrong_response: bytearray,
+    wrong_response: bytes,
 ) -> None:
     """Test data up date with BMS returning invalid data."""
 
@@ -193,7 +193,7 @@ async def test_short_alarm_response(monkeypatch: pytest.MonkeyPatch, patch_bleak
         "RESP",
         MockRenogyBleakClient.RESP
         | {
-            b"\x30\x03\x13\xec\x00\x08\x85\x5c": bytearray(
+            b"\x30\x03\x13\xec\x00\x08\x85\x5c": bytes(
                 frame + crc_modbus(frame).to_bytes(2, "little")
             )
         },
@@ -216,7 +216,7 @@ async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_cli
         "RESP",
         MockRenogyBleakClient.RESP
         | {
-            b"\x30\x03\x13\xec\x00\x08\x85\x5c": bytearray(
+            b"\x30\x03\x13\xec\x00\x08\x85\x5c": (
                 b"\x30\x03\x10\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xd6"
                 b"\xd1"
             )

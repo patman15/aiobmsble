@@ -88,7 +88,6 @@ _PROTO_DEFS: Final[dict[str, dict[str, bytearray]]] = {
     },
 }
 
-
 _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     "v1": {
         "delta_cell_voltage": 0.008,

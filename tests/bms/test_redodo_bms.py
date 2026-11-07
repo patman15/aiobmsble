@@ -77,9 +77,7 @@ class MockRedodoBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
-        self._notify_callback(
-            "MockRedodoBleakClient", self._response(char_specifier, data)
-        )
+        self._notify_callback("MockRedodoBleakClient", self._response(char_specifier, data))
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
@@ -168,9 +166,7 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_short_frame(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_short_frame(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that a valid but too short frame does not break temperature detection."""
 
     monkeypatch.setattr(MockRedodoBleakClient, "_RESP", b"\x00\x00\x00\x00")
@@ -187,7 +183,7 @@ async def test_short_frame(
     name="problem_response",
     params=[
         (
-            bytearray(
+            (
                 b"\x00\x00\x65\x01\x93\x55\xaa\x00\x46\x66\x00\x00\xbc\x67\x00\x00\xf5\x0c\xf7\x0c"
                 b"\xfc\x0c\xfb\x0c\xf8\x0c\xf2\x0c\xfa\x0c\xf5\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x65\xfa\xff\xff\x17\x00\x16\x00\xfe\xff\x00\x00"
@@ -198,7 +194,7 @@ async def test_short_frame(
             "first_bit",
         ),
         (
-            bytearray(
+            (
                 b"\x00\x00\x65\x01\x93\x55\xaa\x00\x46\x66\x00\x00\xbc\x67\x00\x00\xf5\x0c\xf7\x0c"
                 b"\xfc\x0c\xfb\x0c\xf8\x0c\xf2\x0c\xfa\x0c\xf5\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x65\xfa\xff\xff\x17\x00\x16\x00\xfe\xff\x00\x00"
@@ -211,11 +207,11 @@ async def test_short_frame(
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytes, str]:
     """Return faulty response frame."""
     assert (
         isinstance(request.param, tuple)
-        and isinstance(request.param[0], bytearray)
+        and isinstance(request.param[0], bytes)
         and isinstance(request.param[1], str)
     )
     return request.param
@@ -224,7 +220,7 @@ def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    problem_response: tuple[bytearray, str],
+    problem_response: tuple[bytes, str],
 ) -> None:
     """Test data up date with BMS returning protection flags."""
 
@@ -242,9 +238,7 @@ async def test_problem_response(
     await bms.disconnect()
 
 
-async def test_temp_sensor_detection(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_temp_sensor_detection(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test data up date with BMS returning protection flags."""
 
     _frame: bytearray = bytearray(MockRedodoBleakClient._RESP)
