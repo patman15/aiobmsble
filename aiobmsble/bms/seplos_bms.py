@@ -269,7 +269,7 @@ class BMS(BaseBMS):
             )
 
             # add temperature sensors (4x cell temperature + 4 reserved)
-            pack_sample["temp_values"] = BMS._temp_values(
+            pack_sample["temperature"] = BMS._temperature(
                 self._msg[pack << 8 | BMS._PIB_LEN],
                 values=4,
                 start=BMS._TEMP_START,
@@ -277,7 +277,7 @@ class BMS(BaseBMS):
                 offset=2731,
                 divider=10,
                 types=(TempSensor.T.CELL,) * 4,
-            ) + BMS._temp_values(
+            ) + BMS._temperature(
                 self._msg[pack << 8 | BMS._PIB_LEN],
                 values=2,
                 start=BMS._TEMP_START + 16,

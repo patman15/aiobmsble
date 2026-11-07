@@ -145,7 +145,7 @@ class BMS(BaseBMS):
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=44)
         result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=16, start=12)
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg, values=4, start=48, size=1, signed=False, offset=40
         )
         self._msg_event.clear()

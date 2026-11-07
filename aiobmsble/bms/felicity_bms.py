@@ -142,7 +142,7 @@ class BMS(BaseBMS):
         try:
             return (
                 BMS._conv_data(self._msg)
-                | {"temp_values": BMS._conv_temp(self._msg)}
+                | {"temperature": BMS._conv_temp(self._msg)}
                 | {"cell_voltages": BMS._conv_cells(self._msg)}
                 | {
                     "problem_code": BMS._int(self._msg.get("Bwarn", 0))

@@ -45,7 +45,7 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 10, 2, False),
         BMSDp("voltage", 14, 2, False, lambda x: x / 100),
         BMSDp("current", 16, 2, True),
-        BMSDp("temp_values", 18, 2, True, lambda x: [TS(x / 10)]),
+        BMSDp("temperature", 18, 2, True, lambda x: [TS(x / 10)]),
         BMSDp("pack_count", 42, 2, False),
         BMSDp("design_capacity", 108, 2, False),
         # BMSDp("problem_code", 100, 8, False), # not verified
@@ -161,7 +161,7 @@ class BMS(BaseBMS):
             pack_sample["cell_voltages"] = BMS._cell_voltages(
                 pack_response, cells=pack_response[BMS._CELLNUM_POS], start=BMS._CELL_POS
             )
-            pack_sample["temp_values"] = BMS._temp_values(  # 4x cell temperature + 4 reserved
+            pack_sample["temperature"] = BMS._temperature(  # 4x cell temperature + 4 reserved
                 pack_response, values=pack_response[BMS._TEMPNUM_POS], start=BMS._TEMP_POS
             )
             result.setdefault("packs", []).append(pack_sample)

@@ -112,7 +112,7 @@ _PROTO_DEFS: Final[dict[str, dict[int, bytes]]] = {
 _RESULT_DEFS: dict[str, BMSSample] = {
     "4S4Tv0.0": {
         "cell_count": 4,
-        "temp_sensors": 4,
+        "temp_count": 4,
         "voltage": 13.18,
         "current": 0.0,
         "battery_level": 55,
@@ -123,13 +123,13 @@ _RESULT_DEFS: dict[str, BMSSample] = {
         "power": 0.0,
         "battery_charging": False,
         "cell_voltages": [3.297, 3.295, 3.297, 3.292],
-        "temp_values": [
+        "temperature": [
             TS(23.3, TS.T.AMBIENT),
             TS(24.1, TS.T.MOSFET),
             TS(22.7, TS.T.CELL),
             TS(22.6, TS.T.CELL),
         ],
-        "delta_voltage": 0.005,
+        "delta_cell_voltage": 0.005,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
         "problem": False,
@@ -137,7 +137,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
     },
     "16S6Tv0.0": {
         "cell_count": 16,
-        "temp_sensors": 6,
+        "temp_count": 6,
         "voltage": 52.7,
         "current": -5.7,
         "battery_level": 91,
@@ -165,9 +165,9 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.295,
             3.294,
         ],
-        "temp_values": [TS(18.0, TS.T.AMBIENT), TS(19.7, TS.T.MOSFET)]
+        "temperature": [TS(18.0, TS.T.AMBIENT), TS(19.7, TS.T.MOSFET)]
         + [TS(v, TS.T.CELL) for v in (18.0, 18.0, 18.0, 18.8)],
-        "delta_voltage": 0.012,
+        "delta_cell_voltage": 0.012,
         "runtime": 62589,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
@@ -176,7 +176,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
     },
     "16S6Tv0.4": {
         "cell_count": 16,
-        "temp_sensors": 6,
+        "temp_count": 6,
         "cell_voltages": [
             3.25,
             3.256,
@@ -195,7 +195,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.255,
             3.256,
         ],
-        "temp_values": [TS(25.5, TS.T.AMBIENT), TS(25.2, TS.T.MOSFET)]
+        "temperature": [TS(25.5, TS.T.AMBIENT), TS(25.2, TS.T.MOSFET)]
         + [TS(v, TS.T.CELL) for v in (27.0, 26.0, 28.0, 27.3)],
         "voltage": 52.16,
         "current": -16.2,
@@ -204,7 +204,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
         "cycles": 213,
         "design_capacity": 120,
         "problem_code": 0,
-        "delta_voltage": 0.008,
+        "delta_cell_voltage": 0.008,
         "cycle_capacity": 3364.32,
         "power": -844.992,
         "battery_charging": False,
@@ -215,7 +215,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
     },
     "16S6Tv1.1": {
         "cell_count": 16,
-        "temp_sensors": 6,
+        "temp_count": 6,
         "cell_voltages": [
             3.317,
             3.314,
@@ -234,7 +234,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.314,
             3.311,
         ],
-        "temp_values": [
+        "temperature": [
             TS(27.0, TS.T.AMBIENT),
             TS(29.0, TS.T.MOSFET),
             TS(26.0, TS.T.CELL),
@@ -251,7 +251,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
         "problem_code": 0,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
-        "delta_voltage": 0.006,
+        "delta_cell_voltage": 0.006,
         "cycle_capacity": 2598.47,
         "power": 265.15,
         "battery_charging": True,
@@ -259,7 +259,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
     },
     "16S6Tv1.3": {
         "cell_count": 16,
-        "temp_sensors": 6,
+        "temp_count": 6,
         "cell_voltages": [
             3.316,
             3.316,
@@ -278,7 +278,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.315,
             3.317,
         ],
-        "temp_values": [
+        "temperature": [
             TS(32.0, TS.T.AMBIENT),
             TS(34.0, TS.T.MOSFET),
             TS(29.0, TS.T.CELL),
@@ -296,7 +296,7 @@ _RESULT_DEFS: dict[str, BMSSample] = {
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
         "battery_charging": False,
-        "delta_voltage": 0.003,
+        "delta_cell_voltage": 0.003,
         "cycle_capacity": 1326.5,
         "power": 0.0,
         "problem": False,

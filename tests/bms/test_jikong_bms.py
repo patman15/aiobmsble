@@ -224,7 +224,7 @@ _PROTO_DEFS: Final[dict[str, dict[str, bytearray]]] = {
 _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     "JK02_24S": {
         "cell_count": 16,
-        "delta_voltage": 0.005,
+        "delta_cell_voltage": 0.005,
         "voltage": 52.971,
         "current": 2.329,
         "balance_current": 0.002,
@@ -256,8 +256,8 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "heater_current": 0.0,
         "power": 123.369,
         "battery_charging": True,
-        "temp_values": [TS(18.1), TS(18.6), TS(22.8, TS.T.MOSFET)],
-        "temp_sensors": 7,
+        "temperature": [TS(18.1), TS(18.6), TS(22.8, TS.T.MOSFET)],
+        "temp_count": 7,
         "problem": False,
         "problem_code": 0,
         "balancer": False,
@@ -266,7 +266,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     },
     "JK02_32S": {
         "cell_count": 8,
-        "delta_voltage": 0.003,
+        "delta_cell_voltage": 0.003,
         "voltage": 26.509,
         "current": -7.063,
         "battery_level": 68,
@@ -277,9 +277,9 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "heater_current": 0.0,
         "cycles": 21,
         "balance_current": 0.0,
-        "temp_sensors": 255,
+        "temp_count": 255,
         "problem_code": 0,
-        "temp_values": [
+        "temperature": [
             TS(31.0, TS.T.MOSFET),
             TS(28.4),
             TS(29.2),
@@ -297,7 +297,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     },
     "JK02_32S_v15": {
         "cell_count": 16,
-        "delta_voltage": 0.016,
+        "delta_cell_voltage": 0.016,
         "battery_mode": BMSMode.FLOAT,
         "voltage": 53.224,
         "current": 31.881,
@@ -309,9 +309,9 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "heater_current": 0.0,
         "cycles": 9,
         "balance_current": 0.0,
-        "temp_sensors": 255,
+        "temp_count": 255,
         "problem_code": 0,
-        "temp_values": [
+        "temperature": [
             TS(12.9, TS.T.MOSFET),
             TS(13.4),
             TS(12.8),
@@ -347,7 +347,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
     },
     "JK02_32S_v19.05": {
         "cell_count": 16,
-        "delta_voltage": 0.016,
+        "delta_cell_voltage": 0.016,
         "battery_mode": BMSMode.FLOAT,
         "voltage": 53.224,
         "current": 31.881,
@@ -359,9 +359,9 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "heater_current": 0.0,
         "cycles": 9,
         "balance_current": 0.0,
-        "temp_sensors": 255,
+        "temp_count": 255,
         "problem_code": 0,
-        "temp_values": [
+        "temperature": [
             TS(12.9, TS.T.MOSFET),
             TS(13.4),
             TS(12.8),
@@ -410,11 +410,11 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "battery_health": 100,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
-        "temp_sensors": 255,
+        "temp_count": 255,
         "cell_count": 8,
-        "delta_voltage": 0.005,
+        "delta_cell_voltage": 0.005,
         "battery_mode": BMSMode.BULK,
-        "temp_values": [
+        "temperature": [
             TS(26.2, TS.T.MOSFET),
             TS(23.3),
             TS(23.6),
@@ -684,7 +684,7 @@ async def test_invalid_sw_version_defaults_to_zero(
     await bms.disconnect()
 
 
-async def test_hide_temp_sensors(
+async def test_hide_temp_count(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client, protocol_type: str
 ) -> None:
     """Test Jikong BMS data update with not connected temperature sensors."""
@@ -710,14 +710,14 @@ async def test_hide_temp_sensors(
     # modify result dict to match removed temp#1, temp#2
     ref_result: BMSSample = deepcopy(_RESULT_DEFS[protocol_type])
     if protocol_type == "JK02_24S":
-        ref_result |= {"temp_sensors": 3}
+        ref_result |= {"temp_count": 3}
     else:
-        ref_result |= {"temp_sensors": 251}
+        ref_result |= {"temp_count": 251}
 
-    temp_values: list[TS] = ref_result.get("temp_values", [])
-    temp_values.pop(1)  # remove sensor 1
-    temp_values.pop(1)  # remove sensor 2
-    ref_result["temp_values"] = temp_values.copy()
+    temperature: list[TS] = ref_result.get("temperature", [])
+    temperature.pop(1)  # remove sensor 1
+    temperature.pop(1)  # remove sensor 2
+    ref_result["temperature"] = temperature.copy()
 
     assert await bms.async_update() == ref_result
 

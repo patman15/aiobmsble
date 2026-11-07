@@ -44,9 +44,9 @@ _RESULT: Final[BMSSample] = {
     "cycle_charge": 117.1,
     "cycle_capacity": 3114.86,
     "cycles": 2,
-    "temp_values": [TS(17.0, TS.T.GENERIC), TS(17.0, TS.T.GENERIC)],
+    "temperature": [TS(17.0, TS.T.GENERIC), TS(17.0, TS.T.GENERIC)],
     "cell_count": 8,
-    "delta_voltage": 0.003,
+    "delta_cell_voltage": 0.003,
     "power": 0.0,
     "battery_charging": False,
     "problem": False,
@@ -82,7 +82,7 @@ _RESULT_CHARGING: Final[BMSSample] = _RESULT | {
     "battery_level": 78.5,
     "cycle_charge": 117.8,
     "cycle_capacity": 3192.38,
-    "delta_voltage": 0.002,
+    "delta_cell_voltage": 0.002,
     "power": 682.92,
     "battery_charging": True,
 }
@@ -135,9 +135,7 @@ async def test_update(
     await bms.disconnect()
 
 
-async def test_update_charging(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_update_charging(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test Rolls VB-series BMS data update while charging, current is positive."""
 
     monkeypatch.setattr(MockRollsVBBleakClient, "RESP", _RESP_CHARGING)
@@ -209,6 +207,5 @@ async def test_invalid_response(
 def test_cmd_crc() -> None:
     """Verify assembled MODBUS request frames match captured device traffic."""
     assert BMS._cmd_modbus(dev_id=0xD2, addr=0x0000, count=16) == (
-        b"\xd2\x03\x00\x00\x00\x10"
-        + crc_modbus(b"\xd2\x03\x00\x00\x00\x10").to_bytes(2, "little")
+        b"\xd2\x03\x00\x00\x00\x10" + crc_modbus(b"\xd2\x03\x00\x00\x00\x10").to_bytes(2, "little")
     )

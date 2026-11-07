@@ -31,7 +31,7 @@ class BMS(BaseBMS):
         BMSDp("heater", 30, 2, False, lambda x: bool(x == 0x0010)),
         BMSDp("balancer", 30, 2, False, lambda x: bool(x == 0x0100)),
         BMSDp("cell_count", 34, 2, False),
-        BMSDp("temp_sensors", 40, 2, False),
+        BMSDp("temp_count", 40, 2, False),
     )
 
     def __init__(
@@ -115,17 +115,15 @@ class BMS(BaseBMS):
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=3)
         result["cell_voltages"] = BMS._cell_voltages(
-            self._msg,
-            cells=result.get("cell_count", 0),
-            start=3 + 27 * 2,
+            self._msg, cells=result.get("cell_count", 0), start=3 + 27 * 2
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg,
             start=3 + 59 * 2,
-            values=2,
+            values=result.get("temp_count", 0),
             divider=10,
             types=(TempSensor.T.CELL, TempSensor.T.CELL),
-        ) + BMS._temp_values(
+        ) + BMS._temperature(
             self._msg,
             start=3 + 23 * 2,
             values=2,

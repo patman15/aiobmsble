@@ -128,7 +128,7 @@ class BMS(EJBMS):
             "cell_voltages": BMS._cell_voltages(
                 self._msg, cells=BMS._MAX_CELLS, start=BMS._CELL_POS
             ),
-            "temp_values": BMS._temp_values(
+            "temperature": BMS._temperature(
                 self._msg, start=48, values=4, size=1, signed=False, offset=40
             ),
         }

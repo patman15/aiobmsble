@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.myvolta_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -35,6 +35,49 @@ _PROTO_DEFS: Final[bytes] = (
     b"\x55\x55\x01\x28\x02\x00\x00\x00\x08\xdc\xfd\xdc\xfd\xdc\xfd\xdc\xfdi\x04\x04"
     b"\x55\x55\x01\x29\x02\x00\x00\x00\x08\xdc\xfd\xdc\xfd\xdc\xfd\xdc\xfdh\x04\x04"
 )
+_RESULT_DEFS: Final[BMSSample] = {
+    "voltage": 57.345,
+    "cell_count": 15,
+    "cell_voltages": [
+        4.104,
+        4.104,
+        4.104,
+        4.104,
+        4.104,
+        4.104,
+        4.099,
+        4.104,
+        4.095,
+        4.104,
+        4.104,
+        4.104,
+        4.104,
+        4.104,
+        0.001,
+    ],
+    "current": -0.56,
+    "delta_cell_voltage": 4.103,
+    "battery_level": 94.2,
+    "heater": False,
+    "problem_code": 0,
+    "power": -32.113,
+    "battery_charging": False,
+    "problem": False,
+    "temperature": [TS(t) for t in (
+        17.1,
+        17.2,
+        17.2,
+        17.3,
+        17.2,
+        17.2,
+        16.6,
+        16.8,
+        16.7,
+        16.6,
+        16.9,
+        16.6)
+    ],
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -46,9 +89,7 @@ class TestBasicBMS(BMSBasicTests):
 class MockMyVoltaBleakClient(MockBleakClient):
     """Emulate a MyVolta BMS BleakClient."""
 
-    _chunk_sizes: Final[bytes] = (
-        b"\x01\x03\x05\x07\x13\x01\x03\x05\x07\x01\x03\x05\x01\x03\x01"
-    )
+    _chunk_sizes: Final[bytes] = b"\x01\x03\x05\x07\x13\x01\x03\x05\x07\x01\x03\x05\x01\x03\x01"
     _RESP: bytes = _PROTO_DEFS
 
     def __init__(
@@ -59,9 +100,7 @@ class MockMyVoltaBleakClient(MockBleakClient):
         **kwargs: Any,
     ) -> None:
         """Initialize the MockMyVoltaBleakClient."""
-        super().__init__(
-            address_or_ble_device, disconnected_callback, services, **kwargs
-        )
+        super().__init__(address_or_ble_device, disconnected_callback, services, **kwargs)
         self._task: asyncio.Task[None] | None = None
         self._iterator: int = 0
         self._pos: int = 0
@@ -83,9 +122,7 @@ class MockMyVoltaBleakClient(MockBleakClient):
     async def start_notify(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[
-            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-        ],
+        callback: Callable[[BleakGATTCharacteristic, bytearray], None | Awaitable[None]],
         **kwargs: Any,
     ) -> None:
         """Mock start_notify."""
@@ -109,49 +146,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == {
-        "voltage": 57.345,
-        "cell_count": 15,
-        "cell_voltages": [
-            4.104,
-            4.104,
-            4.104,
-            4.104,
-            4.104,
-            4.104,
-            4.099,
-            4.104,
-            4.095,
-            4.104,
-            4.104,
-            4.104,
-            4.104,
-            4.104,
-            0.001,
-        ],
-        "current": -0.56,
-        "delta_voltage": 4.103,
-        "battery_level": 94.2,
-        "heater": False,
-        "problem_code": 0,
-        "power": -32.113,
-        "battery_charging": False,
-        "problem": False,
-        "temp_values": [
-            17.1,
-            17.2,
-            17.2,
-            17.3,
-            17.2,
-            17.2,
-            16.6,
-            16.8,
-            16.7,
-            16.6,
-            16.9,
-            16.6,
-        ],
-    }
+    assert await bms.async_update() == _RESULT_DEFS
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture

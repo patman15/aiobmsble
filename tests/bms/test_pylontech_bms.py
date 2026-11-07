@@ -17,32 +17,6 @@ from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
-# ---------------------------------------------------------------------------
-# Reference values
-#
-# Captured from a Pylontech RT12100G31 during discharge at ~4.8 A:
-#
-#   Main block response (0x1016–0x1022, 13 registers):
-#   01 03 1a                            addr, FC, byte-count
-#   05 2c                               0x1016  voltage:   1324  -> 13.24 V
-#   ff d0                               0x1017  current:    -48  -> -4.8 A
-#   0c f0                               0x1018  cell max:  3312  ->  3.312 V
-#   0c ef                               0x1019  cell min:  3311  ->  3.311 V
-#   00 96                               0x101A  temp max:   150  -> 15.0 °C
-#   00 96                               0x101B  temp min:   150  -> 15.0 °C
-#   00 5b                               0x101C  SoC:         91  -> 91 %
-#   00 63                               0x101D  SoH:         99  -> 99 %
-#   00 3f                               0x101E  power:       63  -> 63 W
-#   00 00                               0x101F  unknown:      0
-#   0b 90                               0x1020  lifetime:  2960  -> 296.0 kWh
-#   03 e8                               0x1021  allowed:   1000  -> 100.0 A
-#   03 e8                               0x1022  dcap:      1000  -> 100 Ah
-#   45 d8                               CRC
-#
-#   SN block response (0x2000–0x2007, 8 registers = "A231015000000001"):
-#   01 03 10 41 32 33 31 30 31 35 30 30 30 30 30 30 30 30 31 85 04
-# ---------------------------------------------------------------------------
-
 # Modbus request bytes (used as keys in mock response dict)
 _REQ_MAIN: Final[bytes] = b"\x01\x03\x10\x16\x00\x0d\x61\x0b"
 _REQ_SN: Final[bytes] = b"\x01\x03\x20\x00\x00\x08\x4f\xcc"
@@ -67,21 +41,21 @@ TX_UUID: Final[str] = BMS.uuid_tx()
 
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "voltage": 13.24,
-        "current": -4.8,
-        "power": 63.0,
-        "battery_level": 91,
-        "battery_health": 99,
-        "design_capacity": 100,
-        "cycle_charge": 91.0,
-        "cycle_capacity": round(13.24 * 91.0, 3),
-        "temp_values": [TS(15.0)] * 2,
-        "cell_voltages": [3.312, 3.311],
-        "delta_voltage": 0.001,
-        "cell_count": 2,
-        "battery_charging": False,
-        "problem": False,
-        "runtime": int(91.0 / 4.8 * 3600),
+    "voltage": 13.24,
+    "current": -4.8,
+    "power": 63.0,
+    "battery_level": 91,
+    "battery_health": 99,
+    "design_capacity": 100,
+    "cycle_charge": 91.0,
+    "cycle_capacity": round(13.24 * 91.0, 3),
+    "temperature": [TS(15.0)] * 2,
+    "cell_voltages": [3.312, 3.311],
+    "delta_cell_voltage": 0.001,
+    "cell_count": 2,
+    "battery_charging": False,
+    "problem": False,
+    "runtime": int(91.0 / 4.8 * 3600),
 }
 
 
@@ -115,11 +89,7 @@ class MockPylontechBleakClient(MockBleakClient):
         assert self._notify_callback is not None
         resp = bytearray(
             self._response(
-                (
-                    char_specifier
-                    if isinstance(char_specifier, str)
-                    else str(char_specifier)
-                ),
+                (char_specifier if isinstance(char_specifier, str) else str(char_specifier)),
                 bytes(data),
             )
         )
@@ -164,10 +134,8 @@ async def test_device_info_empty_sn_no_exception(
     await bms.disconnect()
 
 
-async def test_negative_temperature(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
-    """Test that negative temperatures (int16) decode correctly."""
+async def test_negative_temperature(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that negative temperature (int16) decode correctly."""
     monkeypatch.setattr(
         MockPylontechBleakClient,
         "RESP",
@@ -176,7 +144,7 @@ async def test_negative_temperature(
     patch_bleak_client(MockPylontechBleakClient)
     bms = BMS(generate_ble_device())
     result: BMSSample = await bms.async_update()
-    assert result.get("temp_values") == [TS(-2.0), TS(-2.0)]
+    assert result.get("temperature") == [TS(-2.0), TS(-2.0)]
     await bms.disconnect()
 
 
@@ -277,7 +245,5 @@ def test_matcher_covers_rt_variants(
     if has_service_uuid:
         adv_dict["service_uuids"] = [normalize_uuid_str("180f")]
     adv: AdvertisementData = adv_dict_to_advdata(adv_dict)
-    matched: bool = any(
-        _advertisement_matches(m, adv, "") for m in BMS.matcher_dict_list()
-    )
+    matched: bool = any(_advertisement_matches(m, adv, "") for m in BMS.matcher_dict_list())
     assert matched is should_match

@@ -1,6 +1,7 @@
 """Test the PowerBoozt batteries implementation."""
 
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -14,6 +15,26 @@ from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
+
+_RESULT_DEFS: Final[BMSSample] = {
+    "battery_charging": False,
+    "battery_level": 99,
+    "current": -0.79,
+    "cycles": 3,
+    "design_capacity": 105,
+    "voltage": 13.618,
+    "problem_code": 0,
+    "heater": False,
+    "cell_voltages": [3.406, 3.404, 3.409, 3.399],
+    "temperature": [TS(14.0)] * 4,
+    "cell_count": 4,
+    "delta_cell_voltage": 0.01,
+    "cycle_charge": 103.95,
+    "power": -10.758,
+    "runtime": 473696,
+    "cycle_capacity": 1415.591,
+    "problem": False,
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -65,25 +86,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == {
-        "battery_charging": False,
-        "battery_level": 99,
-        "current": -0.79,
-        "cycles": 3,
-        "design_capacity": 105,
-        "voltage": 13.618,
-        "problem_code": 0,
-        "heater": False,
-        "cell_voltages": [3.406, 3.404, 3.409, 3.399],
-        "temp_values": [TS(14.0)] * 4,
-        "cell_count": 4,
-        "delta_voltage": 0.01,
-        "cycle_charge": 103.95,
-        "power": -10.758,
-        "runtime": 473696,
-        "cycle_capacity": 1415.591,
-        "problem": False,
-    }
+    assert await bms.async_update() == _RESULT_DEFS
 
     # query again to check already connected state
     await bms.async_update()

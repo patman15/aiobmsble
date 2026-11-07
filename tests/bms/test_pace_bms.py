@@ -16,41 +16,16 @@ from tests.test_basebms import BMSBasicTests
 BT_FRAME_SIZE = 200
 
 _RESULT_DEFS: BMSSample = {
-    "voltage": 53.01,
     "current": -4.23,
-    "battery_level": 74,
-    "battery_health": 100,
+    "voltage": 53.01,
     "cycle_charge": 74.0,
     "design_capacity": 100,
-    "cycle_capacity": 3922.74,
-    "delta_voltage": 0.004,
-    "cycles": 239,
-    "cell_count": 16,
-    "cell_voltages": [
-        3.31,
-        3.308,
-        3.31,
-        3.311,
-        3.311,
-        3.31,
-        3.311,
-        3.311,
-        3.311,
-        3.312,
-        3.311,
-        3.31,
-        3.31,
-        3.311,
-        3.31,
-        3.308,
-    ],
-    "battery_charging": False,
-    "balancer": 0x1FB7,
-    "runtime": 62978,
-    "power": -224.232,
-    "problem": False,
+    "battery_level": 74,
+    "battery_health": 100,
     "pack_count": 1,
-    "temp_values": [TS(22.7, TS.T.CELL_MAX), TS(22.2, TS.T.CELL_MIN)],
+    "cycles": 239,
+    "balancer": 0x1FB7,
+    "temperature": [TS(22.7, TS.T.CELL_MAX), TS(22.2, TS.T.CELL_MIN)],
     "packs": [
         {
             "current": -3.84,
@@ -79,10 +54,19 @@ _RESULT_DEFS: BMSSample = {
                 3.31,
                 3.308,
             ],
-            "temp_values": [TS(t, TS.T.CELL) for t in (22.2, 22.4, 22.7, 22.4)],
-            "delta_voltage": 0.004,
+            "temperature": [TS(t, TS.T.CELL) for t in (22.2, 22.4, 22.7, 22.4)],
+            "delta_cell_voltage": 0.004,
+            "cycle_capacity": 3935.675,
+            "power": -203.597,
         }
     ],
+    "cell_count": 16,
+    "cycle_capacity": 3935.675,
+    "delta_cell_voltage": 0.004,
+    "battery_charging": False,
+    "power": -224.232,
+    "runtime": 62978,
+    "problem": False,
 }
 
 
@@ -284,7 +268,7 @@ async def test_device_info_incomplete(monkeypatch: pytest.MonkeyPatch, patch_ble
         "_RESP",
         MockPaceBleakClient._RESP
         | {
-            b"\x9a\x00\x00\x00\x01\x00\x00\x00\xe4\xc8\x9d": bytearray(
+            b"\x9a\x00\x00\x00\x01\x00\x00\x00\xe4\xc8\x9d": (
                 b"\x9a\x00\x00\x00\x01\x00\x00\x05\x00\x00\x00\x00\x00\x75\xd7\x9d"
             )
         },
@@ -306,7 +290,7 @@ async def test_cell_block_incomplete(monkeypatch: pytest.MonkeyPatch, patch_blea
         "_RESP",
         MockPaceBleakClient._RESP
         | {
-            b"\x9a\x00\x00\x0a\x02\x00\x00\x02\x01\x01\x28\x9c\x9d": bytearray(
+            b"\x9a\x00\x00\x0a\x02\x00\x00\x02\x01\x01\x28\x9c\x9d": (
                 b"\x9a\x00\x00\x0a\x02\x00\x00\x00\xa1\x50\x9d"
             )
         },
@@ -329,7 +313,7 @@ async def test_pack_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
         "_RESP",
         MockPaceBleakClient._RESP
         | {
-            b"\x9a\x00\x00\x0a\x00\x00\x00\x00\x19\x51\x9d": bytearray(
+            b"\x9a\x00\x00\x0a\x00\x00\x00\x00\x19\x51\x9d": (
                 b"\x9a\x00\x00\x0a\x00\x00\x00\x33" + bytes(51) + b"\x48\xde\x9d"
             )
         },
@@ -338,7 +322,7 @@ async def test_pack_update(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
 
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    result = await bms.async_update()
+    result: BMSSample = await bms.async_update()
     assert result == _RESULT_DEFS.get("packs", [])[0] | {
         "pack_count": 0,
         "balancer": 0x1FB7,

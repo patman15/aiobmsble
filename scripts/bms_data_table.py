@@ -16,7 +16,7 @@ from types import ModuleType
 from typing import Any, Final
 
 from aiobmsble import BMSValue
-from aiobmsble._sample_calc import BMSSample_Calc_registry
+from aiobmsble._sample_calc import _bms_registry
 
 ALWAYS_CALC: Final[frozenset[str]] = frozenset({"problem"})
 ROOT: Final[Path] = Path(__file__).parents[1]
@@ -108,7 +108,7 @@ def main() -> None:
         available_fields: list[BMSValue] = [
             field for field in fields if file_has_field(f, field)
         ]
-        for calc in BMSSample_Calc_registry():
+        for calc in _bms_registry():
             if calc.requires.issubset(available_fields):
                 # If all required fields for a calculated field are available,
                 # we consider the calculated field as available too

@@ -33,7 +33,6 @@ _PROTO_DEFS: Final[bytes] = (
 
 _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 13.44,
-    "current": 14.22,
     "battery_level": 64,
     "cycle_charge": 217.32,
     "design_capacity": 337,
@@ -41,19 +40,20 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycles": 3,
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
+    "current": 14.22,
     "heater": False,
     "balancer": False,
     "cell_count": 4,
-    "temp_sensors": 2,
-    "cell_voltages": [3.361, 3.359, 3.361, 3.362],
-    "temp_values": [
+    "temp_count": 2,
+    "temperature": [
         TS(21.1, TS.T.CELL),
         TS(22.0, TS.T.CELL),
         TS(20.8, TS.T.MOSFET),
         TS(23.0, TS.T.AMBIENT),
     ],
+    "cell_voltages": [3.361, 3.359, 3.361, 3.362],
     "battery_charging": True,
-    "delta_voltage": 0.003,
+    "delta_cell_voltage": 0.003,
     "cycle_capacity": 2920.781,
     "power": 191.117,
     "problem": False,

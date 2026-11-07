@@ -170,7 +170,7 @@ class BMS(BaseBMS):
         pack["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=pack["cell_count"], start=BMS._CELL_POS, gap=2
         )
-        pack["temp_values"] = BMS._temp_values(
+        pack["temperature"] = BMS._temperature(
             self._msg,
             values=6,
             start=14,
@@ -182,7 +182,7 @@ class BMS(BaseBMS):
         )
         await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=8)
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg,
             values=2,
             start=BMS._SYS_TEMP_POS,

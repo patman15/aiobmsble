@@ -1,15 +1,38 @@
 """Test the E&J EJ PRO BMS implementation."""
 
 from collections.abc import Buffer
+from typing import Final
 from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 
-from aiobmsble import BMSConfig
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.ejpro_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.bms.test_ag_bms import MockAGBleakClient
 from tests.test_basebms import BMSBasicTests
+
+_RESULT_DEFS: Final[BMSSample] = {
+    "voltage": 13.185,
+    "current": -3.34,
+    "battery_level": 60,
+    "battery_charging": False,
+    "chrg_mosfet": True,
+    "cycle_capacity": 777.915,
+    "cycle_charge": 59.0,
+    "cycles": 63,
+    "cell_count": 4,
+    "cell_voltages": [3.296, 3.297, 3.295, 3.297],
+    "delta_cell_voltage": 0.002,
+    "dischrg_mosfet": True,
+    "power": -44.038,
+    "temperature": [TS(6.0)],
+    "problem": False,
+    "problem_code": 0,
+    "balancer": 0,
+    "heater": False,
+    "runtime": 63592,
+}
 
 
 class TestBasicBMS(BMSBasicTests):
@@ -39,26 +62,6 @@ async def test_update(patch_bleak_client) -> None:
     patch_bleak_client(MockEJProBleakClient)
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    assert await bms.async_update() == {
-        "voltage": 13.185,
-        "current": -3.34,
-        "battery_level": 60,
-        "battery_charging": False,
-        "chrg_mosfet": True,
-        "cycle_capacity": 777.915,
-        "cycle_charge": 59.0,
-        "cycles": 63,
-        "cell_count": 4,
-        "cell_voltages": [3.296, 3.297, 3.295, 3.297],
-        "delta_voltage": 0.002,
-        "dischrg_mosfet": True,
-        "power": -44.038,
-        "temp_values": [6.0],
-        "problem": False,
-        "problem_code": 0,
-        "balancer": 0,
-        "heater": False,
-        "runtime": 63592,
-    }
+    assert await bms.async_update() == _RESULT_DEFS
 
     await bms.disconnect()

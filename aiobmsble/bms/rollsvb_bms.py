@@ -100,7 +100,7 @@ class BMS(BaseBMS):
         result["cell_voltages"] = BMS._cell_voltages(
             msgs[0x00], cells=BMS._MAX_CELLS, start=BMS._HEAD_LEN
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             msgs[0x20], values=BMS._MAX_TEMPS, start=BMS._HEAD_LEN, offset=40
         )
 
