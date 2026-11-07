@@ -88,8 +88,16 @@ class BMS(BaseBMS):
         if data.startswith(BMS._HEAD):
             self._frame.clear()
 
-        self._frame.extend(data)
-        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
+        try:
+            if not self._frame or self._frame[:1] == BMS._HEAD:
+                self._frame.extend(data)
+        except BufferError:
+            self._log.debug("frame buffer overflow")
+            self._frame.clear()
+        finally:
+            self._log.debug(
+                "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
+            )
 
         if not data.endswith(BMS._TAIL):
             return
@@ -117,7 +125,9 @@ class BMS(BaseBMS):
     def _conv_data(data: dict[str, Any]) -> BMSSample:
         result: BMSSample = {}
         for key, itm, func in BMS._FIELDS:
-            values: list[list[int]] = [[BMS._int(value) for value in row] for row in data.get(itm, [])]
+            values: list[list[int]] = [
+                [BMS._int(value) for value in row] for row in data.get(itm, [])
+            ]
             result[key] = func(values)
         return result
 

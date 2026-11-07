@@ -103,8 +103,9 @@ class BMS(BaseBMS):
         self._frame.extend(data)
         self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
-        # verify that data is long enough
         if not self._exp_len or len(self._frame) < self._exp_len:
+            if not self._exp_len:
+                self._frame.clear()
             return
 
         if len(self._frame) != self._exp_len:

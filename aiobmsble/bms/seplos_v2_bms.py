@@ -132,7 +132,7 @@ class BMS(BaseBMS):
         if (
             len(data) > BMS._MIN_LEN
             and data.startswith(BMS._HEAD)
-            and (len(self._frame) >= self._exp_len or not self._frame)
+            and (not self._frame or len(self._frame) >= self._exp_len)
         ):
             self._exp_len = min(BMS._MIN_LEN + int.from_bytes(data[5:7]), BMS._MAX_MSG_LEN)
             self._frame.clear()
@@ -146,19 +146,23 @@ class BMS(BaseBMS):
 
         if not self._frame.endswith(BMS._TAIL):
             self._log.debug("incorrect frame end: 0x%X", self._frame[-1])
+            self._frame.clear()
             return
 
         if self._frame[1] != BMS._RSP_VER:
             self._log.debug("unknown frame version: V%.1f", self._frame[1] / 10)
+            self._frame.clear()
             return
 
         if self._frame[4]:
             self._log.debug("BMS reported error code: 0x%X", self._frame[4])
+            self._frame.clear()
             return
 
         if not self._check_integrity(
             self._frame, lambda x: crc_xmodem(x[1:-3]), slice(None, None), slice(-3, -1)
         ):
+            self._frame.clear()
             return
 
         self._log.debug(
@@ -174,6 +178,8 @@ class BMS(BaseBMS):
             self._msg_event.set()
         except KeyError:
             self._log.debug("unexpected reply: 0x%X", self._frame[3])
+        finally:
+            self._frame.clear()
 
     async def _fetch_limits(self) -> BMSLimits:
         """Fetch the protection thresholds (0x47 parameter frame, group 0)."""
@@ -222,9 +228,7 @@ class BMS(BaseBMS):
         result |= BMS._decode_data(BMS._PFIELDS, self._msg[0x61], start=BMS._CELL_POS + ct_blk_len)
 
         states_pos: Final[int] = (
-            (BMS._CELL_POS + ct_blk_len)
-            + (result["cell_count"] + result["temp_count"])
-            + (3 + 19)
+            (BMS._CELL_POS + ct_blk_len) + (result["cell_count"] + result["temp_count"]) + (3 + 19)
         )
         cst_alarm_pos: Final[int] = states_pos + 1
         if len(self._msg[0x61]) <= cst_alarm_pos:

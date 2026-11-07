@@ -159,7 +159,7 @@ class BMS(BaseBMS):
         if (
             len(data) > BMS._INFO_LEN
             and data[0] == BMS._RSP_HEAD
-            and len(self._frame) >= self._exp_len
+            and (not self._frame or len(self._frame) >= self._exp_len)
         ):
             self._exp_len = min(BMS._INFO_LEN + int.from_bytes(data[6:8]), BMS._MAX_MSG_LEN)
             self._frame.clear()
@@ -173,24 +173,24 @@ class BMS(BaseBMS):
 
         if self._frame[-1] != BMS._TAIL:
             self._log.debug("frame end incorrect: %s", self._frame)
+            self._frame.clear()
             return
 
         if self._frame[1] not in BMS._RSP_VER:
             self._log.debug("unknown frame version: V%.1f", self._frame[1] / 10)
+            self._frame.clear()
             return
 
         if self._frame[4] or self._frame[5] != self._valid_reply:
             self._log.debug("unexpected BMS reply (error code: 0x%X)", self._frame[4])
+            self._frame.clear()
             return
 
         if not self._check_integrity(
-            self._frame,
-            crc_modbus,
-            slice(None, -3),
-            slice(-3, -1),
-            "big",
+            self._frame, crc_modbus, slice(None, -3), slice(-3, -1), "big"
         ):
             if self._crc_fix is False or self._frame[5] != 0x8D:
+                self._frame.clear()
                 return
             if self._crc_fix is None:
                 # only 0x8D messages have wrong CRC, which seems to be 1 byte only

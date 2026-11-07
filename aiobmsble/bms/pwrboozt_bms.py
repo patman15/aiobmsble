@@ -20,7 +20,6 @@ class BMS(EJBMS):
     """PowerBoozt battery implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Powerboozt", "model": "battery"}
-    _PRB_MASK: Final[int] = 0x0FFC
     _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("battery_charging", 45, 1, False, lambda x: bool(x & 0x1)),
         BMSDp("battery_level", 69, 1, False),
@@ -28,7 +27,7 @@ class BMS(EJBMS):
         BMSDp("cycles", 67, 2, False),
         BMSDp("design_capacity", 70, 4, False, lambda x: x // 1000),
         BMSDp("voltage", 62, 2, False, lambda x: x / 1000),
-        BMSDp("problem_code", 44, 2, False, lambda x: x & BMS._PRB_MASK),  # mask status bits
+        BMSDp("problem_code", 44, 2, False, lambda x: x & BMS._PRB_MASK),
         BMSDp("heater", 104, 4, False, bool),
     )
 
@@ -81,9 +80,7 @@ class BMS(EJBMS):
         )
         self._frame = self._frame.replace(b"\x00", b"")
 
-        if not self._frame.startswith(BMS._HEAD) or (
-            not self._frame.endswith(BMS._TAIL) and len(self._frame) < exp_frame_len
-        ):
+        if len(self._frame) < exp_frame_len:
             return
 
         if not self._frame.endswith(BMS._TAIL):

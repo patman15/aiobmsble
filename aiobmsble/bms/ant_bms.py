@@ -125,7 +125,7 @@ class BMS(BaseBMS):
 
         if (
             data.startswith(BMS._HEAD)
-            and len(self._frame) >= self._exp_len
+            and (not self._frame or len(self._frame) >= self._exp_len)
             and len(data) >= BMS._MIN_LEN
         ):
             self._frame.clear()
@@ -141,6 +141,7 @@ class BMS(BaseBMS):
 
         if self._frame[2] != self._valid_reply:
             self._log.debug("unexpected response (type 0x%X)", self._frame[2])
+            self._frame.clear()
             return
 
         if len(self._frame) != self._exp_len and self._frame[2] != BMS._CMD_DEV | 0x10:
@@ -148,10 +149,12 @@ class BMS(BaseBMS):
             self._log.debug(
                 "invalid frame length %d != %d", len(self._frame), self._exp_len
             )
+            self._frame.clear()
             return
 
         if not self._frame.endswith(BMS._TAIL):
             self._log.debug("invalid EOF")
+            self._frame.clear()
             return
 
         if not self._check_integrity(
@@ -161,9 +164,11 @@ class BMS(BaseBMS):
             slice(self._exp_len - 4, self._exp_len - 2),
             "little",
         ):
+            self._frame.clear()
             return
 
         self._msg = bytes(self._frame)
+        self._frame.clear()
         self._msg_event.set()
 
     @staticmethod

@@ -61,6 +61,7 @@ class BMS(BaseBMS):
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
         self._valid_reply: int = 0x00
+        self._exp_len: int = 0
         self._msg: bytes = b""
 
     @staticmethod
@@ -84,7 +85,7 @@ class BMS(BaseBMS):
                 "SJ-???-*",  # Supervolt Jumbo
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
-                "TITAN-*", # Titan battery
+                "TITAN-*",  # Titan battery
                 "TZ-H*",  # CERRNSS battery
             )
         ] + [
@@ -185,49 +186,42 @@ class BMS(BaseBMS):
             and data.startswith(BMS._HEAD_RSP)
             and data[1] in self._VALID_CMD
             and data[2] in (0x00, 0x80)
-            and len(self._frame) > BMS._INFO_LEN
-            and len(self._frame) >= BMS._INFO_LEN + self._frame[3]
+            and (not self._frame.startswith(BMS._HEAD_RSP))
         ):
+            self._exp_len = BMS._INFO_LEN + data[3]
             self._frame.clear()
 
         self._frame.extend(data)
         self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
-        if (  # verify that data is long enough
-            len(self._frame) < BMS._INFO_LEN or len(self._frame) < BMS._INFO_LEN + self._frame[3]
-        ):
+        if len(self._frame) < self._exp_len:
             return
 
         # check correct frame ending
-        frame_end: Final[int] = BMS._INFO_LEN + self._frame[3] - 1
+        frame_end: Final[int] = self._exp_len - 1
         if self._frame[frame_end] != BMS._TAIL:
             self._log.debug("incorrect frame end (length: %i).", len(self._frame))
+            self._frame.clear()
             return
 
         if not self._check_integrity(
-            self._frame,
-            BMS._crc,
-            slice(2, frame_end - 2),
-            slice(frame_end - 2, frame_end),
+            self._frame, BMS._crc, slice(2, frame_end - 2), slice(frame_end - 2, frame_end)
         ):
+            self._frame.clear()
             return
 
-        if len(self._frame) != BMS._INFO_LEN + self._frame[3]:
-            self._log.debug(
-                "wrong data length (%i != %i)",
-                len(self._frame),
-                self._frame[3] + BMS._INFO_LEN,
-            )
+        if len(self._frame) != self._exp_len:
+            self._log.debug("wrong data length (%i != %i)", len(self._frame), self._exp_len)
 
         if self._frame[1] != self._valid_reply or self._frame[2] & 0x80:
             self._log.debug(
-                "unexpected response (type 0x%X, code: 0x%X)",
-                self._frame[1],
-                self._frame[2],
+                "unexpected response (type 0x%X, code: 0x%X)", self._frame[1], self._frame[2]
             )
+            self._frame.clear()
             return
 
         self._msg = bytes(self._frame[: frame_end - 2])
+        self._frame.clear()
         self._msg_event.set()
 
     @staticmethod
