@@ -49,31 +49,30 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 9, 2, False, lambda x: x / 10),
         BMSDp("battery_health", 15, 2, False, lambda x: x / 10),
     )
-    # 0x47 parameter table: parameter n (2-byte) at byte 2n-9, 1-byte parameters follow
-        # discharge current is reported negative, scale inverts it
+    # discharge current is reported negative, scale inverts it
     _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = (
-        LimitDp(Limit.CELL_OVP, "trip", 17, scale=0.001),  # #13
-        LimitDp(Limit.CELL_OVP, "release", 19, scale=0.001),  # #14
-        LimitDp(Limit.CELL_UVP, "trip", 21, scale=0.001),  # #15
-        LimitDp(Limit.CELL_UVP, "release", 23, scale=0.001),  # #16
-        LimitDp(Limit.PACK_OVP, "trip", 37, scale=0.01),  # #23
-        LimitDp(Limit.PACK_OVP, "release", 39, scale=0.01),  # #24
-        LimitDp(Limit.PACK_UVP, "trip", 41, scale=0.01),  # #25
-        LimitDp(Limit.PACK_UVP, "release", 43, scale=0.01),  # #26
-        LimitDp(Limit.CHARGE_OTP, "trip", 57, scale=0.1, offset=273.1),  # #33
-        LimitDp(Limit.CHARGE_OTP, "release", 59, scale=0.1, offset=273.1),  # #34
-        LimitDp(Limit.CHARGE_UTP, "trip", 61, scale=0.1, offset=273.1),  # #35
-        LimitDp(Limit.CHARGE_UTP, "release", 63, scale=0.1, offset=273.1),  # #36
-        LimitDp(Limit.DISCHARGE_OTP, "trip", 73, scale=0.1, offset=273.1),  # #41
-        LimitDp(Limit.DISCHARGE_OTP, "release", 75, scale=0.1, offset=273.1),  # #42
-        LimitDp(Limit.DISCHARGE_UTP, "trip", 77, scale=0.1, offset=273.1),  # #43
-        LimitDp(Limit.DISCHARGE_UTP, "release", 79, scale=0.1, offset=273.1),  # #44
-        LimitDp(Limit.MOS_OTP, "trip", 105, scale=0.1, offset=273.1),  # #57
-        LimitDp(Limit.MOS_OTP, "release", 107, scale=0.1, offset=273.1),  # #58
-        LimitDp(Limit.CHARGE_OCP, "trip", 117, scale=0.01),  # #63
-        LimitDp(Limit.DISCHARGE_OCP, "trip", 119, scale=-0.01, signed=True),  # #64
-        LimitDp(Limit.CHARGE_OCP, "delay", 136, size=1),  # #76
-        LimitDp(Limit.DISCHARGE_OCP, "delay", 137, size=1),  # #77
+        LimitDp(Limit.CELL_OVP, "trip", 17, scale=0.001),
+        LimitDp(Limit.CELL_OVP, "release", 19, scale=0.001),
+        LimitDp(Limit.CELL_UVP, "trip", 21, scale=0.001),
+        LimitDp(Limit.CELL_UVP, "release", 23, scale=0.001),
+        LimitDp(Limit.PACK_OVP, "trip", 37, scale=0.01),
+        LimitDp(Limit.PACK_OVP, "release", 39, scale=0.01),
+        LimitDp(Limit.PACK_UVP, "trip", 41, scale=0.01),
+        LimitDp(Limit.PACK_UVP, "release", 43, scale=0.01),
+        LimitDp(Limit.CHARGE_OTP, "trip", 57, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_OTP, "release", 59, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_UTP, "trip", 61, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_UTP, "release", 63, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_OTP, "trip", 73, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_OTP, "release", 75, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_UTP, "trip", 77, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_UTP, "release", 79, scale=0.1, offset=273.1),
+        LimitDp(Limit.MOS_OTP, "trip", 105, scale=0.1, offset=273.1),
+        LimitDp(Limit.MOS_OTP, "release", 107, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_OCP, "trip", 117, scale=0.01),
+        LimitDp(Limit.DISCHARGE_OCP, "trip", 119, scale=-0.01, signed=True),
+        LimitDp(Limit.CHARGE_OCP, "delay", 136, size=1),
+        LimitDp(Limit.DISCHARGE_OCP, "delay", 137, size=1),
     )
     _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
     _CMDS: Final[frozenset[tuple[int, bytes]]] = frozenset({(0x51, b""), (0x61, b"\x00")})
