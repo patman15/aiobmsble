@@ -29,7 +29,7 @@ class BMS(BaseBMS):
             10,
             4,
             False,
-            lambda x: (x & 0x7FFF) / 1000 * (-1 if x >> 15 else 1),
+            lambda x: (x & 0x7FFFFFFF) / 1000 * (-1 if x >> 31 else 1),
         ),
         BMSDp("voltage", 18, 2, False, lambda x: x / 1000),
         BMSDp("cycles", 23, 2, False),
