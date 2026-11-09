@@ -94,6 +94,7 @@ The documentation workflow runs those commands on pushes to `main`; generated ou
 - Validate incoming frames according to the protocol (for example, start marker, length, allowed message type, and checksum/CRC). Discard invalid frames; only signal completion when a valid complete response is available.
 - Prefer `BaseBMS` helpers such as `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_check_integrity()`, and `_cmd_modbus()` before duplicating behavior.
 - Use recorded frames/advertisements from real devices in tests; do not fabricate protocol frames. Keep names and comments in English, use Google-style docstrings, and do not add `# pragma: no cover` (the contribution guide explicitly prohibits it).
+- Anonymize any MAC addresses added to the repository by setting their last three bytes to `00` (for example, `AA:BB:CC:00:00:00`).
 - Follow the Ruff configuration in `pyproject.toml`, including its import sorting, complexity, docstring, async, logging, and typing rules. Tests have a per-file exception for Ruff `SLF`; protected-access is also ignored by the configured pylint plugin for `tests/**`.
 
 ## Adding or changing a BMS plugin
