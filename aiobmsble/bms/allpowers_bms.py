@@ -15,13 +15,23 @@ from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
+def _valid_xor(data: bytes | bytearray) -> bool:
+    """Return whether an ALLPOWERS frame has a zero XOR checksum."""
+    checksum = 0
+    for byte in data:
+        checksum ^= byte
+    return checksum == 0
+
+
 class BMS(BaseBMS):
     """Allpowers portable power station BMS class implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Allpowers", "model": "portable power station"}
 
     _SOF: Final[int] = 0xA5
-    _STATUS_MIN_LEN: Final[int] = 15  # minimum length for a status frame
+    _STATUS_MIN_LEN: Final[int] = 15  # legacy status frames can be 15 bytes
+    _R4000_STATUS_LEN: Final[int] = 16
+    _R4000_RUNTIME_NONE: Final[int] = 0x9E83  # observed invalid R4000 runtime
 
     # Flag byte (index 7) bit masks
     _FLAG_DC: Final[int] = 0x01
@@ -52,12 +62,20 @@ class BMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
+            *[
+                MatcherPattern(
+                    local_name=pattern,
+                    service_uuid=BMS.uuid_services()[0],
+                    connectable=True,
+                )
+                for pattern in ("AP R*", "VOLIX-*")
+            ],
+            # R4000 advertises its name/manufacturer, but not service FFF0.
             MatcherPattern(
-                local_name=pattern,
-                service_uuid=BMS.uuid_services()[0],
+                local_name="AP R4000 V3.0",
+                manufacturer_id=0x05D6,
                 connectable=True,
-            )
-            for pattern in ("AP R*", "VOLIX-*")
+            ),
         ]
 
     @staticmethod
@@ -89,6 +107,12 @@ class BMS(BaseBMS):
             self._log.debug("incorrect SOF")
             return
 
+        if len(data) == BMS._R4000_STATUS_LEN and (
+            data[5:7] != bytes.fromhex("0801") or not _valid_xor(data)
+        ):
+            self._log.debug("invalid R4000 status frame")
+            return
+
         self._msg = bytes(data)
         self._msg_event.set()
 
@@ -100,10 +124,19 @@ class BMS(BaseBMS):
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
+        if len(self._msg) == BMS._R4000_STATUS_LEN:
+            # The R4000's command-0x01 frame exposes separate power channels.
+            result["input_power"] = int.from_bytes(self._msg[9:11], "big")
+            result["output_power"] = int.from_bytes(self._msg[11:13], "big")
+
         # runtime only applies while discharging with a valid (non-sentinel) reading
         if (
             result.get("power", 0) >= 0
             or result.get("runtime") == BMS._RUNTIME_NONE * 60
+            or (
+                len(self._msg) == BMS._R4000_STATUS_LEN
+                and int.from_bytes(self._msg[13:15], "big") == BMS._R4000_RUNTIME_NONE
+            )
         ):
             result.pop("runtime", None)
 
