@@ -77,6 +77,7 @@ class BMS(BaseBMS):
                 "12???BL*",  # SBL connect battery
                 "24???BL*",  # SBL connect battery
                 "@KsM:*",  # RVPOWER
+                "J-?????Y*", # Chins
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery

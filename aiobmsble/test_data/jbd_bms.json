@@ -681,5 +681,24 @@
       "source advmon (https://github.com/patman15/aiobmsble/issues/825)",
       "TITAN 12V 120Ah battery"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "J-48100Y250414-000",
+      "platform_data": ["34:88:01:00:00:00"],
+      "rssi": -72,
+      "manufacturer_data": { "0000": "00018834" },
+      "service_data": {},
+      "service_uuids": [
+        "0000ff00-0000-1000-8000-00805f9b34fb",
+        "00000001-0000-1000-8000-00805f9b34fb"
+      ]
+    },
+    "type": "jbd_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/aiobmsble/issues/871)",
+      "CHINS 51.2 V 100 Ah LiFePO4 golf cart battery",
+      "MAC address, wrong"
+    ]    
   }
 ]
