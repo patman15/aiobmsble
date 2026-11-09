@@ -11,7 +11,7 @@ from aiobmsble.bms.x123smart_bms import BMS as x123SmartBMS
 
 
 class BMS(x123SmartBMS):
-    r"""123\\SmartBMS gen3 implementation."""
+    r"""123\\SmartBMS gen2 implementation."""
 
     INFO: BMSInfo = {"manufacturer": "123electric", "model": "123\\SmartBMS", "model_id": "gen 2"}
 
