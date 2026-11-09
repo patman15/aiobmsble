@@ -22,6 +22,10 @@ _PROTO_DEFS: Final[dict[str, bytes]] = {
     "charging": b"\xa5\x65\xb1\x01\x01\x00\x00\x06\x2d\x03\x84\x00\x00\xff\xff",
     "idle": b"\xa5\x65\xb1\x01\x01\x00\x00\x10\x64\x00\x00\x00\x00\xff\xff",
     "settings": b"\xa5\x65\xb1\x00\x01\x06\x03\x02\x01\xab\x00",
+    # Real original R4000 captures (16-byte status, 14-byte settings).
+    "r4000_idle": bytes.fromhex("a565b1000108010364000000009e8303"),
+    "r4000_discharging": bytes.fromhex("a565b1000108010364000002f79e83f6"),
+    "r4000_settings": bytes.fromhex("a565b10001060312010000010166"),
 }
 
 _RESULT_DEFS: Final[dict[str, BMSSample]] = {
@@ -192,6 +196,68 @@ async def test_settings_frame_ignored(
     bms = BMS(generate_ble_device())
     assert await bms.async_update() == _RESULT_DEFS["discharging"]
 
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("frame", "input_w", "output_w"),
+    [
+        (_PROTO_DEFS["r4000_idle"], 0, 0),
+        (_PROTO_DEFS["r4000_discharging"], 0, 759),
+    ],
+)
+async def test_r4000_power_and_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    frame: bytes,
+    input_w: int,
+    output_w: int,
+) -> None:
+    """Decode observed R4000 status notifications without a false runtime."""
+    monkeypatch.setattr(MockAllpowersBleakClient, "FRAME", frame)
+    patch_bleak_client(MockAllpowersBleakClient)
+    bms = BMS(generate_ble_device())
+
+    sample = await bms.async_update()
+    assert sample["battery_level"] == 100
+    assert sample["input_power"] == input_w
+    assert sample["output_power"] == output_w
+    assert sample["power"] == float(input_w - output_w)
+    assert "runtime" not in sample
+
+    await bms.disconnect()
+
+
+def test_r4000_advertisement_matcher() -> None:
+    """R4000 discovery must not require an advertised FFF0 service UUID."""
+    assert {
+        "local_name": "AP R4000 V3.0",
+        "manufacturer_id": 0x05D6,
+        "connectable": True,
+    } in BMS.matcher_dict_list()
+
+
+@pytest.mark.parametrize(
+    "bad_frame",
+    [
+        bytes.fromhex("a565b1000108010364000002f79e83f7"),  # bad checksum
+        bytes.fromhex("a565b1000108030364000002f79e83f4"),  # wrong command
+    ],
+)
+async def test_r4000_invalid_status_ignored(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    patch_bms_timeout: Callable[..., None],
+    bad_frame: bytes,
+) -> None:
+    """Invalid R4000 status frames must not satisfy the pending read."""
+    patch_bms_timeout("allpowers_bms")
+    monkeypatch.setattr(MockAllpowersBleakClient, "FRAME", bad_frame)
+    patch_bleak_client(MockAllpowersBleakClient)
+
+    bms = BMS(generate_ble_device())
+    with pytest.raises(TimeoutError):
+        await bms.async_update()
     await bms.disconnect()
 
 
