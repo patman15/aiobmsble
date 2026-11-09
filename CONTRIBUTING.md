@@ -28,6 +28,7 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
     - `_async_update()` — sends command(s) to the BMS, parses the response, and returns a `BMSSample`.
  5. Make sure that the `BMSSample` returned by `_async_update()` contains at minimum the keys listed before the *detailed information* comment in the [`BMSSample`](aiobmsble/__init__.py) class.
  6. Add recorded BLE advertisement from a real device to `aiobmsble/test_data/my_bms.json`.
+    - Anonymize any MAC addresses added to the repository by setting their last three bytes to `00` (for example, `AA:BB:CC:00:00:00`).
  7. Add a test file at `tests/bms/test_my_bms.py`. Subclass `BMSBasicTests` (from `tests/test_basebms.py`) and add BMS-specific tests. Use `tests/bms/test_dummy.py` as a template.
     -  Use recorded frames from a real device to mimic exact device behaviour, do **not** artificially generate device frames.
  8. Add a documentation file at `docs/my_bms.md` describing the device and the protocol, if detailed information is available.

@@ -22,14 +22,14 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"manufacturer": "Wattstunde", "model": "Nova Core"}
     _HEAD: Final[bytes] = b"\x3a"  # beginning of frame
     _TAIL: Final[bytes] = b"\x7e"  # end of frame
-    _MIN_LEN: Final[int] = 238  # heater*2 + tail
+    _MIN_LEN: Final[int] = 236  # minimum Caratec frame length
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp(
             "current",
             10,
             4,
             False,
-            lambda x: (x & 0x7FFF) / 1000 * (-1 if x >> 15 else 1),
+            lambda x: (x & 0x7FFFFFFF) / 1000 * (-1 if x >> 31 else 1),
         ),
         BMSDp("voltage", 18, 2, False, lambda x: x / 1000),
         BMSDp("cycles", 23, 2, False),
@@ -105,8 +105,19 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if not self._frame.endswith(BMS._TAIL):
+        tail_idx: Final[int] = self._frame.find(BMS._TAIL)
+        if tail_idx < 0:
             return
+
+        if any(self._frame[tail_idx + 1 :]):
+            self._log.debug("invalid frame padding")
+            self._frame.clear()
+            return
+
+        if not self._frame[tail_idx - 1] and len(self._frame) > tail_idx:
+            tail_suffix: bytearray = self._frame[tail_idx:]
+            del self._frame[tail_idx - 1 :]
+            self._frame.extend(tail_suffix.replace(b"\x00", b""))
 
         if len(self._frame) % 2 or len(self._frame) < BMS._MIN_LEN:
             self._log.debug("incorrect frame length (%i)", len(self._frame))

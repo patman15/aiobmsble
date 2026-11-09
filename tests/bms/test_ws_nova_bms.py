@@ -163,6 +163,22 @@ async def test_device_info(patch_bleak_client) -> None:
     }
 
 
+async def test_zero_padded_frame(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test BMS data update with a zero padded frame tail."""
+
+    monkeypatch.setattr(
+        MockWSNovaBleakClient, "_RESP", bytearray(_PROTO_DEFS[:-1]) + bytearray(b"\x00~")
+    )
+    patch_bleak_client(MockWSNovaBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    assert await bms.async_update() == _RESULT_DEFS
+    await bms.disconnect()
+
+
 @pytest.mark.parametrize(
     ("wrong_response"),
     [
@@ -173,6 +189,7 @@ async def test_device_info(patch_bleak_client) -> None:
         b":" + _PROTO_DEFS[2:],
         b":z" + _PROTO_DEFS[2:],
         b":2175" + _PROTO_DEFS[5:],
+        _PROTO_DEFS[:-1] + b"\x00~\x01"
     ],
     ids=[
         "empty",
@@ -182,6 +199,7 @@ async def test_device_info(patch_bleak_client) -> None:
         "wrong_length",
         "wrong_encoding",
         "wrong_type",
+        "invalid_padding"
     ],
 )
 async def test_invalid_response(
