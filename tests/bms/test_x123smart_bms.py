@@ -181,7 +181,7 @@ async def test_update_secret(
 async def test_limits(patch_bleak_client) -> None:
     """Test that the BMS returns the protection thresholds from the S2@ reply."""
     patch_bleak_client(Mock123SmartBleakClient)
-    bms = BMS(generate_ble_device())
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
     assert await bms.limits() == {
         Limit.CELL_UVP: Threshold(trip=2.9),
         Limit.CELL_OVP: Threshold(trip=3.7),
@@ -209,7 +209,8 @@ async def test_limits_partial(
     patch_bleak_client(Mock123SmartBleakClient)
     bms = BMS(generate_ble_device())
     assert len(await bms.limits()) == expected
-    assert not bms.is_connected
+    assert bms.is_connected
+    await bms.disconnect()
 
 
 async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:

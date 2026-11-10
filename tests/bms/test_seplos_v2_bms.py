@@ -170,7 +170,7 @@ async def test_device_info(patch_bleak_client) -> None:
 async def test_limits(patch_bleak_client) -> None:
     """Test that the BMS returns the protection thresholds from the 0x47 frame."""
     patch_bleak_client(MockSeplosv2BleakClient)
-    bms = BMS(generate_ble_device())
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
     assert await bms.limits() == {
         Limit.CELL_OVP: Threshold(trip=3.65, release=3.4),
         Limit.CELL_UVP: Threshold(trip=2.7, release=3.1),

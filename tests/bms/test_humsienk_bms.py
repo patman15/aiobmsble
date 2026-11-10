@@ -120,7 +120,7 @@ async def test_device_info(patch_bleak_client) -> None:
 async def test_limits(patch_bleak_client) -> None:
     """Test that the BMS returns the protection thresholds from the 0x58 frame."""
     patch_bleak_client(MockHumsienkBleakClient)
-    bms = BMS(generate_ble_device())
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
     assert await bms.limits() == {
         Limit.CELL_OVP: Threshold(trip=3.65, release=3.33),
         Limit.CELL_UVP: Threshold(trip=2.5, release=2.8),

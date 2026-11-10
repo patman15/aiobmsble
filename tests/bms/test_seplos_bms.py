@@ -370,7 +370,7 @@ class MockRedundantMessageBleakClient(MockSeplosBleakClient):
 async def test_limits(patch_bleak_client) -> None:
     """Test that the BMS returns the protection thresholds from the SPA blocks."""
     patch_bleak_client(MockSeplosBleakClient)
-    bms = BMS(generate_ble_device())
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
     assert await bms.limits() == {
         Limit.PACK_OVP: Threshold(trip=57.6, release=55.0),
         Limit.PACK_UVP: Threshold(trip=43.2, release=48.0),
