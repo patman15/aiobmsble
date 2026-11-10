@@ -108,9 +108,7 @@ class BaseBMS(ABC):
         assert (
             getattr(self, "_notification_handler", None) is not None
         ), "BMS class must define `_notification_handler` method"
-        assert {"manufacturer", "model"}.issubset(
-            self.INFO
-        ), "BMS class must define `INFO`"
+        assert {"manufacturer", "model"}.issubset(self.INFO), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._cfg: Final[BMSConfig] = config or BMSConfig()
         logger_name = logger_name or self.__class__.__module__
@@ -118,9 +116,7 @@ class BaseBMS(ABC):
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
-            {
-                "prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':', '')}:"
-            },
+            {"prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':', '')}:"},
         )
 
         self._log.debug(
@@ -146,9 +142,7 @@ class BaseBMS(ABC):
     async def __aenter__(self) -> Self:
         """Asynchronous context manager to implement `async with` functionality."""
         if not self._cfg.keep_alive:
-            raise ValueError(
-                "usage of context manager requires `BMSConfig(keep_alive=True)`."
-            )
+            raise ValueError("usage of context manager requires `BMSConfig(keep_alive=True)`.")
         await self._connect()
         return self
 
@@ -208,7 +202,7 @@ class BaseBMS(ABC):
         """
 
         async with self._op_lock:
-            disconnect: Final[bool] = not self._client.is_connected
+            disconnect: Final[bool] = not self._client.is_connected and not self._cfg.keep_alive
             await self._connect()
             dev_info: Final[BMSInfo] = await self._fetch_device_info()
             if disconnect:
@@ -254,7 +248,7 @@ class BaseBMS(ABC):
         """
 
         async with self._op_lock:
-            disconnect: Final[bool] = not self._client.is_connected
+            disconnect: Final[bool] = not self._client.is_connected and not self._cfg.keep_alive
             await self._connect()
             limits: Final[BMSLimits] = await self._fetch_limits()
             if disconnect:
@@ -282,9 +276,7 @@ class BaseBMS(ABC):
 
     @final
     @staticmethod
-    def _add_missing_values(
-        data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
-    ) -> None:
+    def _add_missing_values(data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()) -> None:
         """Calculate missing BMS values from existing ones.
 
         Args:
@@ -311,8 +303,7 @@ class BaseBMS(ABC):
                 data.get("voltage") is not None and data.get("voltage", 0) <= 0,
                 any(v <= 0 or v > BaseBMS._MAX_CELL_VOLT for v in cell_voltages),
                 data.get("delta_cell_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
-                data.get("cycle_charge") is not None
-                and data.get("cycle_charge", 0.0) <= 0.0,
+                data.get("cycle_charge") is not None and data.get("cycle_charge", 0.0) <= 0.0,
                 battery_level > 100,
             ]
         )
@@ -366,9 +357,7 @@ class BaseBMS(ABC):
         self._frame.clear()
         self._msg_event.clear()
 
-        self._log.debug(
-            "start notify on RX characteristic %s", str(char_notify or self.uuid_rx())
-        )
+        self._log.debug("start notify on RX characteristic %s", str(char_notify or self.uuid_rx()))
         await self._client.start_notify(
             char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
         )
@@ -413,9 +402,7 @@ class BaseBMS(ABC):
                     self._start_alive_task()
 
             except (TimeoutError, BleakError, EOFError, ConnectionError) as exc:
-                self._log.info(
-                    "failed to initialize BMS connection (%s)", type(exc).__name__
-                )
+                self._log.info("failed to initialize BMS connection (%s)", type(exc).__name__)
                 await self._disconnect_impl()
                 raise
             except Exception as exc:
@@ -427,8 +414,8 @@ class BaseBMS(ABC):
             self._log.debug("BMS connected (id: %#x)", id(self._client))
 
     def _wr_response(self, char: int | str) -> bool:
-        char_tx: Final[BleakGATTCharacteristic | None] = (
-            self._client.services.get_characteristic(char)
+        char_tx: Final[BleakGATTCharacteristic | None] = self._client.services.get_characteristic(
+            char
         )
         return bool(char_tx and "write" in getattr(char_tx, "properties", []))
 
@@ -469,9 +456,7 @@ class BaseBMS(ABC):
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
-        for inv_wr_mode in (
-            [False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]
-        ):
+        for inv_wr_mode in ([False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]):
             try:
                 self._msg_event.clear()  # clear event before requesting new data
                 for attempt in range(BaseBMS.MAX_RETRY):
@@ -483,8 +468,7 @@ class BaseBMS(ABC):
                     try:
                         await asyncio.wait_for(
                             self._wait_event(),
-                            BaseBMS._RETRY_TIMEOUT
-                            * min(2**attempt, BaseBMS._MAX_TIMEOUT_FACTOR),
+                            BaseBMS._RETRY_TIMEOUT * min(2**attempt, BaseBMS._MAX_TIMEOUT_FACTOR),
                         )
                     except TimeoutError:
                         self._log.debug("TX BLE request timed out.")
@@ -584,9 +568,7 @@ class BaseBMS(ABC):
     @final
     @staticmethod
     @lru_cache(maxsize=512)
-    def _cmd_modbus(
-        dev_id: int = 0, fct: int = 0x3, addr: int = 0, count: int = 1
-    ) -> bytes:
+    def _cmd_modbus(dev_id: int = 0, fct: int = 0x3, addr: int = 0, count: int = 1) -> bytes:
         """Assemble a MODBUS command.
 
         Args:
@@ -711,9 +693,7 @@ class BaseBMS(ABC):
             if (len(data) >= start + idx * (size + gap) + size)
             and (
                 value := int.from_bytes(
-                    data[
-                        start + idx * (size + gap) : start + idx * (size + gap) + size
-                    ],
+                    data[start + idx * (size + gap) : start + idx * (size + gap) + size],
                     byteorder=byteorder,
                     signed=False,
                 )
@@ -762,12 +742,7 @@ class BaseBMS(ABC):
             and (
                 (
                     value := int.from_bytes(
-                        data[
-                            start
-                            + idx * (size + gap) : start
-                            + idx * (size + gap)
-                            + size
-                        ],
+                        data[start + idx * (size + gap) : start + idx * (size + gap) + size],
                         byteorder=byteorder,
                         signed=signed,
                     )
