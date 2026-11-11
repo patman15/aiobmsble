@@ -68,13 +68,16 @@ class BaseBMS(ABC):
     accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
 
     type _InfoCharType = Literal[
-        "model",
-        "serial_number",
-        "fw_version",
-        "sw_version",
-        "hw_version",
-        "manufacturer",
+        "model", "serial_number", "fw_version", "sw_version", "hw_version", "manufacturer"
     ]
+    _INFO_CHARS: Final[tuple[tuple[str, _InfoCharType], ...]] = (
+        ("2a24", "model"),
+        ("2a25", "serial_number"),
+        ("2a26", "fw_version"),
+        ("2a27", "hw_version"),
+        ("2a28", "sw_version"),
+        ("2a29", "manufacturer"),
+    )
 
     class _PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
         """Logging adapter to add instance ID to each log message."""
@@ -225,16 +228,7 @@ class BaseBMS(ABC):
             self._log.debug("No BT device information available.")
             return info
 
-        characteristics: Final[tuple[tuple[str, BaseBMS._InfoCharType], ...]] = (
-            ("2a24", "model"),
-            ("2a25", "serial_number"),
-            ("2a26", "fw_version"),
-            ("2a27", "hw_version"),
-            ("2a28", "sw_version"),
-            ("2a29", "manufacturer"),
-        )
-
-        for char, key in characteristics:
+        for char, key in BaseBMS._INFO_CHARS:
             try:
                 if value := bytes(await self._client.read_gatt_char(char)):
                     info[key] = b2str(value)
