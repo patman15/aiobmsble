@@ -1,7 +1,8 @@
 """Test the BLE Battery Management System base class functions."""
 
 import asyncio
-from collections.abc import Buffer, Callable
+from collections.abc import Awaitable, Buffer, Callable
+import inspect
 from logging import DEBUG
 from string import hexdigits
 from types import UnionType
@@ -13,12 +14,24 @@ from bleak import BleakClient
 from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.backends.service import BleakGATTServiceCollection
+from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.exc import BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSLimits,
+    BMSSample,
+    BMSValue,
+    Limit,
+    LimitDp,
+    MatcherPattern,
+    TempSensor,
+    Threshold,
+)
 from aiobmsble.basebms import (
     BaseBMS,
     b2str,
@@ -106,9 +119,7 @@ class MinTestBMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "afe2"
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
         # do not set event to make tests fail if wait_for_notify is not set
@@ -198,6 +209,18 @@ class OpGuardTestBMS(MinTestBMS):
         finally:
             self._op_active = False
 
+    async def _fetch_limits(self) -> BMSLimits:
+        if self._op_active:
+            raise RuntimeError("overlapping base operations")
+
+        self._op_active = True
+        try:
+            await asyncio.sleep(0)
+            await self._await_msg(b"mock_limits", wait_for_notify=False)
+            return {Limit.CELL_OVP: Threshold(trip=3.65)}
+        finally:
+            self._op_active = False
+
 
 class WMTestBMS(MinTestBMS):
     """Write mode mock BMS implementation."""
@@ -216,9 +239,7 @@ class WMTestBMS(MinTestBMS):
     def _wr_response(self, char: int | str) -> bool:
         return bool("write" in self._char_tx_properties)
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
         self._data = data
@@ -250,9 +271,7 @@ class BMSBasicTests:
         for matcher in self.bms_class.matcher_dict_list():
 
             if manufacturer_id := matcher.get("manufacturer_id"):
-                assert (
-                    manufacturer_id == manufacturer_id & 0xFFFF
-                ), f"incorrect {manufacturer_id=}"
+                assert manufacturer_id == manufacturer_id & 0xFFFF, f"incorrect {manufacturer_id=}"
 
             if service_uuid := matcher.get("service_uuid"):
                 assert UUID(service_uuid), f"incorrect {service_uuid=}"
@@ -265,8 +284,7 @@ class BMSBasicTests:
             if oui := matcher.get("oui"):
                 parts: list[str] = oui.split(":")
                 assert len(parts) == 3 and all(
-                    len(part) == 2 and all(c in hexdigits for c in part)
-                    for part in parts
+                    len(part) == 2 and all(c in hexdigits for c in part) for part in parts
                 ), f"incorrect {oui=}"
                 await aiooui.async_load()
                 if aiooui.get_vendor(oui) is None:
@@ -277,6 +295,21 @@ class BMSBasicTests:
                         # 0x80,  # 	Reserved for future use
                         # 0xC0,  # Static random device address
                     ), f"random private address OUI ({oui}) cannot be used for filtering!"
+
+    async def test_empty_notification(self) -> None:
+        """Verify that notification handler does not crash with empty input."""
+        bms: BaseBMS = self.bms_class(generate_ble_device())
+        handler: Callable[..., None | Awaitable[None]] = bms._notification_handler  # type: ignore[attr-defined]
+        char = BleakGATTCharacteristic(
+            None, 1, "0001", ["notify"], lambda: 512, BleakGATTService(None, 0, "fff0")
+        )
+        try:
+            if inspect.isawaitable(result := handler(char, b"")):
+                await result
+        except BufferError as exc:
+            pytest.fail(f"{self.bms_class.__name__}: {exc!r}")
+        finally:
+            await bms.disconnect()
 
     async def test_result_value_types(
         self,
@@ -292,9 +325,7 @@ class BMSBasicTests:
 
         def _is_typed_dict(tp: Any) -> bool:
             return (
-                isinstance(tp, type)
-                and issubclass(tp, dict)
-                and hasattr(tp, "__required_keys__")
+                isinstance(tp, type) and issubclass(tp, dict) and hasattr(tp, "__required_keys__")
             )
 
         def _is_instance_of_type(value: Any, expected_type: Any) -> bool:
@@ -361,14 +392,10 @@ class BMSBasicTests:
         await bms.disconnect()
 
         hints: dict[str, Any] = get_type_hints(BMSSample)
-        assert isinstance(
-            result, dict
-        ), "async_update must return a dict-like BMSSample"
+        assert isinstance(result, dict), "async_update must return a dict-like BMSSample"
 
         for key, value in result.items():
-            assert (
-                key in hints
-            ), f"Unexpected result key '{key}' not defined in BMSSample"
+            assert key in hints, f"Unexpected result key '{key}' not defined in BMSSample"
             expected_type = hints[key]
             assert _is_instance_of_type(
                 value, expected_type
@@ -436,15 +463,27 @@ async def test_device_info_fail(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client: Callable[..., None]
 ) -> None:
     """Test only BMS default information is returned if characteristic 0x180a does not exit."""
-    monkeypatch.setattr(
-        BleakGATTServiceCollection, "get_service", lambda obj, char: None
-    )
+    monkeypatch.setattr(BleakGATTServiceCollection, "get_service", lambda obj, char: None)
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     await bms.async_update()  # run update to have connection open
     assert not await bms.device_info()  # if characteristic does not exist, no output
     assert bms.name == "MockBLEDevice"  # name is gathered from BLEDevice
     assert bms._client.is_connected
+
+
+@pytest.mark.parametrize("connected", [False, True], ids=["disconnected", "connected"])
+async def test_limits_default(patch_bleak_client: Callable[..., None], connected: bool) -> None:
+    """Verify that limits() defaults to empty and restores the connection state."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    if connected:
+        await bms.async_update()  # run update to have connection open
+
+    assert await bms.limits() == {}  # no limits available by default
+    assert bms._client.is_connected is connected
+
+    await bms.disconnect()
 
 
 def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
@@ -456,15 +495,12 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
     ref = ref | {
         "cell_count": 2,
         "cycle_capacity": 238,
-        "delta_voltage": 0.111,
+        "delta_cell_voltage": 0.111,
         "power": (
-            -91
-            if bms_data.get("current", 0) < 0
-            else 0 if bms_data.get("current") == 0 else 147
+            -91 if bms_data.get("current", 0) < 0 else 0 if bms_data.get("current") == 0 else 147
         ),
         # battery is charging if current is positive
         "battery_charging": bms_data.get("current", 0) > 0,
-        "temperature": -34.396,
         "problem": False,
     }
     if bms_data.get("current", 0) < 0:
@@ -480,7 +516,7 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
             {"cell_voltages": [3.456, 3.567]},
             {
                 "cell_count": 2,
-                "delta_voltage": 0.111,
+                "delta_cell_voltage": 0.111,
                 "voltage": 7.023,
                 "problem": False,
             },
@@ -557,15 +593,16 @@ async def test_async_update(patch_bleak_client: Callable[..., None], raw: bool) 
 async def test_op_guard_device_info_async_update(
     patch_bleak_client: Callable[..., None],
 ) -> None:
-    """Verify device_info and async_update are serialized for one BMS instance."""
+    """Verify device_info, limits, and async_update are serialized for one BMS instance."""
     patch_bleak_client()
-    bms: OpGuardTestBMS = OpGuardTestBMS(
-        generate_ble_device(), BMSConfig(keep_alive=True)
-    )
+    bms: OpGuardTestBMS = OpGuardTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
     await bms._connect()
 
-    info, data = await asyncio.gather(bms.device_info(), bms.async_update(raw=True))
+    info, limits, data = await asyncio.gather(
+        bms.device_info(), bms.limits(), bms.async_update(raw=True)
+    )
     assert info == {"model": "mock_model"}
+    assert limits == {Limit.CELL_OVP: Threshold(trip=3.65)}
     assert data == {"problem_code": 21}
 
     await bms.disconnect()
@@ -577,7 +614,7 @@ async def test_op_guard_device_info_async_update(
         ({"voltage": -1}, "negative overall voltage"),
         ({"cell_voltages": [5.907]}, "high cell voltage"),
         ({"cell_voltages": [-0.001]}, "negative cell voltage"),
-        ({"delta_voltage": 5.907}, "doubtful delta voltage"),
+        ({"delta_cell_voltage": 5.907}, "doubtful delta voltage"),
         ({"cycle_charge": 0}, "doubtful cycle charge"),
         ({"battery_level": 101}, "doubtful SoC"),
         ({"problem_code": 0x1}, "BMS problem code"),
@@ -702,6 +739,18 @@ def test_get_bms_module() -> None:
     assert DummyBMS.get_bms_module() == "aiobmsble.bms.dummy_bms"
 
 
+def test_log_prefix_name_not_format_string(
+    patch_bleak_client: Callable[..., None], caplog: pytest.LogCaptureFixture
+) -> None:
+    """Check that format directives in the device name are logged literally."""
+    patch_bleak_client(MockBleakClient)
+
+    with caplog.at_level(DEBUG):
+        MinTestBMS(generate_ble_device(name="Mock%s%5sBMS"))
+    assert "Mock%s%5sBMS|5566: " in caplog.text
+    assert "initializing" in caplog.text
+
+
 async def test_no_notify(
     patch_bleak_client: Callable[..., None], caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -763,9 +812,7 @@ async def test_context_mgr_fail(
     patch_bleak_client(MockBleakClient)
 
     with pytest.raises(ValueError, match="usage of context manager*"):
-        async with MinTestBMS(
-            generate_ble_device(), BMSConfig(keep_alive=False)
-        ) as bms:
+        async with MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=False)) as bms:
             await bms.async_update()
 
 
@@ -791,9 +838,7 @@ def test_crc_calculations() -> None:
 
     for crc_fn, expected_crc in test_fn:
         calculated_crc: int = crc_fn(data)
-        assert (
-            calculated_crc == expected_crc
-        ), f"Expected {expected_crc}, got {calculated_crc}"
+        assert calculated_crc == expected_crc, f"Expected {expected_crc}, got {calculated_crc}"
 
 
 @pytest.mark.parametrize(
@@ -910,7 +955,7 @@ def test_cell_voltages(
         "div-1",
     ],
 )
-def test_temp_values(
+def test_temperature(
     data: bytes,
     values: int,
     start: int,
@@ -921,8 +966,8 @@ def test_temp_values(
     divider: int,
     expected: tuple[float, ...],
 ) -> None:
-    """Test the _temp_values method of BaseBMS with various input parameters."""
-    result: list[TempSensor] = BaseBMS._temp_values(
+    """Test the _temperature method of BaseBMS with various input parameters."""
+    result: list[TempSensor] = BaseBMS._temperature(
         data,
         values=values,
         start=start,
@@ -998,9 +1043,7 @@ def test_decode_data(
     expected: BMSSample,
 ) -> None:
     """Test the _decode_data method of BaseBMS with various input parameters."""
-    result: BMSSample = BaseBMS._decode_data(
-        fields, data, byteorder=byteorder, start=start
-    )
+    result: BMSSample = BaseBMS._decode_data(fields, data, byteorder=byteorder, start=start)
     assert result == expected
 
 
@@ -1051,6 +1094,7 @@ def test_lstr2int(data: str, expected: int) -> None:
 # ---------------------------------------------------------------------------
 
 TEST_TIMEOUT = 0.01  # very short timeout
+
 
 async def test_connect_timeout_fires(
     monkeypatch: pytest.MonkeyPatch,
@@ -1120,9 +1164,7 @@ async def test_connect_timeout_cleanup(
 class MockGATTService:
     """Mock BLE GATT service for get_GATT_profile()."""
 
-    def __init__(
-        self, name: str, characteristics: list["MockGATTCharacteristic"]
-    ) -> None:
+    def __init__(self, name: str, characteristics: list["MockGATTCharacteristic"]) -> None:
         """Initialize mock GATT service."""
         self._name: str = name
         self.characteristics: list[MockGATTCharacteristic] = characteristics
@@ -1265,9 +1307,7 @@ async def test_get_gatt_profile_error(
         raise BleakError("mock error")
 
     # Monkeypatch services property to raise BleakError
-    monkeypatch.setattr(
-        MockGATTProfileBleakClient, "services", property(raise_bleak_error)
-    )
+    monkeypatch.setattr(MockGATTProfileBleakClient, "services", property(raise_bleak_error))
 
     assert "mock error" in await bms.get_GATT_profile()
 
@@ -1339,3 +1379,24 @@ async def test_reconnect_with_running_alive_task(
     assert bms._alive_task is task
 
     await bms.disconnect()  # cleanup cancels the task
+
+
+def test_decode_limits() -> None:
+    """Verify limit decoding for scaling, offset, signedness, and dropped values."""
+    fields: tuple[LimitDp, ...] = (
+        LimitDp(Limit.CELL_OVP, "trip", 0, scale=0.001),
+        LimitDp(Limit.CELL_OVP, "release", 2, scale=0.001),
+        LimitDp(Limit.CHARGE_OCP, "trip", 4, size=1, invalid=0xFF),
+        LimitDp(Limit.CHARGE_OCP, "delay", 5, size=1),
+        LimitDp(Limit.CHARGE_UTP, "trip", 6, size=1, signed=True),
+        LimitDp(Limit.CHARGE_UTP, "release", 7, size=1, offset=20.0),
+        LimitDp(Limit.CHARGE_OTP, "release", 7, size=1, offset=-1.0),
+        LimitDp(Limit.MOS_OTP, "trip", 8),  # beyond end of frame
+        LimitDp(Limit.PACK_OVP, "trip", -1),  # invalid position
+    )
+    assert BaseBMS._decode_limits(
+        b"\x41\x0e\x3a\x0e\xff\x07\xec\x05", fields, byteorder="little"
+    ) == {
+        Limit.CELL_OVP: Threshold(trip=3.649, release=3.642),
+        Limit.CHARGE_UTP: Threshold(trip=-20.0, release=-15.0),
+    }

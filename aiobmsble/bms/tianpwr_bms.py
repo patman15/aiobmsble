@@ -25,14 +25,15 @@ class BMS(BaseBMS):
     _MAX_TEMP: Final[int] = 6
     _MIN_LEN: Final[int] = 4
     _DEF_LEN: Final[int] = 20
+    _PRB_MASK: Final[int] = 0x7FFFFFFCFFFFFFFF
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("battery_level", 3, 2, False, idx=0x83),
         BMSDp("voltage", 5, 2, False, lambda x: x / 100, 0x83),
         BMSDp("current", 13, 2, True, lambda x: x / 100, 0x83),
         BMSDp("battery_health", 17, 2, False, idx=0x83),
-        BMSDp("problem_code", 11, 8, False, idx=0x84),
+        BMSDp("problem_code", 11, 8, False, lambda x: x & BMS._PRB_MASK, 0x84),
         BMSDp("cell_count", 3, 1, False, idx=0x84),
-        BMSDp("temp_sensors", 4, 1, False, idx=0x84),
+        BMSDp("temp_count", 4, 1, False, idx=0x84),
         BMSDp("design_capacity", 5, 2, False, lambda x: x // 100, 0x84),
         BMSDp("cycle_charge", 7, 2, False, lambda x: x / 100, 0x84),
         BMSDp("cycles", 9, 2, False, idx=0x84),
@@ -129,15 +130,15 @@ class BMS(BaseBMS):
                 "cell_voltages", []
             ) + BMS._cell_voltages(self._msg.get(cmd, b""), cells=8, start=3)
 
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg[0x87],
-            values=min(BMS._MAX_TEMP, result.get("temp_sensors", 0)),
+            values=min(BMS._MAX_TEMP, result.get("temp_count", 0)),
             start=3,
             divider=10,
         )
 
         for idx, sensor_t in ((9, TempSensor.T.AMBIENT), (11, TempSensor.T.MOSFET)):
-            result["temp_values"] += BMS._temp_values(
+            result["temperature"] += BMS._temperature(
                 self._msg[0x83], start=idx, divider=10, types=(sensor_t,)
             )
 

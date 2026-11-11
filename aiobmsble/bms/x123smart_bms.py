@@ -11,7 +11,18 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSLimits,
+    BMSSample,
+    Limit,
+    LimitDp,
+    MatcherPattern,
+    TempSensor,
+    Threshold,
+)
 from aiobmsble.basebms import BaseBMS
 
 
@@ -33,6 +44,7 @@ class BMS(BaseBMS):
     )
     HEX_UPPER: Final[frozenset[int]] = frozenset(b"0123456789ABCDEF")
     _LMSG: Final[int] = -1  # last message index
+    _MAX_HEX_LEN: Final[int] = 8  # maximum number of hex digits per value
     _MSG_FMT: Final[dict[str, int]] = {
         "U": 5,
         "T": 5,
@@ -49,6 +61,15 @@ class BMS(BaseBMS):
     _T_OFFS: Final[int] = 0x114  # temperature offset
     _TAGS: set[str] = set(_MSG_FMT.keys())
     _V_SCALE: Final[float] = 0.005  # voltage scale factor
+    # S2@ settings reply: field index in the ASCII message (checksum excluded)
+    _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = (
+        LimitDp(Limit.CELL_UVP, "trip", 0, scale=_V_SCALE),  # V-min
+        LimitDp(Limit.CELL_OVP, "trip", 1, scale=_V_SCALE),  # V-max
+        LimitDp(Limit.CHARGE_UTP, "trip", 2, offset=_T_OFFS),  # charge T-min
+        LimitDp(Limit.CHARGE_OTP, "trip", 3, offset=_T_OFFS),  # T-max
+        LimitDp(Limit.DISCHARGE_OTP, "trip", 3, offset=_T_OFFS),  # T-max (shared)
+        LimitDp(Limit.DISCHARGE_UTP, "trip", 6, offset=_T_OFFS),  # discharge T-min
+    )
 
     def __init__(
         self,
@@ -91,7 +112,9 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         await self._cmd_expect_ok(b"D!")
         await self._await_msg(b"V@" + BMS._CR)
-        ver: Final[str] = self._msg[BMS._LMSG].decode("ascii").split("_", 1)[0]
+        ver: Final[str] = self._msg.get(BMS._LMSG, b"").decode("ascii").split("_", 1)[0]
+        if len(ver) < 3:
+            raise ValueError("BMS data incomplete.")
         build: Final[str] = ver[2:]
         await self._cmd_expect_ok(b"E!")
         return {"fw_version": f"{int(ver[0],16)}.{int(ver[1],16)}.{int(build,16)}"}
@@ -99,15 +122,38 @@ class BMS(BaseBMS):
     @staticmethod
     def _parse_int(hex_str: str) -> int:
         num: Literal[-1, 1] = 1
-        if hex_str[0] == "+" or hex_str[0] == "-":
+        if hex_str[:1] in ("+", "-"):
             num = -1 if hex_str[0] == "-" else 1
             hex_str = hex_str[1:]
+
+        if len(hex_str) > BMS._MAX_HEX_LEN:
+            return 0
 
         try:
             result = int(hex_str, 16)
             return result * num
         except ValueError:
             return 0
+
+    @staticmethod
+    def _parse_limits(elements: list[str]) -> BMSLimits:
+        """Decode thresholds from the ASCII fields of the S2@ reply."""
+        values: dict[Limit, dict[str, float]] = {}
+        for field in BMS._LIMIT_FIELDS:
+            if field.pos >= len(elements):
+                continue  # field not present in this firmware
+            raw: int = BMS._parse_int(elements[field.pos])
+            values.setdefault(field.prot, {})[field.attr] = round(
+                raw * field.scale - field.offset, 6
+            )
+        return {prot: Threshold(**attrs) for prot, attrs in values.items()}
+
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the protection thresholds from the settings reply (S2@)."""
+        self._msg.pop(BMS._LMSG, None)  # discard stale reply
+        await self._await_msg(b"S2@" + BMS._CR)
+        reply: Final[bytes] = self._msg.pop(BMS._LMSG, b"")
+        return BMS._parse_limits(reply.decode("ascii", errors="ignore").split("_")[:-1])
 
     async def _alive(self) -> None:
         """Send the keep-alive ping while connected."""
@@ -143,6 +189,9 @@ class BMS(BaseBMS):
                 self._log.debug("invalid message format: %s", line)
                 continue
             if msg_t == "C":
+                if not (line[2:4].isdigit() and line[5:7].isdigit()):
+                    self._log.debug("invalid cell message: %s", line)
+                    continue
                 self._msg[line[0] << 8 + int(line[2:4])] = bytes(line)
                 self._cell_count = int(line[5:7])
             else:
@@ -153,10 +202,8 @@ class BMS(BaseBMS):
     async def _cmd_expect_ok(self, cmd: bytes) -> None:
         """Send a command and wait for an 'OK' reply, raise otherwise."""
         await self._await_msg(cmd + BMS._CR)
-        if self._msg[BMS._LMSG] != b"OK":
-            raise ConnectionRefusedError(
-                f"command rejected ({self._msg[BMS._LMSG].decode('ascii')})"
-            )
+        if (reply := self._msg.get(BMS._LMSG, b"")) != b"OK":
+            raise ConnectionRefusedError(f"command rejected ({reply.decode('ascii')})")
         self._msg.clear()
         self._msg_event.clear()
 
@@ -231,11 +278,9 @@ class BMS(BaseBMS):
         cell_s: int = 0
 
         for cell in range(cells):
-            elements: list[str] = (
-                data[ord("C") << 8 + cell + 1]
-                .decode("ascii", errors="ignore")
-                .split("_")
-            )
+            if (line := data.get(ord("C") << 8 + cell + 1)) is None:
+                raise ValueError("BMS data incomplete.")
+            elements: list[str] = line.decode("ascii", errors="ignore").split("_")
             cell_v.append(BMS._parse_int(elements[3]) * BMS._V_SCALE)
             cell_t.append(
                 TempSensor(BMS._parse_int(elements[4]) - BMS._T_OFFS, TempSensor.T.CELL)
@@ -246,7 +291,7 @@ class BMS(BaseBMS):
 
         return {
             "cell_voltages": cell_v,
-            "temp_values": cell_t,
+            "temperature": cell_t,
             "chrg_mosfet": bool(cell_s & 0x1),
             "dischrg_mosfet": bool(cell_s & 0x1),
             "problem_code": cell_s & 0x0EFC,

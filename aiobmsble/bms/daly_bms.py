@@ -64,9 +64,9 @@ class BMS(BaseBMS):
                 BMSDp("battery_level", 84, 2, False, lambda x: x / 10, 62),
                 BMSDp("cycle_charge", 96, 2, False, lambda x: x / 10, 62),
                 BMSDp("cell_count", 98, 2, False, lambda x: min(x, 32), 62),
-                BMSDp("temp_sensors", 100, 2, False, lambda x: min(x, 8), 62),
+                BMSDp("temp_count", 100, 2, False, lambda x: min(x, 8), 62),
                 BMSDp("cycles", 102, 2, False, idx=62),
-                BMSDp("delta_voltage", 112, 2, False, lambda x: x / 1000, 62),
+                BMSDp("delta_cell_voltage", 112, 2, False, lambda x: x / 1000, 62),
                 BMSDp("problem_code", 116, 8, False, lambda x: x % 2**64, 62),
                 BMSDp("balancer", 104, 2, False, idx=62),
                 BMSDp("chrg_mosfet", 106, 2, False, bool, 62),
@@ -85,7 +85,7 @@ class BMS(BaseBMS):
                 BMSDp("battery_level", 116, 2, False, lambda x: x / 10, 64),
                 BMSDp("cell_count", 120, 2, False, lambda x: min(x, 48), 64),
                 BMSDp("cycle_charge", 20, 2, False, lambda x: x / 10, 62),
-                BMSDp("temp_sensors", 122, 2, False, lambda x: min(x, 8), 64),
+                BMSDp("temp_count", 122, 2, False, lambda x: min(x, 8), 64),
                 BMSDp("cycles", 22, 2, False, idx=62),
                 BMSDp("problem_code", 88, 4, False, idx=62),
                 BMSDp("balancer", 24, 2, False, idx=62),
@@ -217,7 +217,7 @@ class BMS(BaseBMS):
                     self._log.debug("MOS temperature invalid, deactivating")
                     self._mos_avail = False
                 else:
-                    result["temp_values"] = [
+                    result["temperature"] = [
                         TempSensor(
                             int.from_bytes(
                                 self._msg[BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2],
@@ -247,10 +247,10 @@ class BMS(BaseBMS):
 
         rt1_msg: Final[bytes] = next(iter(rt_msgs.values()))
         # add temperature sensors
-        result.setdefault("temp_values", []).extend(
-            BMS._temp_values(
+        result.setdefault("temperature", []).extend(
+            BMS._temperature(
                 rt1_msg,
-                values=result.get("temp_sensors", 0),
+                values=result.get("temp_count", 0),
                 start=proto_def.max_cells * 2 + BMS._HEAD_LEN,
                 offset=40,
             )

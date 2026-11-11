@@ -22,7 +22,6 @@ class BMS(BaseBMS):
     # _HEAD: Final[bytes] = b"\x55"  # beginning of frame
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
-
     # accept_secret: bool = True  # if the BMS accepts a secret for authentication
 
     def __init__(
@@ -64,9 +63,12 @@ class BMS(BaseBMS):
     # def _raw_values() -> frozenset[BMSValue]:
     #     return frozenset({"runtime"})  # never calculate, e.g. runtime
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    # async def _fetch_limits(self) -> BMSLimits:
+    #     """Fetch the BMS limits via BLE."""
+    #     TODO: query from BMS and use _decode_limits
+    #     return {Limit.CELL_OVP: Threshold(trip=3.65, release=3.5)}
+
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         # self._log.debug("RX BLE data: %s", data)
 
@@ -98,7 +100,7 @@ class BMS(BaseBMS):
         # TODO: parse data from self._frame here
 
         return {
-            "voltage": 12.0,
+            "battery_level": 73,
             "current": 1.5,
-            "temperature": 27.182,
+            "voltage": 12.0,
         }  # TODO: fixed values, replace parsed data

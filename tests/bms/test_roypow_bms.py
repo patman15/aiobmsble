@@ -21,24 +21,23 @@ BT_MODULE_MSG: Final[bytes] = b"AT+STAT\r\n"  # AT cmd from BLE module
 
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "temp_sensors": 4,
-        "voltage": 13.48,
-        "current": 0.35,
-        "battery_level": 96,
-        "cycle_charge": 98.056,
-        "cycles": 2,
-        "temperature": 19.25,
-        "cycle_capacity": 1321.795,
-        "power": 4.718,
-        "battery_charging": True,
-        "cell_count": 4,
-        "cell_voltages": [3.375, 3.370, 3.369, 3.372],
-        "temp_values": [TS(19), TS(19), TS(19), TS(20)],
-        "delta_voltage": 0.006,
-        "problem": False,
-        "problem_code": 0,
-        "chrg_mosfet": True,
-        "dischrg_mosfet": True,
+    "temp_count": 4,
+    "voltage": 13.48,
+    "current": 0.35,
+    "battery_level": 96,
+    "cycle_charge": 98.056,
+    "cycles": 2,
+    "cycle_capacity": 1321.795,
+    "power": 4.718,
+    "battery_charging": True,
+    "cell_count": 4,
+    "cell_voltages": [3.375, 3.370, 3.369, 3.372],
+    "temperature": [TS(19), TS(19), TS(19), TS(20)],
+    "delta_cell_voltage": 0.006,
+    "problem": False,
+    "problem_code": 0,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
 }
 
 
@@ -63,8 +62,7 @@ class MockRoyPowBleakClient(MockBleakClient):
         ),
         0x03: bytearray(  # +0.35A
             b"\xea\xd1\x01\x1a\xff\x03\x32\x00\x23\x00\x00\x00\x00\x04\x3b\x3b\x3b\x3c\x00\x10"
-            b"\x00\x00\x00\x0c\x07\x00\x00\x00\xef\xf5"
-            + BT_MODULE_MSG  # BT message at the end
+            b"\x00\x00\x00\x0c\x07\x00\x00\x00\xef\xf5" + BT_MODULE_MSG  # BT message at the end
         ),
         0x04: bytearray(  # 13.5V, 96%, 98.2Ah/105.0Ah
             b"\xea\xd1\x01\x39\xff\x04\x01\x60\x02\x00\x02\x03\x00\x01\x04\x9a\x28\x05\x00\x01\x06"
@@ -94,9 +92,7 @@ class MockRoyPowBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         self._notify_callback("MockRoyPowBleakClient", BT_MODULE_MSG)
         await sleep(0)
@@ -124,7 +120,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-async def test_update_dischrg(monkeypatch, patch_bleak_client) -> None:
+async def test_update_dischrg(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test RoyPow BMS data update."""
 
     patch_bleak_client(MockRoyPowBleakClient)

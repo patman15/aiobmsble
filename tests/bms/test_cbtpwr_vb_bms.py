@@ -25,11 +25,10 @@ _RESULT_DEFS: Final[BMSSample] = {
         "cycle_charge": 192.0,
         "cell_count": 4,
         "cell_voltages": [3.328, 3.326, 3.326, 3.326],
-        "delta_voltage": 0.002,
+        "delta_cell_voltage": 0.002,
         "design_capacity": 200,
-        "temp_values": [TS(6.2), TS(7.3)],
-        "temp_sensors": 2,
-        "temperature": 6.75,
+        "temperature": [TS(6.2), TS(7.3)],
+        "temp_count": 2,
         "cycle_capacity": 2553.6,
         "power": 0.0,
         "battery_charging": False,
@@ -202,6 +201,52 @@ async def test_invalid_response(
 
     assert not result
     await bms.disconnect()
+
+
+async def test_short_cell_response(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+) -> None:
+    """Test that a valid but too short cell info frame is rejected."""
+
+    monkeypatch.setattr(  # answer cell request with (short) capacity frame
+        MockCBTpwrVBBleakClient,
+        "RESP",
+        MockCBTpwrVBBleakClient.RESP
+        | {
+            b"~11014642E00201FD35\r": MockCBTpwrVBBleakClient.RESP[
+                b"~11014681A006010001FC71\r"
+            ]
+        },
+    )
+    patch_bleak_client(MockCBTpwrVBBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.async_update()
+
+    await bms.disconnect()
+
+
+async def test_short_field_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that data ending inside the last BMSDp field is rejected."""
+
+    bms = BMS(generate_ble_device())
+    frame: Final[bytearray] = MockCBTpwrVBBleakClient.RESP[
+        b"~11014642E00201FD35\r"
+    ]
+    response: Final[bytes] = bytes.fromhex(frame[1:-1].decode())
+    cell_count: Final[int] = response[BMS._CELL_POS]
+    temp_pos: Final[int] = BMS._CELL_POS + cell_count * 2 + 1
+    field_data_start: Final[int] = temp_pos + 2 * response[temp_pos] + 1
+
+    async def set_short_response(*_args, **_kwargs) -> None:
+        bms._msg = response[: field_data_start + BMS._FIELDS_END - 1]
+
+    monkeypatch.setattr(bms, "_await_msg", set_short_response)
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms._async_update()
 
 
 @pytest.fixture(

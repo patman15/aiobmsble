@@ -9,6 +9,7 @@ def test_TempSensor() -> None:
     """Test correct behaviour of TS and with int, float."""
     # Test equality with float
     assert TS(3.14) == 3.14
+    assert float(TS(3.14)) == 3.14
     # Test equality with TS of same value and type
     assert TS(3.14, TS.T.GENERIC) == TS(3.14, TS.T.GENERIC)
     # Test inequality due to type mismatch

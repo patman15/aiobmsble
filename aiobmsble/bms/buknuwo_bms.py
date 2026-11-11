@@ -20,7 +20,7 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"manufacturer": "Buknuwo", "model": "smart battery"}
     _HEAD: Final[bytes] = b"\x01\x03"  # dev, read (0x03)
     _MIN_LEN: Final[int] = 5  # length of frame, including SOF and checksum
-    _MAX_TEMP: Final[int] = 10  # maximum number of cell temperatures
+    _MAX_TEMP: Final[int] = 10  # maximum number of cell temperature
     _PRB_MASK: Final[int] = 0xFF3FFF7F007F
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("current", 3, 2, True, lambda x: x / 100),
@@ -69,37 +69,31 @@ class BMS(BaseBMS):
         """Return UUID of characteristic that provides write property."""
         return "00002760-08c2-11e1-9073-0e8ac72e0001"
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if (
             len(data) > BMS._MIN_LEN
             and data.startswith(BMS._HEAD)
-            and len(self._frame) >= self._exp_len
+            and (not self._frame or len(self._frame) >= self._exp_len)
         ):
             self._exp_len = BMS._MIN_LEN + data[2]
             self._frame.clear()
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         if len(self._frame) < 3 or len(self._frame) < self._frame[2] + BMS._MIN_LEN:
             return
 
         if not self._check_integrity(
-            self._frame,
-            crc_modbus,
-            slice(None, -2),
-            slice(-2, None),
-            "little",
+            self._frame, crc_modbus, slice(None, -2), slice(-2, None), "little"
         ):
+            self._frame.clear()
             return
 
         self._msg = bytes(self._frame)
+        self._frame.clear()
         self._msg_event.set()
 
     async def _async_update(self) -> BMSSample:
@@ -108,21 +102,19 @@ class BMS(BaseBMS):
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
         await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x39, count=0x1))
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg, start=3, divider=10, types=(TempSensor.T.MOSFET,)
         )
 
-        await self._await_msg(
-            BMS._cmd_modbus(dev_id=0x1, addr=0x2E, count=BMS._MAX_TEMP + 1)
-        )
-        result["temp_sensors"] = int.from_bytes(self._msg[3:5], "big")
-        result["temp_values"].extend(
-            BMS._temp_values(
+        await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x2E, count=BMS._MAX_TEMP + 1))
+        result["temp_count"] = int.from_bytes(self._msg[3:5], "big")
+        result["temperature"].extend(
+            BMS._temperature(
                 self._msg,
-                values=result.get("temp_sensors", 0),
+                values=result.get("temp_count", 0),
                 start=5,
                 divider=10,
-                types=(TempSensor.T.CELL,) * result.get("temp_sensors", 0),
+                types=(TempSensor.T.CELL,) * result.get("temp_count", 0),
             )
         )
 

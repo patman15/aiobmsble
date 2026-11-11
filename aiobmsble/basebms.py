@@ -6,7 +6,8 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from abc import ABC, abstractmethod
 import asyncio
-from collections.abc import Callable, MutableMapping
+from collections import defaultdict
+from collections.abc import Callable, Iterable, MutableMapping
 from contextlib import suppress
 from functools import lru_cache
 from itertools import takewhile
@@ -29,12 +30,16 @@ from aiobmsble import (
     BMSConfig,
     BMSDp,
     BMSInfo,
+    BMSLimits,
     BMSPDp,
     BMSSample,
     BMSValue,
+    Limit,
+    LimitDp,
     MatcherPattern,
     PackSample,
     TempSensor,
+    Threshold,
     __version__,
 )
 from aiobmsble._boundedbytearr import BoundedByteArray
@@ -79,7 +84,8 @@ class BaseBMS(ABC):
         ) -> tuple[str, MutableMapping[str, Any]]:
             """Process the logging message."""
             prefix: Final[str] = str(self.extra.get("prefix") if self.extra else "")
-            return (f"{prefix} {msg}", kwargs)
+            # prefix must not act as format directive
+            return (f"{prefix.replace('%', '%%')} {msg}", kwargs)
 
     def __init__(
         self,
@@ -238,6 +244,29 @@ class BaseBMS(ABC):
 
         return info
 
+    @final
+    async def limits(self) -> BMSLimits:
+        """Return a dictionary of thresholds configured in the BMS.
+
+        The values are trip/recovery points of the BMS protections, not the
+        operating envelope, and must not be used as charger/inverter set points.
+        Empty if the BMS does not report any, see `BMSLimits`.
+        """
+
+        async with self._op_lock:
+            disconnect: Final[bool] = not self._client.is_connected
+            await self._connect()
+            limits: Final[BMSLimits] = await self._fetch_limits()
+            if disconnect:
+                await self.disconnect()
+
+            self._log.debug("BMS limits %s", limits)
+            return limits
+
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the thresholds via BLE (default: none available)."""
+        return {}
+
     @staticmethod
     def _raw_values() -> frozenset[BMSValue]:
         """Return values that shall not be calculated even if the BMS cannot provide them.
@@ -281,7 +310,7 @@ class BaseBMS(ABC):
                 data.get("problem_code", False),
                 data.get("voltage") is not None and data.get("voltage", 0) <= 0,
                 any(v <= 0 or v > BaseBMS._MAX_CELL_VOLT for v in cell_voltages),
-                data.get("delta_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
+                data.get("delta_cell_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
                 data.get("cycle_charge") is not None
                 and data.get("cycle_charge", 0.0) <= 0.0,
                 battery_level > 100,
@@ -606,6 +635,32 @@ class BaseBMS(ABC):
         return result
 
     @staticmethod
+    def _decode_limits(
+        data: bytes,
+        fields: Iterable[LimitDp],
+        *,
+        byteorder: Literal["little", "big"] = "big",
+    ) -> BMSLimits:
+        """Decode thresholds from a raw frame using a field table."""
+        values: defaultdict[Limit, dict[str, float]] = defaultdict(dict)
+
+        for field in fields:
+            if field.pos < 0 or field.pos + field.size > len(data):
+                continue  # field not present in this (shorter) frame
+            raw: int = int.from_bytes(
+                data[field.pos : field.pos + field.size],
+                byteorder=byteorder,
+                signed=field.signed,
+            )
+            if raw == field.invalid:
+                continue
+            # rounding removes binary float artifacts, e.g. 2800 * 0.001
+            values[field.prot][field.attr] = round(raw * field.scale - field.offset, 6)
+
+        # a threshold without a trip point is meaningless -> drop it
+        return {prot: Threshold(**attrs) for prot, attrs in values.items() if "trip" in attrs}
+
+    @staticmethod
     def _decode_pack(
         fields: tuple[BMSPDp, ...],
         data: bytes,
@@ -666,7 +721,7 @@ class BaseBMS(ABC):
         ]
 
     @staticmethod
-    def _temp_values(
+    def _temperature(
         data: bytes,
         *,
         start: int,

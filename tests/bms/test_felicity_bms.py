@@ -1,6 +1,7 @@
 """Test the Felicity implementation."""
 
 from collections.abc import Buffer
+from logging import DEBUG
 from typing import Final
 from uuid import UUID
 
@@ -8,7 +9,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.bms.felicity_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -44,39 +45,44 @@ RESP_VALUE: Final[dict[str, bytes]] = {
     ),
 }
 
-
 _RESULT_DEFS: Final[BMSSample] = {
-        "voltage": 54.07,
-        "current": 64.7,
-        "battery_level": 78.0,
-        "cycle_charge": 273.0,
-        "temperature": 34.0,
-        "cycle_capacity": 14761.11,
-        "power": 3498.329,
-        "battery_charging": True,
-        "cell_count": 16,
-        "cell_voltages": [
-            3.378,
-            3.38,
-            3.379,
-            3.38,
-            3.379,
-            3.38,
-            3.38,
-            3.382,
-            3.389,
-            3.381,
-            3.38,
-            3.381,
-            3.38,
-            3.38,
-            3.379,
-            3.38,
-        ],
-        "temp_values": [TS(34.0)] * 4,
-        "delta_voltage": 0.011,
-        "problem": False,
-        "problem_code": 0,
+    "voltage": 54.07,
+    "current": 64.7,
+    "battery_level": 78.0,
+    "cycle_charge": 273.0,
+    "cycle_capacity": 14761.11,
+    "power": 3498.329,
+    "battery_charging": True,
+    "cell_count": 16,
+    "cell_voltages": [
+        3.378,
+        3.38,
+        3.379,
+        3.38,
+        3.379,
+        3.38,
+        3.38,
+        3.382,
+        3.389,
+        3.381,
+        3.38,
+        3.381,
+        3.38,
+        3.38,
+        3.379,
+        3.38,
+    ],
+    "temperature": [TS(34.0)] * 4,
+    "delta_cell_voltage": 0.011,
+    "problem": False,
+    "problem_code": 0,
+}
+
+_INFO_DEFS: Final[BMSInfo] = {
+    "fw_version": "519",
+    "sw_version": "2.06",
+    "model_id": "112",
+    "serial_number": "100011002424470238",
 }
 
 
@@ -120,9 +126,7 @@ class MockFelicityBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().write_gatt_char(char_specifier, data)
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         resp: bytes = self._response(char_specifier, data)
         for notify_data in [
@@ -151,17 +155,10 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockFelicityBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
-        "fw_version": "519",
-        "sw_version": "2.06",
-        "model_id": "112",
-        "serial_number": "100011002424470238",
-    }
+    assert await bms.device_info() == _INFO_DEFS
 
 
-async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test Felicity BMS data update with problem response."""
 
     prb_resp: dict[str, bytes] = RESP_VALUE.copy()
@@ -183,21 +180,16 @@ async def test_problem_response(
     await bms.disconnect()
 
 
-@pytest.fixture(
-    name="wrong_response",
-    params=[
-        (b'"CommVer":1,"wifiSN":"F100011002424470238"}', "invalid frame start"),
-        (b'{"CommVer":1,"wifiSN":"F100011002424470238"', "invalid frame end"),
-        (b'{"CommVer":2,"wifiSN":"F100011002424470238"}', "invalid protocol"),
+@pytest.mark.parametrize(
+    "wrong_response",
+    [
+        b'"CommVer":1,"wifiSN":"F100011002424470238"}',
+        b'{"CommVer":1,"wifiSN":"F100011002424470238"',
+        b'{"CommVer":2,"wifiSN":"F100011002424470238"}',
+        b'{"CommVer":"x","wifiSN":"F100011002424470238"}',
     ],
-    ids=lambda param: param[1],
+    ids=["invalid frame start", "invalid frame end", "invalid protocol", "non-numeric protocol"],
 )
-def fix_response(request: pytest.FixtureRequest) -> bytes:
-    """Return faulty response frame."""
-    assert isinstance(request.param[0], bytes)
-    return request.param[0]
-
-
 async def test_invalid_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
@@ -207,9 +199,7 @@ async def test_invalid_response(
     """Test data up date with BMS returning invalid data."""
 
     patch_bms_timeout()
-    monkeypatch.setattr(
-        MockFelicityBleakClient, "_response", lambda _s, _c_, d: wrong_response
-    )
+    monkeypatch.setattr(MockFelicityBleakClient, "_response", lambda _s, _c_, d: wrong_response)
     patch_bleak_client(MockFelicityBleakClient)
 
     bms = BMS(generate_ble_device())
@@ -222,15 +212,55 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
+async def test_stale_data_clearance(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test data up date with BMS returning invalid data."""
+
+    patch_bms_timeout()
+
+    monkeypatch.setattr(
+        MockFelicityBleakClient, "RESP", RESP_VALUE | {"rt": b"{" + bytes(1199) + RESP_VALUE["rt"]}
+    )  # ensure that real message starts at a chunk boundary
+    monkeypatch.setattr("tests.bms.test_felicity_bms.BT_FRAME_SIZE", 300)
+    patch_bleak_client(MockFelicityBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with caplog.at_level(DEBUG):
+        assert await bms.async_update() == _RESULT_DEFS
+    assert "frame buffer overflow" in caplog.text
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("original", "replacement"),
+    [
+        (b'"BattList":[[54070,65535],[647,-1]]', b'"BattList":[]'),
+        (b'"BattList":[[54070,65535],[647,-1]]', b'"BattList":{}'),
+        (b'"BattList":[[54070,65535],[647,-1]]', b'"BattList":[[1e400],[647]]'),
+        (b'"Bfault":0', b'"Bfault":4294967296'),
+        (
+            b'"BtemList":[[340,340,340,340,32767,32767,32767,32767]]',
+            b'"BtemList":{"0":340}',
+        ),
+    ],
+    ids=["empty list", "dict", "infinite", "out of range", "temp dict"],
+)
 async def test_malformed_json_raises_value_error(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    original: bytes,
+    replacement: bytes,
 ) -> None:
     """Test that structurally invalid (but valid JSON) data raises the documented ValueError."""
 
     bad_resp: dict[str, bytes] = RESP_VALUE.copy()
-    bad_resp["rt"] = RESP_VALUE["rt"].replace(
-        b'"BattList":[[54070,65535],[647,-1]]', b'"BattList":[]'
-    )
+    bad_resp["rt"] = RESP_VALUE["rt"].replace(original, replacement)
+    assert bad_resp["rt"] != RESP_VALUE["rt"]
 
     patch_bleak_client(MockFelicityBleakClient)
     monkeypatch.setattr(MockFelicityBleakClient, "RESP", bad_resp)

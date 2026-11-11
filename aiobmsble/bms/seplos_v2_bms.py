@@ -11,7 +11,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSLimits,
+    BMSSample,
+    Limit,
+    LimitDp,
+    MatcherPattern,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_xmodem
 
 
@@ -26,6 +36,8 @@ class BMS(BaseBMS):
     _MIN_LEN: Final[int] = 10
     _MAX_SUBS: Final[int] = 0xF
     _CELL_POS: Final[int] = 9
+    _PACK_POS: Final[int] = 42
+    _SWV_POS: Final[int] = 38
     _PRB_MAX: Final[int] = 8  # max number of alarm event bytes
     _PRB_MASK: Final[int] = ~(0x80FFC0)  # mask alarm event 6-8 (internal bits)
     _PFIELDS: Final[tuple[BMSDp, ...]] = (  # Seplos V2: single machine data
@@ -37,10 +49,33 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 9, 2, False, lambda x: x / 10),
         BMSDp("battery_health", 15, 2, False, lambda x: x / 10),
     )
-    _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
-    _CMDS: Final[frozenset[tuple[int, bytes]]] = frozenset(
-        {(0x51, b""), (0x61, b"\x00")}
+    # discharge current is reported negative, scale inverts it
+    _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = (
+        LimitDp(Limit.CELL_OVP, "trip", 17, scale=0.001),
+        LimitDp(Limit.CELL_OVP, "release", 19, scale=0.001),
+        LimitDp(Limit.CELL_UVP, "trip", 21, scale=0.001),
+        LimitDp(Limit.CELL_UVP, "release", 23, scale=0.001),
+        LimitDp(Limit.PACK_OVP, "trip", 37, scale=0.01),
+        LimitDp(Limit.PACK_OVP, "release", 39, scale=0.01),
+        LimitDp(Limit.PACK_UVP, "trip", 41, scale=0.01),
+        LimitDp(Limit.PACK_UVP, "release", 43, scale=0.01),
+        LimitDp(Limit.CHARGE_OTP, "trip", 57, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_OTP, "release", 59, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_UTP, "trip", 61, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_UTP, "release", 63, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_OTP, "trip", 73, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_OTP, "release", 75, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_UTP, "trip", 77, scale=0.1, offset=273.1),
+        LimitDp(Limit.DISCHARGE_UTP, "release", 79, scale=0.1, offset=273.1),
+        LimitDp(Limit.MOS_OTP, "trip", 105, scale=0.1, offset=273.1),
+        LimitDp(Limit.MOS_OTP, "release", 107, scale=0.1, offset=273.1),
+        LimitDp(Limit.CHARGE_OCP, "trip", 117, scale=0.01),
+        LimitDp(Limit.DISCHARGE_OCP, "trip", 119, scale=-0.01, signed=True),
+        LimitDp(Limit.CHARGE_OCP, "delay", 136, size=1),
+        LimitDp(Limit.DISCHARGE_OCP, "delay", 137, size=1),
     )
+    _GSMD_LEN: Final[int] = _CELL_POS + max((dp.pos + dp.size) for dp in _PFIELDS) + 3
+    _CMDS: Final[frozenset[tuple[int, bytes]]] = frozenset({(0x51, b""), (0x61, b"\x00")})
 
     def __init__(
         self,
@@ -59,11 +94,10 @@ class BMS(BaseBMS):
         """Provide BluetoothMatcher definition."""
         return [
             {
-                "local_name": pattern,
+                "local_name": "BP[0-2][0-9]*",
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
             }
-            for pattern in ("BP0?", "BP1?", "BP2?")
         ]
 
     @staticmethod
@@ -86,27 +120,25 @@ class BMS(BaseBMS):
         self._exp_reply = {0x51}
         await self._await_msg(BMS._cmd(0x51))
         _dat: Final[bytes] = self._msg[0x51]
+        if len(_dat) <= BMS._SWV_POS:
+            raise ValueError("BMS data incomplete")
         return {
             "model": b2str(_dat[26:36]),
-            "sw_version": f"{int(_dat[37])}.{int(_dat[38])}",
+            "sw_version": f"{int(_dat[BMS._SWV_POS-1])}.{int(_dat[BMS._SWV_POS])}",
         }
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if (
             len(data) > BMS._MIN_LEN
             and data.startswith(BMS._HEAD)
-            and (len(self._frame) >= self._exp_len or not self._frame)
+            and (not self._frame or len(self._frame) >= self._exp_len)
         ):
             self._exp_len = min(BMS._MIN_LEN + int.from_bytes(data[5:7]), BMS._MAX_MSG_LEN)
             self._frame.clear()
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         # verify that data is long enough
         if len(self._frame) < self._exp_len:
@@ -114,19 +146,23 @@ class BMS(BaseBMS):
 
         if not self._frame.endswith(BMS._TAIL):
             self._log.debug("incorrect frame end: 0x%X", self._frame[-1])
+            self._frame.clear()
             return
 
         if self._frame[1] != BMS._RSP_VER:
             self._log.debug("unknown frame version: V%.1f", self._frame[1] / 10)
+            self._frame.clear()
             return
 
         if self._frame[4]:
             self._log.debug("BMS reported error code: 0x%X", self._frame[4])
+            self._frame.clear()
             return
 
         if not self._check_integrity(
             self._frame, lambda x: crc_xmodem(x[1:-3]), slice(None, None), slice(-3, -1)
         ):
+            self._frame.clear()
             return
 
         self._log.debug(
@@ -142,6 +178,14 @@ class BMS(BaseBMS):
             self._msg_event.set()
         except KeyError:
             self._log.debug("unexpected reply: 0x%X", self._frame[3])
+        finally:
+            self._frame.clear()
+
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the protection thresholds (0x47 parameter frame, group 0)."""
+        self._exp_reply = {0x47}
+        await self._await_msg(BMS._cmd(0x47, data=b"\x00"))
+        return BMS._decode_limits(self._msg.pop(0x47), BMS._LIMIT_FIELDS)
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -157,9 +201,7 @@ class BMS(BaseBMS):
         assert cmd in (0x47, 0x51, 0x61, 0x62, 0x04)  # allow only read commands
         frame = bytearray([*BMS._HEAD, BMS._CMD_VER, address, 0x46, cmd])
         frame.extend(len(data).to_bytes(2, "big", signed=False) + data)
-        frame.extend(
-            int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL
-        )
+        frame.extend(int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL)
         return bytes(frame)
 
     async def _async_update(self) -> BMSSample:
@@ -170,27 +212,27 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd, data=data))
 
         result: BMSSample = {}
-        # get extension pack count from manufacturer information (only main unit != 0)
-        result["pack_count"] = self._msg[0x51][42]
-
         result["cell_count"] = self._msg[0x61][BMS._CELL_POS]
-        result["temp_sensors"] = self._msg[0x61][
-            BMS._CELL_POS + result["cell_count"] * 2 + 1
-        ]
-        ct_blk_len: Final[int] = (result["cell_count"] + result["temp_sensors"]) * 2 + 2
+        temp_pos: Final[int] = BMS._CELL_POS + result["cell_count"] * 2 + 1
+        if len(self._msg[0x51]) <= BMS._PACK_POS or len(self._msg[0x61]) <= temp_pos:
+            raise ValueError("BMS data incomplete")
+
+        # get extension pack count from manufacturer information (only main unit != 0)
+        result["pack_count"] = self._msg[0x51][BMS._PACK_POS]
+        result["temp_count"] = self._msg[0x61][temp_pos]
+        ct_blk_len: Final[int] = (result["cell_count"] + result["temp_count"]) * 2 + 2
 
         if (BMS._GSMD_LEN + ct_blk_len) > len(self._msg[0x61]):
-            raise ValueError("message too short to decode data")
+            raise ValueError("BMS data incomplete")
 
-        result |= BMS._decode_data(
-            BMS._PFIELDS, self._msg[0x61], start=BMS._CELL_POS + ct_blk_len
-        )
+        result |= BMS._decode_data(BMS._PFIELDS, self._msg[0x61], start=BMS._CELL_POS + ct_blk_len)
 
         states_pos: Final[int] = (
-            (BMS._CELL_POS + ct_blk_len)
-            + (result["cell_count"] + result["temp_sensors"])
-            + (3 + 19)
+            (BMS._CELL_POS + ct_blk_len) + (result["cell_count"] + result["temp_count"]) + (3 + 19)
         )
+        cst_alarm_pos: Final[int] = states_pos + 1
+        if len(self._msg[0x61]) <= cst_alarm_pos:
+            raise ValueError("BMS data incomplete")
 
         # get switches from parallel data (main pack)
         states: Final[int] = self._msg[0x61][states_pos]
@@ -200,7 +242,6 @@ class BMS(BaseBMS):
             "heater": bool(states & 0x8),
         }
 
-        cst_alarm_pos: Final[int] = states_pos + 1
         balance_pos: Final[int] = cst_alarm_pos + 1 + self._msg[0x61][cst_alarm_pos]
         balance_len: Final[int] = min((result["cell_count"] + 7) // 8, 8)  # round up
         result["balancer"] = int.from_bytes(
@@ -222,14 +263,14 @@ class BMS(BaseBMS):
             cells=self._msg[0x61][BMS._CELL_POS],
             start=10,
         )
-        result["temp_values"] = BMS._temp_values(
+        result["temperature"] = BMS._temperature(
             self._msg[0x61],
-            values=result.get("temp_sensors", 0),
+            values=result.get("temp_count", 0),
             start=BMS._CELL_POS + result.get("cell_count", 0) * 2 + 2,
             signed=False,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL,) * (result.get("temp_sensors", 2) - 2)
+            types=(TempSensor.T.CELL,) * (result.get("temp_count", 2) - 2)
             + (TempSensor.T.AMBIENT, TempSensor.T.MOSFET),
         )
 

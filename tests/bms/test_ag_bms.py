@@ -6,7 +6,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig
+from aiobmsble import BMSConfig, TempSensor as TS
 from aiobmsble.bms.ag_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -83,11 +83,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "cycles": 63,
         "cell_count": 4,
         "cell_voltages": [3.296, 3.297, 3.295, 3.297],
-        "delta_voltage": 0.002,
+        "delta_cell_voltage": 0.002,
         "dischrg_mosfet": True,
         "power": -44.038,
-        "temperature": 6.0,
-        "temp_values": [6.0],
+        "temperature": [TS(6.0)],
         "problem": False,
         "problem_code": 0,
         "balancer": 0,

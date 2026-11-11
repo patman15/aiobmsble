@@ -30,7 +30,7 @@ class MockBuknuwoBleakClient(MockBleakClient):
         b"\x01\x03\x00\x2f\x00\x0a\xf4\x04": (
             b"\x01\x03\x14\x00\xc3\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\xdb\x32"
-        ),  #  cell temperatures
+        ),  #  cell temperature
         b"\x01\x03\x00\x2e\x00\x01\xe4\x03": (b"\x01\x03\x02\x00\x01\x79\x84"),  #  info
         b"\x01\x03\x00\x39\x00\x01\x54\x07": b"\x01\x03\x02\x00\xbb\xf8\x37",  #  MOS FET temperature
         b"\x01\x03\x00\x09\x00\x03\xd5\xc9": b"\x01\x03\x06\x00\x00\x00\x00\x0c\x00\x24\x75",  #  info
@@ -45,7 +45,7 @@ class MockBuknuwoBleakClient(MockBleakClient):
         b"\x01\x03\x00\x2e\x00\x0b\x64\x04": (
             b"\x01\x03\x16\x00\x01\x00\xc3\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\xc8\xe7"
-        ),  #  temp count + temperatures
+        ),  #  temp count + temperature
     }
 
     async def write_gatt_char(
@@ -84,13 +84,12 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "dischrg_mosfet": True,
         "voltage": 13.69,
         "current": 3.88,
-        "temperature": 19.1,
         "battery_charging": True,
         "cycle_capacity": 1133.258,
         "cycle_charge": 82.78,
         "design_capacity": 90,
-        "temp_sensors": 1,
-        "temp_values": [TS(18.7, TS.T.MOSFET), TS(19.5, TS.T.CELL)],
+        "temp_count": 1,
+        "temperature": [TS(18.7, TS.T.MOSFET), TS(19.5, TS.T.CELL)],
         "power": 53.117,
         "problem": True,
         "problem_code": 0x480000000,

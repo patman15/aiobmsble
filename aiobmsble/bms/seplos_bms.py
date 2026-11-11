@@ -15,8 +15,11 @@ from aiobmsble import (
     BMSConfig,
     BMSDp,
     BMSInfo,
+    BMSLimits,
     BMSPDp,
     BMSSample,
+    Limit,
+    LimitDp,
     MatcherPattern,
     PackSample,
     TempSensor,
@@ -36,6 +39,8 @@ class BMS(BaseBMS):
     _EIA_LEN: Final[int] = _PIB_LEN
     _EIB_LEN: Final[int] = 0x16
     _EIC_LEN: Final[int] = 0x5
+    _SPA_LEN: Final[int] = 0x35
+    _SPA_BLOCKS: Final[tuple[int, int]] = (0x1300, 0x1335)  # start registers
     _TEMP_START: Final[int] = _HEAD_LEN + 32
     _PRB_MASK: Final[int] = 0xFFFF00FF00FF0000FF
     _QUERY: Final[dict[str, tuple[int, int, int]]] = {
@@ -57,7 +62,6 @@ class BMS(BaseBMS):
         BMSDp("cycles", 46, 2, False, idx=_EIA_LEN),
         BMSDp("battery_level", 48, 2, False, lambda x: x / 10, _EIA_LEN),
         BMSDp("battery_health", 50, 2, False, lambda x: x / 10, _EIA_LEN),
-        BMSDp("temperature", 20, 2, True, lambda x: x / 10, _EIB_LEN),  # avg. ctemp
         BMSDp("problem_code", 1, 9, False, lambda x: x & BMS._PRB_MASK, _EIC_LEN),
         BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), _EIC_LEN),
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), _EIC_LEN),
@@ -73,9 +77,35 @@ class BMS(BaseBMS):
         BMSPDp("battery_health", 12, 2, False, lambda x: x / 10),
         BMSPDp("cycles", 14, 2, False, lambda x: x),
     )
+    # SPA register offsets: byte position = 2 * (register - 0x1300)
+    _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = (
+        LimitDp(Limit.PACK_OVP, "trip", 10, scale=0.01),  # 0x1305
+        LimitDp(Limit.PACK_OVP, "release", 8, scale=0.01),  # 0x1304
+        LimitDp(Limit.PACK_UVP, "trip", 18, scale=0.01),  # 0x1309
+        LimitDp(Limit.PACK_UVP, "release", 16, scale=0.01),  # 0x1308
+        LimitDp(Limit.CELL_OVP, "trip", 26, scale=0.001),  # 0x130D
+        LimitDp(Limit.CELL_OVP, "release", 24, scale=0.001),  # 0x130C
+        LimitDp(Limit.CELL_UVP, "trip", 34, scale=0.001),  # 0x1311
+        LimitDp(Limit.CELL_UVP, "release", 32, scale=0.001),  # 0x1310
+        LimitDp(Limit.CHARGE_OCP, "trip", 46),  # 0x1317
+        LimitDp(Limit.CHARGE_OCP, "release", 42),  # 0x1315
+        LimitDp(Limit.CHARGE_OCP, "delay", 48, scale=0.1),  # 0x1318
+        LimitDp(Limit.DISCHARGE_OCP, "trip", 58, scale=-1, signed=True),  # 0x131D
+        LimitDp(Limit.DISCHARGE_OCP, "delay", 60, scale=0.1),  # 0x131E
+        LimitDp(Limit.CHARGE_OTP, "trip", 100, scale=0.1, offset=273.1),  # 0x1332
+        LimitDp(Limit.CHARGE_OTP, "release", 98, scale=0.1, offset=273.1),  # 0x1331
+        LimitDp(Limit.CHARGE_UTP, "trip", 108, scale=0.1, offset=273.1),  # 0x1336
+        LimitDp(Limit.CHARGE_UTP, "release", 106, scale=0.1, offset=273.1),  # 0x1335
+        LimitDp(Limit.DISCHARGE_OTP, "trip", 116, scale=0.1, offset=273.1),  # 0x133A
+        LimitDp(Limit.DISCHARGE_OTP, "release", 114, scale=0.1, offset=273.1),  # 0x1339
+        LimitDp(Limit.DISCHARGE_UTP, "trip", 124, scale=0.1, offset=273.1),  # 0x133E
+        LimitDp(Limit.DISCHARGE_UTP, "release", 122, scale=0.1, offset=273.1),  # 0x133D
+        LimitDp(Limit.MOS_OTP, "trip", 148, scale=0.1, offset=273.1),  # 0x134A
+        LimitDp(Limit.MOS_OTP, "release", 146, scale=0.1, offset=273.1),  # 0x1349
+    )
     _CMDS: Final = frozenset({field[2] for field in _QUERY.values()})
     _PCMDS: Final = frozenset({field[2] for field in _PQUERY.values()})
-    _VALID_CMDS: Final = frozenset(_CMDS | _PCMDS)
+    _VALID_CMDS: Final = frozenset(_CMDS | _PCMDS | {_SPA_LEN})
 
     def __init__(
         self,
@@ -180,6 +210,16 @@ class BMS(BaseBMS):
         self._frame.clear()
         self._msg_event.set()
 
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the protection thresholds from the SPA register blocks."""
+        payload = bytearray()
+        for start in BMS._SPA_BLOCKS:
+            await self._await_msg(BMS._cmd(0x0, 0x4, start, BMS._SPA_LEN))
+            if BMS._SPA_LEN not in self._msg:
+                raise ValueError("BMS data incomplete.")
+            payload += self._msg.pop(BMS._SPA_LEN)[BMS._HEAD_LEN : -BMS._CRC_LEN]
+        return BMS._decode_limits(bytes(payload), BMS._LIMIT_FIELDS)
+
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
@@ -229,7 +269,7 @@ class BMS(BaseBMS):
             )
 
             # add temperature sensors (4x cell temperature + 4 reserved)
-            pack_sample["temp_values"] = BMS._temp_values(
+            pack_sample["temperature"] = BMS._temperature(
                 self._msg[pack << 8 | BMS._PIB_LEN],
                 values=4,
                 start=BMS._TEMP_START,
@@ -237,7 +277,7 @@ class BMS(BaseBMS):
                 offset=2731,
                 divider=10,
                 types=(TempSensor.T.CELL,) * 4,
-            ) + BMS._temp_values(
+            ) + BMS._temperature(
                 self._msg[pack << 8 | BMS._PIB_LEN],
                 values=2,
                 start=BMS._TEMP_START + 16,

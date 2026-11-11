@@ -13,7 +13,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
-from enum import IntEnum, auto, unique
+from enum import IntEnum, StrEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Literal, NamedTuple, Self, TypedDict
 
@@ -30,10 +30,10 @@ type CommonValue = Literal[
     "cycle_capacity",
     "cycle_charge",
     "cycles",
-    "delta_voltage",
+    "delta_cell_voltage",
     "design_capacity",
-    "temp_sensors",
-    "temp_values",
+    "temp_count",
+    "temperature",
     "voltage",
 ]
 
@@ -41,7 +41,6 @@ type BMSValue = CommonValue | Literal[
     "battery_charging",
     "battery_mode",
     "power",
-    "temperature",
     "total_charge",
     "problem",
     "runtime",
@@ -117,19 +116,22 @@ class BatterySample(TypedDict, total=False):
     battery_health: float | int  # [%]
     cell_count: int  # [#]
     cell_voltages: list[float]  # [V]
-    current: float  # [A]
+    current: float  # [A] (positive: charging)
     cycles: int  # [#]
     cycle_charge: int | float  # [Ah]
     cycle_capacity: int | float  # [Wh]
-    delta_voltage: float  # [V]
+    delta_cell_voltage: float  # [V]
     design_capacity: int  # [Ah]
-    temp_sensors: int  # [#]
-    temp_values: list[TempSensor]  # [°C]
+    power: float  # [W] (positive: charging)
+    temp_count: int  # [#]
+    temperature: list[TempSensor]  # [°C]
     voltage: float  # [V]
 
 
 class PackSample(BatterySample, total=False):
     """Dictionary representing a sample of a battery sub-system."""
+
+    # check pace_bms.py before adding items
 
 
 class BMSSample(BatterySample, total=False):
@@ -138,8 +140,6 @@ class BMSSample(BatterySample, total=False):
     # BMS-specific fields
     battery_charging: bool  # True: battery charging
     battery_mode: BMSMode  # BMS charging mode
-    power: float  # [W] (positive: charging)
-    temperature: int | float  # [°C]
     problem: bool  # True: problem detected
     runtime: int  # [s]
 
@@ -201,6 +201,61 @@ class BMSInfo(TypedDict, total=False):
     serial_number: str
     sw_version: str
     hw_version: str
+
+
+@unique
+class Limit(StrEnum):
+    """Protection functions a BMS may implement (value = stable key)."""
+
+    # cell voltage
+    CELL_OVP = auto()
+    CELL_UVP = auto()
+    # pack voltage
+    PACK_OVP = auto()
+    PACK_UVP = auto()
+    # current
+    CHARGE_OCP = auto()
+    DISCHARGE_OCP = auto()
+    # temperature
+    CHARGE_OTP = auto()
+    CHARGE_UTP = auto()
+    DISCHARGE_OTP = auto()
+    DISCHARGE_UTP = auto()
+    MOS_OTP = auto()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Threshold:
+    """A single protection threshold as configured in the BMS.
+
+    Trip/release points at which the BMS activates/releases a protection.
+    They are not the operating envelope of the battery and must not be used as
+    charger/inverter set points.
+    """
+
+    trip: float  # trip point [V, A, °C]
+    release: float | None = None  # recovery point, if reported
+    delay: float | None = None  # [s] trip delay, if reported
+
+
+type BMSLimits = dict[Limit, Threshold]
+"""Thresholds configured in the BMS."""
+
+type ThresholdAttr = Literal["trip", "release", "delay"]
+
+
+@dataclass(frozen=True, slots=True)
+class LimitDp:
+    """Location and conversion of one threshold value in a raw frame."""
+
+    prot: Limit
+    attr: ThresholdAttr
+    pos: int  # byte offset in frame
+    size: int = 2  # size in bytes
+    scale: float = 1.0  # value = raw * scale - offset
+    offset: float = 0.0
+    signed: bool = False
+    invalid: int | None = None  # sentinel raw value meaning "disabled"
 
 
 class MatcherPattern(TypedDict, total=False):

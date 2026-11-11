@@ -51,6 +51,7 @@ The template also shows optional overrides as comments:
 - `_raw_values()` — return a set of `BMSValue` keys that should **not** be auto-calculated by `BaseBMS._add_missing_values()`, e.g. `runtime`.
 - `accept_secret` — set to `True` if the BMS requires a password/secret for authentication.
 - `_fetch_device_info()` — override to query device information from the BMS directly instead of reading BLE standard service `0x180A`.
+- `_fetch_limits()` — override to query the protection thresholds (trip/recovery points) of the BMS, returned by `limits()` as `BMSLimits`.
 
 ### Deriving from an existing plugin
 
@@ -86,7 +87,7 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
 - All plugin classes shall inherit from `BaseBMS`—directly, or via an existing plugin's `BMS` class when reusing that protocol (see [Deriving from an existing plugin](#deriving-from-an-existing-plugin))—and use its helper methods before overriding or replacing behaviour.
 - Prefer declarative field decoding: describe scalar values with [`BMSDp`](aiobmsble/__init__.py) entries in a `_FIELDS: tuple[BMSDp, ...]` class attribute and decode them via `BaseBMS._decode_data()` before writing manual parsing. Use per-variant `_FIELDS_*` tuples when the protocol has more than one frame layout.
 - If available, data shall be read directly from the device. `BaseBMS._add_missing_values()` is only used to ensure consistent data across all BMS types.
-- Where possible, use the utility functions provided by `BaseBMS` (e.g. `_decode_data()`, `_cell_voltages()`, `_temp_values()`, `_check_integrity()`, `_cmd_modbus()`).
+- Where possible, use the utility functions provided by `BaseBMS` (e.g. `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_check_integrity()`, `_cmd_modbus()`).
 - Tests shall use recorded frames from a real device (stored in `aiobmsble/test_data/`) to allow new parsed values to be added at a later point.
 
 to be extended ...

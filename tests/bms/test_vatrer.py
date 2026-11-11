@@ -21,13 +21,12 @@ _RESULT_DEFS: Final[BMSSample] = {
         "cycle_charge": 39.7,
         "cycle_capacity": 2090.999,
         "cycles": 27,
-        "delta_voltage": 0.003,
+        "delta_cell_voltage": 0.003,
         "cell_count": 16,
         "runtime": 28814,
-        "temp_sensors": 4,
-        "temp_values": [TS(v) for v in (18.0, 20.0, 19.0, 20.0, 20.0)]
+        "temp_count": 4,
+        "temperature": [TS(v) for v in (18.0, 20.0, 19.0, 20.0, 20.0)]
         + [TS(20.0, TS.T.MOSFET)],
-        "temperature": 19.5,
         "battery_charging": False,
         "power": -261.243,
         "balancer": False,

@@ -35,19 +35,16 @@ class BMS(BaseBMS):
     _TAIL: Final[bytes] = b"\x7e"
     _CELL_POS: Final[int] = 12
     _MAX_CELLS: Final[int] = 16
+    _PRB_MASK: Final[int] = 0x0FFC
     _FIELDS: tuple[BMSDp, ...] = (
-        BMSDp(
-            "current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT
-        ),
+        BMSDp("current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT),
         BMSDp("battery_level", 61, 1, False, idx=Cmd.RT),
         BMSDp("cycle_charge", 7, 2, False, lambda x: x / 10, Cmd.CAP),
         BMSDp(
-            "temp_values", 48, 1, False, lambda x: [TempSensor(x - 40)], Cmd.RT
+            "temperature", 48, 1, False, lambda x: [TempSensor(x - 40)], Cmd.RT
         ),  # only 1st sensor relevant
         BMSDp("cycles", 57, 2, False, idx=Cmd.RT),
-        BMSDp(
-            "problem_code", 52, 2, False, lambda x: x & 0x0FFC, Cmd.RT
-        ),  # mask status bits
+        BMSDp("problem_code", 52, 2, False, lambda x: x & BMS._PRB_MASK, Cmd.RT),
         BMSDp("dischrg_mosfet", 52, 1, False, lambda x: bool(x & 0x10), Cmd.RT),
         BMSDp("chrg_mosfet", 52, 1, False, lambda x: bool(x & 0x20), Cmd.RT),
         BMSDp("balancer", 55, 2, False, int, idx=Cmd.RT),
@@ -97,9 +94,7 @@ class BMS(BaseBMS):
                 }
             ]
             + [  # Chins/MOBILEKTRO Battery "G-{voltage}V{capacity}Ah-{serial}"
-                MatcherPattern(
-                    local_name="G-[0-5][2-8]V[0-9]*A[Hh]-[0-9]*", connectable=True
-                ),
+                MatcherPattern(local_name="G-[0-5][2-8]V[0-9]*A[Hh]-[0-9]*", connectable=True),
             ]
         )
 
@@ -118,9 +113,7 @@ class BMS(BaseBMS):
         """Return 128-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if data.startswith(BMS._BT_MODULE_MSG):
@@ -133,20 +126,15 @@ class BMS(BaseBMS):
 
         self._frame.extend(data)
 
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         exp_frame_len: Final[int] = (
             min(int(self._frame[7:11], 16), BMS._MAX_MSG_LEN)
-            if len(self._frame) > 10
-            and all(chr(c) in hexdigits for c in self._frame[7:11])
+            if len(self._frame) > 10 and all(chr(c) in hexdigits for c in self._frame[7:11])
             else BMS._MAX_MSG_LEN
         )
 
-        if not self._frame.startswith(BMS._HEAD) or (
-            not self._frame.endswith(BMS._TAIL) and len(self._frame) < exp_frame_len
-        ):
+        if len(self._frame) < exp_frame_len:
             return
 
         if not self._frame.endswith(BMS._TAIL):
@@ -154,9 +142,7 @@ class BMS(BaseBMS):
             self._frame.clear()
             return
 
-        if (len(self._frame) % 2) or not all(
-            chr(c) in hexdigits for c in self._frame[1:-1]
-        ):
+        if (len(self._frame) % 2) or not all(chr(c) in hexdigits for c in self._frame[1:-1]):
             self._log.debug("incorrect frame encoding")
             self._frame.clear()
             return
@@ -207,7 +193,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         raw_data: Final[dict[int, bytes]] = await self._query_bms()
 
-        if len(raw_data) != len(BMS.Cmd) or not all(raw_data.values()):
+        if raw_data.keys() != set(BMS.Cmd) or not all(raw_data.values()):
             return {}
 
         result: BMSSample = self._decode_data(BMS._FIELDS, raw_data) | BMSSample(

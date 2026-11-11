@@ -38,7 +38,7 @@ Modbus RTU over BLE SPP. Device address `0x01`, function code `0x03`
 > **Note:** This mapping was determined by empirical measurement against a
 > single unit (RT12100G31). There is no publicly available Modbus register
 > documentation for the RT BLE series. Core registers (voltage, current,
-> temperatures, SoC, SoH) are confirmed by cross-validation. Others
+> temperature, SoC, SoH) are confirmed by cross-validation. Others
 > (power, design_capacity) are high-confidence but not verified against an
 > official specification.
 
@@ -64,17 +64,27 @@ Modbus RTU over BLE SPP. Device address `0x01`, function code `0x03`
 
 | Register | Type | Scale | Unit | Description |
 |----------|------|-------|------|-------------|
-| 0x1023 | uint16 | ×0.01 | V | Charge voltage limit (e.g. 1410 = 14.10 V) |
-| 0x1024 | uint16 | ×0.01 | V | Discharge cutoff voltage (e.g. 1080 = 10.80 V) |
 | 0x2000–0x2007 | ASCII | – | – | Serial number (16 chars across 8 registers) |
 | 0x2008–0x200D | – | – | – | Telink GModule internal config, not BMS data |
 
-### Notes on cell_voltages and temp_values
+### Protection limits (`limits()`)
+
+Read in a single request (0x1023–0x1024, 2 registers):
+
+| Register | Type | Scale | Unit | Limit | Description |
+|----------|------|-------|------|-------|-------------|
+| 0x1023 | uint16 | ×0.01 | V | `PACK_OVP` (trip) | Charge voltage limit (e.g. 1410 = 14.10 V) |
+| 0x1024 | uint16 | ×0.01 | V | `PACK_UVP` (trip) | Discharge cutoff voltage (e.g. 1080 = 10.80 V) |
+
+Register 0x1021 (BMS dynamic allowed current) varies with SoC and temperature
+and is therefore not reported as a fixed limit.
+
+### Notes on cell_voltages and temperature
 
 The RT series Modbus interface exposes only min/max aggregates for cell
-voltages (0x1018, 0x1019) and temperatures (0x101A, 0x101B) — individual
+voltages (0x1018, 0x1019) and temperature (0x101A, 0x101B) — individual
 cell or sensor values are not available. Both `cell_voltages` and
-`temp_values` are therefore two-element lists `[max, min]`.
+`temperature` are therefore two-element lists `[max, min]`.
 
 ### Potential further advertisements
 ```json

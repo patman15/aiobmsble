@@ -15,7 +15,7 @@ from tests.test_basebms import BMSBasicTests
 
 BT_FRAME_SIZE = 20
 
-_PROTO_DEFS: Final[bytearray] = bytearray(
+_PROTO_DEFS: Final[bytes] = (
     b"\x3a\x32\x31\x37\x34\x32\x31\x32\x30\x43\x43\x32\x30\x32\x31\x32\x32\x34\x39\x33"
     b"\x38\x38\x30\x43\x31\x32\x43\x39\x35\x32\x43\x39\x35\x32\x43\x39\x39\x32\x43\x39"
     b"\x34\x32\x30\x32\x30\x32\x30\x32\x30\x32\x30\x32\x30\x32\x30\x32\x30\x32\x30\x32"
@@ -34,15 +34,14 @@ _RESULT_DEFS: Final[BMSSample] = {
     "voltage": 13.015,
     "current": -1.52,
     "battery_level": 52,
-    "delta_voltage": 0.005,
+    "delta_cell_voltage": 0.005,
     "power": -19.783,
     "runtime": 262537,
     "battery_charging": False,
     "cycle_charge": 110.849,
     "cycles": 5,
     "design_capacity": 200,
-    "temp_values": [TS(9.0)] * 4,
-    "temperature": 9.0,
+    "temperature": [TS(9.0)] * 4,
     "cell_voltages": [
         3.253,
         3.253,
@@ -66,7 +65,7 @@ class TestBasicBMS(BMSBasicTests):
 class MockWSNovaBleakClient(MockBleakClient):
     """Emulate a Wattstunde Nova BMS BleakClient."""
 
-    _RESP: bytearray = _PROTO_DEFS
+    _RESP: bytes = _PROTO_DEFS
 
     async def write_gatt_char(
         self,
@@ -80,16 +79,15 @@ class MockWSNovaBleakClient(MockBleakClient):
         if char_specifier != "FFF1":
             return
         for notify_data in [
-            self._RESP[i : i + BT_FRAME_SIZE]
-            for i in range(0, len(self._RESP), BT_FRAME_SIZE)
+            self._RESP[i : i + BT_FRAME_SIZE] for i in range(0, len(self._RESP), BT_FRAME_SIZE)
         ]:
-            self._notify_callback("MockStreamBleakClient", notify_data)
+            self._notify_callback("MockStreamBleakClient", bytearray(notify_data))
 
 
 class MockStreamBleakClient(MockWSNovaBleakClient):
     """Emulate a Wattstunde Nova BMS BleakClient sending data in stream mode."""
 
-    _RESP_NOTIFY: bytearray = _PROTO_DEFS
+    _RESP_NOTIFY: bytes = _PROTO_DEFS
 
     async def _notify(self) -> None:
         assert self._notify_callback is not None
@@ -97,7 +95,7 @@ class MockStreamBleakClient(MockWSNovaBleakClient):
             self._RESP_NOTIFY[i : i + BT_FRAME_SIZE]
             for i in range(0, len(self._RESP_NOTIFY), BT_FRAME_SIZE)
         ]:
-            self._notify_callback("MockStreamBleakClient", notify_data)
+            self._notify_callback("MockStreamBleakClient", bytearray(notify_data))
 
 
 async def test_update(
@@ -136,7 +134,7 @@ async def test_stream_update(
 
     _client: MockStreamBleakClient = cast(MockStreamBleakClient, bms._client)
     caplog.clear()
-    _frame: bytearray = _PROTO_DEFS.copy()
+    _frame: bytearray = bytearray(_PROTO_DEFS)
     _frame[135:139] = b"2029"  # change cycles from 5 to 9
     monkeypatch.setattr(_client, "_RESP_NOTIFY", _frame)
     await _client._notify()
@@ -147,7 +145,7 @@ async def test_stream_update(
 
     caplog.clear()
     # do not automatically send data this time
-    _frame = _PROTO_DEFS.copy()
+    _frame = bytearray(_PROTO_DEFS)
     _frame[135:139] = b"2429"  # change cycles from 9 to 73
     monkeypatch.setattr(_client, "_RESP_NOTIFY", _frame)
 
@@ -226,7 +224,7 @@ async def test_problem_response(
 ) -> None:
     """Test data update with BMS returning error flags."""
 
-    _resp: bytearray = _PROTO_DEFS.copy()
+    _resp: bytearray = bytearray(_PROTO_DEFS)
     _resp[89:93] = problem_response
     monkeypatch.setattr(MockWSNovaBleakClient, "_RESP", _resp)
 

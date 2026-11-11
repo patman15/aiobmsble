@@ -38,12 +38,11 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "problem_code": 0,
         "cell_count": 4,
         "cell_voltages": [3.5, 3.5, 3.5, 3.49],
-        "temp_values": [TS(12.778), TS(8.889)],
-        "temperature": 10.834,
+        "temperature": [TS(12.778), TS(8.889)],
         "cycle_charge": 319.0,
         "total_charge": 6391,
         "cycle_capacity": 4462.81,
-        "delta_voltage": 0.01,
+        "delta_cell_voltage": 0.01,
         "power": -41.97,
         "battery_charging": False,
         "runtime": 382800,
@@ -58,18 +57,17 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cycle_charge": 159.4,
         "cycle_capacity": 8368.5,
         "cell_count": 4,
-        "cell_voltages": [3.29, 3.31, 3.37, 3.25],
-        "delta_voltage": 0.08,
-        "temp_values": [TS(26.667)],
-        "temperature": 26.667,
+        "delta_cell_voltage": 0.08,
+        "temperature": [TS(26.667)],
         "problem_code": 0,
         "problem": False,
         "packs": [
             {
                 "cell_count": 4,
-                "temp_values": [TS(25.4), TS(27.1)],
-                "delta_voltage": 0.08,
+                "temperature": [TS(25.4), TS(27.1)],
+                "delta_cell_voltage": 0.08,
                 "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+                "voltage": 13.22,
             }
         ],
     },
@@ -90,26 +88,19 @@ class MockLithionicsBleakClient(MockBleakClient):
 
     async def _notify(self) -> None:
         """Notify function."""
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         while True:
             for notify_data in [
-                self._RESP[i : i + BT_FRAME_SIZE]
-                for i in range(0, len(self._RESP), BT_FRAME_SIZE)
+                self._RESP[i : i + BT_FRAME_SIZE] for i in range(0, len(self._RESP), BT_FRAME_SIZE)
             ]:
-                self._notify_callback(
-                    "MockLithionicsBleakClient", bytearray(notify_data)
-                )
+                self._notify_callback("MockLithionicsBleakClient", bytearray(notify_data))
             await asyncio.sleep(0)
 
     async def start_notify(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[
-            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-        ],
+        callback: Callable[[BleakGATTCharacteristic, bytearray], None | Awaitable[None]],
         **kwargs,
     ) -> None:
         """Mock start_notify."""
@@ -161,9 +152,8 @@ async def test_module_info_sorted(
     cell_count: bool,
 ) -> None:
     """Test that module information is returned in module ID order."""
-    module_2: bytes = (
-        b"#,1,2,0000,0000,4,30.0,31.0,329,337,333,0005,0102,330,331,332"
-        + (b",333\r\n" if cell_count else b"\r\n")
+    module_2: bytes = b"#,1,2,0000,0000,4,30.0,31.0,329,337,333,0005,0102,330,331,332" + (
+        b",333\r\n" if cell_count else b"\r\n"
     )
     monkeypatch.setattr(
         MockLithionicsBleakClient,
@@ -178,17 +168,70 @@ async def test_module_info_sorted(
     assert result.get("packs") == [
         {
             "cell_count": 4,
-            "temp_values": [TS(25.4), TS(27.1)],
-            "delta_voltage": 0.08,
+            "temperature": [TS(25.4), TS(27.1)],
+            "delta_cell_voltage": 0.08,
             "cell_voltages": [3.29, 3.31, 3.37, 3.25],
+            "voltage": 13.22,
         },
         {
             "cell_count": 4,
-            "temp_values": [TS(30.0), TS(31.0)],
-            "delta_voltage": 0.08,
+            "temperature": [TS(30.0), TS(31.0)],
+            "delta_cell_voltage": 0.08,
         }
-        | ({"cell_voltages": [3.30, 3.31, 3.32, 3.33]} if cell_count else {}),
+        | (
+            {
+                "cell_voltages": [3.30, 3.31, 3.32, 3.33],
+                "voltage": 13.26,
+            }
+            if cell_count
+            else {}
+        ),
     ]
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize("module_id", [b"ZZ", b"256"], ids=["non_numeric", "too_large"])
+async def test_invalid_module_id_ignored(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    caplog: pytest.LogCaptureFixture,
+    module_id: bytes,
+) -> None:
+    """Test that a module line with an invalid module ID is discarded."""
+    monkeypatch.setattr(
+        MockLithionicsBleakClient,
+        "_RESP",
+        b"#,1,"
+        + module_id
+        + b",0000,0000,4,30.0,31.0,329,337,333,0005,0102,330,331,332,333\r\n"
+        + _PROTO_DEFS["fixed_stream"],
+    )
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device(name="Li3-022724009"))
+
+    assert await bms.async_update() == _RESULT_DEFS["fixed_stream"]
+    assert "invalid module ID" in caplog.text
+
+    await bms.disconnect()
+
+
+async def test_malformed_module_not_persistent(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+) -> None:
+    """Test that a malformed module line is ignored and does not persist."""
+    monkeypatch.setattr(
+        MockLithionicsBleakClient,
+        "_RESP",
+        _PROTO_DEFS["fixed_stream"]
+        + b"#,1,42,0000,0000,X,30.0,31.0,401,402,403,0015,0112,300,301,302,303\r\n",
+    )
+    patch_bleak_client(MockLithionicsBleakClient)
+
+    bms = BMS(generate_ble_device(name="Li3-022724009"))
+    assert await bms.async_update() == _RESULT_DEFS["fixed_stream"]
 
     await bms.disconnect()
 
@@ -249,9 +292,7 @@ async def test_invalid_frame_length(
 ) -> None:
     """Test handling of frames exceeding BLE_MAX_ATTR_SIZE in notification handler."""
     patch_bms_timeout("lithionics_bms")
-    monkeypatch.setattr(
-        MockLithionicsBleakClient, "_RESP", b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1)
-    )
+    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1))
     patch_bleak_client(MockLithionicsBleakClient)
 
     bms = BMS(generate_ble_device())
@@ -274,14 +315,16 @@ def test_uuid_tx_not_implemented() -> None:
         BMS.uuid_tx()
 
 
+@pytest.mark.parametrize("first_field", [b"1x", b"1" * 400], ids=["non_numeric", "too_long"])
 async def test_non_numeric_field_raises_value_error(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
+    first_field: bytes,
 ) -> None:
-    """Test that a non-numeric (but correctly shaped) primary field raises ValueError."""
+    """Test that a non-numeric or overlong (but correctly shaped) primary field raises ValueError."""
     stream: bytes = (
-        b"1x,350,350,350,349,55,48,-3,99,000000\r\n"
-        b"&,1,319,006391,0136,2300,FF05,8700\r\n"
+        first_field
+        + b",350,350,350,349,55,48,-3,99,000000\r\n&,1,319,006391,0136,2300,FF05,8700\r\n"
     )
     monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", stream)
     patch_bleak_client(MockLithionicsBleakClient)
@@ -310,9 +353,7 @@ async def test_status_field_variants(
     expected: BMSSample,
 ) -> None:
     """Test status parsing variants with optional fields."""
-    stream: bytes = (
-        b"1399,350,350,350,349,55,48,-3,99,000000\r\n" + status_line.encode() + b"\r\n"
-    )
+    stream: bytes = b"1399,350,350,350,349,55,48,-3,99,000000\r\n" + status_line.encode() + b"\r\n"
     monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", stream)
     patch_bleak_client(MockLithionicsBleakClient)
 

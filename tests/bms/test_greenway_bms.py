@@ -8,7 +8,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.bms.greenway_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -48,6 +48,46 @@ _PROTO_DEFS: Final[dict[int, bytes]] = {
     0x26: b"\x47\x16\x01\x26\x0e\x36\xe4\xfd\xff\x1c\x5c\x00\x00\x7a\x10\xb4\x0c\x2f\x08\xa1",
 }
 
+_RESULT_DEFS: Final[BMSSample] = {
+    "voltage": 80.252,
+    "battery_charging": True,
+    "battery_health": 100,
+    "battery_level": 74,
+    "cell_count": 20,
+    "cell_voltages": [
+        4.016,
+        4.013,
+        4.014,
+        4.013,
+        4.015,
+        4.015,
+        4.011,
+        4.017,
+        4.017,
+        4.018,
+        4.012,
+        4.011,
+        4.01,
+        4.011,
+        4.01,
+        4.009,
+        4.01,
+        4.011,
+        4.01,
+        4.009,
+    ],
+    "current": 14.971,
+    "cycle_capacity": 2260.859,
+    "cycle_charge": 28.172,
+    "cycles": 16,
+    "delta_cell_voltage": 0.009,
+    "design_capacity": 37,
+    "power": 1201.453,
+    "problem": False,
+    "problem_code": 0,
+    "temperature": [TS(t) for t in (17.0, 17.0, 17.0, 18.0, 19.0, 19.0, 19.0)],
+}
+
 
 class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
@@ -75,8 +115,7 @@ class MockGreenwayBleakClient(MockBleakClient):
 
         resp_data: bytes = self._RESP.get(bytes(data)[3], b"")
         for notify_data in [
-            resp_data[i : i + BT_FRAME_SIZE]
-            for i in range(0, len(resp_data), BT_FRAME_SIZE)
+            resp_data[i : i + BT_FRAME_SIZE] for i in range(0, len(resp_data), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockGreenwayBleakClient", notify_data)
 
@@ -88,46 +127,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == {
-        "voltage": 80.252,
-        "battery_charging": True,
-        "battery_health": 100,
-        "battery_level": 74,
-        "cell_count": 20,
-        "cell_voltages": [
-            4.016,
-            4.013,
-            4.014,
-            4.013,
-            4.015,
-            4.015,
-            4.011,
-            4.017,
-            4.017,
-            4.018,
-            4.012,
-            4.011,
-            4.01,
-            4.011,
-            4.01,
-            4.009,
-            4.01,
-            4.011,
-            4.01,
-            4.009,
-        ],
-        "current": 14.971,
-        "cycle_capacity": 2260.859,
-        "cycle_charge": 28.172,
-        "cycles": 16,
-        "delta_voltage": 0.009,
-        "design_capacity": 37,
-        "power": 1201.453,
-        "problem": False,
-        "problem_code": 0,
-        "temp_values": [17.0, 17.0, 17.0, 18.0, 19.0, 19.0, 19.0],
-        "temperature": 18.0,
-    }
+    assert await bms.async_update() == _RESULT_DEFS
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
@@ -150,6 +150,24 @@ async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
         hw_version="0.3",
         sw_version="3.63",
     )
+
+    await bms.disconnect()
+
+
+async def test_device_info_short(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that a valid but too short version reply is rejected."""
+
+    monkeypatch.setattr(
+        MockGreenwayBleakClient,
+        "_RESP",
+        _PROTO_DEFS | {0x1A: b"\x47\x16\x01\x1a\x00\x78"},
+    )
+    patch_bleak_client(MockGreenwayBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.device_info()
 
     await bms.disconnect()
 
@@ -205,17 +223,13 @@ async def test_problem_response(
     """Test data update with BMS returning error flags."""
 
     test_id = request.node.callspec.id
-    monkeypatch.setattr(
-        MockGreenwayBleakClient, "_RESP", _PROTO_DEFS | {0x16: problem_response}
-    )
+    monkeypatch.setattr(MockGreenwayBleakClient, "_RESP", _PROTO_DEFS | {0x16: problem_response})
     patch_bleak_client(MockGreenwayBleakClient)
 
     bms = BMS(generate_ble_device())
 
     result: BMSSample = await bms.async_update()
     assert result.get("problem", False)  # we expect a problem
-    assert result.get("problem_code", 0) == (
-        0x1 if test_id == "first_bit" else 0x80 << 56
-    )
+    assert result.get("problem_code", 0) == (0x1 if test_id == "first_bit" else 0x80 << 56)
 
     await bms.disconnect()

@@ -1,17 +1,24 @@
-"""Test the aiobmsble library base class functions."""
+"""Test the common functionality of aiobmsble library plugins."""
 
-# Discover all subclasses of BaseBMS in the aiobmsble package
+from collections.abc import Awaitable, Callable
 import importlib
 import inspect
 from pathlib import Path
 import pkgutil
+import random
 from types import ModuleType
 from typing import Final
+
+from bleak.backends.characteristic import BleakGATTCharacteristic
+from bleak.backends.service import BleakGATTService
+import pytest
 
 import aiobmsble
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.test_data import bms_advertisements, ignore_advertisements
 from aiobmsble.utils import bms_supported, load_bms_plugins
+from tests.bluetooth import generate_ble_device
+from tests.conftest import MockBleakClient
 
 
 def test_advertisements_unique() -> None:
@@ -29,9 +36,7 @@ def test_advertisements_ignore() -> None:
     for adv, mac_addr, reason, _comments in ignore_advertisements():
         for bms_under_test in load_bms_plugins():
             supported: bool = bms_supported(bms_under_test.BMS, adv, mac_addr)
-            assert (
-                not supported
-            ), f"{adv} incorrectly matches {bms_under_test.__name__}! {reason=}"
+            assert not supported, f"{adv} incorrectly matches {bms_under_test.__name__}! {reason=}"
 
 
 def get_defined_methods(cls: type) -> list[str]:
@@ -66,9 +71,7 @@ def _get_bms_subclasses() -> list[tuple[type[BaseBMS], str]]:
     subclasses: list[tuple[type[BaseBMS], str]] = []
 
     # Find all subclasses of BaseBMS
-    for _, module_name, _ in pkgutil.walk_packages(
-        aiobmsble.__path__, aiobmsble.__name__ + "."
-    ):
+    for _, module_name, _ in pkgutil.walk_packages(aiobmsble.__path__, aiobmsble.__name__ + "."):
         module: ModuleType = importlib.import_module(module_name)
         for _name, obj in inspect.getmembers(module, inspect.isclass):
             if issubclass(obj, BaseBMS) and obj is not BaseBMS:
@@ -103,6 +106,48 @@ def test_subclass_method_order() -> None:
         )
 
 
+async def test_stale_data_cleared(
+    monkeypatch: pytest.MonkeyPatch, plugin_fixture: ModuleType
+) -> None:
+    """Verify that sustained max-size random notifications never raise BufferError.
+
+    Delivers more BLE_MAX_ATTR_SIZE chunks of random (invalid) data than the frame
+    buffer can hold, to check that each plugin discards stale data instead of
+    overflowing its buffer.
+    """
+
+    async def patch_init() -> None:
+        """Skip the connection init to allow direct notification delivery."""
+
+    monkeypatch.setattr("aiobmsble.basebms.BleakClient", MockBleakClient)
+
+    bms: BaseBMS = plugin_fixture.BMS(generate_ble_device(name="MockChunk BMS"))
+    # skip connection init (e.g. JK BMS overloads) to allow direct notification delivery
+    monkeypatch.setattr(bms, "_init_connection", patch_init)
+
+    char = BleakGATTCharacteristic(
+        None, 1, "fff4", ["notify"], lambda: 512, BleakGATTService(None, 0, "fff0")
+    )
+    handler: Callable[..., None | Awaitable[None]] = bms._notification_handler  # type: ignore[attr-defined]
+    rng = random.Random(42)
+
+    # buffer capacity is max(_MAX_MSG_LEN, BLE_MAX_ATTR_SIZE) * 2, so delivering
+    # this many chunks overflows it unless stale data is cleared
+    size = BaseBMS.BLE_MAX_ATTR_SIZE
+    chunk_count = max(BaseBMS._MAX_MSG_LEN, size) // size + 2
+
+    await bms._connect()
+    try:
+        for _ in range(chunk_count):
+            try:
+                if inspect.isawaitable(result := handler(char, bytearray(rng.randbytes(size)))):
+                    await result
+            except BufferError as exc:
+                pytest.fail(f"{plugin_fixture.__name__}: {exc!r}")
+    finally:
+        await bms.disconnect()
+
+
 def test_alive_interval_requires_alive_override() -> None:
     """Verify plugins with an alive interval override the keep-alive hook."""
     subclasses: list[tuple[type[BaseBMS], str]] = _get_bms_subclasses()
@@ -129,6 +174,4 @@ def test_no_pragma_no_cover() -> None:
                 if "pragma" in line and "no cover" in line:
                     pragma_no_cover_files.append((file_path.name, line_num))
 
-    assert (
-        not pragma_no_cover_files
-    ), f"Found pragma no cover in: {pragma_no_cover_files}"
+    assert not pragma_no_cover_files, f"Found pragma no cover in: {pragma_no_cover_files}"

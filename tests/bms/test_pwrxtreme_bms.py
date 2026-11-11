@@ -35,13 +35,12 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_level": 99,
         "cycle_charge": 212.0,
         "cycles": 2,
-        "temp_values": [TS(20.45, TS.T.GENERIC)],
+        "temperature": [TS(20.45, TS.T.GENERIC)],
         "problem_code": 0,
         "cell_voltages": [3.34, 3.339, 3.34, 3.337],
         "battery_charging": False,
         "cell_count": 4,
-        "delta_voltage": 0.003,
-        "temperature": 20.45,
+        "delta_cell_voltage": 0.003,
         "cycle_capacity": 2831.472,
         "power": -42.739,
         "problem": False,
@@ -49,7 +48,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
     }
 }
 
-_DEV_INFO_DEFS: Final[BMSInfo] = {
+_INFO_DEFS: Final[BMSInfo] = {
     "fw_version": "mock_FW_version",
     "hw_version": "mock_HW_version",
     "sw_version": "mock_SW_version",
@@ -120,7 +119,7 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockPwrXtremeBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == _DEV_INFO_DEFS
+    assert await bms.device_info() == _INFO_DEFS
 
 
 async def test_device_info_timeout(
@@ -137,7 +136,7 @@ async def test_device_info_timeout(
 
     monkeypatch.setattr(bms, "_await_msg", await_msg)
 
-    assert await bms.device_info() == _DEV_INFO_DEFS | {
+    assert await bms.device_info() == _INFO_DEFS | {
         "serial_number": "mock_serial_number"
     }
 
@@ -154,7 +153,7 @@ async def test_device_info_decode_error(
 
     monkeypatch.setattr(bms, "_await_msg", await_msg)
 
-    assert await bms.device_info() == _DEV_INFO_DEFS | {
+    assert await bms.device_info() == _INFO_DEFS | {
         "serial_number": "mock_serial_number"
     }
 

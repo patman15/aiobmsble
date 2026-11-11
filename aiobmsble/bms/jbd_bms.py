@@ -28,6 +28,7 @@ class BMS(BaseBMS):
     _INFO_LEN: Final[int] = 7  # minimum frame size
     _BASIC_INFO: Final[int] = 23  # basic info data length
     _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
+    _POS_SWVER: Final[int] = 22  # position of SW version
     _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4
     _FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
@@ -41,8 +42,13 @@ class BMS(BaseBMS):
         BMSDp("chrg_mosfet", 24, 1, False, lambda x: bool(x & 0x1)),
         BMSDp("dischrg_mosfet", 24, 1, False, lambda x: bool(x & 0x2)),
         BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
-        BMSDp("temp_sensors", 26, 1, False),  # count is not limited
+        BMSDp("temp_count", 26, 1, False),  # count is not limited
     )  # general protocol v4
+    _FIELDS_D10: tuple[BMSDp, ...] = (
+        BMSDp("current", 6, 2, True, lambda x: x / 10),
+        BMSDp("cycle_charge", 8, 2, False, lambda x: x / 10),
+        BMSDp("design_capacity", 10, 2, False, lambda x: x // 10),
+    )  # overrides for BMS reporting 100 mA / 100 mAh units
 
     accept_secret: bool = True
 
@@ -55,6 +61,7 @@ class BMS(BaseBMS):
         """Initialize private BMS members."""
         super().__init__(ble_device, config, logger_name)
         self._valid_reply: int = 0x00
+        self._exp_len: int = 0
         self._msg: bytes = b""
 
     @staticmethod
@@ -67,23 +74,26 @@ class BMS(BaseBMS):
                 connectable=True,
             )
             for pattern in (
+                "12???BL*",  # SBL connect battery
+                "24???BL*",  # SBL connect battery
                 "@KsM:*",  # RVPOWER
+                "J-?????Y*", # Chins
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery
+                "OGR-*",  # OGRPHY
+                "SBL-*",  # SBL
                 "SJ-???-*",  # Supervolt Jumbo
                 "SX1*",  # Supervolt v3
                 "SX60*",  # Supervolt Ultra
-                "SBL-*",  # SBL
-                "OGR-*",  # OGRPHY
+                "TITAN-*",  # Titan battery
                 "TZ-H*",  # CERRNSS battery
-                "12???BL*",  # SBL connect battery
-                "24???BL*",  # SBL connect battery
             )
         ] + [
             MatcherPattern(oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True)
             for oui in (
                 "10:A5:62",  # CHINS
+                "70:3E:97",
                 "A2:C2:37",
                 "A4:C1:37",
                 "A4:C1:38",
@@ -91,7 +101,6 @@ class BMS(BaseBMS):
                 "A5:C2:39",
                 "A5:C2:3A",
                 "AA:C2:37",
-                "70:3E:97",
             )
         ]
 
@@ -113,7 +122,10 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         await self._await_cmd_resp(0x03)
-        result: BMSInfo = {"sw_version": f"{self._msg[22] >> 4}.{self._msg[22] & 0xF}"}
+        if len(self._msg) <= BMS._POS_SWVER:
+            raise ValueError("BMS data incomplete.")
+        sw_version: Final[int] = self._msg[BMS._POS_SWVER]
+        result: BMSInfo = {"sw_version": f"{sw_version >> 4}.{sw_version & 0xF}"}
         try:
             await self._await_cmd_resp(0x05)
             result["hw_version"] = b2str(self._msg[4 : self._msg[3] + 4])
@@ -175,49 +187,42 @@ class BMS(BaseBMS):
             and data.startswith(BMS._HEAD_RSP)
             and data[1] in self._VALID_CMD
             and data[2] in (0x00, 0x80)
-            and len(self._frame) > BMS._INFO_LEN
-            and len(self._frame) >= BMS._INFO_LEN + self._frame[3]
+            and (not self._frame.startswith(BMS._HEAD_RSP))
         ):
+            self._exp_len = BMS._INFO_LEN + data[3]
             self._frame.clear()
 
         self._frame.extend(data)
         self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
-        if (  # verify that data is long enough
-            len(self._frame) < BMS._INFO_LEN or len(self._frame) < BMS._INFO_LEN + self._frame[3]
-        ):
+        if not self._frame or len(self._frame) < self._exp_len:
             return
 
         # check correct frame ending
-        frame_end: Final[int] = BMS._INFO_LEN + self._frame[3] - 1
+        frame_end: Final[int] = self._exp_len - 1
         if self._frame[frame_end] != BMS._TAIL:
             self._log.debug("incorrect frame end (length: %i).", len(self._frame))
+            self._frame.clear()
             return
 
         if not self._check_integrity(
-            self._frame,
-            BMS._crc,
-            slice(2, frame_end - 2),
-            slice(frame_end - 2, frame_end),
+            self._frame, BMS._crc, slice(2, frame_end - 2), slice(frame_end - 2, frame_end)
         ):
+            self._frame.clear()
             return
 
-        if len(self._frame) != BMS._INFO_LEN + self._frame[3]:
-            self._log.debug(
-                "wrong data length (%i != %i)",
-                len(self._frame),
-                self._frame[3] + BMS._INFO_LEN,
-            )
+        if len(self._frame) != self._exp_len:
+            self._log.debug("wrong data length (%i != %i)", len(self._frame), self._exp_len)
 
         if self._frame[1] != self._valid_reply or self._frame[2] & 0x80:
             self._log.debug(
-                "unexpected response (type 0x%X, code: 0x%X)",
-                self._frame[1],
-                self._frame[2],
+                "unexpected response (type 0x%X, code: 0x%X)", self._frame[1], self._frame[2]
             )
+            self._frame.clear()
             return
 
         self._msg = bytes(self._frame[: frame_end - 2])
+        self._frame.clear()
         self._msg_event.set()
 
     @staticmethod
@@ -243,12 +248,18 @@ class BMS(BaseBMS):
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""
-        result: BMSSample = {}
+
         await self._await_cmd_resp(0x03)
-        result = BMS._decode_data(self._FIELDS, self._msg)
-        result["temp_values"] = BMS._temp_values(
+        result: BMSSample = BMS._decode_data(self._FIELDS, self._msg)
+
+        # check for /10 scaling flag
+        ctrl: Final[int] = 27 + 2 * result.get("temp_count", 0)
+        if int.from_bytes(self._msg[ctrl : ctrl + 1]) & 0x80:
+            result |= BMS._decode_data(self._FIELDS_D10, self._msg)
+
+        result["temperature"] = BMS._temperature(
             self._msg,
-            values=result.get("temp_sensors", 0),
+            values=result.get("temp_count", 0),
             start=27,
             signed=False,
             offset=2731,

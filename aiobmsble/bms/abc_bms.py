@@ -23,6 +23,7 @@ class BMS(BaseBMS):
     _HEAD_CMD: Final[int] = 0xEE
     _HEAD_RESP: Final[bytes] = b"\xcc"
     _INFO_LEN: Final[int] = 0x14
+    _MAX_CELL: Final[int] = 32
     _EXP_REPLY: Final[dict[int, set[int]]] = {  # wait for these replies
         0xC0: {0xF1},
         0xC1: {0xF0, 0xF2},
@@ -31,7 +32,7 @@ class BMS(BaseBMS):
         0xC4: {0xF9},
     }
     _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("temp_sensors", 4, 1, False, idx=0xF2),
+        BMSDp("temp_count", 4, 1, False, idx=0xF2),
         BMSDp("voltage", 2, 3, False, lambda x: x / 1000, 0xF0),
         BMSDp("current", 5, 3, True, lambda x: x / 1000, 0xF0),
         BMSDp("design_capacity", 8, 3, False, lambda x: x // 1000, 0xF0),
@@ -68,11 +69,11 @@ class BMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            {
-                "local_name": pattern,
-                "service_uuid": normalize_uuid_str("fff0"),
-                "connectable": True,
-            }
+            MatcherPattern(
+                local_name=pattern,
+                service_uuid=normalize_uuid_str("fff0"),
+                connectable=True,
+            )
             for pattern in ("ABC-*", "SOK-*", "NB-*", "Hoover")
         ]
 
@@ -99,9 +100,7 @@ class BMS(BaseBMS):
         info.update({"model": b2str(self._msg[0xF1][2:-1])})
         return info
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -117,7 +116,10 @@ class BMS(BaseBMS):
             return
 
         if data[1] == 0xF4 and 0xF4 in self._msg:
-            # expand cell voltage frame with all parts
+            # each part holds 4 cells, only accept the consecutive next part
+            if data[2] != len(self._msg[0xF4]) // 4 or data[2] > BMS._MAX_CELL:
+                self._log.debug("unexpected cell index %i", data[2])
+                return
             self._msg[0xF4] = bytes(self._msg[0xF4][:-2] + data[2:])
         else:
             self._msg[data[1]] = bytes(data)
@@ -158,10 +160,10 @@ class BMS(BaseBMS):
                 byteorder="little",
                 size=2,
             )[::2],
-            "temp_values": BMS._temp_values(
+            "temperature": BMS._temperature(
                 self._msg[0xF2],
                 start=5,
-                values=result.get("temp_sensors", 0),
+                values=result.get("temp_count", 0),
                 byteorder="little",
             ),
         }

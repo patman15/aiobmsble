@@ -1,10 +1,14 @@
 {
     "python.envFile": "${workspaceFolder}/.envFile",
+    "files.eol": "\n",
     "python.testing.pytestArgs": [
         "tests"
     ],
     "python.useEnvironmentsExtension": true,
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "python-envs.defaultEnvManager": "ms-python.python:venv"
+    "python-envs.defaultEnvManager": "ms-python.python:venv",
+    "chat.tools.terminal.autoApprove": {
+        ".venv/bin/python": true
+    }
 }

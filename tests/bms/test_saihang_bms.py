@@ -13,6 +13,43 @@ from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
+_RESULT_DEFS: Final[BMSSample] = {
+    "voltage": 27.28,
+    "battery_charging": False,
+    "battery_health": 100,
+    "battery_level": 96,
+    "cell_count": 8,
+    "current": 0.0,
+    "cycles": 2,
+    "temp_count": 4,
+    "temperature": [
+        TS(15.3, TS.T.CELL),
+        TS(15.6, TS.T.CELL),
+        TS(17.2, TS.T.MOSFET),
+        TS(25.0, TS.T.AMBIENT),
+    ],
+    "cell_voltages": [
+        3.497,
+        3.434,
+        3.368,
+        3.389,
+        3.372,
+        3.435,
+        3.405,
+        3.384,
+    ],
+    "cycle_capacity": 2629.246,
+    "cycle_charge": 96.38,
+    "delta_cell_voltage": 0.129,
+    "design_capacity": 100,
+    "balancer": 0,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
+    "problem": False,
+    "problem_code": 0,
+    "power": 0.0,
+}
+
 
 class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
@@ -46,9 +83,7 @@ class MockSaihangBleakClient(MockBleakClient):
         if bytes(data) != b"\xa5\xa5\x00\x03\x00\x00\x00\x48\x44\x2d":
             return
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         self._notify_callback("MockRoyPowBleakClient", self._RESP)
 
@@ -60,44 +95,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == {
-        "voltage": 27.28,
-        "temperature": 18.275,
-        "battery_charging": False,
-        "battery_health": 100,
-        "battery_level": 96,
-        "cell_count": 8,
-        "current": 0.0,
-        "cycles": 2,
-        "temp_sensors": 4,
-        "temp_values": [
-            TS(15.3, TS.T.CELL),
-            TS(15.6, TS.T.CELL),
-            TS(17.2, TS.T.MOSFET),
-            TS(25.0, TS.T.AMBIENT),
-        ],
-        "cell_voltages": [
-            3.497,
-            3.434,
-            3.368,
-            3.389,
-            3.372,
-            3.435,
-            3.405,
-            3.384,
-        ],
-        "cycle_capacity": 2629.246,
-        "cycle_charge": 96.38,
-        "delta_voltage": 0.129,
-        "design_capacity": 100.0,
-        "balancer": 0,
-        "chrg_mosfet": True,
-        "dischrg_mosfet": True,
-        "problem": False,
-        "problem_code": 0,
-        "power": 0.0,
-    }
-
+    assert await bms.async_update() == _RESULT_DEFS
     # query again to check already connected state
     await bms.async_update()
     assert bms.is_connected is keep_alive_fixture
