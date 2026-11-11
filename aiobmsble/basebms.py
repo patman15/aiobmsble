@@ -27,17 +27,22 @@ from bleak_retry_connector import (
 )
 
 from aiobmsble import (
+    PROBLEM_DEFAULTS,
     BMSConfig,
     BMSDp,
     BMSInfo,
     BMSLimits,
     BMSPDp,
+    BMSPrbDef,
+    BMSProblem,
     BMSSample,
     BMSValue,
     Limit,
     LimitDp,
     MatcherPattern,
     PackSample,
+    PrbType,
+    Severity,
     TempSensor,
     Threshold,
     __version__,
@@ -64,6 +69,7 @@ class BaseBMS(ABC):
     # internal timeouts fail to fire.  Not ``Final`` so subclasses can tune.
     _CONNECT_TIMEOUT: Final[float] = MAX_CONNECT_ATTEMPTS * BLEAK_TIMEOUT + 1
     ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
+    _PROBLEMS: tuple[BMSPrbDef, ...] = ()  # decoding of problem_code, empty: not supported
 
     accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
 
@@ -573,6 +579,8 @@ class BaseBMS(ABC):
             data: BMSSample = await self._async_update()
             if not raw:
                 self._add_missing_values(data, self._raw_values())
+                if self._PROBLEMS and "problem_code" in data:
+                    data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)
 
             if not self._cfg.keep_alive:
                 # disconnect after data update to force reconnect next time (slow!)
@@ -829,6 +837,36 @@ class BaseBMS(ABC):
             return "no services found"
 
         return "\n".join(lines)
+
+
+def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
+    """Translate a BMS problem code into generic problems.
+
+    Bits not explained by a matching definition are reported as UNKNOWN warnings.
+
+    Args:
+        code: BMS specific problem code, 0 means no problem
+        defs: definitions mapping (fields of) the code to generic problems
+
+    Returns:
+        list[BMSProblem]: decoded problems in order of the definitions
+
+    """
+    problems: list[BMSProblem] = []
+    explained: int = 0
+    for d in defs:
+        if d.matches(code):
+            explained |= d.mask
+            problems.append(
+                BMSProblem(d.kind, d.severity, d.text or PROBLEM_DEFAULTS[d.kind].text)
+            )
+    unknown: Final[int] = code & ~explained
+    problems.extend(
+        BMSProblem(PrbType.UNKNOWN, Severity.WARN, f"Unknown problem bit {bit}")
+        for bit in range(unknown.bit_length())
+        if unknown >> bit & 1
+    )
+    return problems
 
 
 def b2str(b: bytes) -> str:

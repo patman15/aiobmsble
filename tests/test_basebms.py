@@ -20,15 +20,20 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import (
+    PROBLEM_DEFAULTS,
     BMSConfig,
     BMSDp,
     BMSInfo,
     BMSLimits,
+    BMSPrbDef,
+    BMSProblem,
     BMSSample,
     BMSValue,
     Limit,
     LimitDp,
     MatcherPattern,
+    PrbType,
+    Severity,
     TempSensor,
     Threshold,
 )
@@ -39,6 +44,7 @@ from aiobmsble.basebms import (
     crc_modbus,
     crc_sum,
     crc_xmodem,
+    decode_problems,
     lrc_modbus,
     lstr2int,
 )
@@ -588,6 +594,96 @@ async def test_async_update(patch_bleak_client: Callable[..., None], raw: bool) 
             }
         )
     assert await bms.async_update(raw=raw) == base_result
+
+
+class ProblemTestBMS(MinTestBMS):
+    """BMS decoding its problem code."""
+
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(1 << 0, PrbType.CELL_OVERVOLTAGE),
+        BMSPrbDef(1 << 2, PrbType.FET_LOCKED, Severity.INFO, text="locked by app"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("sample", "expected"),
+    [
+        (
+            {"problem_code": 21},  # bits 0, 2, 4
+            {
+                "problems": [
+                    BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.PROTECT, "Cell overvoltage"),
+                    BMSProblem(PrbType.FET_LOCKED, Severity.INFO, "locked by app"),
+                    BMSProblem(PrbType.UNKNOWN, Severity.WARN, "Unknown problem bit 4"),
+                ],
+                "problem": True,
+            },
+        ),
+        ({"problem_code": 0}, {"problems": [], "problem": False}),
+        ({"voltage": 13.0}, {"problem": False}),
+    ],
+    ids=["problems", "no_problem", "no_problem_code"],
+)
+async def test_async_update_problems(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    sample: BMSSample,
+    expected: BMSSample,
+) -> None:
+    """Check that async_update decodes the problem code if the BMS defines _PROBLEMS."""
+
+    async def _async_update(_self: BaseBMS) -> BMSSample:
+        return sample.copy()
+
+    monkeypatch.setattr(ProblemTestBMS, "_async_update", _async_update)
+    patch_bleak_client()
+    bms: ProblemTestBMS = ProblemTestBMS(generate_ble_device())
+    assert await bms.async_update() == sample | expected
+    assert "problems" not in await bms.async_update(raw=True)
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        (0x00, []),
+        (0x01, [PrbType.CELL_UNDERVOLTAGE]),
+        (0x02, [PrbType.CELL_OVERVOLTAGE]),
+        (0x03, [PrbType.UNKNOWN, PrbType.UNKNOWN]),  # value not defined
+        (0x40, [PrbType.SHORT_CIRCUIT]),
+        (0x50, [PrbType.SHORT_CIRCUIT]),  # any bit of mask
+        (0x102, [PrbType.CELL_OVERVOLTAGE, PrbType.UNKNOWN]),
+    ],
+    ids=["none", "field_low", "field_high", "field_undefined", "bit", "any_bit", "unknown"],
+)
+def test_decode_problems(code: int, expected: list[PrbType]) -> None:
+    """Check decoding of single bits, multi-bit fields, and undescribed bits."""
+    defs: Final[tuple[BMSPrbDef, ...]] = (
+        BMSPrbDef(0x03, PrbType.CELL_UNDERVOLTAGE, value=0x01),
+        BMSPrbDef(0x03, PrbType.CELL_OVERVOLTAGE, value=0x02),
+        BMSPrbDef(0xF0, PrbType.SHORT_CIRCUIT, Severity.FAULT),
+    )
+    assert [p.kind for p in decode_problems(code, defs)] == expected
+
+
+def test_problem_str() -> None:
+    """Check human readable representation of a problem."""
+    problem: Final[BMSProblem] = decode_problems(
+        0x1, (BMSPrbDef(0x1, PrbType.AFE_FAILURE, Severity.FAULT),)
+    )[0]
+    assert str(problem) == "Analog front-end failure (fault)"
+
+
+def test_problem_defaults_complete() -> None:
+    """Check that every problem type has a default severity and description."""
+    assert set(PROBLEM_DEFAULTS) == set(PrbType)
+
+
+def test_prb_def_severity() -> None:
+    """Check that the severity defaults to the kind's level unless set explicitly."""
+    assert BMSPrbDef(0x1, PrbType.AFE_FAILURE).severity == Severity.FAULT
+    assert BMSPrbDef(0x1, PrbType.FET_LOCKED).severity == Severity.INFO
+    assert BMSPrbDef(0x1, PrbType.CELL_OVERVOLTAGE, Severity.WARN).severity == Severity.WARN
 
 
 async def test_op_guard_device_info_async_update(
