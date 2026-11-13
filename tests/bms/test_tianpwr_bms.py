@@ -8,50 +8,58 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor as TS,
+)
 from aiobmsble.bms.tianpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "temp_count": 4,
-        "voltage": 54.74,
-        "current": 0.0,
-        "battery_level": 60,
-        "battery_health": 100,
-        "cycle_charge": 138.96,
-        "cycles": 0,
-        "cycle_capacity": 7606.67,
-        "power": 0.0,
-        "design_capacity": 230,
-        "battery_charging": False,
-        "cell_count": 16,
-        "cell_voltages": [
-            3.415,
-            3.419,
-            3.419,
-            3.422,
-            3.421,
-            3.422,
-            3.425,
-            3.424,
-            3.421,
-            3.425,
-            3.421,
-            3.421,
-            3.422,
-            3.42,
-            3.422,
-            3.429,
-        ],
-        "temperature": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
-        "delta_cell_voltage": 0.014,
-        "balancer": False,
-        "chrg_mosfet": True,
-        "dischrg_mosfet": True,
-        "problem": False,
-        "problem_code": 0,
+    "temp_count": 4,
+    "voltage": 54.74,
+    "current": 0.0,
+    "battery_level": 60,
+    "battery_health": 100,
+    "cycle_charge": 138.96,
+    "cycles": 0,
+    "cycle_capacity": 7606.67,
+    "power": 0.0,
+    "design_capacity": 230,
+    "battery_charging": False,
+    "cell_count": 16,
+    "cell_voltages": [
+        3.415,
+        3.419,
+        3.419,
+        3.422,
+        3.421,
+        3.422,
+        3.425,
+        3.424,
+        3.421,
+        3.425,
+        3.421,
+        3.421,
+        3.422,
+        3.42,
+        3.422,
+        3.429,
+    ],
+    "temperature": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
+    "delta_cell_voltage": 0.014,
+    "balancer": False,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
+    "problem": False,
+    "problem_code": 0,
+    "problems": [],
 }
 
 
@@ -220,17 +228,34 @@ async def test_missing_message(
 
 
 @pytest.mark.parametrize(
-    ("problem_response", "expected"),
+    ("problem_response", "expected", "problems"),
     [
-        (b"\x00\x00\x00\x00\x00\x00\x00\x01", 0x1),
-        (b"\x80\x00\x00\x00\x00\x00\x00\x00", 0x0),
-        (b"\x40\x00\x00\x00\x00\x00\x00\x00", 0x4000000000000000),
-        (b"\x00\x00\x00\x03\x00\x00\x00\x00", 0x0),
+        (
+            b"\x00\x00\x00\x00\x00\x00\x00\x01",
+            0x1,
+            [BMSProblem(PT.CELL_IMBALANCE, SV.WARN, "Cell difference")],
+        ),
+        (b"\x80\x00\x00\x00\x00\x00\x00\x00", 0x0, []),
+        (
+            b"\x40\x00\x00\x00\x00\x00\x00\x00",
+            0x4000000000000000,
+            [BMSProblem(PT.UNKNOWN, SV.WARN, "Unknown problem bit 62")],
+        ),
+        (b"\x00\x00\x00\x03\x00\x00\x00\x00", 0x0, []),
+        (
+            b"\x00\x00\x00\x04\x00\x00\x00\x00",
+            0x400000000,
+            [BMSProblem(PT.CHARGE_OVERCURRENT, SV.PROTECT, "Charge overcurrent")],
+        ),
     ],
-    ids=["first_bit", "sleep_bit", "last_bit", "mosfet_bits"],
+    ids=["first_bit", "sleep_bit", "last_bit", "fet_bits", "charge_ocp"],
 )
 async def test_problem_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, problem_response: bytes, expected: int
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    problem_response: bytes,
+    expected: int,
+    problems: list[BMSProblem],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
@@ -246,6 +271,10 @@ async def test_problem_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = await bms.async_update()
-    assert result == _RESULT_DEFS | {"problem": bool(expected), "problem_code": expected}
+    assert result == _RESULT_DEFS | {
+        "problem": bool(expected),
+        "problem_code": expected,
+        "problems": problems,
+    }
 
     await bms.disconnect()
