@@ -465,11 +465,11 @@ async def test_device_info_fail(
     """Test only BMS default information is returned if characteristic 0x180a does not exit."""
     monkeypatch.setattr(BleakGATTServiceCollection, "get_service", lambda obj, char: None)
     patch_bleak_client()
-    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=False))
     await bms.async_update()  # run update to have connection open
     assert not await bms.device_info()  # if characteristic does not exist, no output
     assert bms.name == "MockBLEDevice"  # name is gathered from BLEDevice
-    assert bms._client.is_connected
+    assert not bms._client.is_connected
 
 
 @pytest.mark.parametrize("connected", [False, True], ids=["disconnected", "connected"])
@@ -481,7 +481,7 @@ async def test_limits_default(patch_bleak_client: Callable[..., None], connected
         await bms.async_update()  # run update to have connection open
 
     assert await bms.limits() == {}  # no limits available by default
-    assert bms._client.is_connected is connected
+    assert bms._client.is_connected is True
 
     await bms.disconnect()
 
