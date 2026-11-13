@@ -46,7 +46,7 @@ class BMS(RenogyBMS):
                 "manufacturer_id": 0xE14C,
                 "connectable": True,
             }
-            for pattern in ("RNGRBP*", "RNGC*")
+            for pattern in ("RNGRBP*", "RNGC*", "RNGPRO*")
         ]
 
     async def _init_connection(

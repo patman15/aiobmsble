@@ -74,13 +74,16 @@ class BaseBMS(ABC):
     accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
 
     type _InfoCharType = Literal[
-        "model",
-        "serial_number",
-        "fw_version",
-        "sw_version",
-        "hw_version",
-        "manufacturer",
+        "model", "serial_number", "fw_version", "sw_version", "hw_version", "manufacturer"
     ]
+    _INFO_CHARS: Final[tuple[tuple[str, _InfoCharType], ...]] = (
+        ("2a24", "model"),
+        ("2a25", "serial_number"),
+        ("2a26", "fw_version"),
+        ("2a27", "hw_version"),
+        ("2a28", "sw_version"),
+        ("2a29", "manufacturer"),
+    )
 
     class _PrefixAdapter(logging.LoggerAdapter[logging.Logger]):
         """Logging adapter to add instance ID to each log message."""
@@ -114,9 +117,7 @@ class BaseBMS(ABC):
         assert (
             getattr(self, "_notification_handler", None) is not None
         ), "BMS class must define `_notification_handler` method"
-        assert {"manufacturer", "model"}.issubset(
-            self.INFO
-        ), "BMS class must define `INFO`"
+        assert {"manufacturer", "model"}.issubset(self.INFO), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._cfg: Final[BMSConfig] = config or BMSConfig()
         logger_name = logger_name or self.__class__.__module__
@@ -124,9 +125,7 @@ class BaseBMS(ABC):
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
             logging.getLogger(f"{logger_name}"),
-            {
-                "prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':', '')}:"
-            },
+            {"prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':', '')}:"},
         )
 
         self._log.debug(
@@ -152,9 +151,7 @@ class BaseBMS(ABC):
     async def __aenter__(self) -> Self:
         """Asynchronous context manager to implement `async with` functionality."""
         if not self._cfg.keep_alive:
-            raise ValueError(
-                "usage of context manager requires `BMSConfig(keep_alive=True)`."
-            )
+            raise ValueError("usage of context manager requires `BMSConfig(keep_alive=True)`.")
         await self._connect()
         return self
 
@@ -207,20 +204,26 @@ class BaseBMS(ABC):
         """Return 16-bit UUID of characteristic that provides write property."""
 
     @final
-    async def device_info(self) -> BMSInfo:
-        """Return a dictionary of device information.
+    async def device_info(self, keep_alive: bool | None = None) -> BMSInfo:
+        """Return device information read from the BMS over Bluetooth LE.
 
-        keys: manufacturer, model, model_id, name, serial_number, sw_version, hw_version
+        Args:
+            keep_alive (bool | None): Override the configured keep-alive behavior
+                for this update. If `None`, use the BMS configuration.
+
+        Returns:
+            Available device information, such as manufacturer, model, model ID,
+            name, serial number, and software or hardware version.
         """
 
+        keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
-            disconnect: Final[bool] = not self._client.is_connected
             await self._connect()
             dev_info: Final[BMSInfo] = await self._fetch_device_info()
-            if disconnect:
-                await self.disconnect()
-
             self._log.debug("BMS info %s", dev_info)
+
+            if not keep_alive:
+                await self.disconnect()
             return dev_info
 
     async def _fetch_device_info(self) -> BMSInfo:
@@ -231,16 +234,7 @@ class BaseBMS(ABC):
             self._log.debug("No BT device information available.")
             return info
 
-        characteristics: Final[tuple[tuple[str, BaseBMS._InfoCharType], ...]] = (
-            ("2a24", "model"),
-            ("2a25", "serial_number"),
-            ("2a26", "fw_version"),
-            ("2a27", "hw_version"),
-            ("2a28", "sw_version"),
-            ("2a29", "manufacturer"),
-        )
-
-        for char, key in characteristics:
+        for char, key in BaseBMS._INFO_CHARS:
             try:
                 if value := bytes(await self._client.read_gatt_char(char)):
                     info[key] = b2str(value)
@@ -251,22 +245,29 @@ class BaseBMS(ABC):
         return info
 
     @final
-    async def limits(self) -> BMSLimits:
-        """Return a dictionary of thresholds configured in the BMS.
+    async def limits(self, keep_alive: bool | None = None) -> BMSLimits:
+        """Return protection thresholds configured in the BMS.
 
         The values are trip/recovery points of the BMS protections, not the
         operating envelope, and must not be used as charger/inverter set points.
-        Empty if the BMS does not report any, see `BMSLimits`.
+
+        Args:
+            keep_alive (bool | None): Override the configured keep-alive behavior
+                for this update. If `None`, use the BMS configuration.
+
+        Returns:
+            Reported protection thresholds, or an empty mapping if the BMS does
+            not provide any. See `BMSLimits`.
         """
 
+        keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
-            disconnect: Final[bool] = not self._client.is_connected
             await self._connect()
             limits: Final[BMSLimits] = await self._fetch_limits()
-            if disconnect:
-                await self.disconnect()
-
             self._log.debug("BMS limits %s", limits)
+
+            if not keep_alive:
+                await self.disconnect()
             return limits
 
     async def _fetch_limits(self) -> BMSLimits:
@@ -288,9 +289,7 @@ class BaseBMS(ABC):
 
     @final
     @staticmethod
-    def _add_missing_values(
-        data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()
-    ) -> None:
+    def _add_missing_values(data: BMSSample, raw_values: frozenset[BMSValue] = frozenset()) -> None:
         """Calculate missing BMS values from existing ones.
 
         Args:
@@ -317,8 +316,7 @@ class BaseBMS(ABC):
                 data.get("voltage") is not None and data.get("voltage", 0) <= 0,
                 any(v <= 0 or v > BaseBMS._MAX_CELL_VOLT for v in cell_voltages),
                 data.get("delta_cell_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
-                data.get("cycle_charge") is not None
-                and data.get("cycle_charge", 0.0) <= 0.0,
+                data.get("cycle_charge") is not None and data.get("cycle_charge", 0.0) <= 0.0,
                 battery_level > 100,
             ]
         )
@@ -372,9 +370,7 @@ class BaseBMS(ABC):
         self._frame.clear()
         self._msg_event.clear()
 
-        self._log.debug(
-            "start notify on RX characteristic %s", str(char_notify or self.uuid_rx())
-        )
+        self._log.debug("start notify on RX characteristic %s", str(char_notify or self.uuid_rx()))
         await self._client.start_notify(
             char_notify or self.uuid_rx(), getattr(self, "_notification_handler")
         )
@@ -419,9 +415,7 @@ class BaseBMS(ABC):
                     self._start_alive_task()
 
             except (TimeoutError, BleakError, EOFError, ConnectionError) as exc:
-                self._log.info(
-                    "failed to initialize BMS connection (%s)", type(exc).__name__
-                )
+                self._log.info("failed to initialize BMS connection (%s)", type(exc).__name__)
                 await self._disconnect_impl()
                 raise
             except Exception as exc:
@@ -433,8 +427,8 @@ class BaseBMS(ABC):
             self._log.debug("BMS connected (id: %#x)", id(self._client))
 
     def _wr_response(self, char: int | str) -> bool:
-        char_tx: Final[BleakGATTCharacteristic | None] = (
-            self._client.services.get_characteristic(char)
+        char_tx: Final[BleakGATTCharacteristic | None] = self._client.services.get_characteristic(
+            char
         )
         return bool(char_tx and "write" in getattr(char_tx, "properties", []))
 
@@ -475,9 +469,7 @@ class BaseBMS(ABC):
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
-        for inv_wr_mode in (
-            [False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]
-        ):
+        for inv_wr_mode in ([False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]):
             try:
                 self._msg_event.clear()  # clear event before requesting new data
                 for attempt in range(BaseBMS.MAX_RETRY):
@@ -489,8 +481,7 @@ class BaseBMS(ABC):
                     try:
                         await asyncio.wait_for(
                             self._wait_event(),
-                            BaseBMS._RETRY_TIMEOUT
-                            * min(2**attempt, BaseBMS._MAX_TIMEOUT_FACTOR),
+                            BaseBMS._RETRY_TIMEOUT * min(2**attempt, BaseBMS._MAX_TIMEOUT_FACTOR),
                         )
                     except TimeoutError:
                         self._log.debug("TX BLE request timed out.")
@@ -562,20 +553,27 @@ class BaseBMS(ABC):
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
     @final
-    async def async_update(self, raw: bool = False) -> BMSSample:
-        """Retrieve updated values from the BMS using method of the subclass.
+    async def async_update(self, raw: bool = False, keep_alive: bool | None = None) -> BMSSample:
+        """Fetch the latest battery telemetry from the BMS.
+
+        This calls the protocol-specific implementation in `_async_update()` and,
+        unless `raw` is `True`, fills in any derived or missing values expected by
+        the library.
 
         Args:
-            raw (bool): if true, the raw data from the BMS is returned without
-                any calculations or missing values added
+            raw (bool): If `True`, return the raw values reported by the BMS
+                without adding derived or missing fields.
+            keep_alive (bool | None): Override the configured keep-alive behavior
+                for this update. If `None`, use the BMS configuration.
 
         Returns:
-            BMSSample: dictionary with BMS values
+            BMSSample: The retrieved BMS values.
 
         """
-        await self._connect()
 
+        keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
+            await self._connect()
             data: BMSSample = await self._async_update()
             if not raw:
                 self._add_missing_values(data, self._raw_values())
@@ -592,9 +590,7 @@ class BaseBMS(ABC):
     @final
     @staticmethod
     @lru_cache(maxsize=512)
-    def _cmd_modbus(
-        dev_id: int = 0, fct: int = 0x3, addr: int = 0, count: int = 1
-    ) -> bytes:
+    def _cmd_modbus(dev_id: int = 0, fct: int = 0x3, addr: int = 0, count: int = 1) -> bytes:
         """Assemble a MODBUS command.
 
         Args:
@@ -719,9 +715,7 @@ class BaseBMS(ABC):
             if (len(data) >= start + idx * (size + gap) + size)
             and (
                 value := int.from_bytes(
-                    data[
-                        start + idx * (size + gap) : start + idx * (size + gap) + size
-                    ],
+                    data[start + idx * (size + gap) : start + idx * (size + gap) + size],
                     byteorder=byteorder,
                     signed=False,
                 )
@@ -770,12 +764,7 @@ class BaseBMS(ABC):
             and (
                 (
                     value := int.from_bytes(
-                        data[
-                            start
-                            + idx * (size + gap) : start
-                            + idx * (size + gap)
-                            + size
-                        ],
+                        data[start + idx * (size + gap) : start + idx * (size + gap) + size],
                         byteorder=byteorder,
                         signed=signed,
                     )
