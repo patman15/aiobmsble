@@ -41,6 +41,8 @@ type BMSValue = CommonValue | Literal[
     "battery_charging",
     "battery_mode",
     "power",
+    "input_power",
+    "output_power",
     "total_charge",
     "problem",
     "runtime",
@@ -123,6 +125,8 @@ class BatterySample(TypedDict, total=False):
     delta_cell_voltage: float  # [V]
     design_capacity: int  # [Ah]
     power: float  # [W] (positive: charging)
+    input_power: int | float  # [W] ALLPOWERS total incoming power
+    output_power: int | float  # [W] ALLPOWERS total outgoing power
     temp_count: int  # [#]
     temperature: list[TempSensor]  # [°C]
     voltage: float  # [V]
