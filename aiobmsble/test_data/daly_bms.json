@@ -113,11 +113,23 @@
       "local_name": "MyName\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
       "platform_data": ["40:18:07:00:00:00"],
       "rssi": -53,
-      "manufacturer_data": { "770": "16401807012ec2444c" }
+      "manufacturer_data": { "770": "16401807000000444c" }
     },
     "type": "daly_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/640)"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "DL-home\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+      "platform_data": ["D2:1A:08:00:00:00"],
+      "rssi": -61,
+      "manufacturer_data": { "263": "04d21a08000000444c" }
+    },
+    "type": "daly_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/874)"
     ]
   }
 ]
