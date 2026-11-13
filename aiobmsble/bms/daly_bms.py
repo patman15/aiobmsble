@@ -122,7 +122,7 @@ class BMS(BaseBMS):
                 manufacturer_id=m_id,
                 connectable=True,
             )
-            for m_id in (0x102, 0x104, 0x302, 0x303, 0x402)
+            for m_id in (0x102, 0x104, 0x107, 0x302, 0x303, 0x402)
         ]
 
     @staticmethod
@@ -142,9 +142,7 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_msg(
-            BMS._cmd_modbus(self._proto, *BMS._PROTOS[self._proto].info)
-        )
+        await self._await_msg(BMS._cmd_modbus(self._proto, *BMS._PROTOS[self._proto].info))
         if self._msg[0] == BMS._PROTOS[Proto.X81].resp:
             return {
                 "sw_version": b2str(self._msg[3:31]),
@@ -176,9 +174,7 @@ class BMS(BaseBMS):
             self._proto = Proto.D2  # fallback to first protocol
             raise TimeoutError
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         self._log.debug("RX BLE data: %s", data)
 
         if (

@@ -244,7 +244,7 @@ async def test_limits(
     """Test that the BMS returns the protection thresholds from the 0x58 frame."""
     monkeypatch.setattr(MockHumsienkBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockHumsienkBleakClient)
-    bms = BMS(generate_ble_device())
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
     assert await bms.limits() == _LIMIT_DEFS[protocol_type]
     assert not bms.is_connected
 

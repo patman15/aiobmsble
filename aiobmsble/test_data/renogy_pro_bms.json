@@ -3,7 +3,7 @@
     "advertisement": {
       "local_name": "RNGRBP1228000830",
       "manufacturer_data": {
-        "57676": "7457947b"
+        "57676": "74000000"
       },
       "rssi": -44
     },
@@ -17,13 +17,26 @@
     "advertisement": {
       "local_name": "RNGC122BAT28000194",
       "manufacturer_data": {
-        "57676": "74683692"
+        "57676": "74000000"
       },
       "rssi": -85
     },
     "type": "renogy_pro_bms",
     "_comments": [
       "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/596)",
+      "MAC address, correct"
+    ]
+  },
+  {
+    "advertisement": {
+      "local_name": "RNGPRO12BATT31001078",
+      "platform_data": ["4C:E1:74:00:00:00"],
+      "rssi": -30,
+      "manufacturer_data": { "57676": "74000000" }
+    },
+    "type": "renogy_pro_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/873)",
       "MAC address, correct"
     ]
   }
