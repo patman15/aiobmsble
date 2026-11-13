@@ -16,10 +16,13 @@ from aiobmsble import (
     BMSDp,
     BMSInfo,
     BMSLimits,
+    BMSPrbDef,
     BMSSample,
     Limit,
     LimitDp,
     MatcherPattern,
+    PrbType as PT,
+    Severity as SV,
     TempSensor,
 )
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum
@@ -51,6 +54,37 @@ class BMS(BaseBMS):
         BMSDp("dischrg_mosfet", 9, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("balancer", 11, 3, False, idx=0x20),  # bit 0 = cell 1
         BMSDp("problem_code", 7, 4, False, lambda x: x & BMS._ALARM_MASK, 0x20),
+    )
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(1 << 0, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 1, PT.CHARGE_OVERTEMP),
+        BMSPrbDef(1 << 2, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 3, PT.CELL_OVERVOLTAGE),
+        BMSPrbDef(1 << 4, PT.PACK_OVERVOLTAGE),
+        BMSPrbDef(1 << 5, PT.AFE_FAILURE),
+        BMSPrbDef(1 << 6, PT.OTHER, SV.INFO, text="Charging stopped"),
+        BMSPrbDef(1 << 8, PT.CHARGE_OVERCURRENT, SV.WARN),
+        BMSPrbDef(1 << 9, PT.CHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 10, PT.CHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 11, PT.CELL_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 12, PT.PACK_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 13, PT.CELL_IMBALANCE, SV.WARN),
+        BMSPrbDef(1 << 14, PT.CELL_IMBALANCE, SV.WARN, text="Voltage difference too large"),
+        BMSPrbDef(1 << 16, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 17, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(1 << 18, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 19, PT.CELL_UNDERVOLTAGE),
+        BMSPrbDef(1 << 20, PT.SHORT_CIRCUIT),
+        BMSPrbDef(1 << 21, PT.PACK_UNDERVOLTAGE),
+        BMSPrbDef(1 << 22, PT.OTHER, SV.INFO, text="Discharging stopped"),
+        BMSPrbDef(1 << 24, PT.DISCHARGE_OVERCURRENT, SV.WARN),
+        BMSPrbDef(1 << 25, PT.DISCHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 26, PT.DISCHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 27, PT.CELL_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 28, PT.PACK_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 29, PT.MOSFET_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 30, PT.MOSFET_OVERTEMP),
+        BMSPrbDef(1 << 31, PT.OTHER, SV.INFO, text="Pre-discharge MOSFET on"),
     )
     # offsets within the 0x58 configuration payload, temperatures in deciKelvin
     _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = (

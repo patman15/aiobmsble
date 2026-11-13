@@ -7,7 +7,18 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TempSensor as TS, Threshold
+from aiobmsble import (
+    BMSConfig,
+    BMSInfo,
+    BMSLimits,
+    BMSProblem,
+    BMSSample,
+    Limit,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor as TS,
+    Threshold,
+)
 from aiobmsble.bms.humsienk_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -105,6 +116,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "balancer": 0,
         "problem_code": 0,
         "problem": False,
+        "problems": [],
     },
     "640Ah": {
         "battery_level": 99,
@@ -128,6 +140,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "balancer": 0,
         "problem_code": 0,
         "problem": False,
+        "problems": [],
     },
 }
 
@@ -309,23 +322,42 @@ async def test_switch_states(
         "balancer": 0x5,  # cells 1 and 3
         "problem_code": 0,
         "problem": False,
+        "problems": [],
     }
 
     await bms.disconnect()
 
 
 @pytest.mark.parametrize(
-    ("problem_response", "expected"),
+    ("problem_response", "expected", "problems"),
     [
-        (b"\x00\x00\x00\x00\x80\x00\x80\x00\x00\x00\x00\x00\x00\x80\x00\xaf\x01", 0x0),
-        (b"\x00\x00\x00\x00\x80\x00\x80\x00\x00\x00\x00\x01\x00\x00\x00\x30\x01", 0x0),
+        (
+            b"\x00\x00\x00\x00\x80\x00\x80\x00\x00\x00\x00\x00\x00\x80\x00\xaf\x01",
+            0x0,
+            [],
+        ),
+        (
+            b"\x00\x00\x00\x00\x80\x00\x80\x00\x00\x00\x00\x01\x00\x00\x00\x30\x01",
+            0x0,
+            [],
+        ),
         (
             b"\x00\x00\x00\x00\x80\x00\x80\x80\x00\x00\x00\x00\x00\x00\x00\xaf\x01",
             2**31,
+            [BMSProblem(PT.OTHER, SV.INFO, "Pre-discharge MOSFET on")],
         ),
-        (b"\x00\x00\x00\x00\x81\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x30\x01", 0x1),
+        (
+            b"\x00\x00\x00\x00\x81\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x30\x01",
+            0x1,
+            [BMSProblem(PT.CHARGE_OVERCURRENT, SV.PROTECT, "Charge overcurrent")],
+        ),
+        (
+            b"\x00\x00\x00\x00\x80\x01\x80\x00\x00\x00\x00\x00\x00\x00\x00\x30\x01",
+            0x100,
+            [BMSProblem(PT.CHARGE_OVERCURRENT, SV.WARN, "Charge overcurrent")],
+        ),
     ],
-    ids=["disc_highcon", "discon_low", "high", "low"],
+    ids=["disc_highcon", "discon_low", "high", "low", "charge_ocp_warn"],
 )
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
@@ -333,14 +365,14 @@ async def test_problem_response(
     protocol_type: str,
     problem_response: bytes,
     expected: int,
+    problems: list[BMSProblem],
 ) -> None:
     """Test data update with BMS returning error flags."""
 
     monkeypatch.setattr(
         MockHumsienkBleakClient,
         "_RESP",
-        _PROTO_DEFS[protocol_type]
-        | {b"\xaa\x20\x00\x20\x00": b"\xaa\x20\x0f" + problem_response},
+        _PROTO_DEFS[protocol_type] | {b"\xaa\x20\x00\x20\x00": b"\xaa\x20\x0f" + problem_response},
     )
 
     patch_bleak_client(MockHumsienkBleakClient)
@@ -351,6 +383,7 @@ async def test_problem_response(
     assert result == _RESULT_DEFS[protocol_type] | {
         "problem": True,
         "problem_code": expected,
+        "problems": problems,
     }
 
     await bms.disconnect()
