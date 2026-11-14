@@ -24,6 +24,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "design_capacity": 105,
     "voltage": 13.618,
     "problem_code": 0,
+    "problems": [],
     "heater": False,
     "cell_voltages": [3.406, 3.404, 3.409, 3.399],
     "temperature": [TS(14.0)] * 4,
