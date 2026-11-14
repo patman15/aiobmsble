@@ -7,7 +7,14 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor as TS,
+)
 from aiobmsble.bms.ant_leg_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -50,6 +57,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "temperature": [TS(26), TS(29), TS(-5), TS(21)],
     "problem": True,
     "problem_code": 512,
+    "problems": [BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage")],
     "balancer": False,
     "chrg_mosfet": False,
     "dischrg_mosfet": True,
@@ -89,6 +97,7 @@ _RESULT_DEFS_CAP: Final[BMSSample] = {
     "battery_charging": False,
     "problem": False,
     "problem_code": 0,
+    "problems": [],
     "balancer": False,
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
@@ -127,9 +136,7 @@ class MockANTLEGACYBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         resp: bytearray = bytearray(self.RESP.get(bytes(data)[2], b""))
         for notify_data in [
@@ -138,9 +145,7 @@ class MockANTLEGACYBleakClient(MockBleakClient):
             self._notify_callback("MockANTBleakClient", notify_data)
 
 
-async def test_update(
-    patch_bms_timeout, patch_bleak_client, keep_alive_fixture
-) -> None:
+async def test_update(patch_bms_timeout, patch_bleak_client, keep_alive_fixture) -> None:
     """Test ANT BMS data update."""
 
     patch_bms_timeout()
@@ -160,9 +165,7 @@ async def test_update(
     await bms.disconnect()
 
 
-async def test_update_with_design_cap(
-    monkeypatch, patch_bms_timeout, patch_bleak_client
-) -> None:
+async def test_update_with_design_cap(monkeypatch, patch_bms_timeout, patch_bleak_client) -> None:
     """Test ANT BMS data update with 0% battery SOC."""
 
     patch_bms_timeout()
@@ -193,9 +196,7 @@ async def test_update_with_design_cap(
     await bms.disconnect()
 
 
-async def test_update_empty_battery(
-    monkeypatch, patch_bms_timeout, patch_bleak_client
-) -> None:
+async def test_update_empty_battery(monkeypatch, patch_bms_timeout, patch_bleak_client) -> None:
     """Test ANT BMS data update with 0% battery SOC."""
 
     patch_bms_timeout()
