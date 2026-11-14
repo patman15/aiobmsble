@@ -12,7 +12,16 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPrbDef,
+    BMSSample,
+    MatcherPattern,
+    PrbType as PT,
+    Severity as SV,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc8
 
 
@@ -53,6 +62,24 @@ class BMS(BaseBMS):
         BMSDp("balancer", 10, 1, False, idx=0xF3),
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS} | {0xF4}  # cell voltages
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (  # problem_code bit i = status flag i (0xF9 byte 2 + i)
+        BMSPrbDef(1 << 0, PT.CELL_OVERVOLTAGE),  # COV
+        BMSPrbDef(1 << 1, PT.OTHER, SV.INFO, text="Fully charged"),  # FC
+        BMSPrbDef(1 << 2, PT.OTHER, text="SOC overcharge"),  # SOCC
+        BMSPrbDef(1 << 3, PT.CHARGE_OVERTEMP),  # OTC
+        BMSPrbDef(1 << 4, PT.CHARGE_UNDERTEMP),  # UTC
+        BMSPrbDef(1 << 5, PT.MOSFET_OVERTEMP),  # BOTC
+        BMSPrbDef(1 << 6, PT.CELL_UNDERVOLTAGE),  # CUV
+        BMSPrbDef(1 << 7, PT.OTHER, SV.INFO, text="Fully discharged"),  # FD
+        BMSPrbDef(1 << 8, PT.LOW_SOC),  # SOCD
+        BMSPrbDef(1 << 9, PT.DISCHARGE_OVERTEMP),  # OTD
+        BMSPrbDef(1 << 10, PT.DISCHARGE_UNDERTEMP),  # UTD
+        BMSPrbDef(1 << 11, PT.MOSFET_OVERTEMP),  # BOTD
+        BMSPrbDef(1 << 12, PT.SHORT_CIRCUIT, text="Discharge short circuit"),  # SCD
+        BMSPrbDef(1 << 13, PT.DISCHARGE_OVERCURRENT),  # OCD
+        BMSPrbDef(1 << 14, PT.PACK_UNDERVOLTAGE),  # UVP
+        BMSPrbDef(1 << 15, PT.PACK_OVERVOLTAGE),  # OVP
+    )
 
     def __init__(
         self,
