@@ -8,8 +8,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, Limit, TempSensor as TS, Threshold
-from aiobmsble.basebms import crc_xmodem
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    Limit,
+    PrbType,
+    Severity,
+    TempSensor as TS,
+    Threshold,
+)
+from aiobmsble.basebms import crc_xmodem, decode_problems
 from aiobmsble.bms.seplos_v2_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -58,6 +67,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "heater": False,
     "problem": False,
     "problem_code": 0,
+    "problems": [],
 }
 
 
@@ -311,22 +321,33 @@ async def test_invalid_response(
 
 
 @pytest.mark.parametrize(
-    ("problem", "expected"),
+    ("problem", "expected", "problems"),
     [
         (
             MockSeplosv2BleakClient.RESP[b"\x00\x46\x61\x00\x01\x00\xf7\xc1"][:101]
             + b"\xff\xff\xff\xff\xff\xff\xff\xff\x00\x02\x00\x00\x82\x2d\x0d",
-            0xFFFFFFFFFF7F003F,
+            0xFFFFFFFFFF7F303F,
+            decode_problems(0xFFFFFFFFFF7F303F & BMS._PRB_MASK, BMS._PROBLEMS),
         ),
         (
             MockSeplosv2BleakClient.RESP[b"\x00\x46\x61\x00\x01\x00\xf7\xc1"][:101]
             + b"\x00\x00\x02\x00\x00\x00\x00\x00\x00\x02\x00\x00\x06\x49\x0d",
             0x20000000000,  # Charging over-temp protection
+            [
+                BMSProblem(
+                    PrbType.CHARGE_OVERTEMP,
+                    Severity.PROTECT,
+                    "Charge over-temperature",
+                ),
+            ],
         ),
         (
             MockSeplosv2BleakClient.RESP[b"\x00\x46\x61\x00\x01\x00\xf7\xc1"][:101]
             + b"\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x8a\x0d",
             0x01000000000000,  # Single high voltage alarm
+            [
+                BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.WARN, "Cell overvoltage"),
+            ],
         ),
     ],
     ids=("all", "over-temp", "high-volt"),
@@ -336,6 +357,7 @@ async def test_problem_response(
     patch_bleak_client,
     problem: bytes,
     expected: int,
+    problems: list[BMSProblem],
 ) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
@@ -352,4 +374,5 @@ async def test_problem_response(
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": expected,
+        "problems": problems,
     }
