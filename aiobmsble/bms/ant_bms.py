@@ -11,7 +11,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPrbDef,
+    BMSSample,
+    MatcherPattern,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -41,16 +51,56 @@ class BMS(BaseBMS):
             46,
             2,
             False,
-            lambda x: ((x & 0xF00) if (x >> 8) not in (0x1, 0x4, 0xF) else 0)
-            | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB, 0xF) else 0),
+            lambda x: (
+                (x & 0xFF00 if (x >> 8) not in (0x1, 0x4) else 0)
+                | (x & 0xFF if (x & 0xFF) > 0x1 else 0)
+            ),
         ),
         BMSDp("cycle_charge", 54, 4, False, lambda x: x / 1e6),
         BMSDp("total_charge", 58, 4, False, lambda x: x // 1000),
         BMSDp("delta_cell_voltage", 82, 2, False, lambda x: x / 1000),
         BMSDp("power", 62, 4, True, float),
-        BMSDp("chrg_mosfet", 46, 1, False, lambda x: x == 0x1),
-        BMSDp("dischrg_mosfet", 47, 1, False, lambda x: x == 0x1),
+        BMSDp("chrg_mosfet", 47, 1, False, lambda x: x == 0x1),
+        BMSDp("dischrg_mosfet", 46, 1, False, lambda x: x == 0x1),
         BMSDp("balancer", 48, 1, False, lambda x: bool(x & 0x4)),
+    )
+    # problem_code: chMosState (bits 8-15) | disMosState (bits 0-7), states 0/1 are no problem,
+    # charge MOS state 0x04 (battery full) is not a problem
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(0xFF, PT.CELL_UNDERVOLTAGE, value=0x02),
+        BMSPrbDef(0xFF, PT.DISCHARGE_OVERCURRENT, value=0x03),
+        BMSPrbDef(0xFF, PT.DISCHARGE_OVERCURRENT, value=0x04, text="Discharge overcurrent (2)"),
+        BMSPrbDef(0xFF, PT.PACK_UNDERVOLTAGE, value=0x05),
+        BMSPrbDef(0xFF, PT.DISCHARGE_OVERTEMP, value=0x06),
+        BMSPrbDef(0xFF, PT.MOSFET_OVERTEMP, value=0x07),
+        BMSPrbDef(0xFF, PT.OTHER, SV.PROTECT, value=0x08, text="Abnormal discharge current"),
+        BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x09, text="Balancing wire loose"),
+        BMSPrbDef(0xFF, PT.AMBIENT_OVERTEMP, value=0x0A, text="Board overheated"),
+        BMSPrbDef(0xFF, PT.OTHER, SV.INFO, value=0x0B, text="Charger connected"),
+        BMSPrbDef(0xFF, PT.SHORT_CIRCUIT, value=0x0C),
+        BMSPrbDef(0xFF, PT.FET_FAILURE, value=0x0D, text="Abnormal discharge MOSFET"),
+        BMSPrbDef(0xFF, PT.FET_FAILURE, value=0x0E, text="Discharge MOSFET failed to open"),
+        BMSPrbDef(0xFF, PT.FET_LOCKED, value=0x0F, text="Discharge MOSFET manually closed"),
+        BMSPrbDef(0xFF, PT.PACK_UNDERVOLTAGE, value=0x10, text="Undervoltage (2)"),
+        BMSPrbDef(0xFF, PT.DISCHARGE_UNDERTEMP, value=0x11),
+        BMSPrbDef(0xFF, PT.CELL_IMBALANCE, SV.PROTECT, value=0x12),
+        BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x13, text="Discharge self-test error"),
+        BMSPrbDef(0xFF00, PT.CELL_OVERVOLTAGE, value=0x0200),
+        BMSPrbDef(0xFF00, PT.CHARGE_OVERCURRENT, value=0x0300),
+        BMSPrbDef(0xFF00, PT.PACK_OVERVOLTAGE, value=0x0500),
+        BMSPrbDef(0xFF00, PT.CHARGE_OVERTEMP, value=0x0600),
+        BMSPrbDef(0xFF00, PT.MOSFET_OVERTEMP, value=0x0700),
+        BMSPrbDef(0xFF00, PT.OTHER, SV.PROTECT, value=0x0800, text="Abnormal charge current"),
+        BMSPrbDef(0xFF00, PT.OTHER, SV.FAULT, value=0x0900, text="Balancing wire loose"),
+        BMSPrbDef(0xFF00, PT.AMBIENT_OVERTEMP, value=0x0A00, text="Board overheated"),
+        BMSPrbDef(0xFF00, PT.FET_FAILURE, value=0x0B00, text="Charge MOSFET failed to open"),
+        BMSPrbDef(0xFF00, PT.FET_FAILURE, value=0x0C00, text="Abnormal discharge MOSFET"),
+        BMSPrbDef(0xFF00, PT.OTHER, SV.INFO, value=0x0D00, text="Waiting"),
+        BMSPrbDef(0xFF00, PT.FET_LOCKED, value=0x0E00, text="Charge MOSFET manually closed"),
+        BMSPrbDef(0xFF00, PT.CELL_OVERVOLTAGE, value=0x0F00, text="Level-2 overvoltage"),
+        BMSPrbDef(0xFF00, PT.CHARGE_UNDERTEMP, value=0x1000),
+        BMSPrbDef(0xFF00, PT.CELL_IMBALANCE, SV.PROTECT, value=0x1100),
+        BMSPrbDef(0xFF00, PT.OTHER, SV.FAULT, value=0x1200, text="Charge self-test error"),
     )
     accept_secret: bool = True
 
@@ -74,7 +124,8 @@ class BMS(BaseBMS):
                 "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
-            } for pattern in ("ANT?BLE24*", "ANT?BLE3*")
+            }
+            for pattern in ("ANT?BLE24*", "ANT?BLE3*")
         ]
 
     @staticmethod
@@ -118,9 +169,7 @@ class BMS(BaseBMS):
                 wait_for_notify=False,
             )
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if (
@@ -132,9 +181,7 @@ class BMS(BaseBMS):
             self._exp_len = data[5] + BMS._MIN_LEN
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         if len(self._frame) < self._exp_len or len(self._frame) < BMS._MIN_LEN:
             return
@@ -146,9 +193,7 @@ class BMS(BaseBMS):
 
         if len(self._frame) != self._exp_len and self._frame[2] != BMS._CMD_DEV | 0x10:
             # length of CMD_DEV is incorrect, so we ignore the length check here
-            self._log.debug(
-                "invalid frame length %d != %d", len(self._frame), self._exp_len
-            )
+            self._log.debug("invalid frame length %d != %d", len(self._frame), self._exp_len)
             self._frame.clear()
             return
 
