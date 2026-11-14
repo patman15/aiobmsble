@@ -38,7 +38,7 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"manufacturer": "Humsienk", "model": "BMC"}
     _HEAD: Final[bytes] = b"\xaa"  # beginning of frame
     _MIN_LEN: Final[int] = 5  # minimal frame len
-    _ALARM_MASK: Final[int] = (
+    _PRB_MASK: Final[int] = (
         0xFF7F7F7F  # bits 7, 15, 23 are chrg FET, heater, dischrg FET
     )
     _FIELDS: Final[tuple[BMSDp, ...]] = (
@@ -53,7 +53,7 @@ class BMS(BaseBMS):
         BMSDp("heater", 8, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("dischrg_mosfet", 9, 1, False, lambda x: bool(x & 0x80), 0x20),
         BMSDp("balancer", 11, 3, False, idx=0x20),  # bit 0 = cell 1
-        BMSDp("problem_code", 7, 4, False, lambda x: x & BMS._ALARM_MASK, 0x20),
+        BMSDp("problem_code", 7, 4, False, lambda x: x & BMS._PRB_MASK, 0x20),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
         BMSPrbDef(1 << 0, PT.CHARGE_OVERCURRENT),
