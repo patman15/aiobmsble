@@ -75,7 +75,7 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 18, PT.OTHER, text="GPS disconnected"),
         BMSPrbDef(1 << 19, PT.OTHER, SV.INFO, text="Modify password in time"),
         BMSPrbDef(1 << 20, PT.OTHER, text="Discharge on failed"),
-        BMSPrbDef(1 << 21, PT.AMBIENT_OVERTEMP, text="Battery overtemperature"),
+        BMSPrbDef(1 << 21, PT.BATTERY_OVERTEMP),
         BMSPrbDef(1 << 22, PT.SENSOR_FAILURE, text="Temperature sensor anomaly"),
         BMSPrbDef(1 << 23, PT.OTHER, text="PL module anomaly"),
         BMSPrbDef(1 << 24, PT.OTHER, SV.FAULT, text="SCP release failed"),
