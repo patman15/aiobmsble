@@ -526,7 +526,7 @@ async def test_problem_response(
     bms = BMS(generate_ble_device(), BMSConfig(False))
 
     assert await bms.async_update() == _RESULT_DEFS["v1"] | {
-        "problem": expected_problem is not None,
+        "problem": expected_problem is not None and expected_problem.level >= SV.WARN,
         "problem_code": problem_response if expected_problem else 0,
         "problems": [expected_problem] if expected_problem else [],
         "balancer": balancer,
