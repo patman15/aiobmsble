@@ -9,7 +9,14 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import crc_sum
 from aiobmsble.bms.neey_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -116,6 +123,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "temperature": [TS(50.24), TS(50.24)],
         "problem": False,
         "problem_code": 0,
+        "problems": [],
     },
     "v2": {
         "balance_current": -8.055,
@@ -149,6 +157,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "power": 106.171,
         "problem": False,
         "problem_code": 0,
+        "problems": [],
         "temperature": [TS(v) for v in (28.2, 28.09, 31.4, 61.9)],
         "voltage": 52.404,
     },
@@ -332,6 +341,7 @@ async def test_stream_update(
     assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {
         "problem": True,
         "problem_code": 0x8,
+        "problems": [BMSProblem(PT.OTHER, SV.PROTECT, "System Overtemp")],
         "balancer": False,
     }
     assert bms._msg_event.is_set() is False, "BMS does not request fresh data"
@@ -453,29 +463,52 @@ async def test_non_finite_value(monkeypatch: pytest.MonkeyPatch, patch_bleak_cli
 
 
 @pytest.mark.parametrize(
-    "problem_response",
+    ("problem_response", "expected_problem", "balancer"),
     [
-        (0x01, "Wrong cell count"),
-        # (0x02, "AcqLine Res test"),
-        (0x03, "AcqLine Res exceed"),
-        # (0x04, "Systest Completed"),
-        # (0x05, "Balancing"),
-        # (0x06, "Balancing finished"),
-        (0x07, "Low voltage"),
-        (0x08, "System Overtemp"),
-        (0x09, "Host fails"),
-        (0x0A, "Low battery voltage - balancing stopped"),
-        (0x0B, "Temperature too high - balancing stopped"),
-        # (0x0C, "Self-test completed"),
+        (0x01, BMSProblem(PT.OTHER, SV.FAULT, "Wrong cell count"), False),
+        (0x02, None, False),
+        (0x03, BMSProblem(PT.OTHER, SV.FAULT, "AcqLine Res exceed"), False),
+        (0x04, None, False),
+        (0x05, None, True),
+        (0x06, None, False),
+        (0x07, BMSProblem(PT.OTHER, SV.PROTECT, "Low voltage"), False),
+        (0x08, BMSProblem(PT.OTHER, SV.PROTECT, "System Overtemp"), False),
+        (0x09, BMSProblem(PT.OTHER, SV.FAULT, "Host fails"), False),
+        (
+            0x0A,
+            BMSProblem(PT.OTHER, SV.INFO, "Low battery voltage - balancing stopped"),
+            False,
+        ),
+        (
+            0x0B,
+            BMSProblem(PT.OTHER, SV.INFO, "Temperature too high - balancing stopped"),
+            False,
+        ),
+        (0x0C, None, False),
     ],
-    ids=lambda problem_response: problem_response[1],
+    ids=[
+        "wrong-cell-count",
+        "acqline-resistance-test",
+        "acqline-resistance-exceeded",
+        "system-test-completed",
+        "balancing",
+        "balancing-finished",
+        "low-voltage",
+        "system-overtemperature",
+        "host-failure",
+        "low-battery-voltage-balancing-stopped",
+        "temperature-too-high-balancing-stopped",
+        "self-test-completed",
+    ],
 )
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    problem_response: tuple[int, str],
+    problem_response: int,
+    expected_problem: BMSProblem | None,
+    balancer: bool,
 ) -> None:
-    """Test data update with BMS returning system problem flags."""
+    """Decode Neey operation-status values, exposing only fault states as problems."""
 
     def frame_update(data: bytearray, update: int) -> None:
         data[-2] = (data[-2] + update - data[216]) & 0xFF
@@ -484,7 +517,7 @@ async def test_problem_response(
     protocol_def: dict[str, bytearray] = deepcopy(_PROTO_DEFS["v1"])
     # set error flags in the copy
 
-    frame_update(protocol_def["cell"], problem_response[0])
+    frame_update(protocol_def["cell"], problem_response)
 
     monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", protocol_def)
 
@@ -493,9 +526,10 @@ async def test_problem_response(
     bms = BMS(generate_ble_device(), BMSConfig(False))
 
     assert await bms.async_update() == _RESULT_DEFS["v1"] | {
-        "problem": True,
-        "problem_code": problem_response[0],
-        "balancer": False,
+        "problem": expected_problem is not None,
+        "problem_code": problem_response if expected_problem else 0,
+        "problems": [expected_problem] if expected_problem else [],
+        "balancer": balancer,
     }
 
     await bms.disconnect()
