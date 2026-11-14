@@ -160,6 +160,28 @@ def test_alive_interval_requires_alive_override() -> None:
             )
 
 
+def test_problem_definitions() -> None:
+    """Verify the problem definitions of all plugins are consistent."""
+    for subclass, file_path in _get_bms_subclasses():
+        prb_mask: int | None = getattr(subclass, "_PRB_MASK", None)
+        seen: set[tuple[int, int | None]] = set()
+        for prb_def in subclass._PROBLEMS:
+            where: str = f"{file_path}: {prb_def}"
+            assert prb_def.mask > 0, f"empty mask\n{where}"
+            assert prb_def.value is None or not prb_def.value & ~prb_def.mask, (
+                f"value outside of mask\n{where}"
+            )
+            assert prb_mask is None or not prb_def.mask & ~prb_mask, (
+                f"definition is unreachable, bits are cleared by _PRB_MASK\n{where}"
+            )
+            assert (prb_def.mask, prb_def.value) not in seen, f"duplicate definition\n{where}"
+            seen.add((prb_def.mask, prb_def.value))
+            if prb_def.value is None:  # single flags must not overlap value coded fields
+                assert not any(prb_def.mask & mask for mask, value in seen if value is not None), (
+                    f"flag overlaps a value coded field\n{where}"
+                )
+
+
 def test_no_pragma_no_cover() -> None:
     """Check that BMS plugin files do not use pragma no cover declarations."""
     pragma_no_cover_files: list[tuple[str, int]] = []
