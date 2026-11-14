@@ -7,7 +7,14 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor as TS,
+)
 from aiobmsble.bms.ant_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -57,6 +64,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "delta_cell_voltage": 0.148,
     "problem": False,
     "problem_code": 0,
+    "problems": [],
     "balancer": False,
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
@@ -108,9 +116,7 @@ class MockANTBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         if bytes(data) == self.DEFAULT_PASS_MSG:
             self.UNLOCKED = True
@@ -123,9 +129,7 @@ class MockANTBleakClient(MockBleakClient):
                 self._notify_callback("MockANTBleakClient", notify_data)
 
 
-async def test_update(
-    patch_bms_timeout, patch_bleak_client, keep_alive_fixture
-) -> None:
+async def test_update(patch_bms_timeout, patch_bleak_client, keep_alive_fixture) -> None:
     """Test ANT BMS data update."""
 
     patch_bms_timeout()
@@ -142,9 +146,7 @@ async def test_update(
     await bms.disconnect()
 
 
-@pytest.mark.parametrize(
-    "secret", ["12345678", "wrong"], ids=["correct_secret", "wrong_secret"]
-)
+@pytest.mark.parametrize("secret", ["12345678", "wrong"], ids=["correct_secret", "wrong_secret"])
 async def test_update_secret(
     monkeypatch: pytest.MonkeyPatch, patch_bms_timeout, patch_bleak_client, secret: str
 ) -> None:
@@ -285,9 +287,21 @@ async def test_problem_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = await bms.async_update()
+    low: bool = problem_response[1] == "low_value"
     assert result == _RESULT_DEFS | {
         "problem": True,
-        "problem_code": (0x202 if problem_response[1] == "low_value" else 0xE0E),
+        "problem_code": (0x202 if low else 0xE0E),
+        "problems": (
+            [
+                BMSProblem(PT.CELL_UNDERVOLTAGE, SV.PROTECT, "Cell undervoltage"),
+                BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage"),
+            ]
+            if low
+            else [
+                BMSProblem(PT.FET_FAILURE, SV.FAULT, "Discharge MOSFET failed to open"),
+                BMSProblem(PT.FET_LOCKED, SV.INFO, "Charge MOSFET manually closed"),
+            ]
+        ),
         "chrg_mosfet": False,
         "dischrg_mosfet": False,
     }

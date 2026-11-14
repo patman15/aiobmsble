@@ -108,6 +108,11 @@ Checksum: 16-bit LE sum of bytes from CMD through end of DATA.
 > heater, discharge FET) rather than alarms, and are masked out of `problem_code`
 > by `_ALARM_MASK`. Balancing is *not* reported here — see `cell_balance` below.
 
+> **Note:** The driver decodes these bits into `problems` (`BMSProblem` entries). Warning
+> bits (8–14, 24–29) map to the same problem kinds as their protection counterparts with
+> `WARN` severity. Bits 6, 22 and 31 are reported as `INFO`. Bit 30 is a protection state.
+> Bits 7, 15 and 23 are switch states and produce no problem.
+
 ### cell_balance / cell_disconnect bitmaps
 
 Each is a 24-bit bitmap where bit 0 = cell 1, bit 1 = cell 2, etc.

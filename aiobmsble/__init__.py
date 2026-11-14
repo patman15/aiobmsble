@@ -15,7 +15,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Literal, NamedTuple, Self, TypedDict
+from typing import Any, Final, Literal, NamedTuple, Self, TypedDict
 
 __version__: str = "0.0.0.dev0"
 with suppress(PackageNotFoundError):
@@ -49,6 +49,7 @@ type BMSValue = CommonValue | Literal[
     "heater_current",
     "pack_count",
     "problem_code",
+    "problems",
     "chrg_mosfet",
     "dischrg_mosfet",
     "heater",
@@ -109,6 +110,117 @@ class TempSensor:
         return f"{self.__class__.__name__}({self.value!r}, {self.type!r})"
 
 
+class Severity(IntEnum):
+    """Problem severity, ordered so that max() yields the worst level."""
+
+    OK = 0
+    INFO = 1  # operating state notice, no limit violated
+    WARN = 2  # limit approached, BMS still operational
+    PROTECT = 3  # protection tripped, charging and/or discharging inhibited
+    FAULT = 4  # hardware/internal failure
+
+
+@unique
+class PrbType(StrEnum):
+    """Generic problem categories (value = stable key)."""
+
+    CELL_OVERVOLTAGE = auto()
+    CELL_UNDERVOLTAGE = auto()
+    PACK_OVERVOLTAGE = auto()
+    PACK_UNDERVOLTAGE = auto()
+    CELL_IMBALANCE = auto()
+    CHARGE_OVERCURRENT = auto()
+    DISCHARGE_OVERCURRENT = auto()
+    SHORT_CIRCUIT = auto()
+    CHARGE_OVERTEMP = auto()
+    CHARGE_UNDERTEMP = auto()
+    DISCHARGE_OVERTEMP = auto()
+    DISCHARGE_UNDERTEMP = auto()
+    MOSFET_OVERTEMP = auto()
+    AMBIENT_OVERTEMP = auto()
+    AMBIENT_UNDERTEMP = auto()
+    LOW_SOC = auto()
+    FET_LOCKED = auto()
+    FET_FAILURE = auto()
+    AFE_FAILURE = auto()
+    SENSOR_FAILURE = auto()
+    COMM_FAILURE = auto()
+    FUSE_BLOWN = auto()
+    OTHER = auto()  # vendor specific, requires ProblemDef.text
+    UNKNOWN = auto()  # bit set but not described by the plugin
+
+
+class PrbDefault(NamedTuple):
+    """Default severity and human readable description of a problem type."""
+
+    level: Severity
+    text: str
+
+
+PROBLEM_DEFAULTS: Final[dict[PrbType, PrbDefault]] = {
+    PrbType.CELL_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell overvoltage"),
+    PrbType.CELL_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell undervoltage"),
+    PrbType.PACK_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack overvoltage"),
+    PrbType.PACK_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack undervoltage"),
+    PrbType.CELL_IMBALANCE: PrbDefault(Severity.WARN, "Cell voltage imbalance"),
+    PrbType.CHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
+    PrbType.DISCHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Discharge overcurrent"),
+    PrbType.SHORT_CIRCUIT: PrbDefault(Severity.PROTECT, "Short circuit"),
+    PrbType.CHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Charge over-temperature"),
+    PrbType.CHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Charge under-temperature"),
+    PrbType.DISCHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Discharge over-temperature"),
+    PrbType.DISCHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Discharge under-temperature"),
+    PrbType.MOSFET_OVERTEMP: PrbDefault(Severity.PROTECT, "MOSFET over-temperature"),
+    PrbType.AMBIENT_OVERTEMP: PrbDefault(Severity.PROTECT, "Ambient over-temperature"),
+    PrbType.AMBIENT_UNDERTEMP: PrbDefault(Severity.PROTECT, "Ambient under-temperature"),
+    PrbType.LOW_SOC: PrbDefault(Severity.WARN, "Low state of charge"),
+    PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
+    PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET failure"),
+    PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end failure"),
+    PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor failure"),
+    PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication failure"),
+    PrbType.FUSE_BLOWN: PrbDefault(Severity.FAULT, "Fuse blown"),
+    PrbType.OTHER: PrbDefault(Severity.WARN, "Other problem"),
+    PrbType.UNKNOWN: PrbDefault(Severity.WARN, "Unknown problem"),
+}
+"""Default severity and generic description of each problem type."""
+
+
+class BMSPrbDef(NamedTuple):
+    """Map (a field of) a BMS problem code to a generic problem."""
+
+    mask: int  # bit(s) of problem_code to evaluate
+    kind: PrbType
+    level: Severity | None = None  # None: use PROBLEM_DEFAULTS[kind].level
+    value: int | None = None  # None: any bit of mask set, else (code & mask) == value
+    text: str = ""  # vendor specific description, overrides generic text
+
+    @property
+    def severity(self) -> Severity:
+        """Return the explicit level or the default level of the problem kind."""
+        return PROBLEM_DEFAULTS[self.kind].level if self.level is None else self.level
+
+    def matches(self, code: int) -> bool:
+        """Return True if this definition applies to the problem code."""
+        hit: Final[int] = code & self.mask
+        if self.value is None:
+            return bool(hit)
+        return hit == self.value
+
+
+@dataclass(frozen=True, slots=True)
+class BMSProblem:
+    """Decoded problem reported by the BMS."""
+
+    kind: PrbType
+    level: Severity
+    text: str
+
+    def __str__(self) -> str:
+        """Return human readable representation."""
+        return f"{self.text} ({self.level.name.lower()})"
+
+
 class BatterySample(TypedDict, total=False):
     """Common fields for battery samples."""
 
@@ -150,6 +262,7 @@ class BMSSample(BatterySample, total=False):
     total_charge: int  # [Ah], overall discharged
     pack_count: int  # [#]
     problem_code: int  # BMS specific code, 0 no problem, max. 64 bit
+    problems: list[BMSProblem]  # decoded problem_code, present if plugin defines _PROBLEMS
 
     # BMS switches
     chrg_mosfet: bool  # True: enabled

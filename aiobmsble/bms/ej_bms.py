@@ -11,7 +11,16 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPrbDef,
+    BMSSample,
+    MatcherPattern,
+    PrbType as PT,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -50,6 +59,33 @@ class BMS(BaseBMS):
         BMSDp("balancer", 55, 2, False, int, idx=Cmd.RT),
         BMSDp("heater", 54, 1, False, bool, Cmd.RT),
         BMSDp("design_capacity", 66, 2, False, lambda x: x // 10, Cmd.RT),
+    )
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(_PRB_MASK, PT.DISCHARGE_UNDERTEMP, value=0x0E80),
+        BMSPrbDef(_PRB_MASK, PT.DISCHARGE_OVERTEMP, value=0x0400),
+        BMSPrbDef(_PRB_MASK, PT.CHARGE_UNDERTEMP, value=0x0200),
+        BMSPrbDef(_PRB_MASK, PT.CHARGE_OVERTEMP, value=0x0100),
+        BMSPrbDef(
+            _PRB_MASK,
+            PT.DISCHARGE_OVERCURRENT,
+            value=0x0080,
+            text="Discharge overcurrent 2",
+        ),
+        BMSPrbDef(
+            _PRB_MASK,
+            PT.DISCHARGE_OVERCURRENT,
+            value=0x0040,
+            text="Discharge overcurrent 1",
+        ),
+        BMSPrbDef(_PRB_MASK, PT.SHORT_CIRCUIT, value=0x0020),
+        BMSPrbDef(_PRB_MASK, PT.CHARGE_OVERCURRENT, value=0x0010),
+        BMSPrbDef(_PRB_MASK, PT.PACK_UNDERVOLTAGE, value=0x0008),
+        BMSPrbDef(_PRB_MASK, PT.PACK_OVERVOLTAGE, value=0x0004),
+        BMSPrbDef(_PRB_MASK, PT.DISCHARGE_UNDERTEMP, value=0x0800),
+        BMSPrbDef(_PRB_MASK, PT.CHARGE_UNDERTEMP, value=0x0A00),
+        BMSPrbDef(_PRB_MASK, PT.DISCHARGE_UNDERTEMP, value=0x0A00),
+        BMSPrbDef(_PRB_MASK, PT.CHARGE_OVERTEMP, value=0x0500),
+        BMSPrbDef(_PRB_MASK, PT.DISCHARGE_OVERTEMP, value=0x0500),
     )
 
     def __init__(

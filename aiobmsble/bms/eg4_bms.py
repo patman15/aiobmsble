@@ -10,7 +10,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPrbDef,
+    BMSSample,
+    MatcherPattern,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -33,6 +43,41 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 77, 2, False, lambda x: x // 10),
         BMSDp("problem_code", 55, 6, False),
         BMSDp("balancer", 79, 2, False),
+    )
+    # problem_code contains registers 26 (warning), 27 (protection), and 28 (error code).
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(1 << 32, PT.PACK_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 33, PT.CELL_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 34, PT.PACK_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 35, PT.CELL_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 36, PT.CHARGE_OVERCURRENT, SV.WARN),
+        BMSPrbDef(1 << 37, PT.DISCHARGE_OVERCURRENT, SV.WARN),
+        BMSPrbDef(1 << 38, PT.OTHER, SV.WARN, text="Abnormal ambient temperature"),
+        BMSPrbDef(1 << 39, PT.MOSFET_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 40, PT.CHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 41, PT.DISCHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 42, PT.CHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 43, PT.DISCHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 44, PT.LOW_SOC, SV.WARN),
+        BMSPrbDef(1 << 45, PT.OTHER, SV.WARN, text="Float stopped"),
+        BMSPrbDef(1 << 16, PT.PACK_OVERVOLTAGE, SV.PROTECT),
+        BMSPrbDef(1 << 17, PT.CELL_OVERVOLTAGE, SV.PROTECT),
+        BMSPrbDef(1 << 18, PT.PACK_UNDERVOLTAGE, SV.PROTECT),
+        BMSPrbDef(1 << 19, PT.CELL_UNDERVOLTAGE, SV.PROTECT),
+        BMSPrbDef(1 << 20, PT.CHARGE_OVERCURRENT, SV.PROTECT),
+        BMSPrbDef(1 << 21, PT.DISCHARGE_OVERCURRENT, SV.PROTECT),
+        BMSPrbDef(1 << 22, PT.OTHER, SV.PROTECT, text="Abnormal ambient temperature"),
+        BMSPrbDef(1 << 23, PT.MOSFET_OVERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 24, PT.CHARGE_OVERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 25, PT.DISCHARGE_OVERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 26, PT.CHARGE_UNDERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 27, PT.DISCHARGE_UNDERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 28, PT.LOW_SOC, SV.PROTECT),
+        BMSPrbDef(1 << 29, PT.SHORT_CIRCUIT),
+        BMSPrbDef(1 << 0, PT.OTHER, SV.FAULT, text="Voltage error"),
+        BMSPrbDef(1 << 1, PT.OTHER, SV.FAULT, text="Temperature error"),
+        BMSPrbDef(1 << 2, PT.OTHER, SV.FAULT, text="Current flow error"),
+        BMSPrbDef(1 << 4, PT.CELL_IMBALANCE),
     )
     _OPT_FIELDS: Final[tuple[Literal["cycle_charge", "cycles", "design_capacity"], ...]] = (
         "cycle_charge",

@@ -8,7 +8,8 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, PrbType as PT, TempSensor as TS
+from aiobmsble.basebms import decode_problems
 from aiobmsble.bms.pwrboozt_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -24,6 +25,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "design_capacity": 105,
     "voltage": 13.618,
     "problem_code": 0,
+    "problems": [],
     "heater": False,
     "cell_voltages": [3.406, 3.404, 3.409, 3.399],
     "temperature": [TS(14.0)] * 4,
@@ -41,6 +43,37 @@ class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
 
     bms_class = BMS
+
+
+@pytest.mark.parametrize(
+    ("work_state", "expected_problem"),
+    [
+        (0xF000, None),
+        (0xF001, None),
+        (0xF002, None),
+        (0xC010, PT.CHARGE_OVERCURRENT),
+        (0xC020, PT.SHORT_CIRCUIT),
+        (0xC040, PT.DISCHARGE_OVERCURRENT),
+        (0xC080, PT.DISCHARGE_OVERCURRENT),
+        (0xD004, PT.CELL_OVERVOLTAGE),
+        (0xD100, PT.CHARGE_OVERTEMP),
+        (0xD200, PT.CHARGE_UNDERTEMP),
+        (0xE008, PT.CELL_UNDERVOLTAGE),
+        (0xE400, PT.DISCHARGE_OVERTEMP),
+        (0xE800, PT.DISCHARGE_UNDERTEMP),
+    ],
+)
+def test_decode_work_state(work_state: int, expected_problem: PT | None) -> None:
+    """Decode PowerBoozt operating and alarm states."""
+
+    msg: bytes = bytes(44) + work_state.to_bytes(2, "big")
+    decoded: BMSSample = BMS._decode_data(BMS._FIELDS, msg)
+    problem_code: int = work_state & BMS._PRB_MASK
+
+    assert decoded.get("problem_code") == problem_code
+    assert [problem.kind for problem in decode_problems(problem_code, BMS._PROBLEMS)] == (
+        [] if expected_problem is None else [expected_problem]
+    )
 
 
 class MockPwrBBleakClient(MockBleakClient):

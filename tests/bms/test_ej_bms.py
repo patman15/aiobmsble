@@ -7,7 +7,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, PrbType as PT, TempSensor as TS
 from aiobmsble.bms.ej_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -96,6 +96,7 @@ class MockEJsfBleakClient(MockEJBleakClient):
             "battery_charging": True,
             "problem": False,
             "problem_code": 0,
+            "problems": [],
             "balancer": 0,
             "chrg_mosfet": True,
             "dischrg_mosfet": True,
@@ -177,6 +178,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "battery_charging": False,
         "problem": False,
         "problem_code": 0,
+        "problems": [],
         "balancer": False,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
@@ -190,9 +192,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-async def test_update_single_frame(
-    patch_bleak_client, keep_alive_fixture: bool
-) -> None:
+async def test_update_single_frame(patch_bleak_client, keep_alive_fixture: bool) -> None:
     """Test E&J technology BMS data update."""
 
     patch_bleak_client(MockEJsfBleakClient)
@@ -269,9 +269,7 @@ async def test_invalid_response(
 
     patch_bms_timeout()
 
-    monkeypatch.setattr(
-        MockEJBleakClient, "_response", lambda _s, _c, _d: wrong_response
-    )
+    monkeypatch.setattr(MockEJBleakClient, "_response", lambda _s, _c, _d: wrong_response)
 
     patch_bleak_client(MockEJBleakClient)
 
@@ -322,9 +320,7 @@ async def test_problem_response(
 ) -> None:
     """Test data update with BMS returning error flags."""
 
-    monkeypatch.setattr(
-        MockEJBleakClient, "_response", lambda _s, _c, _d: problem_response[0]
-    )
+    monkeypatch.setattr(MockEJBleakClient, "_response", lambda _s, _c, _d: problem_response[0])
 
     patch_bleak_client(MockEJBleakClient)
 
@@ -332,8 +328,9 @@ async def test_problem_response(
 
     result: BMSSample = await bms.async_update()
     assert result.get("problem", False)  # we expect a problem
-    assert result.get("problem_code", 0) == (
-        0x4 if problem_response[1] == "first_bit" else 0x800
-    )
+    assert result.get("problem_code", 0) == (0x4 if problem_response[1] == "first_bit" else 0x800)
+    assert [problem.kind for problem in result["problems"]] == [
+        PT.PACK_OVERVOLTAGE if problem_response[1] == "first_bit" else PT.DISCHARGE_UNDERTEMP
+    ]
 
     await bms.disconnect()

@@ -10,7 +10,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPrbDef,
+    BMSSample,
+    MatcherPattern,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, b2str
 
 
@@ -40,6 +50,62 @@ class BMS(BaseBMS):
         BMSDp("balancer", 13, 2, False, idx=0x85),
         BMSDp("chrg_mosfet", 4, 1, False, lambda x: bool(x & 0x2), 0x85),
         BMSDp("dischrg_mosfet", 4, 1, False, lambda x: bool(x & 0x1), 0x85),
+    )
+    # problem_code bit layout (64 bit, MSB first): voltage status 63-48, current status 47-32,
+    # temperature status 31-16 (warnings 31-24, protections 23-16), alarms 15-0
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        # alarms (bits 0-15)
+        BMSPrbDef(1 << 0, PT.CELL_IMBALANCE, SV.WARN),
+        BMSPrbDef(1 << 1, PT.FET_FAILURE, text="Charge MOSFET damaged"),
+        BMSPrbDef(1 << 2, PT.OTHER, SV.FAULT, text="SD card failure"),
+        BMSPrbDef(1 << 3, PT.OTHER, SV.FAULT, text="SPI failure"),
+        BMSPrbDef(1 << 4, PT.OTHER, SV.FAULT, text="EEPROM failure"),
+        BMSPrbDef(1 << 5, PT.OTHER, SV.FAULT, text="LED failure"),
+        BMSPrbDef(1 << 6, PT.OTHER, SV.FAULT, text="Buzzer failure"),
+        BMSPrbDef(1 << 7, PT.LOW_SOC),
+        BMSPrbDef(1 << 8, PT.MOSFET_OVERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 9, PT.MOSFET_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 10, PT.OTHER, SV.FAULT, text="Current limiter board failure"),
+        BMSPrbDef(1 << 11, PT.SENSOR_FAILURE, text="Sampling failure"),
+        BMSPrbDef(1 << 12, PT.SENSOR_FAILURE, text="Cell fault"),
+        BMSPrbDef(1 << 13, PT.SENSOR_FAILURE, text="NTC fault"),
+        BMSPrbDef(1 << 14, PT.FET_FAILURE, text="Charge MOSFET fault"),
+        BMSPrbDef(1 << 15, PT.FET_FAILURE, text="Discharge MOSFET fault"),
+        # temperature protections (bits 16-23) and warnings (bits 24-31), same order
+        BMSPrbDef(1 << 16, PT.CHARGE_OVERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 17, PT.CHARGE_UNDERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 18, PT.DISCHARGE_OVERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 19, PT.DISCHARGE_UNDERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 20, PT.AMBIENT_OVERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 21, PT.AMBIENT_UNDERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 22, PT.MOSFET_OVERTEMP, SV.PROTECT),
+        BMSPrbDef(1 << 23, PT.OTHER, SV.PROTECT, text="MOSFET under-temperature"),
+        BMSPrbDef(1 << 24, PT.CHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 25, PT.CHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 26, PT.DISCHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 27, PT.DISCHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 28, PT.AMBIENT_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 29, PT.AMBIENT_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 30, PT.MOSFET_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 31, PT.OTHER, SV.WARN, text="MOSFET under-temperature warning"),
+        # current status (bits 32-47), bits 32 and 33 are FET state (not a problem)
+        BMSPrbDef(1 << 34, PT.CHARGE_OVERCURRENT, SV.PROTECT),
+        BMSPrbDef(1 << 35, PT.SHORT_CIRCUIT),
+        BMSPrbDef(1 << 36, PT.DISCHARGE_OVERCURRENT, SV.PROTECT, text="Discharge overcurrent 1"),
+        BMSPrbDef(1 << 37, PT.DISCHARGE_OVERCURRENT, SV.PROTECT, text="Discharge overcurrent 2"),
+        BMSPrbDef(1 << 38, PT.CHARGE_OVERCURRENT, SV.WARN, text="Charge current warning"),
+        BMSPrbDef(1 << 39, PT.DISCHARGE_OVERCURRENT, SV.WARN, text="Discharge current warning"),
+        BMSPrbDef(1 << 46, PT.FET_LOCKED, SV.PROTECT, text="Anti-theft lock"),
+        # voltage status (bits 48-63), bit 63 is sleep (not a problem)
+        BMSPrbDef(1 << 48, PT.CELL_OVERVOLTAGE),
+        BMSPrbDef(1 << 49, PT.CELL_UNDERVOLTAGE),
+        BMSPrbDef(1 << 50, PT.PACK_OVERVOLTAGE),
+        BMSPrbDef(1 << 51, PT.PACK_UNDERVOLTAGE),
+        BMSPrbDef(1 << 52, PT.CELL_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 53, PT.CELL_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 54, PT.PACK_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 55, PT.PACK_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 56, PT.CELL_IMBALANCE, SV.WARN),
     )
     _CMDS: Final = frozenset(field.idx for field in _FIELDS) | set({0x87})
 
@@ -82,9 +148,7 @@ class BMS(BaseBMS):
             "hw_version": b2str(self._msg[0x82][3:-1]),
         }
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -122,13 +186,11 @@ class BMS(BaseBMS):
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
-        for cmd in range(
-            0x88, 0x89 + min(result.get("cell_count", 0), BMS._MAX_CELLS) // 8
-        ):
+        for cmd in range(0x88, 0x89 + min(result.get("cell_count", 0), BMS._MAX_CELLS) // 8):
             await self._await_msg(BMS._cmd(cmd))
-            result["cell_voltages"] = result.setdefault(
-                "cell_voltages", []
-            ) + BMS._cell_voltages(self._msg.get(cmd, b""), cells=8, start=3)
+            result["cell_voltages"] = result.setdefault("cell_voltages", []) + BMS._cell_voltages(
+                self._msg.get(cmd, b""), cells=8, start=3
+            )
 
         result["temperature"] = BMS._temperature(
             self._msg[0x87],

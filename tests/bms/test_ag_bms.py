@@ -89,6 +89,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "temperature": [TS(6.0)],
         "problem": False,
         "problem_code": 0,
+        "problems": [],
         "balancer": 0,
         "heater": False,
         "runtime": 63592,

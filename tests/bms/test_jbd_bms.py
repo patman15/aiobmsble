@@ -12,7 +12,14 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    PrbType as PT,
+    Severity as S,
+    TempSensor as TS,
+)
 from aiobmsble.bms.jbd_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -38,6 +45,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "delta_cell_voltage": 0.015,
     "problem": False,
     "problem_code": 0,
+    "problems": [],
     "balancer": 0,
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
@@ -62,6 +70,7 @@ _RESULT_UNIT_BASE: Final[BMSSample] = {
     "delta_cell_voltage": 0.015,
     "problem": False,
     "problem_code": 0,
+    "problems": [],
     "balancer": 0,
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
@@ -422,6 +431,7 @@ async def test_oversized_response(patch_bleak_client) -> None:
                 b"\x00\x00\x01\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x83\x77"
             ),
             "first_bit",
+            BMSProblem(PT.CELL_OVERVOLTAGE, S.PROTECT, "Cell overvoltage"),
         ),
         (
             bytearray(
@@ -429,11 +439,12 @@ async def test_oversized_response(patch_bleak_client) -> None:
                 b"\x00\x80\x00\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x04\x77"
             ),
             "last_bit",
+            BMSProblem(PT.UNKNOWN, S.WARN, "Unknown problem bit 15"),
         ),
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str, BMSProblem]:
     """Return faulty response frame."""
     assert isinstance(request.param, tuple)
     return request.param
@@ -442,7 +453,7 @@ def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    problem_response: tuple[bytearray, str],
+    problem_response: tuple[bytearray, str, BMSProblem],
 ) -> None:
     """Test data update with BMS returning invalid data (wrong CRC)."""
 
@@ -473,6 +484,7 @@ async def test_problem_response(
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 15),
+        "problems": [problem_response[2]],
     }
 
     await bms.disconnect()

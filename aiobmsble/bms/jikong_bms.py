@@ -12,7 +12,18 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSMode, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSMode,
+    BMSPrbDef,
+    BMSSample,
+    MatcherPattern,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum, lstr2int
 
 
@@ -43,6 +54,36 @@ class BMS(BaseBMS):
         BMSDp("heater", 215, 1, False, bool),
         BMSDp("heater_current", 236, 2, True, lambda x: x / 1000),
     )
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(1 << 0, PT.OTHER, text="Wire resistance"),
+        BMSPrbDef(1 << 1, PT.MOSFET_OVERTEMP),
+        BMSPrbDef(1 << 2, PT.OTHER, text="Cell count is not equal to settings"),
+        BMSPrbDef(1 << 4, PT.OTHER, SV.INFO, text="Battery is fully charged"),
+        BMSPrbDef(1 << 5, PT.PACK_OVERVOLTAGE),
+        BMSPrbDef(1 << 6, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 7, PT.SHORT_CIRCUIT, text="Charge short circuit"),
+        BMSPrbDef(1 << 8, PT.CHARGE_OVERTEMP),
+        BMSPrbDef(1 << 9, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 10, PT.COMM_FAILURE),
+        BMSPrbDef(1 << 11, PT.CELL_UNDERVOLTAGE),
+        BMSPrbDef(1 << 12, PT.PACK_UNDERVOLTAGE),
+        BMSPrbDef(1 << 13, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 14, PT.SHORT_CIRCUIT, text="Discharge short circuit"),
+        BMSPrbDef(1 << 15, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(1 << 16, PT.FET_FAILURE, text="Charging MOSFET abnormal"),
+        BMSPrbDef(1 << 17, PT.FET_FAILURE, text="Discharging MOSFET abnormal"),
+        BMSPrbDef(1 << 18, PT.OTHER, text="GPS disconnected"),
+        BMSPrbDef(1 << 19, PT.OTHER, SV.INFO, text="Modify password in time"),
+        BMSPrbDef(1 << 20, PT.OTHER, text="Discharge on failed"),
+        BMSPrbDef(1 << 21, PT.AMBIENT_OVERTEMP, text="Battery overtemperature"),
+        BMSPrbDef(1 << 22, PT.SENSOR_FAILURE, text="Temperature sensor anomaly"),
+        BMSPrbDef(1 << 23, PT.OTHER, text="PL module anomaly"),
+        BMSPrbDef(1 << 24, PT.OTHER, SV.FAULT, text="SCP release failed"),
+        BMSPrbDef(1 << 25, PT.DISCHARGE_OVERCURRENT, text="Discharge OCP II"),
+        BMSPrbDef(1 << 26, PT.DISCHARGE_OVERCURRENT, text="Discharge OCP III"),
+        BMSPrbDef(1 << 27, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 28, PT.FET_LOCKED, SV.PROTECT, text="GPS remote lock"),
+    )  # JK02 error bit definitions; undocumented bits remain UNKNOWN
 
     def __init__(
         self,
@@ -277,7 +318,7 @@ class BMS(BaseBMS):
         data["problem_code"] = (
             ((data.get("problem_code", 0)) >> 16)
             if self._prot_offset
-            else (data.get("problem_code", 0) & 0xFFFF)
+            else data.get("problem_code", 0)
         )
 
         data["cell_voltages"] = BMS._cell_voltages(
