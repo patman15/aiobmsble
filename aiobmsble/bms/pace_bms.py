@@ -56,7 +56,6 @@ class BMS(BaseBMS):
         BMSDp("battery_health", 22, 1, False),
         BMSDp("pack_count", 0, 1, False),
         BMSDp("cycles", 23, 4, False),
-        # BMSDp("problem_code", 1, 9, False, lambda x: x & 0xFFFF00FF00FF0000FF, EIC_LEN),
     )
     _PFIELDS: Final[tuple[BMSPDp, ...]] = (  # pack values, 0x0a01 reply
         BMSPDp("current", 1, 2, True, lambda x: x / 100),

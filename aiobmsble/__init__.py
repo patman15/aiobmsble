@@ -49,6 +49,7 @@ type BMSValue = CommonValue | Literal[
     "heater_current",
     "pack_count",
     "problem_code",
+    "problems",
     "chrg_mosfet",
     "dischrg_mosfet",
     "heater",
@@ -202,7 +203,9 @@ class BMSPrbDef(NamedTuple):
     def matches(self, code: int) -> bool:
         """Return True if this definition applies to the problem code."""
         hit: Final[int] = code & self.mask
-        return bool(hit) and (self.value is None or hit == self.value)
+        if self.value is None:
+            return bool(hit)
+        return hit == self.value
 
 
 @dataclass(frozen=True, slots=True)

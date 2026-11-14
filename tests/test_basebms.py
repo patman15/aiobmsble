@@ -666,6 +666,12 @@ def test_decode_problems(code: int, expected: list[PrbType]) -> None:
     assert [p.kind for p in decode_problems(code, defs)] == expected
 
 
+def test_decode_problems_value_zero() -> None:
+    """Check exact zero matches are accepted for problem definitions."""
+    defs: Final[tuple[BMSPrbDef, ...]] = (BMSPrbDef(0x3, PrbType.OTHER, value=0x0),)
+    assert [p.kind for p in decode_problems(0x0, defs)] == [PrbType.OTHER]
+
+
 def test_problem_str() -> None:
     """Check human readable representation of a problem."""
     problem: Final[BMSProblem] = decode_problems(
