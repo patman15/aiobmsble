@@ -8,7 +8,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, Limit, PackSample, TempSensor as TS, Threshold
+from aiobmsble import BMSConfig, BMSSample, Limit, PackSample, PrbType, TempSensor as TS, Threshold
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -27,6 +27,7 @@ _RESULT_DEFS: BMSSample = {
     "battery_level": 47.9,
     "battery_health": 99.9,
     "problem_code": 0,
+    "problems": [],
     "dischrg_mosfet": True,
     "chrg_mosfet": True,
     "heater": False,
@@ -356,9 +357,7 @@ async def test_limits(patch_bleak_client) -> None:
     assert not bms.is_connected
 
 
-async def test_limits_unexpected_reply(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_limits_unexpected_reply(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that a valid but unexpected reply to a SPA request is reported as incomplete."""
     monkeypatch.setattr(
         MockSeplosBleakClient,
@@ -499,7 +498,21 @@ async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_cli
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS | {
+    result: BMSSample = await bms.async_update()
+    assert result == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 0xFFFF00FF00FF0000FF,
+        "problems": result.get("problems"),
     }
+    kinds = {p.kind for p in result.get("problems", [])}
+    assert {PrbType.CELL_OVERVOLTAGE, PrbType.SHORT_CIRCUIT, PrbType.FET_FAILURE} <= kinds
+    assert {p.text for p in result.get("problems", []) if p.kind == PrbType.UNKNOWN} == {
+        "Unknown problem bit 24",
+        "Unknown problem bit 25",
+        "Unknown problem bit 29",
+        "Unknown problem bit 30",
+        "Unknown problem bit 31",
+        "Unknown problem bit 47",
+    }
+
+    await bms.disconnect()

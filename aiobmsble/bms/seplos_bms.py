@@ -17,11 +17,14 @@ from aiobmsble import (
     BMSInfo,
     BMSLimits,
     BMSPDp,
+    BMSPrbDef,
     BMSSample,
     Limit,
     LimitDp,
     MatcherPattern,
     PackSample,
+    PrbType as PT,
+    Severity as SV,
     TempSensor,
 )
 from aiobmsble.basebms import BaseBMS, crc_modbus, swap32
@@ -42,7 +45,49 @@ class BMS(BaseBMS):
     _SPA_LEN: Final[int] = 0x35
     _SPA_BLOCKS: Final[tuple[int, int]] = (0x1300, 0x1335)  # start registers
     _TEMP_START: Final[int] = _HEAD_LEN + 32
+    # problem_code bytes (EIC 0x2208..0x2248): TB02, TB03, TB05, TB06, TB15 (MSB first)
     _PRB_MASK: Final[int] = 0xFFFF00FF00FF0000FF
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        # byte 0: voltage event code (TB02)
+        BMSPrbDef(1 << 64, PT.CELL_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 65, PT.CELL_OVERVOLTAGE),
+        BMSPrbDef(1 << 66, PT.CELL_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 67, PT.CELL_UNDERVOLTAGE),
+        BMSPrbDef(1 << 68, PT.PACK_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 69, PT.PACK_OVERVOLTAGE),
+        BMSPrbDef(1 << 70, PT.PACK_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 71, PT.PACK_UNDERVOLTAGE),
+        # byte 1: cell temperature event code (TB03)
+        BMSPrbDef(1 << 56, PT.CHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 57, PT.CHARGE_OVERTEMP),
+        BMSPrbDef(1 << 58, PT.CHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 59, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 60, PT.DISCHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 61, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(1 << 62, PT.DISCHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 63, PT.DISCHARGE_UNDERTEMP),
+        # byte 3: current event code 1 (TB05)
+        BMSPrbDef(1 << 40, PT.CHARGE_OVERCURRENT, SV.WARN),
+        BMSPrbDef(1 << 41, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 42, PT.CHARGE_OVERCURRENT, text="Charge second level overcurrent"),
+        BMSPrbDef(1 << 43, PT.DISCHARGE_OVERCURRENT, SV.WARN),
+        BMSPrbDef(1 << 44, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 45, PT.DISCHARGE_OVERCURRENT, text="Discharge second level overcurrent"),
+        BMSPrbDef(1 << 46, PT.SHORT_CIRCUIT),
+        # byte 5: residual capacity event code (TB06)
+        BMSPrbDef(1 << 26, PT.LOW_SOC, SV.WARN, text="SOC alarm"),
+        BMSPrbDef(1 << 27, PT.LOW_SOC, SV.PROTECT, text="SOC protection"),
+        BMSPrbDef(1 << 28, PT.CELL_IMBALANCE, SV.WARN, text="Cell difference alarm"),
+        # byte 8: hard fault event code (TB15)
+        BMSPrbDef(1 << 0, PT.SENSOR_FAILURE, SV.FAULT, text="NTC fault"),
+        BMSPrbDef(1 << 1, PT.AFE_FAILURE, SV.FAULT),
+        BMSPrbDef(1 << 2, PT.FET_FAILURE, SV.FAULT, text="Charge MOSFET fault"),
+        BMSPrbDef(1 << 3, PT.FET_FAILURE, SV.FAULT, text="Discharge MOSFET fault"),
+        BMSPrbDef(1 << 4, PT.CELL_IMBALANCE, SV.FAULT, text="Cell fault"),
+        BMSPrbDef(1 << 5, PT.OTHER, SV.FAULT, text="Break line fault"),
+        BMSPrbDef(1 << 6, PT.OTHER, SV.FAULT, text="Key fault"),
+        BMSPrbDef(1 << 7, PT.OTHER, SV.WARN, text="Aerosol alarm"),
+    )
     _QUERY: Final[dict[str, tuple[int, int, int]]] = {
         # name: fct, address, count
         "EIA": (0x4, 0x2000, _EIA_LEN),
@@ -150,9 +195,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Retrieve BMS data update."""
 
         if (
@@ -173,9 +216,7 @@ class BMS(BaseBMS):
             self._pkglen = BMS._HEAD_LEN + BMS._CRC_LEN
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         # verify that data is long enough
         if len(self._frame) < self._pkglen:
@@ -192,9 +233,7 @@ class BMS(BaseBMS):
             return
 
         if self._frame[2] >> 1 not in BMS._VALID_CMDS or self._frame[1] & 0x80:
-            self._log.debug(
-                "unknown message: %s, length: %s", self._frame[0:2], self._frame[2]
-            )
+            self._log.debug("unknown message: %s, length: %s", self._frame[0:2], self._frame[2])
             self._frame.clear()
             return
 
@@ -237,9 +276,7 @@ class BMS(BaseBMS):
         assert start >= 0 and count > 0 and start + count <= 0xFFFF
         frame: bytearray = bytearray([device, cmd])
         frame.extend(int.to_bytes(start, 2, byteorder="big"))
-        frame.extend(
-            int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big")
-        )
+        frame.extend(int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big"))
         frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
         return bytes(frame)
 
