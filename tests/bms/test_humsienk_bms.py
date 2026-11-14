@@ -381,7 +381,7 @@ async def test_problem_response(
 
     result: BMSSample = await bms.async_update()
     assert result == _RESULT_DEFS[protocol_type] | {
-        "problem": True,
+        "problem": problems != [BMSProblem(PT.OTHER, SV.INFO, "Pre-discharge MOSFET on")],
         "problem_code": expected,
         "problems": problems,
     }

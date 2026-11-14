@@ -47,6 +47,7 @@ from aiobmsble.basebms import (
     decode_problems,
     lrc_modbus,
     lstr2int,
+    problem_levels,
 )
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
 from tests.bluetooth import generate_ble_device
@@ -619,10 +620,17 @@ class ProblemTestBMS(MinTestBMS):
                 "problem": True,
             },
         ),
+        (
+            {"problem_code": 4},  # operating state notice only
+            {
+                "problems": [BMSProblem(PrbType.FET_LOCKED, Severity.INFO, "locked by app")],
+                "problem": False,
+            },
+        ),
         ({"problem_code": 0}, {"problems": [], "problem": False}),
         ({"voltage": 13.0}, {"problem": False}),
     ],
-    ids=["problems", "no_problem", "no_problem_code"],
+    ids=["problems", "info_only", "no_problem", "no_problem_code"],
 )
 async def test_async_update_problems(
     monkeypatch: pytest.MonkeyPatch,
@@ -649,7 +657,7 @@ async def test_async_update_problems(
         (0x00, []),
         (0x01, [PrbType.CELL_UNDERVOLTAGE]),
         (0x02, [PrbType.CELL_OVERVOLTAGE]),
-        (0x03, [PrbType.UNKNOWN, PrbType.UNKNOWN]),  # value not defined
+        (0x03, [PrbType.UNKNOWN]),  # value not defined, reported once
         (0x40, [PrbType.SHORT_CIRCUIT]),
         (0x50, [PrbType.SHORT_CIRCUIT]),  # any bit of mask
         (0x102, [PrbType.CELL_OVERVOLTAGE, PrbType.UNKNOWN]),
@@ -672,12 +680,39 @@ def test_decode_problems_value_zero() -> None:
     assert [p.kind for p in decode_problems(0x0, defs)] == [PrbType.OTHER]
 
 
+def test_decode_problems_unknown_text() -> None:
+    """Check that undefined field values and undescribed bits are reported distinctly."""
+    defs: Final[tuple[BMSPrbDef, ...]] = (
+        BMSPrbDef(0xFF00, PrbType.CELL_OVERVOLTAGE, value=0x0200),
+        BMSPrbDef(0x0001, PrbType.SHORT_CIRCUIT),
+    )
+    assert decode_problems(0x1310, defs) == [
+        BMSProblem(PrbType.UNKNOWN, Severity.WARN, "Unknown problem value 0x13"),
+        BMSProblem(PrbType.UNKNOWN, Severity.WARN, "Unknown problem bit 4"),
+    ]
+
+
+def test_problem_levels() -> None:
+    """Check reduction of problems to the worst severity per problem type."""
+    defs: Final[tuple[BMSPrbDef, ...]] = (
+        BMSPrbDef(0x1, PrbType.CHARGE_OVERCURRENT, Severity.WARN),
+        BMSPrbDef(0x2, PrbType.CHARGE_OVERCURRENT),
+        BMSPrbDef(0x4, PrbType.FET_LOCKED),
+    )
+    assert problem_levels(decode_problems(0x7, defs)) == {
+        PrbType.CHARGE_OVERCURRENT: Severity.PROTECT,
+        PrbType.FET_LOCKED: Severity.INFO,
+    }
+    assert problem_levels([]) == {}
+
+
 def test_problem_str() -> None:
     """Check human readable representation of a problem."""
     problem: Final[BMSProblem] = decode_problems(
         0x1, (BMSPrbDef(0x1, PrbType.AFE_FAILURE, Severity.FAULT),)
     )[0]
     assert str(problem) == "Analog front-end failure (fault)"
+    assert repr(problem) == "BMSProblem(AFE_FAILURE, FAULT, 'Analog front-end failure')"
 
 
 def test_problem_defaults_complete() -> None:
