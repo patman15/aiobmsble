@@ -41,6 +41,7 @@ from aiobmsble import (
     LimitDp,
     MatcherPattern,
     PackSample,
+    PrbDefault,
     PrbType,
     Severity,
     TempSensor,
@@ -307,12 +308,16 @@ class BaseBMS(ABC):
 
         battery_level: Final[float] = data.get("battery_level", 0)
         cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
+        problems: Final[list[BMSProblem] | None] = data.get("problems")
 
         # do sanity check on values to set problem state
         data["problem"] = any(
             [
                 data.get("problem", False),
-                data.get("problem_code", False),
+                # decoded problems: operating state notices (INFO) are not a problem
+                any(p.level >= Severity.WARN for p in problems)
+                if problems is not None
+                else data.get("problem_code", False),
                 data.get("voltage") is not None and data.get("voltage", 0) <= 0,
                 any(v <= 0 or v > BaseBMS._MAX_CELL_VOLT for v in cell_voltages),
                 data.get("delta_cell_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
@@ -576,9 +581,9 @@ class BaseBMS(ABC):
             await self._connect()
             data: BMSSample = await self._async_update()
             if not raw:
-                self._add_missing_values(data, self._raw_values())
                 if self._PROBLEMS and "problem_code" in data:
                     data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)
+                self._add_missing_values(data, self._raw_values())
 
             if not self._cfg.keep_alive:
                 # disconnect after data update to force reconnect next time (slow!)
@@ -831,7 +836,9 @@ class BaseBMS(ABC):
 def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
     """Translate a BMS problem code into generic problems.
 
-    Bits not explained by a matching definition are reported as UNKNOWN warnings.
+    Bits not explained by a matching definition are reported as UNKNOWN problems: a
+    value coded field (definitions with `value`) holding an undefined value is reported
+    once with its value, any other bit is reported individually.
 
     Args:
         code: BMS specific problem code, 0 means no problem
@@ -843,19 +850,47 @@ def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
     """
     problems: list[BMSProblem] = []
     explained: int = 0
+    fields: dict[int, bool] = {}  # mask of value coded field: definition matched
     for d in defs:
-        if d.matches(code):
+        hit: bool = d.matches(code)
+        if d.value is not None:
+            fields[d.mask] = fields.get(d.mask, False) or hit
+        if hit:
             explained |= d.mask
             problems.append(
                 BMSProblem(d.kind, d.severity, d.text or PROBLEM_DEFAULTS[d.kind].text)
             )
-    unknown: Final[int] = code & ~explained
+    unknown: Final[PrbDefault] = PROBLEM_DEFAULTS[PrbType.UNKNOWN]
+    for mask, matched in fields.items():
+        if not matched and code & mask:
+            explained |= mask
+            value: int = (code & mask) >> ((mask & -mask).bit_length() - 1)
+            problems.append(
+                BMSProblem(PrbType.UNKNOWN, unknown.level, f"{unknown.text} value {value:#04x}")
+            )
+    remaining: Final[int] = code & ~explained
     problems.extend(
-        BMSProblem(PrbType.UNKNOWN, Severity.WARN, f"Unknown problem bit {bit}")
-        for bit in range(unknown.bit_length())
-        if unknown >> bit & 1
+        BMSProblem(PrbType.UNKNOWN, unknown.level, f"{unknown.text} bit {bit}")
+        for bit in range(remaining.bit_length())
+        if remaining >> bit & 1
     )
     return problems
+
+
+def problem_levels(problems: Iterable[BMSProblem]) -> dict[PrbType, Severity]:
+    """Reduce decoded problems to the worst severity per problem type.
+
+    Args:
+        problems: decoded problems, e.g. `BMSSample["problems"]`
+
+    Returns:
+        dict[PrbType, Severity]: worst level of each reported problem type
+
+    """
+    levels: dict[PrbType, Severity] = {}
+    for problem in problems:
+        levels[problem.kind] = max(problem.level, levels.get(problem.kind, Severity.OK))
+    return levels
 
 
 def b2str(b: bytes) -> str:

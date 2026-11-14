@@ -83,7 +83,7 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 1, PT.AFE_FAILURE, SV.FAULT),
         BMSPrbDef(1 << 2, PT.FET_FAILURE, SV.FAULT, text="Charge MOSFET fault"),
         BMSPrbDef(1 << 3, PT.FET_FAILURE, SV.FAULT, text="Discharge MOSFET fault"),
-        BMSPrbDef(1 << 4, PT.CELL_IMBALANCE, SV.FAULT, text="Cell fault"),
+        BMSPrbDef(1 << 4, PT.CELL_FAILURE),
         BMSPrbDef(1 << 5, PT.OTHER, SV.FAULT, text="Break line fault"),
         BMSPrbDef(1 << 6, PT.OTHER, SV.FAULT, text="Key fault"),
         BMSPrbDef(1 << 7, PT.OTHER, SV.WARN, text="Aerosol alarm"),

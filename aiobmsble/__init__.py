@@ -139,10 +139,12 @@ class PrbType(StrEnum):
     MOSFET_OVERTEMP = auto()
     AMBIENT_OVERTEMP = auto()
     AMBIENT_UNDERTEMP = auto()
+    BATTERY_OVERTEMP = auto()  # not specific to charging or discharging
     LOW_SOC = auto()
     FET_LOCKED = auto()
     FET_FAILURE = auto()
     AFE_FAILURE = auto()
+    CELL_FAILURE = auto()
     SENSOR_FAILURE = auto()
     COMM_FAILURE = auto()
     FUSE_BLOWN = auto()
@@ -173,10 +175,12 @@ PROBLEM_DEFAULTS: Final[dict[PrbType, PrbDefault]] = {
     PrbType.MOSFET_OVERTEMP: PrbDefault(Severity.PROTECT, "MOSFET over-temperature"),
     PrbType.AMBIENT_OVERTEMP: PrbDefault(Severity.PROTECT, "Ambient over-temperature"),
     PrbType.AMBIENT_UNDERTEMP: PrbDefault(Severity.PROTECT, "Ambient under-temperature"),
+    PrbType.BATTERY_OVERTEMP: PrbDefault(Severity.PROTECT, "Battery over-temperature"),
     PrbType.LOW_SOC: PrbDefault(Severity.WARN, "Low state of charge"),
     PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
     PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET failure"),
     PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end failure"),
+    PrbType.CELL_FAILURE: PrbDefault(Severity.FAULT, "Cell failure"),
     PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor failure"),
     PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication failure"),
     PrbType.FUSE_BLOWN: PrbDefault(Severity.FAULT, "Fuse blown"),
@@ -219,6 +223,10 @@ class BMSProblem:
     def __str__(self) -> str:
         """Return human readable representation."""
         return f"{self.text} ({self.level.name.lower()})"
+
+    def __repr__(self) -> str:
+        """Return compact representation for logging."""
+        return f"{self.__class__.__name__}({self.kind.name}, {self.level.name}, {self.text!r})"
 
 
 class BatterySample(TypedDict, total=False):

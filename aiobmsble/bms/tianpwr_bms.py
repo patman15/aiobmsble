@@ -67,7 +67,7 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 9, PT.MOSFET_OVERTEMP, SV.WARN),
         BMSPrbDef(1 << 10, PT.OTHER, SV.FAULT, text="Current limiter board failure"),
         BMSPrbDef(1 << 11, PT.SENSOR_FAILURE, text="Sampling failure"),
-        BMSPrbDef(1 << 12, PT.SENSOR_FAILURE, text="Cell fault"),
+        BMSPrbDef(1 << 12, PT.CELL_FAILURE),
         BMSPrbDef(1 << 13, PT.SENSOR_FAILURE, text="NTC fault"),
         BMSPrbDef(1 << 14, PT.FET_FAILURE, text="Charge MOSFET fault"),
         BMSPrbDef(1 << 15, PT.FET_FAILURE, text="Discharge MOSFET fault"),
