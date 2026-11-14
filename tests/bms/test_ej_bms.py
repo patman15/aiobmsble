@@ -8,6 +8,7 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample, PrbType as PT, TempSensor as TS
+from aiobmsble.basebms import decode_problems
 from aiobmsble.bms.ej_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -334,3 +335,17 @@ async def test_problem_response(
     ]
 
     await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        (0x0014, [PT.PACK_OVERVOLTAGE, PT.CHARGE_OVERCURRENT]),
+        (0x0A00, [PT.CHARGE_UNDERTEMP, PT.DISCHARGE_UNDERTEMP]),
+        (0x0FFC, [definition.kind for definition in BMS._PROBLEMS]),
+    ],
+    ids=["voltage_and_current", "low_temperature", "all"],
+)
+def test_combined_problems(code: int, expected: list[PT]) -> None:
+    """Test that simultaneously reported problems are all decoded."""
+    assert [problem.kind for problem in decode_problems(code, BMS._PROBLEMS)] == expected

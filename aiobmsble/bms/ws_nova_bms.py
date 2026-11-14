@@ -40,16 +40,16 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 0, 2, False, lambda x: x & 0x0FFC),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(0x0FFC, PT.PACK_OVERVOLTAGE, value=0x0004),
-        BMSPrbDef(0x0FFC, PT.PACK_UNDERVOLTAGE, value=0x0008),
-        BMSPrbDef(0x0FFC, PT.CHARGE_OVERCURRENT, value=0x0010),
-        BMSPrbDef(0x0FFC, PT.SHORT_CIRCUIT, value=0x0020),
-        BMSPrbDef(0x0FFC, PT.DISCHARGE_OVERCURRENT, value=0x0040),
-        BMSPrbDef(0x0FFC, PT.DISCHARGE_OVERCURRENT, value=0x0080),
-        BMSPrbDef(0x0FFC, PT.CHARGE_OVERTEMP, value=0x0100),
-        BMSPrbDef(0x0FFC, PT.CHARGE_UNDERTEMP, value=0x0200),
-        BMSPrbDef(0x0FFC, PT.DISCHARGE_OVERTEMP, value=0x0400),
-        BMSPrbDef(0x0FFC, PT.DISCHARGE_UNDERTEMP, value=0x0800),
+        BMSPrbDef(1 << 2, PT.PACK_OVERVOLTAGE),
+        BMSPrbDef(1 << 3, PT.PACK_UNDERVOLTAGE),
+        BMSPrbDef(1 << 4, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 5, PT.SHORT_CIRCUIT),
+        BMSPrbDef(1 << 6, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 1"),
+        BMSPrbDef(1 << 7, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 2"),
+        BMSPrbDef(1 << 8, PT.CHARGE_OVERTEMP),
+        BMSPrbDef(1 << 9, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 10, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(1 << 11, PT.DISCHARGE_UNDERTEMP),
     )
 
     def __init__(
