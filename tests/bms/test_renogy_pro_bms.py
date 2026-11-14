@@ -32,6 +32,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         "power": -15.96,
         "problem": False,
         "problem_code": 0,
+        "problems": [],
         "runtime": 626886,
         "temperature": [TS(27.3), TS(26.8), TS(27.5)],
         "temp_count": 3,

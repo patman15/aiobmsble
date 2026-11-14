@@ -8,7 +8,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.renogy_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -32,6 +39,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "power": -11.696,
     "problem": False,
     "problem_code": 0,
+    "problems": [],
     "runtime": 406883,
     "temperature": [TS(17.0)] * 2,
     "temp_count": 2,
@@ -230,7 +238,34 @@ async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_cli
     result: BMSSample = await bms.async_update()
     assert result == _RESULT_DEFS | {
         "problem": True,
-        "problem_code": 0xFFFFFFFFFFFFFFFFFFFFFFFFFFF1,
+        "problem_code": 0xFFFFFFFFFFFFFFFFFFFFFFFFFFF100FF,
+        "problems": [
+            BMSProblem(PT.SHORT_CIRCUIT, SV.PROTECT, "Short circuit"),
+            BMSProblem(PT.CHARGE_OVERCURRENT, SV.PROTECT, "Charge overcurrent 2"),
+            BMSProblem(PT.DISCHARGE_OVERCURRENT, SV.PROTECT, "Discharge overcurrent 2"),
+            BMSProblem(PT.PACK_OVERVOLTAGE, SV.PROTECT, "Pack overvoltage"),
+            BMSProblem(PT.CELL_UNDERVOLTAGE, SV.PROTECT, "Cell undervoltage"),
+            BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage"),
+            BMSProblem(PT.CHARGE_OVERCURRENT, SV.PROTECT, "Charge overcurrent 1"),
+            BMSProblem(PT.DISCHARGE_OVERCURRENT, SV.PROTECT, "Discharge overcurrent 1"),
+            BMSProblem(PT.DISCHARGE_UNDERTEMP, SV.PROTECT, "Discharge under-temperature"),
+            BMSProblem(PT.DISCHARGE_OVERTEMP, SV.PROTECT, "Discharge over-temperature"),
+            BMSProblem(PT.CHARGE_UNDERTEMP, SV.PROTECT, "Charge under-temperature"),
+            BMSProblem(PT.CHARGE_OVERTEMP, SV.PROTECT, "Charge over-temperature"),
+            BMSProblem(PT.PACK_UNDERVOLTAGE, SV.PROTECT, "Pack undervoltage"),
+            BMSProblem(PT.DISCHARGE_OVERTEMP, SV.WARN, "Discharge over-temperature"),
+            BMSProblem(PT.DISCHARGE_UNDERTEMP, SV.WARN, "Discharge under-temperature"),
+            BMSProblem(PT.CHARGE_OVERTEMP, SV.WARN, "Charge over-temperature"),
+            BMSProblem(PT.CHARGE_UNDERTEMP, SV.WARN, "Charge under-temperature"),
+            BMSProblem(PT.PACK_OVERVOLTAGE, SV.WARN, "Pack overvoltage"),
+            BMSProblem(PT.PACK_UNDERVOLTAGE, SV.WARN, "Pack undervoltage"),
+            BMSProblem(PT.CELL_OVERVOLTAGE, SV.WARN, "Cell overvoltage"),
+            BMSProblem(PT.CELL_UNDERVOLTAGE, SV.WARN, "Cell undervoltage"),
+            *[
+                BMSProblem(PT.UNKNOWN, SV.WARN, f"Unknown problem bit {bit}")
+                for bit in range(32, 128)
+            ],
+        ],
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
         "heater": True,
