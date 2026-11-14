@@ -60,32 +60,17 @@ class BMS(BaseBMS):
         BMSDp("heater", 54, 1, False, bool, Cmd.RT),
         BMSDp("design_capacity", 66, 2, False, lambda x: x // 10, Cmd.RT),
     )
-    _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(_PRB_MASK, PT.DISCHARGE_UNDERTEMP, value=0x0E80),
-        BMSPrbDef(_PRB_MASK, PT.DISCHARGE_OVERTEMP, value=0x0400),
-        BMSPrbDef(_PRB_MASK, PT.CHARGE_UNDERTEMP, value=0x0200),
-        BMSPrbDef(_PRB_MASK, PT.CHARGE_OVERTEMP, value=0x0100),
-        BMSPrbDef(
-            _PRB_MASK,
-            PT.DISCHARGE_OVERCURRENT,
-            value=0x0080,
-            text="Discharge overcurrent 2",
-        ),
-        BMSPrbDef(
-            _PRB_MASK,
-            PT.DISCHARGE_OVERCURRENT,
-            value=0x0040,
-            text="Discharge overcurrent 1",
-        ),
-        BMSPrbDef(_PRB_MASK, PT.SHORT_CIRCUIT, value=0x0020),
-        BMSPrbDef(_PRB_MASK, PT.CHARGE_OVERCURRENT, value=0x0010),
-        BMSPrbDef(_PRB_MASK, PT.PACK_UNDERVOLTAGE, value=0x0008),
-        BMSPrbDef(_PRB_MASK, PT.PACK_OVERVOLTAGE, value=0x0004),
-        BMSPrbDef(_PRB_MASK, PT.DISCHARGE_UNDERTEMP, value=0x0800),
-        BMSPrbDef(_PRB_MASK, PT.CHARGE_UNDERTEMP, value=0x0A00),
-        BMSPrbDef(_PRB_MASK, PT.DISCHARGE_UNDERTEMP, value=0x0A00),
-        BMSPrbDef(_PRB_MASK, PT.CHARGE_OVERTEMP, value=0x0500),
-        BMSPrbDef(_PRB_MASK, PT.DISCHARGE_OVERTEMP, value=0x0500),
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (  # bits 0, 1, 12-15 are masked by _PRB_MASK
+        BMSPrbDef(1 << 2, PT.PACK_OVERVOLTAGE),
+        BMSPrbDef(1 << 3, PT.PACK_UNDERVOLTAGE),
+        BMSPrbDef(1 << 4, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 5, PT.SHORT_CIRCUIT),
+        BMSPrbDef(1 << 6, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 1"),
+        BMSPrbDef(1 << 7, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 2"),
+        BMSPrbDef(1 << 8, PT.CHARGE_OVERTEMP),
+        BMSPrbDef(1 << 9, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 10, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(1 << 11, PT.DISCHARGE_UNDERTEMP),
     )
 
     def __init__(
