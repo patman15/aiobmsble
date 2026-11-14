@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSPrbDef, BMSSample, MatcherPattern, PrbType as PT
 from aiobmsble.basebms import BaseBMS, b2str
 
 
@@ -39,6 +39,18 @@ class BMS(BaseBMS):
         BMSDp("heater", 64, 4, False, bool),
         BMSDp("problem_code", 0, 2, False, lambda x: x & 0x0FFC),
     )
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(0x0FFC, PT.PACK_OVERVOLTAGE, value=0x0004),
+        BMSPrbDef(0x0FFC, PT.PACK_UNDERVOLTAGE, value=0x0008),
+        BMSPrbDef(0x0FFC, PT.CHARGE_OVERCURRENT, value=0x0010),
+        BMSPrbDef(0x0FFC, PT.SHORT_CIRCUIT, value=0x0020),
+        BMSPrbDef(0x0FFC, PT.DISCHARGE_OVERCURRENT, value=0x0040),
+        BMSPrbDef(0x0FFC, PT.DISCHARGE_OVERCURRENT, value=0x0080),
+        BMSPrbDef(0x0FFC, PT.CHARGE_OVERTEMP, value=0x0100),
+        BMSPrbDef(0x0FFC, PT.CHARGE_UNDERTEMP, value=0x0200),
+        BMSPrbDef(0x0FFC, PT.DISCHARGE_OVERTEMP, value=0x0400),
+        BMSPrbDef(0x0FFC, PT.DISCHARGE_UNDERTEMP, value=0x0800),
+    )
 
     def __init__(
         self,
@@ -54,9 +66,7 @@ class BMS(BaseBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            MatcherPattern(
-                oui=pattern, service_uuid=BMS.uuid_services()[0], connectable=True
-            )
+            MatcherPattern(oui=pattern, service_uuid=BMS.uuid_services()[0], connectable=True)
             for pattern in ("60:6E:41", "10:23:81")
         ]
 
@@ -77,15 +87,11 @@ class BMS(BaseBMS):
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        await self._await_msg(
-            self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45")
-        )
+        await self._await_msg(self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45"))
         self._msg_event.clear()
         return BMSInfo(serial_number=b2str(self._msg[91:107]))
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if data.startswith(BMS._HEAD):
@@ -93,14 +99,9 @@ class BMS(BaseBMS):
 
         self._frame.extend(data)
 
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
-        if (
-            not self._frame.startswith(BMS._HEAD)
-            or len(self._frame) > BMS.BLE_MAX_ATTR_SIZE
-        ):
+        if not self._frame.startswith(BMS._HEAD) or len(self._frame) > BMS.BLE_MAX_ATTR_SIZE:
             self._log.debug("invalid frame")
             self._frame.clear()
             return
@@ -139,9 +140,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         if not self._msg_event.is_set():
             self._log.debug("requesting BMS data")
-            await self._await_msg(
-                self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45")
-            )
+            await self._await_msg(self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45"))
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=44)
         result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=16, start=12)

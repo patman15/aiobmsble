@@ -7,7 +7,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, PrbType as PT, TempSensor as TS
 from aiobmsble.bms.ws_nova_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -53,6 +53,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "heater": False,
     "problem": False,
     "problem_code": 0,
+    "problems": [],
 }
 
 
@@ -207,20 +208,38 @@ async def test_invalid_response(
 
 
 @pytest.mark.parametrize(
-    ("problem_response", "expected"),
+    ("problem_response", "expected", "expected_problem"),
     [
-        (b"\x43\x38\x32\x30", 0x0800),
-        (b"\x45\x30\x33\x30", 0x0010),
-        (b"\x46\x30\x32\x34", 0x0004),
-        (b"\x43\x30\x32\x38", 0x0008),
+        (b"\x46\x30\x32\x34", 0x0004, PT.PACK_OVERVOLTAGE),
+        (b"\x43\x30\x32\x38", 0x0008, PT.PACK_UNDERVOLTAGE),
+        (b"\x45\x30\x33\x30", 0x0010, PT.CHARGE_OVERCURRENT),
+        (b"\x45\x30\x30\x30", 0x0020, PT.SHORT_CIRCUIT),
+        (b"\x45\x30\x36\x30", 0x0040, PT.DISCHARGE_OVERCURRENT),
+        (b"\x45\x30\x41\x30", 0x0080, PT.DISCHARGE_OVERCURRENT),
+        (b"\x46\x31\x32\x30", 0x0100, PT.CHARGE_OVERTEMP),
+        (b"\x46\x32\x32\x30", 0x0200, PT.CHARGE_UNDERTEMP),
+        (b"\x43\x34\x32\x30", 0x0400, PT.DISCHARGE_OVERTEMP),
+        (b"\x43\x38\x32\x30", 0x0800, PT.DISCHARGE_UNDERTEMP),
     ],
-    ids=["lowT_dischrg", "overC_chrg", "high", "low"],
+    ids=[
+        "high_voltage",
+        "low_voltage",
+        "overcurrent_charging",
+        "short_circuit",
+        "overcurrent_discharging_c040",
+        "overcurrent_discharging_c080",
+        "high_temperature_charging",
+        "low_temperature_charging",
+        "high_temperature_discharging",
+        "low_temperature_discharging",
+    ],
 )
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     problem_response: bytes,
     expected: int,
+    expected_problem: PT,
 ) -> None:
     """Test data update with BMS returning error flags."""
 
@@ -233,6 +252,10 @@ async def test_problem_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = await bms.async_update()
-    assert result == _RESULT_DEFS | {"problem": True, "problem_code": expected}
+    assert result | {"problems": []} == _RESULT_DEFS | {
+        "problem": True,
+        "problem_code": expected,
+    }
+    assert [problem.kind for problem in result["problems"]] == [expected_problem]
 
     await bms.disconnect()
