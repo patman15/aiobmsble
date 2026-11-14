@@ -69,7 +69,7 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 11, PT.CELL_OVERVOLTAGE, SV.WARN),
         BMSPrbDef(1 << 12, PT.PACK_OVERVOLTAGE, SV.WARN),
         BMSPrbDef(1 << 13, PT.CELL_IMBALANCE, SV.WARN),
-        BMSPrbDef(1 << 14, PT.CELL_IMBALANCE, SV.WARN, text="Voltage difference too large"),
+        BMSPrbDef(1 << 14, PT.CELL_IMBALANCE, SV.PROTECT),
         BMSPrbDef(1 << 16, PT.DISCHARGE_OVERCURRENT),
         BMSPrbDef(1 << 17, PT.DISCHARGE_OVERTEMP),
         BMSPrbDef(1 << 18, PT.DISCHARGE_UNDERTEMP),

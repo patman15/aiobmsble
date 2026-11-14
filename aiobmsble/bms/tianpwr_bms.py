@@ -55,7 +55,7 @@ class BMS(BaseBMS):
     # temperature status 31-16 (warnings 31-24, protections 23-16), alarms 15-0
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
         # alarms (bits 0-15)
-        BMSPrbDef(1 << 0, PT.CELL_IMBALANCE, SV.WARN, text="Cell difference"),
+        BMSPrbDef(1 << 0, PT.CELL_IMBALANCE, SV.WARN),
         BMSPrbDef(1 << 1, PT.FET_FAILURE, text="Charge MOSFET damaged"),
         BMSPrbDef(1 << 2, PT.OTHER, SV.FAULT, text="SD card failure"),
         BMSPrbDef(1 << 3, PT.OTHER, SV.FAULT, text="SPI failure"),
@@ -101,10 +101,10 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 49, PT.CELL_UNDERVOLTAGE),
         BMSPrbDef(1 << 50, PT.PACK_OVERVOLTAGE),
         BMSPrbDef(1 << 51, PT.PACK_UNDERVOLTAGE),
-        BMSPrbDef(1 << 52, PT.CELL_OVERVOLTAGE, SV.WARN, text="Cell voltage high"),
-        BMSPrbDef(1 << 53, PT.CELL_UNDERVOLTAGE, SV.WARN, text="Cell voltage low"),
-        BMSPrbDef(1 << 54, PT.PACK_OVERVOLTAGE, SV.WARN, text="Pack voltage high"),
-        BMSPrbDef(1 << 55, PT.PACK_UNDERVOLTAGE, SV.WARN, text="Pack voltage low"),
+        BMSPrbDef(1 << 52, PT.CELL_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 53, PT.CELL_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 54, PT.PACK_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 55, PT.PACK_UNDERVOLTAGE, SV.WARN),
         BMSPrbDef(1 << 56, PT.CELL_IMBALANCE, SV.WARN),
     )
     _CMDS: Final = frozenset(field.idx for field in _FIELDS) | set({0x87})

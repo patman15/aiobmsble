@@ -233,7 +233,7 @@ async def test_missing_message(
         (
             b"\x00\x00\x00\x00\x00\x00\x00\x01",
             0x1,
-            [BMSProblem(PT.CELL_IMBALANCE, SV.WARN, "Cell difference")],
+            [BMSProblem(PT.CELL_IMBALANCE, SV.WARN, "Cell voltage imbalance")],
         ),
         (b"\x80\x00\x00\x00\x00\x00\x00\x00", 0x0, []),
         (
