@@ -1,0 +1,15 @@
+[
+  {
+    "advertisement": {
+      "local_name": "CF_BMS_00000001",
+      "service_uuids": [
+        "00002734-08c2-11e1-9073-0e8ac72e1001"
+      ],
+      "rssi": -70
+    },
+    "type": "rbt_bms",
+    "_comments": [
+      "source log (https://github.com/patman15/aiobmsble/issues/338)"
+    ]
+  }
+]
