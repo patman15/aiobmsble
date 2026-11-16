@@ -51,7 +51,7 @@ class BaseBMS(ABC):
 
     INFO: BMSInfo  # static BMS info (available before connect)
     MAX_RETRY: Final[int] = 3  # max number of retries for data requests
-    TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    TIMEOUT: Final[float] = BLEAK_TIMEOUT / 2  # default timeout for BMS operations
     BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value
     # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
     _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
