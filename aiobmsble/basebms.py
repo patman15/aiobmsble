@@ -27,17 +27,23 @@ from bleak_retry_connector import (
 )
 
 from aiobmsble import (
+    PROBLEM_DEFAULTS,
     BMSConfig,
     BMSDp,
     BMSInfo,
     BMSLimits,
     BMSPDp,
+    BMSPrbDef,
+    BMSProblem,
     BMSSample,
     BMSValue,
     Limit,
     LimitDp,
     MatcherPattern,
     PackSample,
+    PrbDefault,
+    PrbType,
+    Severity,
     TempSensor,
     Threshold,
     __version__,
@@ -64,6 +70,7 @@ class BaseBMS(ABC):
     # internal timeouts fail to fire.  Not ``Final`` so subclasses can tune.
     _CONNECT_TIMEOUT: Final[float] = MAX_CONNECT_ATTEMPTS * BLEAK_TIMEOUT + 1
     ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
+    _PROBLEMS: tuple[BMSPrbDef, ...] = ()  # decoding of problem_code, empty: not supported
 
     accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
 
@@ -301,12 +308,16 @@ class BaseBMS(ABC):
 
         battery_level: Final[float] = data.get("battery_level", 0)
         cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
+        problems: Final[list[BMSProblem] | None] = data.get("problems")
 
         # do sanity check on values to set problem state
         data["problem"] = any(
             [
                 data.get("problem", False),
-                data.get("problem_code", False),
+                # decoded problems: operating state notices (INFO) are not a problem
+                any(p.level >= Severity.WARN for p in problems)
+                if problems is not None
+                else data.get("problem_code", False),
                 data.get("voltage") is not None and data.get("voltage", 0) <= 0,
                 any(v <= 0 or v > BaseBMS._MAX_CELL_VOLT for v in cell_voltages),
                 data.get("delta_cell_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
@@ -570,6 +581,8 @@ class BaseBMS(ABC):
             await self._connect()
             data: BMSSample = await self._async_update()
             if not raw:
+                if self._PROBLEMS and "problem_code" in data:
+                    data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)
                 self._add_missing_values(data, self._raw_values())
 
             if not self._cfg.keep_alive:
@@ -818,6 +831,50 @@ class BaseBMS(ABC):
             return "no services found"
 
         return "\n".join(lines)
+
+
+def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
+    """Translate a BMS problem code into generic problems.
+
+    Bits not explained by a matching definition are reported as UNKNOWN problems: a
+    value coded field (definitions with `value`) holding an undefined value is reported
+    once with its value, any other bit is reported individually.
+
+    Args:
+        code: BMS specific problem code, 0 means no problem
+        defs: definitions mapping (fields of) the code to generic problems
+
+    Returns:
+        list[BMSProblem]: decoded problems in order of the definitions
+
+    """
+    problems: list[BMSProblem] = []
+    explained: int = 0
+    fields: dict[int, bool] = {}  # mask of value coded field: definition matched
+    for d in defs:
+        hit: bool = d.matches(code)
+        if d.value is not None:
+            fields[d.mask] = fields.get(d.mask, False) or hit
+        if hit:
+            explained |= d.mask
+            problems.append(
+                BMSProblem(d.kind, d.severity, d.text or PROBLEM_DEFAULTS[d.kind].text)
+            )
+    unknown: Final[PrbDefault] = PROBLEM_DEFAULTS[PrbType.UNKNOWN]
+    for mask, matched in fields.items():
+        if not matched and code & mask:
+            explained |= mask
+            value: int = (code & mask) >> ((mask & -mask).bit_length() - 1)
+            problems.append(
+                BMSProblem(PrbType.UNKNOWN, unknown.level, f"{unknown.text} value {value:#04x}")
+            )
+    remaining: Final[int] = code & ~explained
+    problems.extend(
+        BMSProblem(PrbType.UNKNOWN, unknown.level, f"{unknown.text} bit {bit}")
+        for bit in range(remaining.bit_length())
+        if remaining >> bit & 1
+    )
+    return problems
 
 
 def b2str(b: bytes) -> str:

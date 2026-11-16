@@ -10,7 +10,16 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPrbDef,
+    BMSSample,
+    MatcherPattern,
+    PrbType as PT,
+    Severity as SV,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -23,12 +32,37 @@ class BMS(BaseBMS):
     _TEMP_POS: Final[int] = 37
     _CELL_POS: Final[int] = 3
     _MIN_LEN: Final[int] = 5
+    _PROBLEM_DECODE_MASK: int = 0xFFFFFFFF
+    _PROBLEM_MASK: Final[int] = ~((0xE << 16) | (0xFF << 8))
     FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),
         BMSDp("current", 3, 2, True, lambda x: x / 100),
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000),
         BMSDp("cycles", 15, 2, False),
+    )
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(1 << 16, PT.SHORT_CIRCUIT),
+        BMSPrbDef(1 << 20, PT.CHARGE_OVERCURRENT, text="Charge overcurrent 2"),
+        BMSPrbDef(1 << 21, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 2"),
+        BMSPrbDef(1 << 22, PT.PACK_OVERVOLTAGE),
+        BMSPrbDef(1 << 23, PT.CELL_UNDERVOLTAGE),
+        BMSPrbDef(1 << 24, PT.CELL_OVERVOLTAGE),
+        BMSPrbDef(1 << 25, PT.CHARGE_OVERCURRENT, text="Charge overcurrent 1"),
+        BMSPrbDef(1 << 26, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 1"),
+        BMSPrbDef(1 << 27, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 28, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(1 << 29, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 30, PT.CHARGE_OVERTEMP),
+        BMSPrbDef(1 << 31, PT.PACK_UNDERVOLTAGE),
+        BMSPrbDef(1 << 7, PT.DISCHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 6, PT.DISCHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 5, PT.CHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 4, PT.CHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 3, PT.PACK_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 2, PT.PACK_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 1, PT.CELL_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 0, PT.CELL_UNDERVOLTAGE, SV.WARN),
     )
 
     def __init__(
@@ -131,7 +165,9 @@ class BMS(BaseBMS):
         await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13EC, count=0x8))
         if len(self._msg) < BMS._MIN_LEN + 0x8 * 2:
             raise ValueError("BMS data incomplete.")
-        result["problem_code"] = int.from_bytes(self._msg[3:17], byteorder="big") & (~0xE)
+        result["problem_code"] = (
+            int.from_bytes(self._msg[3:19], byteorder="big") & BMS._PROBLEM_MASK
+        )
         result["chrg_mosfet"] = bool(self._msg[16] & 0x2)
         result["dischrg_mosfet"] = bool(self._msg[16] & 0x4)
         result["heater"] = bool(self._msg[17] & 0x20)

@@ -160,7 +160,7 @@ In case you have problems with the library, please enable debug logging. You can
 for helping with making the library better.
 
 ## References
-- ANT BMS: [esphome-ant-bms](https://github.com/syssi/esphome-ant-bms/)
+- ANT BMS: [esphome-ant-bms](https://github.com/syssi/esphome-ant-bms/), [ant-bms-ble](https://github.com/yosle/ant-bms-ble)
 - Daly BMS: [esp32-smart-bms-simulation](https://github.com/roccotsi2/esp32-smart-bms-simulation)
 - EG4 BMS: [dbus-serialbattery](https://github.com/Louisvdw/dbus-serialbattery/issues/400)
 - Jikong BMS: [esphome-jk-bms](https://github.com/syssi/esphome-jk-bms)

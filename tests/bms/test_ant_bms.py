@@ -7,7 +7,15 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor as TS,
+)
+from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.ant_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -57,6 +65,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "delta_cell_voltage": 0.148,
     "problem": False,
     "problem_code": 0,
+    "problems": [],
     "balancer": False,
     "chrg_mosfet": True,
     "dischrg_mosfet": True,
@@ -108,9 +117,7 @@ class MockANTBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         if bytes(data) == self.DEFAULT_PASS_MSG:
             self.UNLOCKED = True
@@ -123,9 +130,7 @@ class MockANTBleakClient(MockBleakClient):
                 self._notify_callback("MockANTBleakClient", notify_data)
 
 
-async def test_update(
-    patch_bms_timeout, patch_bleak_client, keep_alive_fixture
-) -> None:
+async def test_update(patch_bms_timeout, patch_bleak_client, keep_alive_fixture) -> None:
     """Test ANT BMS data update."""
 
     patch_bms_timeout()
@@ -142,9 +147,7 @@ async def test_update(
     await bms.disconnect()
 
 
-@pytest.mark.parametrize(
-    "secret", ["12345678", "wrong"], ids=["correct_secret", "wrong_secret"]
-)
+@pytest.mark.parametrize("secret", ["12345678", "wrong"], ids=["correct_secret", "wrong_secret"])
 async def test_update_secret(
     monkeypatch: pytest.MonkeyPatch, patch_bms_timeout, patch_bleak_client, secret: str
 ) -> None:
@@ -285,11 +288,88 @@ async def test_problem_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = await bms.async_update()
+    low: bool = problem_response[1] == "low_value"
     assert result == _RESULT_DEFS | {
         "problem": True,
-        "problem_code": (0x202 if problem_response[1] == "low_value" else 0xE0E),
+        "problem_code": (0x202 if low else 0xE0E),
+        "problems": (
+            [
+                BMSProblem(PT.CELL_UNDERVOLTAGE, SV.PROTECT, "Cell undervoltage"),
+                BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage"),
+            ]
+            if low
+            else [
+                BMSProblem(PT.FET_FAILURE, SV.FAULT, "Discharge MOSFET failed to open"),
+                BMSProblem(PT.FET_LOCKED, SV.INFO, "Charge MOSFET manually closed"),
+            ]
+        ),
         "chrg_mosfet": False,
         "dischrg_mosfet": False,
     }
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("dischrg_state", "chrg_state", "expected"),
+    [
+        (
+            0x0B,
+            0x01,
+            {
+                "problem": False,
+                "problem_code": 0x000B,
+                "problems": [BMSProblem(PT.OTHER, SV.INFO, "Charger connected")],
+                "chrg_mosfet": True,
+                "dischrg_mosfet": False,
+            },
+        ),
+        (
+            0x01,
+            0x0E,
+            {
+                "problem": False,
+                "problem_code": 0x0E00,
+                "problems": [BMSProblem(PT.FET_LOCKED, SV.INFO, "Charge MOSFET manually closed")],
+                "chrg_mosfet": False,
+                "dischrg_mosfet": True,
+            },
+        ),
+        (
+            0x01,
+            0x13,
+            {
+                "problem": True,
+                "problem_code": 0x1300,
+                "problems": [BMSProblem(PT.UNKNOWN, SV.WARN, "Unknown problem value 0x13")],
+                "chrg_mosfet": False,
+                "dischrg_mosfet": True,
+            },
+        ),
+    ],
+    ids=["charger_connected", "charge_manually_closed", "unknown_charge_state"],
+)
+async def test_mosfet_states(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bms_timeout,
+    patch_bleak_client,
+    dischrg_state: int,
+    chrg_state: int,
+    expected: BMSSample,
+) -> None:
+    """Test that charge and discharge MOSFET states are decoded independently."""
+
+    frame: bytearray = bytearray(MockANTBleakClient.RESP[0x1])
+    pos: Final[int] = 46 + (frame[BMS._TEMP_POS] + frame[BMS._CELL_COUNT]) * 2
+    frame[pos : pos + 2] = bytes([dischrg_state, chrg_state])
+    frame[-4:-2] = crc_modbus(frame[1:-4]).to_bytes(2, "little")
+
+    patch_bms_timeout()
+    monkeypatch.setattr(MockANTBleakClient, "RESP", MockANTBleakClient.RESP | {0x1: frame})
+    patch_bleak_client(MockANTBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    assert await bms.async_update() == _RESULT_DEFS | expected
 
     await bms.disconnect()

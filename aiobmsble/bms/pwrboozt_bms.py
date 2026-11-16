@@ -10,7 +10,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSDp, BMSInfo, BMSPrbDef, BMSSample, MatcherPattern, PrbType as PT
 from aiobmsble.basebms import crc_sum
 
 from .ej_bms import BMS as EJBMS
@@ -29,6 +29,18 @@ class BMS(EJBMS):
         BMSDp("voltage", 62, 2, False, lambda x: x / 1000),
         BMSDp("problem_code", 44, 2, False, lambda x: x & BMS._PRB_MASK),
         BMSDp("heater", 104, 4, False, bool),
+    )
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(0x0010, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(0x0020, PT.SHORT_CIRCUIT),
+        BMSPrbDef(0x0040, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(0x0080, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(0x0004, PT.CELL_OVERVOLTAGE),
+        BMSPrbDef(0x0100, PT.CHARGE_OVERTEMP),
+        BMSPrbDef(0x0200, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(0x0008, PT.CELL_UNDERVOLTAGE),
+        BMSPrbDef(0x0400, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(0x0800, PT.DISCHARGE_UNDERTEMP),
     )
 
     @staticmethod

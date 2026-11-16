@@ -14,7 +14,17 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSInfo,
+    BMSPrbDef,
+    BMSSample,
+    BMSValue,
+    MatcherPattern,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum
 
 
@@ -41,16 +51,26 @@ class BMS(BaseBMS):
     _TAIL: Final[int] = 0xFF  # end of message
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _MIN_FRAME: Final[int] = 10  # header length
+    _PRB_CODES: Final[frozenset[int]] = frozenset((1, 3, 7, 8, 9, 10, 11))
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 201, "<f", lambda x: round(x, 3)),
         BMSDp("delta_cell_voltage", 209, "<f", lambda x: round(x, 3)),
-        BMSDp("problem_code", 216, "B", lambda x: x if x in (1, 3, 7, 8, 9, 10, 11) else 0),
+        BMSDp("problem_code", 216, "B", lambda x: x if x in BMS._PRB_CODES else 0),
         BMSDp("balancer", 216, "B", lambda x: (x == 0x5)),
         BMSDp("balance_current", 218, "<f", lambda x: round(x, 3)),
         BMSDp("current", 222, "<f", lambda x: round(x, 3)),
         BMSDp("design_capacity", 242, "<f", int),
         BMSDp("cycle_charge", 246, "<f", lambda x: round(x, 3)),
         BMSDp("battery_level", 250, "<f", lambda x: round(x, 3)),
+    )
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, 0x01, "Wrong cell count"),
+        BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, 0x03, "AcqLine Res exceed"),
+        BMSPrbDef(0xFF, PT.OTHER, SV.PROTECT, 0x07, "Low voltage"),
+        BMSPrbDef(0xFF, PT.OTHER, SV.PROTECT, 0x08, "System Overtemp"),
+        BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, 0x09, "Host fails"),
+        BMSPrbDef(0xFF, PT.OTHER, SV.INFO, 0x0A, "Low battery voltage - balancing stopped"),
+        BMSPrbDef(0xFF, PT.OTHER, SV.INFO, 0x0B, "Temperature too high - balancing stopped"),
     )
     _FIELDS_v1: Final[tuple[BMSDp, ...]] = (
         *_FIELDS[:4],

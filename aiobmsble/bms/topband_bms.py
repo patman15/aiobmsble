@@ -11,7 +11,16 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPrbDef,
+    BMSSample,
+    MatcherPattern,
+    PrbType as PT,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import BaseBMS, crc_sum
 
 
@@ -33,6 +42,16 @@ class BMS(BaseBMS):
         BMSDp("cycles", 12, 2, False),
         BMSDp("temperature", 16, 2, False, lambda x: [TS(round(x / 10 - 273.15, 3))]),
         BMSDp("problem_code", 18, 1, False),
+    )
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(1 << 0, PT.CHARGE_OVERTEMP, text="Charging overtemperature"),
+        BMSPrbDef(1 << 1, PT.DISCHARGE_OVERTEMP, text="Discharging overtemperature"),
+        BMSPrbDef(1 << 2, PT.CHARGE_UNDERTEMP, text="Charging undertemperature"),
+        BMSPrbDef(1 << 3, PT.DISCHARGE_UNDERTEMP, text="Discharging undertemperature"),
+        BMSPrbDef(1 << 4, PT.DISCHARGE_OVERCURRENT, text="Discharging overcurrent"),
+        BMSPrbDef(1 << 5, PT.CHARGE_OVERCURRENT, text="Charging overcurrent"),
+        BMSPrbDef(1 << 6, PT.PACK_UNDERVOLTAGE, text="Undervoltage"),
+        BMSPrbDef(1 << 7, PT.PACK_OVERVOLTAGE, text="Overvoltage"),
     )
 
     def __init__(

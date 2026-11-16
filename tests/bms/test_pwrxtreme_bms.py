@@ -44,6 +44,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cycle_capacity": 2831.472,
         "power": -42.739,
         "problem": False,
+        "problems": [],
         "runtime": 238500,
     }
 }

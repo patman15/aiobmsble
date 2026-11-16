@@ -12,7 +12,16 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSInfo, BMSMode, BMSSample, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSInfo,
+    BMSMode,
+    BMSProblem,
+    BMSSample,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import crc_sum, lstr2int
 from aiobmsble.bms.jikong_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -260,6 +269,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "temp_count": 7,
         "problem": False,
         "problem_code": 0,
+        "problems": [],
         "balancer": False,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
@@ -279,6 +289,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "balance_current": 0.0,
         "temp_count": 255,
         "problem_code": 0,
+        "problems": [],
         "temperature": [
             TS(31.0, TS.T.MOSFET),
             TS(28.4),
@@ -341,6 +352,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "power": 1696.834,
         "battery_charging": True,
         "problem": False,
+        "problems": [],
         "balancer": False,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
@@ -391,6 +403,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "power": 1696.834,
         "battery_charging": True,
         "problem": False,
+        "problems": [],
         "balancer": False,
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
@@ -428,6 +441,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "battery_charging": False,
         "runtime": 69336,
         "problem": False,
+        "problems": [],
     },
 }
 
@@ -887,12 +901,20 @@ async def test_non_stale_data(
 @pytest.fixture(
     name="problem_response",
     params=[
-        (bytearray(b"\x01\x00"), "first_bit"),
-        (bytearray(b"\x00\x80"), "last_bit"),
+        (
+            bytearray(b"\x01\x00"),
+            "first_bit",
+            BMSProblem(PT.OTHER, SV.WARN, "Wire resistance"),
+        ),
+        (
+            bytearray(b"\x00\x80"),
+            "last_bit",
+            BMSProblem(PT.DISCHARGE_OVERTEMP, SV.PROTECT, "Discharge over-temperature"),
+        ),
     ],
     ids=lambda param: param[1],
 )
-def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str]:
+def prb_response(request: pytest.FixtureRequest) -> tuple[bytearray, str, BMSProblem]:
     """Return faulty response frame."""
     assert isinstance(request.param, tuple)
     return request.param
@@ -902,7 +924,7 @@ async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     protocol_type: str,
-    problem_response: tuple[bytearray, str],
+    problem_response: tuple[bytearray, str, BMSProblem],
 ) -> None:
     """Test data update with BMS returning system problem flags."""
 
@@ -928,6 +950,39 @@ async def test_problem_response(
     assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 15),
+        "problems": [problem_response[2]],
+    }
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("bit", "expected"),
+    [
+        (27, BMSProblem(PT.DISCHARGE_UNDERTEMP, SV.PROTECT, "Discharge under-temperature")),
+        (31, BMSProblem(PT.UNKNOWN, SV.WARN, "Unknown problem bit 31")),
+    ],
+    ids=("known_high_bit", "unknown_high_bit"),
+)
+async def test_32_bit_problem_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    bit: int,
+    expected: BMSProblem,
+) -> None:
+    """Test high bits in the JK02_32S 32-bit error bitmap."""
+    protocol_def: dict[str, bytearray] = deepcopy(_PROTO_DEFS["JK02_32S"])
+    protocol_def["cell"][166:170] = bytearray((1 << bit).to_bytes(4, byteorder="little"))
+    protocol_def["cell"][-1] = crc_sum(protocol_def["cell"][:-1])
+    monkeypatch.setattr(MockJikongBleakClient, "_FRAME", protocol_def)
+    patch_bleak_client(MockJikongBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(False))
+
+    assert await bms.async_update() == _RESULT_DEFS["JK02_32S"] | {
+        "problem": True,
+        "problem_code": 1 << bit,
+        "problems": [expected],
     }
 
     await bms.disconnect()

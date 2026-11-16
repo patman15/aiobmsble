@@ -63,19 +63,8 @@ _RESULT_DEFS: Final[BMSSample] = {
     "power": -32.113,
     "battery_charging": False,
     "problem": False,
-    "temperature": [TS(t) for t in (
-        17.1,
-        17.2,
-        17.2,
-        17.3,
-        17.2,
-        17.2,
-        16.6,
-        16.8,
-        16.7,
-        16.6,
-        16.9,
-        16.6)
+    "temperature": [
+        TS(t) for t in (17.1, 17.2, 17.2, 17.3, 17.2, 17.2, 16.6, 16.8, 16.7, 16.6, 16.9, 16.6)
     ],
 }
 
@@ -186,6 +175,7 @@ async def test_invalid_response(
     patch_bms_timeout("myvolta_bms")
     monkeypatch.setattr(BMS, "_MSG_SET", frozenset({0x0}))  # only require METRICS
     monkeypatch.setattr(MockMyVoltaBleakClient, "_RESP", wrong_response)
+    monkeypatch.setattr(MockMyVoltaBleakClient, "_chunk_sizes", bytes([len(wrong_response) or 1]))
     patch_bleak_client(MockMyVoltaBleakClient)
 
     bms = BMS(generate_ble_device())

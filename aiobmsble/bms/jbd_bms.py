@@ -11,7 +11,16 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPrbDef,
+    BMSSample,
+    MatcherPattern,
+    PrbType as PT,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import BaseBMS, b2str, crc_sum, swap32
 
 
@@ -49,6 +58,22 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 10),
         BMSDp("design_capacity", 10, 2, False, lambda x: x // 10),
     )  # overrides for BMS reporting 100 mA / 100 mAh units
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        BMSPrbDef(1 << 0, PT.CELL_OVERVOLTAGE),
+        BMSPrbDef(1 << 1, PT.CELL_UNDERVOLTAGE),
+        BMSPrbDef(1 << 2, PT.PACK_OVERVOLTAGE),
+        BMSPrbDef(1 << 3, PT.PACK_UNDERVOLTAGE),
+        BMSPrbDef(1 << 4, PT.CHARGE_OVERTEMP),
+        BMSPrbDef(1 << 5, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 6, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(1 << 7, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 8, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 9, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 10, PT.SHORT_CIRCUIT),
+        BMSPrbDef(1 << 11, PT.AFE_FAILURE),
+        BMSPrbDef(1 << 12, PT.FET_LOCKED, text="MOSFET software lock"),
+        BMSPrbDef(1 << 13, PT.OTHER, text="Charge timeout"),
+    )  # bits 14, 15 undocumented
 
     accept_secret: bool = True
 

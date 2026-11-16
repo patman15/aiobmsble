@@ -9,7 +9,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor as TS,
+)
 from aiobmsble.bms.abc_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -269,5 +276,10 @@ async def test_problem_response(
     result: BMSSample = await bms.async_update()
     assert result.get("problem", False)  # expect a problem report
     assert result.get("problem_code", 0) == (0x1 if problem_response[1] == "first_bit" else 0x8000)
+    assert result.get("problems") == (
+        [BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage")]
+        if problem_response[1] == "first_bit"
+        else [BMSProblem(PT.PACK_OVERVOLTAGE, SV.PROTECT, "Pack overvoltage")]
+    )
 
     await bms.disconnect()

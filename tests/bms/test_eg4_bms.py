@@ -8,7 +8,14 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor as TS,
+)
 from aiobmsble.bms.eg4_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -32,6 +39,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "battery_charging": False,
     "problem_code": 0,
     "problem": False,
+    "problems": [],
     "temperature": [TS(17.0, TS.T.PCB)]
     + [TS(v, TS.T.CELL) for v in (17.0, -56.0, 0.0, 0.0, 0.0, 0.0)],
 }
@@ -178,6 +186,11 @@ async def test_problem_response(
     assert await bms.async_update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": (1 if request.node.callspec.id == "first_bit" else 2**47),
+        "problems": (
+            [BMSProblem(PT.OTHER, SV.FAULT, "Voltage error")]
+            if request.node.callspec.id == "first_bit"
+            else [BMSProblem(PT.UNKNOWN, SV.WARN, "Unknown problem bit 47")]
+        ),
     }
 
     await bms.disconnect()

@@ -41,6 +41,8 @@ def file_has_field(path: Path, field: str) -> bool:
         module: ModuleType = import_module(f"aiobmsble.bms.{path.stem}")
         cls: Final[Any | None] = getattr(module, "BMS", None)
         if cls is not None:
+            if field == "problems":
+                return bool(getattr(cls, "_PROBLEMS", ()))
             fields: Final[Any | None] = getattr(cls, "_FIELDS", None)
             if fields is not None:
                 for item in fields:

@@ -16,10 +16,13 @@ from aiobmsble import (
     BMSDp,
     BMSInfo,
     BMSLimits,
+    BMSPrbDef,
     BMSSample,
     Limit,
     LimitDp,
     MatcherPattern,
+    PrbType as PT,
+    Severity as SV,
     TempSensor,
 )
 from aiobmsble.basebms import BaseBMS, b2str, crc_xmodem
@@ -39,7 +42,78 @@ class BMS(BaseBMS):
     _PACK_POS: Final[int] = 42
     _SWV_POS: Final[int] = 38
     _PRB_MAX: Final[int] = 8  # max number of alarm event bytes
-    _PRB_MASK: Final[int] = ~(0x80FFC0)  # mask alarm event 6-8 (internal bits)
+    _PRB_MASK: Final[int] = ~0x80CFC0  # clear internal bits of alarm events 6-8
+    # alarm event bytes 1..8 are big-endian: event n occupies bits (8-n)*8 .. (8-n)*8+7
+    _PROBLEMS: tuple[BMSPrbDef, ...] = (
+        # alarm event 1: sensing and switch failures
+        BMSPrbDef(1 << 56, PT.SENSOR_FAILURE, text="Voltage sensing failure"),
+        BMSPrbDef(1 << 57, PT.SENSOR_FAILURE, text="Temperature sensing failure"),
+        BMSPrbDef(1 << 58, PT.SENSOR_FAILURE, text="Current sensing failure"),
+        BMSPrbDef(1 << 59, PT.OTHER, SV.FAULT, text="Key switch failure"),
+        BMSPrbDef(1 << 60, PT.CELL_IMBALANCE, SV.FAULT),
+        BMSPrbDef(1 << 61, PT.FET_FAILURE, text="Charging switch failed"),
+        BMSPrbDef(1 << 62, PT.FET_FAILURE, text="Discharge switch failure"),
+        BMSPrbDef(1 << 63, PT.FET_FAILURE, text="Current limit switch failure"),
+        # alarm event 2: cell and pack voltage
+        BMSPrbDef(1 << 48, PT.CELL_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 49, PT.CELL_OVERVOLTAGE),
+        BMSPrbDef(1 << 50, PT.CELL_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 51, PT.CELL_UNDERVOLTAGE),
+        BMSPrbDef(1 << 52, PT.PACK_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 53, PT.PACK_OVERVOLTAGE),
+        BMSPrbDef(1 << 54, PT.PACK_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 55, PT.PACK_UNDERVOLTAGE),
+        # alarm event 3: cell temperature
+        BMSPrbDef(1 << 40, PT.CHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 41, PT.CHARGE_OVERTEMP),
+        BMSPrbDef(1 << 42, PT.CHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 43, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 44, PT.DISCHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 45, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(1 << 46, PT.DISCHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 47, PT.DISCHARGE_UNDERTEMP),
+        # alarm event 4: ambient and power temperature
+        BMSPrbDef(1 << 32, PT.AMBIENT_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 33, PT.AMBIENT_OVERTEMP),
+        BMSPrbDef(1 << 34, PT.AMBIENT_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 35, PT.AMBIENT_UNDERTEMP),
+        BMSPrbDef(1 << 36, PT.MOSFET_OVERTEMP),
+        BMSPrbDef(1 << 37, PT.MOSFET_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 38, PT.OTHER, SV.INFO, text="Battery core low temperature heating"),
+        BMSPrbDef(1 << 39, PT.OTHER, SV.PROTECT, text="Secondary trip protection"),
+        # alarm event 5: current
+        BMSPrbDef(1 << 24, PT.CHARGE_OVERCURRENT, SV.WARN),
+        BMSPrbDef(1 << 25, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 26, PT.DISCHARGE_OVERCURRENT, SV.WARN),
+        BMSPrbDef(1 << 27, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 28, PT.DISCHARGE_OVERCURRENT, text="Transient overcurrent"),
+        BMSPrbDef(1 << 29, PT.SHORT_CIRCUIT, text="Output short circuit"),
+        BMSPrbDef(1 << 30, PT.FET_LOCKED, SV.PROTECT, text="Transient overcurrent lockout"),
+        BMSPrbDef(1 << 31, PT.FET_LOCKED, SV.PROTECT, text="Output short circuit lockout"),
+        # alarm event 6: charge voltage, capacity and output
+        BMSPrbDef(1 << 16, PT.PACK_OVERVOLTAGE, SV.PROTECT, text="Charging over voltage"),
+        BMSPrbDef(1 << 17, PT.OTHER, SV.INFO, text="Waiting for intermittent power replenishment"),
+        BMSPrbDef(1 << 18, PT.LOW_SOC, SV.WARN, text="Remaining capacity alarm"),
+        BMSPrbDef(1 << 19, PT.LOW_SOC, SV.PROTECT, text="Remaining capacity"),
+        BMSPrbDef(
+            1 << 20,
+            PT.CELL_UNDERVOLTAGE,
+            SV.PROTECT,
+            text="Battery cell low voltage charging prohibited",
+        ),
+        BMSPrbDef(1 << 21, PT.OTHER, SV.PROTECT, text="Output reverse polarity"),
+        BMSPrbDef(1 << 22, PT.OTHER, SV.FAULT, text="Output connection failure"),
+        # alarm event 7: charging waiting states
+        BMSPrbDef(1 << 12, PT.OTHER, SV.INFO, text="Automatic charging waiting"),
+        BMSPrbDef(1 << 13, PT.OTHER, SV.INFO, text="Manual charging waiting"),
+        # alarm event 8: storage, clock and calibration
+        BMSPrbDef(1 << 0, PT.OTHER, SV.FAULT, text="EEP storage failure"),
+        BMSPrbDef(1 << 1, PT.OTHER, SV.WARN, text="RTC clock failure"),
+        BMSPrbDef(1 << 2, PT.OTHER, SV.WARN, text="Voltage calibration not done"),
+        BMSPrbDef(1 << 3, PT.OTHER, SV.WARN, text="Current calibration not done"),
+        BMSPrbDef(1 << 4, PT.OTHER, SV.WARN, text="Zero point calibration not done"),
+        BMSPrbDef(1 << 5, PT.OTHER, SV.WARN, text="Perpetual calendar not synchronized"),
+    )
     _PFIELDS: Final[tuple[BMSDp, ...]] = (  # Seplos V2: single machine data
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),
         BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
@@ -124,7 +198,7 @@ class BMS(BaseBMS):
             raise ValueError("BMS data incomplete")
         return {
             "model": b2str(_dat[26:36]),
-            "sw_version": f"{int(_dat[BMS._SWV_POS-1])}.{int(_dat[BMS._SWV_POS])}",
+            "sw_version": f"{int(_dat[BMS._SWV_POS - 1])}.{int(_dat[BMS._SWV_POS])}",
         }
 
     def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -252,7 +326,9 @@ class BMS(BaseBMS):
         alarm_evt: Final[int] = min(self._msg[0x61][cst_alarm_pos], BMS._PRB_MAX)
         result["problem_code"] = (
             int.from_bytes(
-                self._msg[0x61][cst_alarm_pos + 1 : cst_alarm_pos + 1 + alarm_evt],
+                self._msg[0x61][cst_alarm_pos + 1 : cst_alarm_pos + 1 + alarm_evt].ljust(
+                    BMS._PRB_MAX, b"\x00"
+                ),
                 byteorder="big",
             )
             & BMS._PRB_MASK

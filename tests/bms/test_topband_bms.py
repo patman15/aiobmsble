@@ -8,7 +8,8 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSProblem, BMSSample, PrbType as PT, Severity, TempSensor as TS
+from aiobmsble.basebms import decode_problems
 from aiobmsble.bms.topband_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -92,6 +93,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cycle_capacity": 119.835,
         "power": 0.0,
         "problem": False,
+        "problems": [],
     },
     0x6F: {
         "voltage": 13.513,
@@ -108,6 +110,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_charging": False,
         "problem": False,
         "problem_code": 0,
+        "problems": [],
     },
     0x75: {
         "voltage": 13.355,
@@ -124,6 +127,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_charging": False,
         "problem": False,
         "problem_code": 0,
+        "problems": [],
     },
     0x83: {
         "voltage": 13.41,
@@ -141,6 +145,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_charging": False,
         "problem": False,
         "problem_code": 0,
+        "problems": [],
     },
     0xB0: {
         "battery_charging": False,
@@ -155,6 +160,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_level": 94,
         "temperature": [TS(22.95)],
         "problem_code": 0,
+        "problems": [],
         "runtime": 1604000,
         "cell_count": 4,
         "cell_voltages": [3.294, 3.336, 3.298, 3.333],
@@ -179,6 +185,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "power": 0.0,
         "battery_charging": False,
         "problem": False,
+        "problems": [],
     },
     0x87: {
         "voltage": 13.318,
@@ -202,6 +209,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "cycle_capacity": 1371.754,
         "power": 0.0,
         "problem": False,
+        "problems": [],
     },
 }
 
@@ -470,9 +478,41 @@ async def test_problem_response(
         "battery_charging": False,
         "problem": True,
         "problem_code": (1 if problem_response[1] == "first_bit" else 128),
+        "problems": [
+            BMSProblem(
+                PT.CHARGE_OVERTEMP
+                if problem_response[1] == "first_bit"
+                else PT.PACK_OVERVOLTAGE,
+                Severity.PROTECT,
+                "Charging overtemperature"
+                if problem_response[1] == "first_bit"
+                else "Overvoltage",
+            )
+        ],
     }
 
     await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("bit", "kind", "text"),
+    [
+        (0, PT.CHARGE_OVERTEMP, "Charging overtemperature"),
+        (1, PT.DISCHARGE_OVERTEMP, "Discharging overtemperature"),
+        (2, PT.CHARGE_UNDERTEMP, "Charging undertemperature"),
+        (3, PT.DISCHARGE_UNDERTEMP, "Discharging undertemperature"),
+        (4, PT.DISCHARGE_OVERCURRENT, "Discharging overcurrent"),
+        (5, PT.CHARGE_OVERCURRENT, "Charging overcurrent"),
+        (6, PT.PACK_UNDERVOLTAGE, "Undervoltage"),
+        (7, PT.PACK_OVERVOLTAGE, "Overvoltage"),
+    ],
+)
+def test_problem_flag_definitions(bit: int, kind: PT, text: str) -> None:
+    """Test each Topband problem flag is decoded with its specified label."""
+
+    assert decode_problems(1 << bit, BMS._PROBLEMS) == [
+        BMSProblem(kind, Severity.PROTECT, text)
+    ]
 
 
 async def test_resync(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
@@ -529,6 +569,7 @@ async def test_resync(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> No
         "cycle_capacity": 2737.446,
         "power": 0.0,
         "problem": False,
+        "problems": [],
     }
 
     await bms.disconnect()
