@@ -143,6 +143,7 @@ class PrbType(StrEnum):
     FET_LOCKED = auto()
     FET_FAILURE = auto()
     AFE_FAILURE = auto()
+    CELL_FAILURE = auto()
     SENSOR_FAILURE = auto()
     COMM_FAILURE = auto()
     FUSE_BLOWN = auto()
@@ -177,6 +178,7 @@ PROBLEM_DEFAULTS: Final[dict[PrbType, PrbDefault]] = {
     PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
     PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET failure"),
     PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end failure"),
+    PrbType.CELL_FAILURE: PrbDefault(Severity.FAULT, "Cell failure"),
     PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor failure"),
     PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication failure"),
     PrbType.FUSE_BLOWN: PrbDefault(Severity.FAULT, "Fuse blown"),
@@ -219,6 +221,10 @@ class BMSProblem:
     def __str__(self) -> str:
         """Return human readable representation."""
         return f"{self.text} ({self.level.name.lower()})"
+
+    def __repr__(self) -> str:
+        """Return compact representation for logging."""
+        return f"{self.__class__.__name__}({self.kind.name}, {self.level.name}, {self.text!r})"
 
 
 class BatterySample(TypedDict, total=False):
