@@ -581,9 +581,9 @@ class BaseBMS(ABC):
             await self._connect()
             data: BMSSample = await self._async_update()
             if not raw:
-                self._add_missing_values(data, self._raw_values())
                 if self._PROBLEMS and "problem_code" in data:
                     data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)
+                self._add_missing_values(data, self._raw_values())
 
             if not self._cfg.keep_alive:
                 # disconnect after data update to force reconnect next time (slow!)
