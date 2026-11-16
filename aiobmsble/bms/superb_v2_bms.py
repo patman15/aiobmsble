@@ -81,6 +81,8 @@ class BMS(BaseBMS):
         await self._client.start_notify(BMS._NOTIFY_CHAR, getattr(self, "_notification_handler"))
         await self._await_msg(b"\x23\x01\x00", wait_for_notify=False)
         await asyncio.sleep(1)
+        await self._await_msg(b"\x23\x01\x00", char="cf9ccdf8-eee9-43ce-87a5-82b54af5324e", wait_for_notify=False)
+        await asyncio.sleep(1)
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
