@@ -315,11 +315,9 @@ class BaseBMS(ABC):
             [
                 data.get("problem", False),
                 # decoded problems: operating state notices (INFO) are not a problem
-                (
-                    any(p.level >= Severity.WARN for p in problems)
-                    if problems is not None
-                    else data.get("problem_code", False)
-                ),
+                any(p.level >= Severity.WARN for p in problems)
+                if problems is not None
+                else data.get("problem_code", False),
                 data.get("voltage") is not None and data.get("voltage", 0) <= 0,
                 any(v <= 0 or v > BaseBMS._MAX_CELL_VOLT for v in cell_voltages),
                 data.get("delta_cell_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
@@ -865,7 +863,9 @@ def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
             fields[d.mask] = fields.get(d.mask, False) or hit
         if hit:
             explained |= d.mask
-            problems.append(BMSProblem(d.kind, d.severity, d.text or PROBLEM_DEFAULTS[d.kind].text))
+            problems.append(
+                BMSProblem(d.kind, d.severity, d.text or PROBLEM_DEFAULTS[d.kind].text)
+            )
     unknown: Final[PrbDefault] = PROBLEM_DEFAULTS[PrbType.UNKNOWN]
     for mask, matched in fields.items():
         if not matched and code & mask:

@@ -50,9 +50,11 @@ References: [JBD Smart BMS protocol](https://github.com/syssi/esphome-jbd-bms/bl
 ### Overview
 
 Chins JBD batteries (matched by OUI `A4:C1:38`, `10:A5:62`, etc.) return
-a longer 0x03 info response than standard JBD devices. The standard frame
-has `data_len=0x1D` (29 bytes); the Chins frame has `data_len=0x22`
-(34 bytes). The extra 7 bytes appear after the temperature sensor data.
+a longer 0x03 info response than standard JBD devices: 9 extra bytes
+follow the temperature sensor data. A standard frame has
+`data_len = 23 + 2 * temp_count` (for example `0x1D`, 29 bytes, with three
+sensors); the Chins frame adds 9 to that (`0x22`, 34 bytes, with its one
+sensor).
 
 The standard JBD parsing ignores these bytes — all core fields (voltage,
 current, SOC, temperature, cell voltages, MOSFET states, problem codes)
@@ -72,6 +74,7 @@ response frame:
 | +1 | 2 | alter | Big-endian, purpose unclear |
 | +3 | 2 | learnCapacity | Big-endian, units: 10 mAh |
 | +5 | 2 | balanceCurrent | Big-endian, units: 10 mA |
+| +7 | 2 | (unknown) | `0x0000` on observed firmware |
 
 The frame ends with CRC (2 bytes) + tail (`0x77`) after the extended data.
 
@@ -87,17 +90,24 @@ independent data:
 
 This produces a spurious `balance_current` reading of ~196 A on a 300 Ah
 battery if parsed without validation, because the remaining capacity
-raw value (19630 = 196.30 Ah) is interpreted as current (196.30 A).
+raw value (19629 = 196.29 Ah) is interpreted as current (196.29 A).
 
 ### Example Frame
 
-Chins 0x03 response (1 temp sensor, `data_len=0x22`):
+Chins 0x03 response as captured (41 bytes, 1 temp sensor, `data_len=0x22`):
+
+```
+dd 03 00 22 05 32 00 00 4c ad 75 30 00 1b 31 2c 00 00 00 00 00 00 29 41 03 04 01 0b 34
+00 00 00 75 30 4c ad 00 00 fb 42 77
+```
+
+The same frame, field by field:
 
 ```
 dd 03 00 22                         # header: resp, cmd, status, data_len=34
 05 32                               # voltage: 13.30 V
 00 00                               # current: 0.00 A
-4c ae                               # cycle_charge: 196.30 Ah (remaining)
+4c ad                               # cycle_charge: 196.29 Ah (remaining)
 75 30                               # design_capacity: 300 Ah
 00 1b                               # cycles: 27
 31 2c                               # production date
@@ -109,14 +119,15 @@ dd 03 00 22                         # header: resp, cmd, status, data_len=34
 03                                  # MOSFET status
 04                                  # cell count: 4
 01                                  # temp_count: 1
-0b 3d                               # temp[0]: 14.6 °C (raw 2877 - 2731)
+0b 34                               # temp[0]: 13.7 °C (raw 2868 - 2731)
 -- extended fields start here --
 00                                  # humidity: 0
 00 00                               # alter: 0
 75 30                               # learnCapacity: 300 Ah (echoes design_capacity)
-4c ae                               # balanceCurrent: 196.30 (echoes cycle_charge)
+4c ad                               # balanceCurrent: 196.29 (echoes cycle_charge)
+00 00                               # unknown: 0
 -- end extended fields --
-fb 37                               # CRC
+fb 42                               # CRC
 77                                  # tail
 ```
 
