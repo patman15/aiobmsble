@@ -201,7 +201,7 @@ class BMS(BaseBMS):
             "sw_version": f"{int(_dat[BMS._SWV_POS - 1])}.{int(_dat[BMS._SWV_POS])}",
         }
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if (
             len(data) > BMS._MIN_LEN

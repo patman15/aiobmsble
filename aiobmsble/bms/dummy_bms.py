@@ -68,7 +68,7 @@ class BMS(BaseBMS):
     #     TODO: query from BMS and use _decode_limits
     #     return {Limit.CELL_OVP: Threshold(trip=3.65, release=3.5)}
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         # self._log.debug("RX BLE data: %s", data)
 

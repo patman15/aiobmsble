@@ -87,7 +87,7 @@ class BMS(BaseBMS):
 
     def _notification_handler(
         self,
-        _sender: BleakGATTCharacteristic,
+        sender: BleakGATTCharacteristic,
         data: bytearray,
     ) -> None:
         """Accumulate BLE fragments; signal when a complete and valid Modbus frame arrives."""

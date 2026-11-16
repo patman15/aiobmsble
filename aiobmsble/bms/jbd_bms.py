@@ -158,7 +158,7 @@ class BMS(BaseBMS):
             pass
         return result
 
-    def _notify_init_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notify_init_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new init data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -205,7 +205,7 @@ class BMS(BaseBMS):
 
         await super()._init_connection(char_notify)
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if (
             len(data) >= 3

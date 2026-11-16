@@ -160,7 +160,7 @@ class BMS(BaseBMS):
         await self._await_msg(BMS._PING, wait_for_notify=False)
 
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle notifications: split CR-terminated ASCII lines."""
         self._log.debug("RX BLE data: %s", data)

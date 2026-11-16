@@ -144,7 +144,7 @@ class BMS(BaseBMS):
             "serial_number": b2str(self._msg[86:94]),
         }
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Retrieve BMS data update."""
 
         if data.startswith(BMS._BT_MODULE_MSG):

@@ -229,7 +229,7 @@ async def test_invalid_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = {}
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         result = await bms.async_update()
 
     assert not result

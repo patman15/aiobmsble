@@ -91,7 +91,7 @@ class BMS(BaseBMS):
         self._msg_event.clear()
         return BMSInfo(serial_number=b2str(self._msg[91:107]))
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if data.startswith(BMS._HEAD):

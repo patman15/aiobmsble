@@ -47,7 +47,7 @@ async def test_notification_handler(
     )  # required for _init_connection overloads, e.g. JK BMS
 
     await bms_instance._connect()
-    notify_handler: Final[Callable[..., None | Awaitable[None]]] = bms_instance._notification_handler  # type: ignore[attr-defined]
+    notify_handler: Final[Callable[..., Awaitable[None] | None]] = bms_instance._notification_handler  # type: ignore[attr-defined]
     notify_characteristics: Final[BleakGATTCharacteristic] = BleakGATTCharacteristic(
         None, 1, "fff4", ["notify"], lambda: 512, BleakGATTService(None, 0, "fff0")
     )

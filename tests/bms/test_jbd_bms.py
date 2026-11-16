@@ -365,7 +365,7 @@ async def test_device_info_short(monkeypatch: pytest.MonkeyPatch, patch_bleak_cl
 
     bms = BMS(generate_ble_device())
 
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         await bms.device_info()
 
     await bms.disconnect()

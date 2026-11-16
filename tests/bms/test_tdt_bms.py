@@ -630,7 +630,7 @@ async def test_short_frame(
 
     bms = BMS(generate_ble_device())
 
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         await bms.async_update()
 
     await bms.disconnect()

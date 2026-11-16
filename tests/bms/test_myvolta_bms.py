@@ -111,7 +111,7 @@ class MockMyVoltaBleakClient(MockBleakClient):
     async def start_notify(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[[BleakGATTCharacteristic, bytearray], None | Awaitable[None]],
+        callback: Callable[[BleakGATTCharacteristic, bytearray], Awaitable[None] | None],
         **kwargs: Any,
     ) -> None:
         """Mock start_notify."""

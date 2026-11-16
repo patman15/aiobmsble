@@ -110,7 +110,7 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         return {"serial_number": self.name[10:]}
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         self._log.debug("RX BLE data: %s", data)
 
         self._response = self._ogt_response(data)

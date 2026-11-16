@@ -80,9 +80,7 @@ class MockSuperBv2BleakClient(MockBleakClient):
     async def start_notify(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[
-            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-        ],
+        callback: Callable[[BleakGATTCharacteristic, bytearray], Awaitable[None] | None],
         **kwargs,
     ) -> None:
         """Mock start_notify."""
@@ -181,9 +179,7 @@ async def test_invalid_response(
     """Test data up date with BMS returning invalid data."""
 
     patch_bms_timeout()
-    monkeypatch.setattr(
-        MockSuperBv2BleakClient, "_NOTIFY_RESP", bytearray(wrong_response)
-    )
+    monkeypatch.setattr(MockSuperBv2BleakClient, "_NOTIFY_RESP", bytearray(wrong_response))
     patch_bleak_client(MockSuperBv2BleakClient)
 
     bms = BMS(generate_ble_device())

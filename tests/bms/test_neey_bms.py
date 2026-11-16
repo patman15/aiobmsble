@@ -437,7 +437,7 @@ async def test_short_frame(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
 
     bms = BMS(generate_ble_device())
 
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         await bms.async_update()
     assert bms._msg_event.is_set() is False
 

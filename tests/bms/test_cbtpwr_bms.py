@@ -184,7 +184,7 @@ async def test_partly_base_data(
 
     bms = BMS(generate_ble_device())
 
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         await bms.async_update()
 
     await bms.disconnect()
@@ -205,7 +205,7 @@ async def test_wrong_cell_response(
 
     bms = BMS(generate_ble_device())
 
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         await bms.async_update()
 
     await bms.disconnect()

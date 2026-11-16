@@ -632,7 +632,7 @@ class MockDBBleakClient(MockBleakClient):
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
         callback: Callable[
             [BleakGATTCharacteristic, bytearray],
-            None | Awaitable[None],
+            Awaitable[None] | None,
         ],
         **kwargs: Any,
     ) -> None:
@@ -720,7 +720,7 @@ async def test_incomplete_first_update(
 
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         await bms.async_update()
 
     await bms.disconnect()
@@ -739,7 +739,7 @@ async def test_incomplete_pack(
 
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         await bms.async_update()
 
     await bms.disconnect()

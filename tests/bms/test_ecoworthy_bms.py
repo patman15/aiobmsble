@@ -119,9 +119,7 @@ class MockECOWBleakClient(MockBleakClient):
     async def _notify(self) -> None:
         """Notify function."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         while True:
             for msg in self.RESP.values():
@@ -131,9 +129,7 @@ class MockECOWBleakClient(MockBleakClient):
     async def start_notify(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[
-            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-        ],
+        callback: Callable[[BleakGATTCharacteristic, bytearray], Awaitable[None] | None],
         **kwargs,
     ) -> None:
         """Issue write command to GATT."""
@@ -159,9 +155,7 @@ class MockECOWStreamBleakClient(MockECOWBleakClient):
     async def start_notify(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[
-            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-        ],
+        callback: Callable[[BleakGATTCharacteristic, bytearray], Awaitable[None] | None],
         **kwargs,
     ) -> None:
         """Issue write command to GATT."""
@@ -212,9 +206,7 @@ async def test_unlock_update(
 ) -> None:
     """Test ECO-WORTHY BMS data update."""
 
-    monkeypatch.setattr(
-        MockECOWStreamBleakClient, "RESP", next(reversed(_PROTO_DEFS.values()))
-    )
+    monkeypatch.setattr(MockECOWStreamBleakClient, "RESP", next(reversed(_PROTO_DEFS.values())))
     patch_bleak_client(MockECOWStreamBleakClient)
 
     bms = BMS(generate_ble_device("e2:e7:79:00:00:00"))

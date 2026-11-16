@@ -293,7 +293,7 @@ async def test_incomplete_msgs(monkeypatch, patch_bleak_client, dev_name: str) -
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), BMSConfig(False))
 
     result: BMSSample = {}
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         result = await bms.async_update()
 
     assert not result

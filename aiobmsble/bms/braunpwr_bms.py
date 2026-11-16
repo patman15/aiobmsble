@@ -89,7 +89,7 @@ class BMS(BaseBMS):
         }
 
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         # check if answer is a heading of valid response type
         if (

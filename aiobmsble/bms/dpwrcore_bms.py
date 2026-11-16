@@ -96,7 +96,7 @@ class BMS(BaseBMS):
         return "fff3"
 
     async def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         self._log.debug("RX BLE data: %s", data)
 

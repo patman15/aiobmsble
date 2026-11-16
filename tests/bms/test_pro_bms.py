@@ -3,7 +3,7 @@
 Note: Test values updated on 2025-08-06 to match corrected field offsets:
 - All field offsets validated against 987 Pro BMS packets
 - Power field: Confirmed at data_section offset 28 (packet bytes 32-35)
-- Power values cross-validated with V×I calculation (0.019% average error)
+- Power values cross-validated with V*I calculation (0.019% average error)
 """
 
 import asyncio

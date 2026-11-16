@@ -82,7 +82,7 @@ class BMS(BaseBMS):
         return "ffe9"
 
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Retrieve BMS data update."""
         self._log.debug("RX BLE data: %s", data)

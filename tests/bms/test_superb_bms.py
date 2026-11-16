@@ -47,8 +47,7 @@ class MockSuperBBleakClient(MockBleakClient):
     def _send_info(self) -> None:
         assert self._notify_callback is not None
         for notify_data in [
-            self._RESP[i : i + BT_FRAME_SIZE]
-            for i in range(0, len(self._RESP), BT_FRAME_SIZE)
+            self._RESP[i : i + BT_FRAME_SIZE] for i in range(0, len(self._RESP), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockSuperBBleakClient", notify_data)
 
@@ -62,9 +61,7 @@ class MockSuperBBleakClient(MockBleakClient):
     async def start_notify(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[
-            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-        ],
+        callback: Callable[[BleakGATTCharacteristic, bytearray], Awaitable[None] | None],
         **kwargs,
     ) -> None:
         """Mock start_notify."""

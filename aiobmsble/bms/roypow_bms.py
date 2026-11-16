@@ -90,7 +90,7 @@ class BMS(BaseBMS):
         return "ffe1"
 
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if not (data := data.removeprefix(BMS._BT_MODULE_MSG)):
