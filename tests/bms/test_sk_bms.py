@@ -9,8 +9,7 @@ import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.sk_bms import BMS
-from aiobmsble.test_data import adv_dict_to_advdata
-from aiobmsble.utils import bms_supported
+from aiobmsble.utils import adv_dict_to_advdata, bms_supported
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests, verify_device_info
