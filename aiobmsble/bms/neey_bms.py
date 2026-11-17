@@ -51,7 +51,6 @@ class BMS(BaseBMS):
     _TAIL: Final[int] = 0xFF  # end of message
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _MIN_FRAME: Final[int] = 10  # header length
-    _PRB_CODES: Final[frozenset[int]] = frozenset((1, 3, 7, 8, 9, 10, 11))
     _FIELDS: Final[tuple[BMSDp, ...]] = (
         BMSDp("voltage", 201, "<f", lambda x: round(x, 3)),
         BMSDp("delta_cell_voltage", 209, "<f", lambda x: round(x, 3)),
@@ -66,11 +65,14 @@ class BMS(BaseBMS):
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
         BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, 0x01, "Wrong cell count"),
         BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, 0x03, "AcqLine Res exceed"),
-        BMSPrbDef(0xFF, PT.OTHER, SV.PROTECT, 0x07, "Low voltage"),
-        BMSPrbDef(0xFF, PT.OTHER, SV.PROTECT, 0x08, "System Overtemp"),
-        BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, 0x09, "Host fails"),
+        BMSPrbDef(0xFF, PT.PACK_UNDERVOLTAGE, SV.PROTECT, 0x07, "Low voltage"),
+        BMSPrbDef(0xFF, PT.AMBIENT_OVERTEMP, SV.PROTECT, 0x08, "System Overtemp"),
+        BMSPrbDef(0xFF, PT.COMM_FAILURE, SV.FAULT, 0x09, "Host fails"),
         BMSPrbDef(0xFF, PT.OTHER, SV.INFO, 0x0A, "Low battery voltage - balancing stopped"),
         BMSPrbDef(0xFF, PT.OTHER, SV.INFO, 0x0B, "Temperature too high - balancing stopped"),
+    )
+    _PRB_CODES: Final[frozenset[int]] = frozenset(
+        d.value for d in _PROBLEMS if d.value is not None
     )
     _FIELDS_v1: Final[tuple[BMSDp, ...]] = (
         *_FIELDS[:4],
@@ -141,7 +143,7 @@ class BMS(BaseBMS):
         self._valid_reply = 0x02  # cell information
 
     def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
+        self, _sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Retrieve BMS data update."""
 

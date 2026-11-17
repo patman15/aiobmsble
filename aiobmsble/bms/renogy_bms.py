@@ -32,8 +32,7 @@ class BMS(BaseBMS):
     _TEMP_POS: Final[int] = 37
     _CELL_POS: Final[int] = 3
     _MIN_LEN: Final[int] = 5
-    _PROBLEM_DECODE_MASK: int = 0xFFFFFFFF
-    _PROBLEM_MASK: Final[int] = ~((0xE << 16) | (0xFF << 8))
+    _PRB_MASK: Final[int] = ~((0xE << 16) | (0xFF << 8))
     FIELDS: tuple[BMSDp, ...] = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),
         BMSDp("current", 3, 2, True, lambda x: x / 100),
@@ -166,7 +165,7 @@ class BMS(BaseBMS):
         if len(self._msg) < BMS._MIN_LEN + 0x8 * 2:
             raise ValueError("BMS data incomplete.")
         result["problem_code"] = (
-            int.from_bytes(self._msg[3:19], byteorder="big") & BMS._PROBLEM_MASK
+            int.from_bytes(self._msg[3:19], byteorder="big") & BMS._PRB_MASK
         )
         result["chrg_mosfet"] = bool(self._msg[16] & 0x2)
         result["dischrg_mosfet"] = bool(self._msg[16] & 0x4)
