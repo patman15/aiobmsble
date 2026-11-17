@@ -315,9 +315,11 @@ class BaseBMS(ABC):
             [
                 data.get("problem", False),
                 # decoded problems: operating state notices (INFO) are not a problem
-                any(p.level >= Severity.WARN for p in problems)
-                if problems is not None
-                else data.get("problem_code", False),
+                (
+                    any(p.level >= Severity.WARN for p in problems)
+                    if problems is not None
+                    else data.get("problem_code", False)
+                ),
                 data.get("voltage") is not None and data.get("voltage", 0) <= 0,
                 any(v <= 0 or v > BaseBMS._MAX_CELL_VOLT for v in cell_voltages),
                 data.get("delta_cell_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
@@ -369,12 +371,6 @@ class BaseBMS(ABC):
             )
             self._alive_task.add_done_callback(self._log_alive_loop_exc)
 
-    @abstractmethod
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> Awaitable[None] | None:
-        raise NotImplementedError
-
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
@@ -384,6 +380,12 @@ class BaseBMS(ABC):
 
         self._log.debug("start notify on RX characteristic %s", str(char_notify or self.uuid_rx()))
         await self._client.start_notify(char_notify or self.uuid_rx(), self._notification_handler)
+
+    @abstractmethod
+    def _notification_handler(
+        self, sender: BleakGATTCharacteristic, data: bytearray
+    ) -> Awaitable[None] | None:
+        raise NotImplementedError
 
     @final
     async def _connect(self) -> None:
@@ -863,9 +865,7 @@ def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
             fields[d.mask] = fields.get(d.mask, False) or hit
         if hit:
             explained |= d.mask
-            problems.append(
-                BMSProblem(d.kind, d.severity, d.text or PROBLEM_DEFAULTS[d.kind].text)
-            )
+            problems.append(BMSProblem(d.kind, d.severity, d.text or PROBLEM_DEFAULTS[d.kind].text))
     unknown: Final[PrbDefault] = PROBLEM_DEFAULTS[PrbType.UNKNOWN]
     for mask, matched in fields.items():
         if not matched and code & mask:

@@ -132,6 +132,14 @@ class BMS(BaseBMS):
             "sw_version": b2str(self._msg[32:40]),
         }
 
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        """Initialize RX/TX characteristics and protocol state."""
+        await super()._init_connection(char_notify)
+        await self._fetch_device_info()
+        self._valid_reply = 0x02  # cell information
+
     def _notification_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
@@ -190,14 +198,6 @@ class BMS(BaseBMS):
 
         self._msg = bytes(self._frame)
         self._msg_event.set()
-
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        """Initialize RX/TX characteristics and protocol state."""
-        await super()._init_connection(char_notify)
-        await self._fetch_device_info()
-        self._valid_reply = 0x02  # cell information
 
     @staticmethod
     @lru_cache(maxsize=32)

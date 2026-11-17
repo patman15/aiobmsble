@@ -201,6 +201,19 @@ class BMS(BaseBMS):
             "sw_version": f"{int(_dat[BMS._SWV_POS - 1])}.{int(_dat[BMS._SWV_POS])}",
         }
 
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the protection thresholds (0x47 parameter frame, group 0)."""
+        self._exp_reply = {0x47}
+        await self._await_msg(BMS._cmd(0x47, data=b"\x00"))
+        return BMS._decode_limits(self._msg.pop(0x47), BMS._LIMIT_FIELDS)
+
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        """Initialize protocol state."""
+        await super()._init_connection()
+        self._exp_len = BMS._MIN_LEN
+
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if (
@@ -254,19 +267,6 @@ class BMS(BaseBMS):
             self._log.debug("unexpected reply: 0x%X", self._frame[3])
         finally:
             self._frame.clear()
-
-    async def _fetch_limits(self) -> BMSLimits:
-        """Fetch the protection thresholds (0x47 parameter frame, group 0)."""
-        self._exp_reply = {0x47}
-        await self._await_msg(BMS._cmd(0x47, data=b"\x00"))
-        return BMS._decode_limits(self._msg.pop(0x47), BMS._LIMIT_FIELDS)
-
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        """Initialize protocol state."""
-        await super()._init_connection()
-        self._exp_len = BMS._MIN_LEN
 
     @staticmethod
     @lru_cache(maxsize=32)
