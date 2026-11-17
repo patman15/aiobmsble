@@ -68,7 +68,7 @@ class TestBasicBMS(BMSBasicTests):
 def test_matcher_excludes_topband_48v_models() -> None:
     """Do not match SK 48 V models that use the Topband protocol."""
     advertisement = adv_dict_to_advdata({"local_name": "SK48V100N"})
-    assert not bms_supported(BMS(generate_ble_device()), advertisement, "")
+    assert not bms_supported(BMS, advertisement, "")
 
 
 class MockSKBleakClient(MockBleakClient):
