@@ -47,6 +47,7 @@ from aiobmsble.basebms import (
     decode_problems,
     lrc_modbus,
     lstr2int,
+    problem_levels,
 )
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
 from tests.bluetooth import generate_ble_device
@@ -689,6 +690,20 @@ def test_decode_problems_unknown_text() -> None:
         BMSProblem(PrbType.UNKNOWN, Severity.WARN, "Unknown problem value 0x13"),
         BMSProblem(PrbType.UNKNOWN, Severity.WARN, "Unknown problem bit 4"),
     ]
+
+
+def test_problem_levels() -> None:
+    """Check reduction of problems to the worst severity per problem type."""
+    defs: Final[tuple[BMSPrbDef, ...]] = (
+        BMSPrbDef(0x1, PrbType.CHARGE_OVERCURRENT, Severity.WARN),
+        BMSPrbDef(0x2, PrbType.CHARGE_OVERCURRENT),
+        BMSPrbDef(0x4, PrbType.FET_LOCKED),
+    )
+    assert problem_levels(decode_problems(0x7, defs)) == {
+        PrbType.CHARGE_OVERCURRENT: Severity.PROTECT,
+        PrbType.FET_LOCKED: Severity.INFO,
+    }
+    assert problem_levels([]) == {}
 
 
 def test_problem_str() -> None:
