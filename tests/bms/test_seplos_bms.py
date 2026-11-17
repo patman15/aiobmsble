@@ -367,7 +367,7 @@ async def test_limits_unexpected_reply(monkeypatch: pytest.MonkeyPatch, patch_bl
     patch_bleak_client(MockSeplosBleakClient)
     bms = BMS(generate_ble_device())
 
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         await bms.limits()
 
     await bms.disconnect()
@@ -468,7 +468,7 @@ async def test_redundant_response(
     monkeypatch.setattr(MockRedundantMessageBleakClient, "patch_pkg", False)
 
     result: BMSSample = {}
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         result = await bms.async_update()
 
     assert not result
@@ -476,7 +476,7 @@ async def test_redundant_response(
     monkeypatch.setattr(MockRedundantMessageBleakClient, "patch_main", False)
     monkeypatch.setattr(MockRedundantMessageBleakClient, "patch_pkg", True)
 
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         result = await bms.async_update()
 
     assert not result

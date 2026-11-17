@@ -6,7 +6,7 @@ import inspect
 from logging import DEBUG
 from string import hexdigits
 from types import UnionType
-from typing import Any, Final, Literal, NoReturn, get_args, get_origin, get_type_hints
+from typing import Any, Final, Literal, NoReturn, cast, get_args, get_origin, get_type_hints
 from uuid import UUID
 
 import aiooui
@@ -125,7 +125,7 @@ class MinTestBMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "afe2"
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
         # do not set event to make tests fail if wait_for_notify is not set
@@ -245,7 +245,7 @@ class WMTestBMS(MinTestBMS):
     def _wr_response(self, char: int | str) -> bool:
         return bool("write" in self._char_tx_properties)
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
         self._data = data
@@ -305,7 +305,7 @@ class BMSBasicTests:
     async def test_empty_notification(self) -> None:
         """Verify that notification handler does not crash with empty input."""
         bms: BaseBMS = self.bms_class(generate_ble_device())
-        handler: Callable[..., None | Awaitable[None]] = bms._notification_handler  # type: ignore[attr-defined]
+        handler: Callable[..., Awaitable[None] | None] = bms._notification_handler  # type: ignore[attr-defined]
         char = BleakGATTCharacteristic(
             None, 1, "0001", ["notify"], lambda: 512, BleakGATTService(None, 0, "fff0")
         )
@@ -412,9 +412,11 @@ async def verify_device_info(
     patch_bleak_client,
     bleak_client: type[BleakClient],
     bms_class: type[BaseBMS],
-    result_patch: dict[str, str] = {},
+    result_patch: dict[str, str] | None = None,
 ) -> None:
     """Test function for subclasses that the BMS returns device info from default characteristics."""
+    if result_patch is None:
+        result_patch = {}
     patch_bleak_client(bleak_client)
     bms: BaseBMS = bms_class(generate_ble_device())
     assert (
@@ -861,6 +863,13 @@ def test_get_bms_module() -> None:
     assert DummyBMS.get_bms_module() == "aiobmsble.bms.dummy_bms"
 
 
+def test_abstract_notification_handler() -> None:
+    """Check that the unimplemented notification handler stub raises."""
+    handler: Callable[..., Any] = BaseBMS._notification_handler
+    with pytest.raises(NotImplementedError):
+        handler(object(), cast(BleakGATTCharacteristic, None), bytearray())
+
+
 def test_log_prefix_name_not_format_string(
     patch_bleak_client: Callable[..., None], caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -933,7 +942,7 @@ async def test_context_mgr_fail(
 
     patch_bleak_client(MockBleakClient)
 
-    with pytest.raises(ValueError, match="usage of context manager*"):
+    with pytest.raises(ValueError, match=r"usage of context manager*"):
         async with MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=False)) as bms:
             await bms.async_update()
 
@@ -1483,6 +1492,13 @@ async def test_alive_task_disabled(patch_bleak_client: Callable[..., None]) -> N
     await bms.async_update()
     assert bms._alive_task is None
     await bms.disconnect()
+
+
+async def test_alive_default_not_implemented() -> None:
+    """Check that the default `_alive` implementation raises."""
+    bms: Any = object()
+    with pytest.raises(NotImplementedError):
+        await BaseBMS._alive(bms)
 
 
 async def test_reconnect_with_running_alive_task(

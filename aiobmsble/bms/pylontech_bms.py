@@ -85,9 +85,35 @@ class BMS(BaseBMS):
         """Return UUID of the write characteristic (Phone -> Module)."""
         return "00010203-0405-0607-0809-0a0b0c0d2b11"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Read standard BT device info plus serial number from Modbus registers."""
+        info: BMSInfo = await super()._fetch_device_info()
+
+        try:
+            await self._await_msg(
+                BMS._cmd_modbus(
+                    dev_id=BMS._DEV_ID, addr=BMS._REG_SN[0], count=BMS._REG_SN[1]
+                )
+            )
+            if sn := b2str(self._msg[3 : 3 + BMS._REG_SN[1] * 2]):
+                info["serial_number"] = sn
+        except TimeoutError:
+            pass
+
+        return info
+
+    async def _fetch_limits(self) -> BMSLimits:
+        """Read charge voltage limit and discharge cutoff voltage registers."""
+        await self._await_msg(
+            BMS._cmd_modbus(
+                dev_id=BMS._DEV_ID, addr=BMS._LIMIT_BLOCK[0], count=BMS._LIMIT_BLOCK[1]
+            )
+        )
+        return BMS._decode_limits(self._msg, BMS._LIMIT_FIELDS, byteorder="big")
+
     def _notification_handler(
         self,
-        _sender: BleakGATTCharacteristic,
+        sender: BleakGATTCharacteristic,
         data: bytearray,
     ) -> None:
         """Accumulate BLE fragments; signal when a complete and valid Modbus frame arrives."""
@@ -117,32 +143,6 @@ class BMS(BaseBMS):
 
         self._msg = frame
         self._msg_event.set()
-
-    async def _fetch_device_info(self) -> BMSInfo:
-        """Read standard BT device info plus serial number from Modbus registers."""
-        info: BMSInfo = await super()._fetch_device_info()
-
-        try:
-            await self._await_msg(
-                BMS._cmd_modbus(
-                    dev_id=BMS._DEV_ID, addr=BMS._REG_SN[0], count=BMS._REG_SN[1]
-                )
-            )
-            if sn := b2str(self._msg[3 : 3 + BMS._REG_SN[1] * 2]):
-                info["serial_number"] = sn
-        except TimeoutError:
-            pass
-
-        return info
-
-    async def _fetch_limits(self) -> BMSLimits:
-        """Read charge voltage limit and discharge cutoff voltage registers."""
-        await self._await_msg(
-            BMS._cmd_modbus(
-                dev_id=BMS._DEV_ID, addr=BMS._LIMIT_BLOCK[0], count=BMS._LIMIT_BLOCK[1]
-            )
-        )
-        return BMS._decode_limits(self._msg, BMS._LIMIT_FIELDS, byteorder="big")
 
     async def _async_update(self) -> BMSSample:
         """Read current BMS state and return a BMSSample."""

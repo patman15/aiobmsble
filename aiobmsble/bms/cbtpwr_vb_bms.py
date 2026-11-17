@@ -72,7 +72,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe9"
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if len(data) > BMS._LEN_POS + 4 and data.startswith(BMS._HEAD):

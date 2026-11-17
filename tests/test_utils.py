@@ -76,7 +76,7 @@ async def test_bms_cls_invalid_bms_class(
 ) -> None:
     """Test that bms_cls returns None if module.BMS is not a BaseBMS subclass."""
     test_module = ModuleType("aiobmsble.bms.invalid_bms")
-    setattr(test_module, "BMS", invalid_bms_class)
+    monkeypatch.setattr(test_module, "BMS", invalid_bms_class, raising=False)
 
     def import_module(name: str) -> ModuleType:
         assert name == "aiobmsble.bms.invalid_bms"
@@ -122,7 +122,7 @@ def test_load_bms_plugins_continue_paths(
             }.get(kind, object)
 
             bms = type("BMS", (bms_cls_type,), {})
-            setattr(module, "BMS", bms)
+            monkeypatch.setattr(module, "BMS", bms, raising=False)
 
         # if kind is None -> no BMS attribute needed (won't be imported)
         fake_modules[name] = module

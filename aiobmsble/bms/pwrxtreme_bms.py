@@ -96,7 +96,7 @@ class BMS(TopbandBMS):
             self._msg_event.clear()
 
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if self._ctrl_proto:
@@ -112,7 +112,7 @@ class BMS(TopbandBMS):
                 return
             self._log.debug("ignoring non-control data: %s", data)
             return
-        super()._notification_handler(_sender, data)
+        super()._notification_handler(sender, data)
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

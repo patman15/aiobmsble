@@ -89,8 +89,22 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff3"
 
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        """Initialize RX/TX characteristics and protocol state."""
+        await super()._init_connection()
+        self._valid_reply = BMS._INIT_RESP
+
+        # Send initialization command and await response
+        await self._await_msg(BMS._HEAD + BMS._CMD_INIT)
+        for cmd in (BMS._CMD_HWID, BMS._CMD_DATA_STREAM, BMS._CMD_TRIGGER_DATA):
+            await self._await_msg(BMS._HEAD + cmd, wait_for_notify=False)
+
+        self._valid_reply = BMS._RT_DATA
+
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         self._log.debug("RX BLE data: %s", data)
 
@@ -109,20 +123,6 @@ class BMS(BaseBMS):
 
         self._msg = bytes(data)
         self._msg_event.set()
-
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        """Initialize RX/TX characteristics and protocol state."""
-        await super()._init_connection()
-        self._valid_reply = BMS._INIT_RESP
-
-        # Send initialization command and await response
-        await self._await_msg(BMS._HEAD + BMS._CMD_INIT)
-        for cmd in (BMS._CMD_HWID, BMS._CMD_DATA_STREAM, BMS._CMD_TRIGGER_DATA):
-            await self._await_msg(BMS._HEAD + cmd, wait_for_notify=False)
-
-        self._valid_reply = BMS._RT_DATA
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

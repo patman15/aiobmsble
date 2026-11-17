@@ -144,7 +144,52 @@ class BMS(BaseBMS):
             "serial_number": b2str(self._msg[86:94]),
         }
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        """Initialize RX/TX characteristics and protocol state."""
+        char_notify_handle: int = -1
+        self._char_write_handle = -1
+        self._bms_ready = False
+
+        for service in self._client.services:
+            for char in service.characteristics:
+                if char.uuid == normalize_uuid_str(
+                    BMS.uuid_rx()
+                ) or char.uuid == normalize_uuid_str(BMS.uuid_tx()):
+                    if "notify" in char.properties:
+                        char_notify_handle = char.handle
+                    if "write" in char.properties or "write-without-response" in char.properties:
+                        self._char_write_handle = char.handle
+        self._log.debug(
+            "received characteristic handles #%i (notify), #%i (write).",
+            char_notify_handle,
+            self._char_write_handle,
+        )
+        if char_notify_handle == -1 or self._char_write_handle == -1:
+            self._log.debug("failed to detect characteristics")
+            await self._client.disconnect()
+            raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
+
+        await super()._init_connection()
+
+        # wait for BMS ready (0xC8)
+        _bms_info: BMSInfo = await self._fetch_device_info()
+        try:
+            self._sw_version = lstr2int(_bms_info.get("sw_version", "0"))
+        except ValueError:
+            self._log.debug(
+                "invalid sw_version '%s', assuming 0", _bms_info.get("sw_version")
+            )
+            self._sw_version = 0
+        self._log.debug("device information: %s", _bms_info)
+        self._prot_offset = -32 if self._sw_version < 11 else 0
+        if not self._bms_ready:
+            self._valid_reply = 0xC8  # BMS ready confirmation
+            await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        self._valid_reply = 0x02  # cell information
+
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Retrieve BMS data update."""
 
         if data.startswith(BMS._BT_MODULE_MSG):
@@ -194,51 +239,6 @@ class BMS(BaseBMS):
 
         self._msg = bytes(self._frame)
         self._msg_event.set()
-
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        """Initialize RX/TX characteristics and protocol state."""
-        char_notify_handle: int = -1
-        self._char_write_handle = -1
-        self._bms_ready = False
-
-        for service in self._client.services:
-            for char in service.characteristics:
-                if char.uuid == normalize_uuid_str(
-                    BMS.uuid_rx()
-                ) or char.uuid == normalize_uuid_str(BMS.uuid_tx()):
-                    if "notify" in char.properties:
-                        char_notify_handle = char.handle
-                    if "write" in char.properties or "write-without-response" in char.properties:
-                        self._char_write_handle = char.handle
-        self._log.debug(
-            "received characteristic handles #%i (notify), #%i (write).",
-            char_notify_handle,
-            self._char_write_handle,
-        )
-        if char_notify_handle == -1 or self._char_write_handle == -1:
-            self._log.debug("failed to detect characteristics")
-            await self._client.disconnect()
-            raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
-
-        await super()._init_connection()
-
-        # wait for BMS ready (0xC8)
-        _bms_info: BMSInfo = await self._fetch_device_info()
-        try:
-            self._sw_version = lstr2int(_bms_info.get("sw_version", "0"))
-        except ValueError:
-            self._log.debug(
-                "invalid sw_version '%s', assuming 0", _bms_info.get("sw_version")
-            )
-            self._sw_version = 0
-        self._log.debug("device information: %s", _bms_info)
-        self._prot_offset = -32 if self._sw_version < 11 else 0
-        if not self._bms_ready:
-            self._valid_reply = 0xC8  # BMS ready confirmation
-            await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
-        self._valid_reply = 0x02  # cell information
 
     @staticmethod
     @lru_cache(maxsize=32)

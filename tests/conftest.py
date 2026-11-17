@@ -52,9 +52,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture(
-    params=sorted(
-        load_bms_plugins(), key=lambda plugin: getattr(plugin, "__name__", "")
-    ),
+    params=sorted(load_bms_plugins(), key=lambda plugin: getattr(plugin, "__name__", "")),
     ids=lambda param: param.__name__.rsplit(".", 1)[-1],
 )
 def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
@@ -90,9 +88,7 @@ class MockBleakClient(BleakClient):
         self._connected: bool = False
         self._notify_callback: Callable | None = None
         self._enabled_notify: set[BleakGATTCharacteristic | int | str | UUID] = set()
-        self._disconnect_callback: Callable[[BleakClient], None] | None = (
-            disconnected_callback
-        )
+        self._disconnect_callback: Callable[[BleakClient], None] | None = disconnected_callback
         self._ble_device: BLEDevice = address_or_ble_device
         self._services: Iterable[str] | None = services
 
@@ -122,9 +118,7 @@ class MockBleakClient(BleakClient):
     async def start_notify(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[
-            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-        ],
+        callback: Callable[[BleakGATTCharacteristic, bytearray], Awaitable[None] | None],
         **kwargs: Any,
     ) -> None:
         """Mock start_notify."""
@@ -136,9 +130,7 @@ class MockBleakClient(BleakClient):
         self._notify_callback = callback
         self._enabled_notify.add(char_specifier)
 
-    async def stop_notify(
-        self, char_specifier: BleakGATTCharacteristic | int | str | UUID
-    ) -> None:
+    async def stop_notify(self, char_specifier: BleakGATTCharacteristic | int | str | UUID) -> None:
         """Mock stop_notify."""
         LOGGER.debug("MockBleakClient stop_notify for %s", char_specifier)
         assert self._connected, "stop_notify called, but client not connected."
@@ -152,9 +144,7 @@ class MockBleakClient(BleakClient):
         response: bool | None = None,
     ) -> None:
         """Mock write GATT characteristics."""
-        LOGGER.debug(
-            "MockBleakClient write_gatt_char %s, data: %s", char_specifier, data
-        )
+        LOGGER.debug("MockBleakClient write_gatt_char %s, data: %s", char_specifier, data)
         assert self._connected, "write_gatt_char called, but client not connected."
 
     async def read_gatt_char(
@@ -206,9 +196,7 @@ def patch_bms_timeout(
 
     def _patch_timeout(bms_class: str | None = None, timeout: float = 1e-3) -> None:
         patch_class: str = (
-            f"bms.{bms_class}.BMS.TIMEOUT"
-            if bms_class
-            else "basebms.BaseBMS._RETRY_TIMEOUT"
+            f"bms.{bms_class}.BMS.TIMEOUT" if bms_class else "basebms.BaseBMS._RETRY_TIMEOUT"
         )
         monkeypatch.setattr(f"aiobmsble.{patch_class}", timeout)
 
@@ -247,9 +235,7 @@ class DefGATTChar(BleakGATTCharacteristic):
         obj: Any = None,
         properties: list[CharacteristicPropertyName] | None = None,
         max_write_without_response_size: Callable[[], int] | None = None,
-        service: BleakGATTService = BleakGATTService(
-            None, 0, normalize_uuid_str("fff0")
-        ),
+        service: BleakGATTService = BleakGATTService(None, 0, normalize_uuid_str("fff0")),
     ) -> None:
         """Add default values for base class.
 

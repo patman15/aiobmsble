@@ -95,8 +95,31 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff3"
 
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        """Connect to the BMS and setup notification if not connected."""
+        await super()._init_connection()
+
+        # unlock BMS if not TBA version
+        if self.name.startswith("TBA-"):
+            return
+
+        if not all(c in hexdigits for c in self.name[-4:]):
+            self._log.debug("unable to unlock BMS")
+            return
+
+        pwd = int(self.name[-4:], 16)
+        await self._await_msg(
+            BMS._cmd(
+                Cmd.UNLOCK,
+                bytes([(pwd >> 8) & 0xFF, pwd & 0xFF]),
+            ),
+            wait_for_notify=False,
+        )
+
     async def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         self._log.debug("RX BLE data: %s", data)
 
@@ -150,29 +173,6 @@ class BMS(BaseBMS):
         frame.extend(bytes(BMS._PAGE_LEN - len(frame)))
 
         return bytes(frame)
-
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        """Connect to the BMS and setup notification if not connected."""
-        await super()._init_connection()
-
-        # unlock BMS if not TBA version
-        if self.name.startswith("TBA-"):
-            return
-
-        if not all(c in hexdigits for c in self.name[-4:]):
-            self._log.debug("unable to unlock BMS")
-            return
-
-        pwd = int(self.name[-4:], 16)
-        await self._await_msg(
-            BMS._cmd(
-                Cmd.UNLOCK,
-                bytes([(pwd >> 8) & 0xFF, pwd & 0xFF]),
-            ),
-            wait_for_notify=False,
-        )
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

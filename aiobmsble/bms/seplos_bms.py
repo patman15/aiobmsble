@@ -195,7 +195,25 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the protection thresholds from the SPA register blocks."""
+        payload = bytearray()
+        for start in BMS._SPA_BLOCKS:
+            await self._await_msg(BMS._cmd(0x0, 0x4, start, BMS._SPA_LEN))
+            if BMS._SPA_LEN not in self._msg:
+                raise ValueError("BMS data incomplete.")
+            payload += self._msg.pop(BMS._SPA_LEN)[BMS._HEAD_LEN : -BMS._CRC_LEN]
+        return BMS._decode_limits(bytes(payload), BMS._LIMIT_FIELDS)
+
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        """Initialize RX/TX characteristics."""
+        await super()._init_connection()
+        self._pack_count = 0
+        self._pkglen = 0
+
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Retrieve BMS data update."""
 
         if (
@@ -248,24 +266,6 @@ class BMS(BaseBMS):
         self._msg[self._frame[0] << 8 | self._frame[2] >> 1] = bytes(self._frame)
         self._frame.clear()
         self._msg_event.set()
-
-    async def _fetch_limits(self) -> BMSLimits:
-        """Fetch the protection thresholds from the SPA register blocks."""
-        payload = bytearray()
-        for start in BMS._SPA_BLOCKS:
-            await self._await_msg(BMS._cmd(0x0, 0x4, start, BMS._SPA_LEN))
-            if BMS._SPA_LEN not in self._msg:
-                raise ValueError("BMS data incomplete.")
-            payload += self._msg.pop(BMS._SPA_LEN)[BMS._HEAD_LEN : -BMS._CRC_LEN]
-        return BMS._decode_limits(bytes(payload), BMS._LIMIT_FIELDS)
-
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        """Initialize RX/TX characteristics."""
-        await super()._init_connection()
-        self._pack_count = 0
-        self._pkglen = 0
 
     @staticmethod
     @lru_cache(maxsize=32)

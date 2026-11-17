@@ -88,8 +88,15 @@ class BMS(BaseBMS):
             "hw_version": b2str(self._msg[0x74][3:-1]),
         }
 
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        """Connect to the BMS and setup notification if not connected."""
+        await super()._init_connection()
+        await self._fetch_device_info()
+
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         # check if answer is a heading of valid response type
         if (
@@ -138,13 +145,6 @@ class BMS(BaseBMS):
         """Assemble a Braun Power BMS command."""
         assert len(data) <= 255, "data length must be a single byte."
         return bytes([*BMS._HEAD, cmd, len(data), *data, BMS._TAIL])
-
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        """Connect to the BMS and setup notification if not connected."""
-        await super()._init_connection()
-        await self._fetch_device_info()
 
     async def _async_update(self) -> BMSSample:
         """Update battery status information."""

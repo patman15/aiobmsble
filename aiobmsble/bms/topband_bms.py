@@ -93,7 +93,7 @@ class BMS(BaseBMS):
         raise NotImplementedError
 
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 

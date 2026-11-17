@@ -128,7 +128,7 @@ async def test_stale_data_cleared(
     char = BleakGATTCharacteristic(
         None, 1, "fff4", ["notify"], lambda: 512, BleakGATTService(None, 0, "fff0")
     )
-    handler: Callable[..., None | Awaitable[None]] = bms._notification_handler  # type: ignore[attr-defined]
+    handler: Callable[..., Awaitable[None] | None] = bms._notification_handler  # type: ignore[attr-defined]
     rng = random.Random(42)
 
     # buffer capacity is max(_MAX_MSG_LEN, BLE_MAX_ATTR_SIZE) * 2, so delivering

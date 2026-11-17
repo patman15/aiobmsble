@@ -81,7 +81,7 @@ class BMS(BaseBMS):
         )
         return info
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Assemble and validate a fragmented Modbus response."""
         self._log.debug("RX BLE data: %s", data)
 

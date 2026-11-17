@@ -78,7 +78,7 @@ class BMS(BaseBMS):
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)

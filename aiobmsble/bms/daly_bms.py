@@ -174,7 +174,7 @@ class BMS(BaseBMS):
             self._proto = Proto.D2  # fallback to first protocol
             raise TimeoutError
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         self._log.debug("RX BLE data: %s", data)
 
         if (

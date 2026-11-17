@@ -314,7 +314,7 @@ async def test_too_short_frame(patch_bleak_client) -> None:
     patch_bleak_client(MockInvalidBleakClient)
 
     bms: BMS = BMS(generate_ble_device())
-    with pytest.raises(ValueError, match="BMS data incomplete."):
+    with pytest.raises(ValueError, match="BMS data incomplete\\."):
         await bms.async_update()
 
     await bms.disconnect()

@@ -76,9 +76,7 @@ class MockAllpowersBleakClient(MockBleakClient):
         **kwargs: Any,
     ) -> None:
         """Initialize mock client."""
-        super().__init__(
-            address_or_ble_device, disconnected_callback, services, **kwargs
-        )
+        super().__init__(address_or_ble_device, disconnected_callback, services, **kwargs)
 
     async def _push_frames(self) -> None:
         """Push frames periodically like the real device, stop when disconnected."""
@@ -92,9 +90,7 @@ class MockAllpowersBleakClient(MockBleakClient):
     async def start_notify(
         self,
         char_specifier: BleakGATTCharacteristic | int | str | UUID,
-        callback: Callable[
-            [BleakGATTCharacteristic, bytearray], None | Awaitable[None]
-        ],
+        callback: Callable[[BleakGATTCharacteristic, bytearray], Awaitable[None] | None],
         **kwargs: Any,
     ) -> None:
         """Subscribe to notifications and start pushing frames."""

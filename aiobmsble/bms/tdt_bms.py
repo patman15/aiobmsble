@@ -153,7 +153,7 @@ class BMS(BaseBMS):
         if _bms_info.get("sw_version", "")[:-1].endswith("1."):
             self._fields = self._merge_fields(BMS._FIELDS, BMS._FIELDS_v1)
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         if (

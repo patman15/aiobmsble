@@ -22,6 +22,10 @@ class BMS(BaseBMS):
     # _HEAD: Final[bytes] = b"\x55"  # beginning of frame
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
+    # _FIELDS: Final[tuple[BMSDp, ...]] = () # TODO: define BMS sensor decoder definitions
+    # _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = () # TODO: define BMS limits
+    # _PROBLEMS: Final[tuple[BMSPrbDef, ...]] = () # TODO: add problem code decoder definitions
+    #
     # accept_secret: bool = True  # if the BMS accepts a secret for authentication
 
     def __init__(
@@ -68,7 +72,7 @@ class BMS(BaseBMS):
     #     TODO: query from BMS and use _decode_limits
     #     return {Limit.CELL_OVP: Threshold(trip=3.65, release=3.5)}
 
-    def _notification_handler(self, _sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         # self._log.debug("RX BLE data: %s", data)
 

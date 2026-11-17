@@ -100,7 +100,7 @@ def load_bms_plugins() -> set[ModuleType]:
             continue
 
         module: ModuleType = importlib.import_module(f"aiobmsble.bms.{module_name}")
-        if not issubclass(getattr(module, "BMS"), BaseBMS):
+        if not issubclass(module.BMS, BaseBMS):
             continue
 
         modules.add(module)
@@ -128,7 +128,7 @@ async def bms_cls(name: str) -> type[BaseBMS] | None:
     except ModuleNotFoundError:
         return None
 
-    bms_class: type[BaseBMS] | None = getattr(bms_module, "BMS")
+    bms_class: type[BaseBMS] | None = bms_module.BMS
     if not (isinstance(bms_class, type) and issubclass(bms_class, BaseBMS)):
         return None
 

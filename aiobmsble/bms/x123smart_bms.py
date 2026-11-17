@@ -159,8 +159,30 @@ class BMS(BaseBMS):
         """Send the keep-alive ping while connected."""
         await self._await_msg(BMS._PING, wait_for_notify=False)
 
+    async def _cmd_expect_ok(self, cmd: bytes) -> None:
+        """Send a command and wait for an 'OK' reply, raise otherwise."""
+        await self._await_msg(cmd + BMS._CR)
+        if (reply := self._msg.get(BMS._LMSG, b"")) != b"OK":
+            raise ConnectionRefusedError(f"command rejected ({reply.decode('ascii')})")
+        self._msg.clear()
+        self._msg_event.clear()
+
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        """Set up notifications, keep-alive ping, PIN auth and data streaming."""
+        await super()._init_connection(char_notify)
+
+        if self._cfg.secret:
+            # authenticate (4-digit PIN)
+            await self._cmd_expect_ok(f"PW{self._cfg.secret}!".encode("ascii"))
+
+        # enable live data streaming (fails if not authorized) and ping once
+        await self._cmd_expect_ok(b"E!")
+        await self._await_msg(BMS._PING, wait_for_notify=False)
+
     def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
+        self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> None:
         """Handle notifications: split CR-terminated ASCII lines."""
         self._log.debug("RX BLE data: %s", data)
@@ -198,28 +220,6 @@ class BMS(BaseBMS):
                 self._msg[line[0] << 8] = bytes(line)
         if BMS._RESPS.issubset(self._msg.keys()):
             self._msg_event.set()
-
-    async def _cmd_expect_ok(self, cmd: bytes) -> None:
-        """Send a command and wait for an 'OK' reply, raise otherwise."""
-        await self._await_msg(cmd + BMS._CR)
-        if (reply := self._msg.get(BMS._LMSG, b"")) != b"OK":
-            raise ConnectionRefusedError(f"command rejected ({reply.decode('ascii')})")
-        self._msg.clear()
-        self._msg_event.clear()
-
-    async def _init_connection(
-        self, char_notify: BleakGATTCharacteristic | int | str | None = None
-    ) -> None:
-        """Set up notifications, keep-alive ping, PIN auth and data streaming."""
-        await super()._init_connection(char_notify)
-
-        if self._cfg.secret:
-            # authenticate (4-digit PIN)
-            await self._cmd_expect_ok(f"PW{self._cfg.secret}!".encode("ascii"))
-
-        # enable live data streaming (fails if not authorized) and ping once
-        await self._cmd_expect_ok(b"E!")
-        await self._await_msg(BMS._PING, wait_for_notify=False)
 
     @staticmethod
     def _crc_sum(data: bytes | bytearray) -> int:
