@@ -22,9 +22,11 @@ def test_TempSensor() -> None:
     s1: Final = TS(5.0, TS.T.GENERIC)
     s2: Final = TS(5.0, TS.T.GENERIC)
     assert hash(s1) == hash(s2)
-    # Test hash change when type changes
+    # Test hash consistent with equality to numbers
+    assert hash(s1) == hash(5.0) == hash(5)
     s3: Final = TS(5.0, TS.T.CELL)
-    assert hash(s1) != hash(s3)
+    assert s1 != s3
+    assert len({s1, s3}) == 2
 
     # Test comparison when comparing to int
     assert TS(5) == 5
