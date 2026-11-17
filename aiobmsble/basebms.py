@@ -336,7 +336,7 @@ class BaseBMS(ABC):
 
     async def _alive(self) -> None:
         """Override to run periodic actions while `ALIVE_INTERVAL` is set."""
-        return
+        raise NotImplementedError
 
     @final
     async def _alive_loop(self, interval: float) -> None:

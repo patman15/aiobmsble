@@ -6,7 +6,7 @@ import inspect
 from logging import DEBUG
 from string import hexdigits
 from types import UnionType
-from typing import Any, Final, Literal, NoReturn, get_args, get_origin, get_type_hints
+from typing import Any, Final, Literal, NoReturn, cast, get_args, get_origin, get_type_hints
 from uuid import UUID
 
 import aiooui
@@ -863,6 +863,13 @@ def test_get_bms_module() -> None:
     assert DummyBMS.get_bms_module() == "aiobmsble.bms.dummy_bms"
 
 
+def test_abstract_notification_handler() -> None:
+    """Check that the unimplemented notification handler stub raises."""
+    handler: Callable[..., Any] = BaseBMS._notification_handler
+    with pytest.raises(NotImplementedError):
+        handler(object(), cast(BleakGATTCharacteristic, None), bytearray())
+
+
 def test_log_prefix_name_not_format_string(
     patch_bleak_client: Callable[..., None], caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -1485,6 +1492,13 @@ async def test_alive_task_disabled(patch_bleak_client: Callable[..., None]) -> N
     await bms.async_update()
     assert bms._alive_task is None
     await bms.disconnect()
+
+
+async def test_alive_default_not_implemented() -> None:
+    """Check that the default `_alive` implementation raises."""
+    bms: Any = object()
+    with pytest.raises(NotImplementedError):
+        await BaseBMS._alive(bms)
 
 
 async def test_reconnect_with_running_alive_task(
