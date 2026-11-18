@@ -341,7 +341,7 @@ async def test_stream_update(
     assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {
         "problem": True,
         "problem_code": 0x8,
-        "problems": [BMSProblem(PT.AMBIENT_OVERTEMP, SV.PROTECT, "System Overtemp")],
+        "problems": [BMSProblem(PT.SYSTEM_OVERTEMP, SV.PROTECT, "System overtemperature")],
         "balancer": False,
     }
     assert bms._msg_event.is_set() is False, "BMS does not request fresh data"
@@ -471,8 +471,8 @@ async def test_non_finite_value(monkeypatch: pytest.MonkeyPatch, patch_bleak_cli
         (0x04, None, False),
         (0x05, None, True),
         (0x06, None, False),
-        (0x07, BMSProblem(PT.PACK_UNDERVOLTAGE, SV.PROTECT, "Low voltage"), False),
-        (0x08, BMSProblem(PT.AMBIENT_OVERTEMP, SV.PROTECT, "System Overtemp"), False),
+        (0x07, BMSProblem(PT.PACK_UNDERVOLTAGE, SV.PROTECT, "Pack undervoltage"), False),
+        (0x08, BMSProblem(PT.SYSTEM_OVERTEMP, SV.PROTECT, "System overtemperature"), False),
         (0x09, BMSProblem(PT.COMM_FAILURE, SV.FAULT, "Host fails"), False),
         (
             0x0A,

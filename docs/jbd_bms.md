@@ -31,7 +31,8 @@ On basic info (`0x03`), aiobmsble maps a 16-bit little-endian field at data offs
 | 10 | `0x0400` | Short circuit |
 | 11 | `0x0800` | Frontend IC error |
 | 12 | `0x1000` | Software lock MOS |
-| 13-15 | | Reserved |
+| 13 | `0x2000` | Charge timeout |
+| 14-15 | | Reserved |
 
 ### Cell OV release hysteresis
 

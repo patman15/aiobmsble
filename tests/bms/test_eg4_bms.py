@@ -187,7 +187,7 @@ async def test_problem_response(
         "problem": True,
         "problem_code": (1 if request.node.callspec.id == "first_bit" else 2**47),
         "problems": (
-            [BMSProblem(PT.OTHER, SV.FAULT, "Voltage error")]
+            [BMSProblem(PT.OTHER, SV.FAULT, "Voltage")]
             if request.node.callspec.id == "first_bit"
             else [BMSProblem(PT.UNKNOWN, SV.WARN, "Unknown problem bit 47")]
         ),

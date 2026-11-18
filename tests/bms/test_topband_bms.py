@@ -484,9 +484,9 @@ async def test_problem_response(
                 if problem_response[1] == "first_bit"
                 else PT.PACK_OVERVOLTAGE,
                 Severity.PROTECT,
-                "Charging overtemperature"
+                "Charge overtemperature"
                 if problem_response[1] == "first_bit"
-                else "Overvoltage",
+                else "Pack overvoltage",
             )
         ],
     }
@@ -497,14 +497,14 @@ async def test_problem_response(
 @pytest.mark.parametrize(
     ("bit", "kind", "text"),
     [
-        (0, PT.CHARGE_OVERTEMP, "Charging overtemperature"),
-        (1, PT.DISCHARGE_OVERTEMP, "Discharging overtemperature"),
-        (2, PT.CHARGE_UNDERTEMP, "Charging undertemperature"),
-        (3, PT.DISCHARGE_UNDERTEMP, "Discharging undertemperature"),
-        (4, PT.DISCHARGE_OVERCURRENT, "Discharging overcurrent"),
-        (5, PT.CHARGE_OVERCURRENT, "Charging overcurrent"),
-        (6, PT.PACK_UNDERVOLTAGE, "Undervoltage"),
-        (7, PT.PACK_OVERVOLTAGE, "Overvoltage"),
+        (0, PT.CHARGE_OVERTEMP, "Charge overtemperature"),
+        (1, PT.DISCHARGE_OVERTEMP, "Discharge overtemperature"),
+        (2, PT.CHARGE_UNDERTEMP, "Charge undertemperature"),
+        (3, PT.DISCHARGE_UNDERTEMP, "Discharge undertemperature"),
+        (4, PT.DISCHARGE_OVERCURRENT, "Discharge overcurrent"),
+        (5, PT.CHARGE_OVERCURRENT, "Charge overcurrent"),
+        (6, PT.PACK_UNDERVOLTAGE, "Pack undervoltage"),
+        (7, PT.PACK_OVERVOLTAGE, "Pack overvoltage"),
     ],
 )
 def test_problem_flag_definitions(bit: int, kind: PT, text: str) -> None:

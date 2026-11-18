@@ -698,8 +698,8 @@ def test_problem_str() -> None:
     problem: Final[BMSProblem] = decode_problems(
         0x1, (BMSPrbDef(0x1, PrbType.AFE_FAILURE, Severity.FAULT),)
     )[0]
-    assert str(problem) == "Analog front-end failure (fault)"
-    assert repr(problem) == "BMSProblem(AFE_FAILURE, FAULT, 'Analog front-end failure')"
+    assert str(problem) == "Analog front-end (fault)"
+    assert repr(problem) == "BMSProblem(AFE_FAILURE, FAULT, 'Analog front-end')"
 
 
 def test_problem_defaults_complete() -> None:

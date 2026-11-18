@@ -245,6 +245,25 @@ parsing for values or framing that `BMSDp` cannot represent.
 - Derive secondary values through shared base-class processing where possible;
   plugins should primarily return the raw normalized sample fields needed by
   that processing.
+- Problem decoding uses `problem_code` plus `BMSPrbDef`, `_PROBLEMS`, and optional
+  `_PRB_MASK`. `_PRB_MASK` must contain every bit/value that the plugin considers
+  reachable; do not hard-code masks in lambdas. Use `1 << n` for bit flags.
+- Choose a stable `PrbType` first, then the appropriate `Severity`: `INFO` for
+  operating-state notices, `WARN` for warnings, `PROTECT` for protection trips, and
+  `FAULT` for hardware/internal failures. Leave `level=None` to use the kind's default
+  when it is correct.
+- Vendor-specific `text` may provide an exact device description, but it must not
+  repeat the severity level. `BMSProblem.__str__()` appends `"(info)"`, `"(warn)"`,
+  `"(protect)"`, or `"(fault)"`, so strings such as `"SOC protection"` and
+  `"Charge current warning"` would duplicate the level. Prefer `"SOC"` and
+  `"Charge current"`.
+- For value-coded fields, the mask must cover the complete encoded value and `value`
+  must fit inside that mask. Keep value-coded masks separate from overlapping bit
+  flags; the shared decoder reports unmatched values and undocumented bits as
+  `UNKNOWN`.
+- Verify inherited `_PROBLEMS` and `_PRB_MASK` values whenever a child plugin derives
+  from a parent protocol. An OEM rebrand is safe only when the complete bit layout,
+  masks, and response width are identical.
 
 ### Command construction
 
@@ -498,6 +517,10 @@ Before finishing a plugin, confirm:
 - [ ] Invalid frames cannot set the message-complete event.
 - [ ] Mandatory and optional replies are distinguished.
 - [ ] Returned fields use canonical names and units.
+- [ ] If `problem_code` is decoded, `_PROBLEMS` and `_PRB_MASK` use the conventions
+      above; text is vendor-specific rather than a duplicate severity, and inherited
+      definitions are verified for the child protocol.
+- [ ] Problem tests cover known definitions and unknown bits/values.
 - [ ] A corresponding test module exists.
 - [ ] The mock exercises real writes and notifications.
 - [ ] Happy paths, malformed frames, and variants are covered.
