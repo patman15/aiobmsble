@@ -32,7 +32,8 @@ class BMS(BaseBMS):
     _HEAD: Final[bytes] = b"\x3a"  # beginning of frame
     _TAIL: Final[bytes] = b"\x7e"  # end of frame
     _MIN_LEN: Final[int] = 238  # heater*2 + tail
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _PRB_MASK: Final[int] = 0x0FFC
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp(
             "current",
             10,
@@ -46,7 +47,7 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 26, 4, False, lambda x: x // 1000),
         BMSDp("cycle_charge", 30, 4, False, lambda x: x / 1000),
         BMSDp("heater", 64, 4, False, bool),
-        BMSDp("problem_code", 0, 2, False, lambda x: x & 0x0FFC),
+        BMSDp("problem_code", 0, 2, False, lambda x: x & BMS._PRB_MASK),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
         BMSPrbDef(1 << 2, PT.PACK_OVERVOLTAGE),

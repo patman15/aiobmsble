@@ -137,8 +137,8 @@ class PrbType(StrEnum):
     DISCHARGE_OVERTEMP = auto()
     DISCHARGE_UNDERTEMP = auto()
     MOSFET_OVERTEMP = auto()
-    AMBIENT_OVERTEMP = auto()
-    AMBIENT_UNDERTEMP = auto()
+    SYSTEM_OVERTEMP = auto()
+    SYSTEM_UNDERTEMP = auto()
     LOW_SOC = auto()
     FET_LOCKED = auto()
     FET_FAILURE = auto()
@@ -167,20 +167,21 @@ PROBLEM_DEFAULTS: Final[dict[PrbType, PrbDefault]] = {
     PrbType.CHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
     PrbType.DISCHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Discharge overcurrent"),
     PrbType.SHORT_CIRCUIT: PrbDefault(Severity.PROTECT, "Short circuit"),
-    PrbType.CHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Charge over-temperature"),
-    PrbType.CHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Charge under-temperature"),
-    PrbType.DISCHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Discharge over-temperature"),
-    PrbType.DISCHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Discharge under-temperature"),
-    PrbType.MOSFET_OVERTEMP: PrbDefault(Severity.PROTECT, "MOSFET over-temperature"),
-    PrbType.AMBIENT_OVERTEMP: PrbDefault(Severity.PROTECT, "Ambient over-temperature"),
-    PrbType.AMBIENT_UNDERTEMP: PrbDefault(Severity.PROTECT, "Ambient under-temperature"),
+    PrbType.CHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Charge overtemperature"),
+    PrbType.CHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
+    PrbType.DISCHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Discharge overtemperature"),
+    PrbType.DISCHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Discharge undertemperature"),
+    PrbType.MOSFET_OVERTEMP: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
+    # examples for SYSTEM_*TEMP: ambient, PCB, board, battery temperature. NOT: MOSFET temperature
+    PrbType.SYSTEM_OVERTEMP: PrbDefault(Severity.PROTECT, "System overtemperature"),
+    PrbType.SYSTEM_UNDERTEMP: PrbDefault(Severity.PROTECT, "System undertemperature"),
     PrbType.LOW_SOC: PrbDefault(Severity.WARN, "Low state of charge"),
     PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
-    PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET failure"),
-    PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end failure"),
-    PrbType.CELL_FAILURE: PrbDefault(Severity.FAULT, "Cell failure"),
-    PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor failure"),
-    PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication failure"),
+    PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET"),
+    PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end"),
+    PrbType.CELL_FAILURE: PrbDefault(Severity.FAULT, "Cell"),
+    PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor"),
+    PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication"),
     PrbType.FUSE_BLOWN: PrbDefault(Severity.FAULT, "Fuse blown"),
     PrbType.OTHER: PrbDefault(Severity.WARN, "Other problem"),
     PrbType.UNKNOWN: PrbDefault(Severity.WARN, "Unknown problem"),

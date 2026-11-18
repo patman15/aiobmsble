@@ -47,14 +47,14 @@ class BMS(BaseBMS):
     # alarm event bytes 1..8 are big-endian: event n occupies bits (8-n)*8 .. (8-n)*8+7
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
         # alarm event 1: sensing and switch failures
-        BMSPrbDef(1 << 56, PT.SENSOR_FAILURE, text="Voltage sensing failure"),
-        BMSPrbDef(1 << 57, PT.SENSOR_FAILURE, text="Temperature sensing failure"),
-        BMSPrbDef(1 << 58, PT.SENSOR_FAILURE, text="Current sensing failure"),
-        BMSPrbDef(1 << 59, PT.OTHER, SV.FAULT, text="Key switch failure"),
+        BMSPrbDef(1 << 56, PT.SENSOR_FAILURE, text="Voltage sensing"),
+        BMSPrbDef(1 << 57, PT.SENSOR_FAILURE, text="Temperature sensing"),
+        BMSPrbDef(1 << 58, PT.SENSOR_FAILURE, text="Current sensing"),
+        BMSPrbDef(1 << 59, PT.OTHER, SV.FAULT, text="Key switch"),
         BMSPrbDef(1 << 60, PT.CELL_IMBALANCE, SV.FAULT),
-        BMSPrbDef(1 << 61, PT.FET_FAILURE, text="Charging switch failed"),
-        BMSPrbDef(1 << 62, PT.FET_FAILURE, text="Discharge switch failure"),
-        BMSPrbDef(1 << 63, PT.FET_FAILURE, text="Current limit switch failure"),
+        BMSPrbDef(1 << 61, PT.FET_FAILURE, text="Charging switch"),
+        BMSPrbDef(1 << 62, PT.FET_FAILURE, text="Discharge switch"),
+        BMSPrbDef(1 << 63, PT.FET_FAILURE, text="Current limit switch"),
         # alarm event 2: cell and pack voltage
         BMSPrbDef(1 << 48, PT.CELL_OVERVOLTAGE, SV.WARN),
         BMSPrbDef(1 << 49, PT.CELL_OVERVOLTAGE),
@@ -74,14 +74,14 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 46, PT.DISCHARGE_UNDERTEMP, SV.WARN),
         BMSPrbDef(1 << 47, PT.DISCHARGE_UNDERTEMP),
         # alarm event 4: ambient and power temperature
-        BMSPrbDef(1 << 32, PT.AMBIENT_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 33, PT.AMBIENT_OVERTEMP),
-        BMSPrbDef(1 << 34, PT.AMBIENT_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 35, PT.AMBIENT_UNDERTEMP),
+        BMSPrbDef(1 << 32, PT.SYSTEM_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 33, PT.SYSTEM_OVERTEMP),
+        BMSPrbDef(1 << 34, PT.SYSTEM_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 35, PT.SYSTEM_UNDERTEMP),
         BMSPrbDef(1 << 36, PT.MOSFET_OVERTEMP),
         BMSPrbDef(1 << 37, PT.MOSFET_OVERTEMP, SV.WARN),
         BMSPrbDef(1 << 38, PT.OTHER, SV.INFO, text="Battery core low temperature heating"),
-        BMSPrbDef(1 << 39, PT.OTHER, SV.PROTECT, text="Secondary trip protection"),
+        BMSPrbDef(1 << 39, PT.OTHER, SV.PROTECT, text="Secondary trip"),
         # alarm event 5: current
         BMSPrbDef(1 << 24, PT.CHARGE_OVERCURRENT, SV.WARN),
         BMSPrbDef(1 << 25, PT.CHARGE_OVERCURRENT),
@@ -94,8 +94,8 @@ class BMS(BaseBMS):
         # alarm event 6: charge voltage, capacity and output
         BMSPrbDef(1 << 16, PT.PACK_OVERVOLTAGE, SV.PROTECT, text="Charging over voltage"),
         BMSPrbDef(1 << 17, PT.OTHER, SV.INFO, text="Waiting for intermittent power replenishment"),
-        BMSPrbDef(1 << 18, PT.LOW_SOC, SV.WARN, text="Remaining capacity alarm"),
-        BMSPrbDef(1 << 19, PT.LOW_SOC, SV.PROTECT, text="Remaining capacity"),
+        BMSPrbDef(1 << 18, PT.LOW_SOC, SV.WARN),
+        BMSPrbDef(1 << 19, PT.LOW_SOC, SV.PROTECT),
         BMSPrbDef(
             1 << 20,
             PT.CELL_UNDERVOLTAGE,
@@ -103,13 +103,13 @@ class BMS(BaseBMS):
             text="Battery cell low voltage charging prohibited",
         ),
         BMSPrbDef(1 << 21, PT.OTHER, SV.PROTECT, text="Output reverse polarity"),
-        BMSPrbDef(1 << 22, PT.OTHER, SV.FAULT, text="Output connection failure"),
+        BMSPrbDef(1 << 22, PT.OTHER, SV.FAULT, text="Output connection"),
         # alarm event 7: charging waiting states
         BMSPrbDef(1 << 12, PT.OTHER, SV.INFO, text="Automatic charging waiting"),
         BMSPrbDef(1 << 13, PT.OTHER, SV.INFO, text="Manual charging waiting"),
         # alarm event 8: storage, clock and calibration
-        BMSPrbDef(1 << 0, PT.OTHER, SV.FAULT, text="EEP storage failure"),
-        BMSPrbDef(1 << 1, PT.OTHER, SV.WARN, text="RTC clock failure"),
+        BMSPrbDef(1 << 0, PT.OTHER, SV.FAULT, text="EEP storage"),
+        BMSPrbDef(1 << 1, PT.OTHER, SV.WARN, text="RTC clock"),
         BMSPrbDef(1 << 2, PT.OTHER, SV.WARN, text="Voltage calibration not done"),
         BMSPrbDef(1 << 3, PT.OTHER, SV.WARN, text="Current calibration not done"),
         BMSPrbDef(1 << 4, PT.OTHER, SV.WARN, text="Zero point calibration not done"),

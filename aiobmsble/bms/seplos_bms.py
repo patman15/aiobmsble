@@ -76,18 +76,18 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 45, PT.DISCHARGE_OVERCURRENT, text="Discharge second level overcurrent"),
         BMSPrbDef(1 << 46, PT.SHORT_CIRCUIT),
         # byte 5: residual capacity event code (TB06)
-        BMSPrbDef(1 << 26, PT.LOW_SOC, SV.WARN, text="SOC alarm"),
-        BMSPrbDef(1 << 27, PT.LOW_SOC, SV.PROTECT, text="SOC protection"),
-        BMSPrbDef(1 << 28, PT.CELL_IMBALANCE, SV.WARN, text="Cell difference alarm"),
+        BMSPrbDef(1 << 26, PT.LOW_SOC, SV.WARN),
+        BMSPrbDef(1 << 27, PT.LOW_SOC, SV.PROTECT),
+        BMSPrbDef(1 << 28, PT.CELL_IMBALANCE, SV.WARN, text="Cell difference"),
         # byte 8: hard fault event code (TB15)
-        BMSPrbDef(1 << 0, PT.SENSOR_FAILURE, SV.FAULT, text="NTC fault"),
-        BMSPrbDef(1 << 1, PT.AFE_FAILURE, SV.FAULT),
-        BMSPrbDef(1 << 2, PT.FET_FAILURE, SV.FAULT, text="Charge MOSFET fault"),
-        BMSPrbDef(1 << 3, PT.FET_FAILURE, SV.FAULT, text="Discharge MOSFET fault"),
+        BMSPrbDef(1 << 0, PT.SENSOR_FAILURE, text="NTC"),
+        BMSPrbDef(1 << 1, PT.AFE_FAILURE),
+        BMSPrbDef(1 << 2, PT.FET_FAILURE, text="Charge MOSFET"),
+        BMSPrbDef(1 << 3, PT.FET_FAILURE, text="Discharge MOSFET"),
         BMSPrbDef(1 << 4, PT.CELL_FAILURE),
-        BMSPrbDef(1 << 5, PT.OTHER, SV.FAULT, text="Break line fault"),
-        BMSPrbDef(1 << 6, PT.OTHER, SV.FAULT, text="Key fault"),
-        BMSPrbDef(1 << 7, PT.OTHER, SV.WARN, text="Aerosol alarm"),
+        BMSPrbDef(1 << 5, PT.OTHER, SV.FAULT, text="Break line"),
+        BMSPrbDef(1 << 6, PT.OTHER, SV.FAULT, text="Key"),
+        BMSPrbDef(1 << 7, PT.OTHER, SV.WARN, text="Aerosol"),
     )
     _QUERY: Final[dict[str, tuple[int, int, int]]] = {
         # name: fct, address, count

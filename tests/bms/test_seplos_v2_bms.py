@@ -332,12 +332,12 @@ async def test_invalid_response(
         (
             MockSeplosv2BleakClient.RESP[b"\x00\x46\x61\x00\x01\x00\xf7\xc1"][:101]
             + b"\x00\x00\x02\x00\x00\x00\x00\x00\x00\x02\x00\x00\x06\x49\x0d",
-            0x20000000000,  # Charging over-temp protection
+            0x20000000000,  # Charging overtemp protection
             [
                 BMSProblem(
                     PrbType.CHARGE_OVERTEMP,
                     Severity.PROTECT,
-                    "Charge over-temperature",
+                    "Charge overtemperature",
                 ),
             ],
         ),
@@ -350,7 +350,7 @@ async def test_invalid_response(
             ],
         ),
     ],
-    ids=("all", "over-temp", "high-volt"),
+    ids=("all", "overtemp", "high-volt"),
 )
 async def test_problem_response(
     monkeypatch: pytest.MonkeyPatch,

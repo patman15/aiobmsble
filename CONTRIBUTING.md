@@ -85,7 +85,19 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
 - The BT pattern matcher (`matcher_dict_list()`) shall return patterns unique to the target device to enable reliable auto-detection.
 - Frame parsing shall validate each frame according to the protocol specification (e.g. CRC, length, allowed message types). Invalid frames shall be discarded.
 - All plugin classes shall inherit from `BaseBMS`—directly, or via an existing plugin's `BMS` class when reusing that protocol (see [Deriving from an existing plugin](#deriving-from-an-existing-plugin))—and use its helper methods before overriding or replacing behaviour.
-- Prefer declarative field decoding: describe scalar values with [`BMSDp`](aiobmsble/__init__.py) entries in a `_FIELDS: tuple[BMSDp[BMSValue], ...] ` class attribute and decode them via `BaseBMS._decode_data()` before writing manual parsing. Use per-variant `_FIELDS_*` tuples when the protocol has more than one frame layout.
+- Prefer declarative field decoding: describe scalar values with [`BMSDp`](aiobmsble/__init__.py) entries in a `_FIELDS: tuple[BMSDp[BMSValue], ...]` class attribute and decode them via `BaseBMS._decode_data()` before writing manual parsing. Use per-variant `_FIELDS_*` tuples when the protocol has more than one frame layout.
+- When a protocol reports `problem_code`, add `_PROBLEMS: tuple[BMSPrbDef, ...]` to map
+  protocol fields/bits to stable `PrbType` kinds. Define `_PRB_MASK` for bits that
+  belong to the problem code; keep it positive and ensure every `_PROBLEMS` mask is
+  reachable. Use `1 << n` for bit definitions and keep masks complete for value-coded
+  fields. Do not duplicate the `Severity` in vendor `text`; `BMSProblem.__str__()` adds
+  the level automatically. For example, use `"SOC"` or `"MOSFET under-temperature"`
+  rather than `"SOC protection"` or `"MOSFET under-temperature warning"`.
+- Use the shared `PROBLEM_DEFAULTS` kind and severity unless the protocol specifically
+  establishes a different level. `INFO` is for operating-state notices, `WARN` for
+  limits approached or warnings, `PROTECT` for protection trips, and `FAULT` for
+  hardware/internal failures. A custom text may describe a vendor-specific detail,
+  but it must not contradict the selected kind or severity.
 - If available, data shall be read directly from the device. `BaseBMS._add_missing_values()` is only used to ensure consistent data across all BMS types.
 - Where possible, use the utility functions provided by `BaseBMS` (e.g. `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_check_integrity()`, `_cmd_modbus()`).
 - Tests shall use recorded frames from a real device (stored in `aiobmsble/test_data/`) to allow new parsed values to be added at a later point.

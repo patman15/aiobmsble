@@ -14,11 +14,27 @@ from bleak.backends.service import BleakGATTService
 import pytest
 
 import aiobmsble
+from aiobmsble import PROBLEM_DEFAULTS, BMSProblem, PrbType
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.test_data import bms_advertisements, ignore_advertisements
 from aiobmsble.utils import bms_supported, load_bms_plugins
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
+
+_SEVERITY_WORDS: Final[frozenset[str]] = frozenset(
+    {
+        "warning",
+        "protection",
+        "protect",
+        "protected",
+        "fault",
+        "faulty",
+        "failure",
+        "alarm",
+        "alarmed",
+        "error",
+    }
+)
 
 
 def test_advertisements_unique() -> None:
@@ -180,6 +196,16 @@ def test_problem_definitions() -> None:
                 assert not any(prb_def.mask & mask for mask, value in seen if value is not None), (
                     f"flag overlaps a value coded field\n{where}"
                 )
+            if prb_def.text:
+                assert not any(word in prb_def.text.lower() for word in _SEVERITY_WORDS), (
+                    f"text repeats the severity level, {BMSProblem!s} appends it\n{where}"
+                )
+                default: str = PROBLEM_DEFAULTS[prb_def.kind].text
+                assert sorted(prb_def.text.lower().split()) != sorted(default.lower().split()), (
+                    f"text duplicates the generic text of {prb_def.kind}\n{where}"
+                )
+            if prb_def.kind is PrbType.OTHER:
+                assert prb_def.text, f"OTHER problem requires vendor specific text\n{where}"
 
 
 def test_no_pragma_no_cover() -> None:
