@@ -102,8 +102,8 @@ class TempSensor:
         return float(self.value)
 
     def __hash__(self) -> int:
-        """Hash the TempSensor based on its value and type."""
-        return hash((self.value, self.type))
+        """Hash the TempSensor based on its value (consistent with equality to numbers)."""
+        return hash(self.value)
 
     def __repr__(self) -> str:
         """Return the string representation of the sensor value/type."""
@@ -267,7 +267,7 @@ class BMSSample(BatterySample, total=False):
     heater_current: float  # [A]
     total_charge: int  # [Ah], overall discharged
     pack_count: int  # [#]
-    problem_code: int  # BMS specific code, 0 no problem, max. 64 bit
+    problem_code: int  # BMS specific code, 0 no problem
     problems: list[BMSProblem]  # decoded problem_code, present if plugin defines _PROBLEMS
 
     # BMS switches

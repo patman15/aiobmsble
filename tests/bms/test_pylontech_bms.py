@@ -11,8 +11,7 @@ import pytest
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, Limit, TempSensor as TS, Threshold
 from aiobmsble.bms.pylontech_bms import BMS
-from aiobmsble.test_data import adv_dict_to_advdata
-from aiobmsble.utils import _advertisement_matches
+from aiobmsble.utils import _advertisement_matches, adv_dict_to_advdata
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests

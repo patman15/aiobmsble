@@ -593,7 +593,7 @@ class BaseBMS(ABC):
                     data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)
                 self._add_missing_values(data, self._raw_values())
 
-            if not self._cfg.keep_alive:
+            if not keep_alive:
                 # disconnect after data update to force reconnect next time (slow!)
                 self._log.debug("forced disconnect of BMS after update")
                 await self.disconnect()

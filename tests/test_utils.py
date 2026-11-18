@@ -8,10 +8,11 @@ import pytest
 
 from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.test_data import BmsAdvSample, adv_dict_to_advdata, bms_advertisements
+from aiobmsble.test_data import BmsAdvSample, bms_advertisements
 from aiobmsble.utils import (
     StreamParser,
     _advertisement_matches,
+    adv_dict_to_advdata,
     bms_cls,
     bms_identify,
     load_bms_plugins,

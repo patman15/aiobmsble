@@ -19,8 +19,7 @@ from bleak.exc import BleakError
 
 from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, __version__
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.test_data import adv_dict_to_advdata
-from aiobmsble.utils import bms_identify
+from aiobmsble.utils import adv_dict_to_advdata, bms_identify
 
 _MIN_RSSI: Final[int] = -75
 

@@ -16,7 +16,7 @@ import pytest
 from aiobmsble import BMSConfig, BMSSample
 import aiobmsble.__main__ as main_mod
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
-from aiobmsble.test_data import adv_dict_to_advdata
+from aiobmsble.utils import adv_dict_to_advdata
 
 
 async def mock_discover(

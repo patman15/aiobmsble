@@ -2,7 +2,8 @@
 
 from bleak.backends.scanner import AdvertisementData
 
-from aiobmsble.test_data import adv_dict_to_advdata, bms_advertisements, ignore_advertisements
+from aiobmsble.test_data import bms_advertisements, ignore_advertisements
+from aiobmsble.utils import adv_dict_to_advdata
 
 
 def test_test_data_availability() -> None:

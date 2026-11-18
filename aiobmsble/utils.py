@@ -10,8 +10,9 @@ from functools import cache
 import importlib
 import pkgutil
 import re
+from string import hexdigits
 from types import ModuleType
-from typing import Final
+from typing import Any, Final
 
 from bleak.backends.scanner import AdvertisementData
 
@@ -20,6 +21,43 @@ from aiobmsble.basebms import BaseBMS
 import aiobmsble.bms
 
 _MODULE_POSTFIX: Final[str] = "_bms"
+
+
+def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
+    """Generate an AdvertisementData instance from a JSON dictionary."""
+    advertisement_data_defaults: Final[dict[str, Any]] = {
+        "local_name": None,
+        "manufacturer_data": {},
+        "service_data": {},
+        "service_uuids": [],
+        "rssi": -127,
+        "platform_data": ((),),
+        "tx_power": None,
+    }
+
+    val_dict: dict[str, Any] = adv_dict.copy()
+    if "manufacturer_data" in adv_dict:
+        val_dict["manufacturer_data"] = {
+            int(k): bytes.fromhex(v) if isinstance(v, str) else v
+            for k, v in adv_dict["manufacturer_data"].items()
+        }
+    if "service_data" in adv_dict:
+        val_dict["service_data"] = {
+            k: bytes.fromhex(v) if isinstance(v, str) else v
+            for k, v in adv_dict["service_data"].items()
+        }
+    if "platform_data" in adv_dict:
+        pdata = adv_dict.get("platform_data", [])
+        assert isinstance(
+            pdata[0], str
+        ), "first entry of platform_data needs to be string."
+        parts = pdata[0].split(":")
+        assert len(parts) == 6 and all(
+            len(part) == 2 and all(c in hexdigits for c in part) for part in parts
+        ), "first entry of platform_data only accepts MAC addresses"
+        val_dict["platform_data"] = tuple(pdata)
+
+    return AdvertisementData(**(advertisement_data_defaults | val_dict))
 
 
 def _advertisement_matches(
@@ -179,11 +217,11 @@ async def bms_identify(
     return matching_bms[0] if matching_bms else None
 
 
-def bms_supported(bms: BaseBMS, adv_data: AdvertisementData, mac_addr: str) -> bool:
+def bms_supported(bms: type[BaseBMS], adv_data: AdvertisementData, mac_addr: str) -> bool:
     """Determine if the given BMS is supported based on advertisement data.
 
     Args:
-        bms (BaseBMS): The BMS class to check.
+        bms (type[BaseBMS]): The BMS class to check.
         adv_data (AdvertisementData): The advertisement data to match against.
         mac_addr (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
@@ -206,9 +244,9 @@ class StreamParser:
         """Initialize parser with specified control characters.
 
         Args:
-            DLE (bytes): Data Link Escape character used for escaping control characters in the stream.
-            STX (bytes): Start of Text character indicating the beginning of a frame in the stream.
-            ETX (bytes): ETX character indicating the end of a frame in the stream.
+            DLE (int): Data Link Escape character used for escaping control characters in the stream.
+            STX (int): Start of Text character indicating the beginning of a frame in the stream.
+            ETX (int): ETX character indicating the end of a frame in the stream.
 
         """
         self.DLE: Final[int] = DLE
