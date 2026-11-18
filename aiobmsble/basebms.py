@@ -883,6 +883,25 @@ def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
     return problems
 
 
+def problem_levels(problems: Iterable[BMSProblem]) -> dict[PrbType, Severity]:
+    """Reduce decoded problems to the worst severity per problem type.
+
+    A BMS can report the same problem type more than once, e.g. as warning and as
+    protection. Consumers that track one level per type can use this reduction.
+
+    Args:
+        problems: decoded problems, e.g. `BMSSample["problems"]`
+
+    Returns:
+        dict[PrbType, Severity]: worst level of each reported problem type
+
+    """
+    levels: dict[PrbType, Severity] = {}
+    for problem in problems:
+        levels[problem.kind] = max(problem.level, levels.get(problem.kind, Severity.OK))
+    return levels
+
+
 def b2str(b: bytes) -> str:
     """Decode a bytearray to string, stopping at the first non-printable character."""
     s: Final[str] = b.decode("ascii", errors="ignore")
