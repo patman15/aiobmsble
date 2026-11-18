@@ -13,7 +13,15 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 from bleak_retry_connector import BLEAK_TIMEOUT
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    BMSValue,
+    MatcherPattern,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import BaseBMS
 
 
@@ -35,7 +43,7 @@ class BMS(BaseBMS):
     ALIVE_INTERVAL: float | None = 24.0  # seconds
     _GATHER_TIMEOUT: Final[float] = BLEAK_TIMEOUT
     _UUID_SLC: Final[slice] = slice(4, 8)
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100, 0x2),
         BMSDp(
             "current",

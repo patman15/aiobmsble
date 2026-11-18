@@ -18,6 +18,7 @@ from aiobmsble import (
     BMSLimits,
     BMSPrbDef,
     BMSSample,
+    BMSValue,
     Limit,
     LimitDp,
     MatcherPattern,
@@ -114,7 +115,7 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 4, PT.OTHER, SV.WARN, text="Zero point calibration not done"),
         BMSPrbDef(1 << 5, PT.OTHER, SV.WARN, text="Perpetual calendar not synchronized"),
     )
-    _PFIELDS: Final[tuple[BMSDp, ...]] = (  # Seplos V2: single machine data
+    _PFIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (  # Seplos V2: single machine data
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),
         BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 100),  # /10 for 0x62

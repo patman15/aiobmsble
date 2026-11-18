@@ -14,7 +14,15 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    BMSValue,
+    MatcherPattern,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import BaseBMS
 
 
@@ -26,7 +34,7 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 4
     _MIN_LEN: Final[int] = 5  # minimum length (SOF+type+16bit)
     _VALID_RSP: Final[frozenset[int]] = frozenset({0x0, 0x2, 0x3, 0x10, 0x43})
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000, 0x2),
         BMSDp("design_capacity", 11, 2, False, lambda x: x, 0x2),
         BMSDp("voltage", 13, 2, False, lambda x: x / 1000, 0x2),

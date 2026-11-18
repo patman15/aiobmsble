@@ -16,6 +16,7 @@ from aiobmsble import (
     BMSInfo,
     BMSLimits,
     BMSSample,
+    BMSValue,
     Limit,
     LimitDp,
     MatcherPattern,
@@ -34,7 +35,7 @@ class BMS(BaseBMS):
     # Contiguous block 0x1023-0x1024 = 2 registers (charge voltage / discharge cutoff)
     _LIMIT_BLOCK: Final[tuple[int, int]] = (0x1023, 2)
 
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("voltage", 0, 2, False, lambda x: x / 100),
         BMSDp("current", 2, 2, True, lambda x: x / 10),
         BMSDp("battery_level", 12, 2, False),

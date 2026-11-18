@@ -19,7 +19,7 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"manufacturer": "Super-B", "model": "Epsilon v2"}
     _NOTIFY_CHAR: Final[str] = "e0fef452-9d2b-4005-a1e3-69fe1102b436"
     _FRAME_LEN: Final[int] = 24
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("current", 6, 4, True, lambda x: x / 1000, 0x2),
         BMSDp("voltage", 10, 2, False, lambda x: x / 1000, 0x2),
         BMSDp("battery_level", 1, 1, False, idx=0x0),

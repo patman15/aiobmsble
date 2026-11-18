@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -22,7 +22,7 @@ class BMS(BaseBMS):
     _MIN_FRAME_LEN: Final[int] = 7  # min frame length, including SOF and CRC
     _MAX_TEMP: Final[int] = 10
     _MAX_CELLS: Final[int] = 20
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("current", 5, 4, True, lambda x: x / 100),
         BMSDp("voltage", 9, 4, False, lambda x: x / 100),
         BMSDp("battery_level", 13, 2, False),

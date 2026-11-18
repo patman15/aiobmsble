@@ -11,7 +11,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -20,7 +20,7 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"manufacturer": "Super-B", "model": "Epsilon"}
     _INFO_LEN: Final[int] = 20
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("battery_level", 2, 1, False),
         BMSDp("battery_health", 3, 1, False),
         BMSDp("runtime", 4, 4, False, int),

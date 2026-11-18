@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.utils import StreamParser
 
@@ -45,7 +45,7 @@ class BMS(BaseBMS):
         "model": "MyVolta BLE HW",
     }
     _PRB_MASK: Final[int] = 0xFF00FFFF  # mask to extract problem code (byte 3 unused)
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("voltage", 0, 2, False, lambda x: x / 1000, MsgT.METRICS),
         BMSDp("current", 2, 2, True, lambda x: x / 100, MsgT.METRICS),
         BMSDp("battery_level", 6, 2, False, lambda x: x / 10, MsgT.METRICS),

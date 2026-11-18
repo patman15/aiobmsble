@@ -55,7 +55,7 @@ type BMSValue = CommonValue | Literal[
     "heater",
 ]
 
-type BMSpackvalue = CommonValue
+type BMSPackValue = CommonValue
 
 
 class BMSMode(IntEnum):
@@ -279,21 +279,10 @@ class BMSSample(BatterySample, total=False):
     packs: list[PackSample]  # data from battery sub-systems
 
 
-class BMSDp(NamedTuple):
+class BMSDp[K: (BMSValue, BMSPackValue)](NamedTuple):
     """Representation of main BMS data point."""
 
-    key: BMSValue
-    pos: int  # position within the message
-    size: int  # size in bytes
-    signed: bool  # signed value
-    fct: Callable[[int], Any] = lambda x: x  # conversion function (default do nothing)
-    idx: int = -1  # array index containing the message to be parsed
-
-
-class BMSPDp(NamedTuple):
-    """Representation of pack data point."""
-
-    key: BMSpackvalue
+    key: K
     pos: int  # position within the message
     size: int  # size in bytes
     signed: bool  # signed value

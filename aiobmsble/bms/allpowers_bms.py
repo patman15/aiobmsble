@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS
 
 
@@ -30,7 +30,7 @@ class BMS(BaseBMS):
     # Sentinel value meaning "no discharge runtime available" (charging or idle)
     _RUNTIME_NONE: Final[int] = 0xFFFF
 
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & BMS._FLAG_AC)),
         BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & BMS._FLAG_DC)),
         BMSDp("battery_level", 8, 1, False),

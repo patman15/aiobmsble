@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS
 
 
@@ -30,7 +30,7 @@ class BMS(BaseBMS):
     # command that triggers data streaming (fct. 0x43)
     _CMD_TRIGGER_DATA: Final[bytes] = b"\x09\x01\x01\x55\x80\x43\x00\x00\x12\x00\x84"
 
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("voltage", 8, 2, False, lambda x: x / 100),
         BMSDp(
             "current",

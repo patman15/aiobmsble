@@ -19,6 +19,7 @@ from aiobmsble import (
     BMSMode,
     BMSPrbDef,
     BMSSample,
+    BMSValue,
     MatcherPattern,
     PrbType as PT,
     Severity as SV,
@@ -37,7 +38,7 @@ class BMS(BaseBMS):
     _BT_MODULE_MSG: Final = b"\x41\x54\x0d\x0a"  # AT\r\n from BLE module
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _INFO_LEN: Final[int] = 300
-    _FIELDS: Final[tuple[BMSDp, ...]] = (  # Protocol: JK02_32S; JK02_24S has offset -32
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (  # Protocol: JK02_32S; JK02_24S has offset -32
         BMSDp("voltage", 150, 4, False, lambda x: x / 1000),
         BMSDp("current", 158, 4, True, lambda x: x / 1000),
         BMSDp("problem_code", 166, 4, False),

@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -22,7 +22,7 @@ class BMS(BaseBMS):
     _HEAD: Final[tuple[bytes, ...]] = (b"\xa1", b"\xa2")
     _CELL_POS: Final[int] = 14
     _TEMP_POS: Final[int] = 80
-    _FIELDS_V1: Final[tuple[BMSDp, ...]] = (
+    _FIELDS_V1: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("battery_level", 16, 2, False, idx=0xA1),
         BMSDp("battery_health", 18, 2, False, idx=0xA1),
         BMSDp("voltage", 20, 2, False, lambda x: x / 100, 0xA1),
@@ -33,7 +33,7 @@ class BMS(BaseBMS):
         BMSDp("temp_count", _TEMP_POS, 2, False, idx=0xA2),
         # ("cycles", 0xA1, 8, 2, False,
     )
-    _FIELDS_V2: Final[tuple[BMSDp, ...]] = tuple(
+    _FIELDS_V2: Final[tuple[BMSDp[BMSValue], ...] ] = tuple(
         BMSDp(
             *field[:-2],
             (lambda x: x / 10) if field.key == "current" else field.fct,

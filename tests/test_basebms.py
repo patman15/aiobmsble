@@ -1167,7 +1167,7 @@ def test_temperature(
     ],
 )
 def test_decode_data(
-    fields: tuple[BMSDp, ...],
+    fields: tuple[BMSDp[BMSValue], ...] ,
     data: bytes | dict[int, bytes],
     byteorder: Literal["little", "big"],
     start: int,

@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.bms.topband_bms import BMS as TopbandBMS
 
 
@@ -20,7 +20,7 @@ class BMS(TopbandBMS):
     """PowerXtreme BMS implementation."""
 
     INFO: BMSInfo = {"manufacturer": "PowerXtreme", "model": "smart BMS"}
-    FIELDS: tuple[BMSDp, ...] = tuple(
+    FIELDS: tuple[BMSDp[BMSValue], ...]  = tuple(
         f._replace(fct=lambda x: x / 10) if f.key == "current" else f
         for f in TopbandBMS.FIELDS
     )

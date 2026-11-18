@@ -32,7 +32,7 @@ from aiobmsble import (
     BMSDp,
     BMSInfo,
     BMSLimits,
-    BMSPDp,
+    BMSPackValue,
     BMSPrbDef,
     BMSProblem,
     BMSSample,
@@ -629,7 +629,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSDp, ...],
+        fields: tuple[BMSDp[BMSValue], ...] ,
         data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",
@@ -679,7 +679,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_pack(
-        fields: tuple[BMSPDp, ...],
+        fields: tuple[BMSDp[BMSPackValue], ...] ,
         data: bytes,
         *,
         byteorder: Literal["little", "big"] = "big",

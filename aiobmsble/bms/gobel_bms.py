@@ -9,7 +9,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -37,7 +37,7 @@ class BMS(BaseBMS):
         0x0023,  # 35 registers
     )
 
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("current", 0, 2, True, lambda x: x / 100),
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),
         BMSDp("battery_level", 4, 2, False),

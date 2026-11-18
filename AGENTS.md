@@ -166,7 +166,7 @@ A typical plugin contains:
    when reusing an existing protocol (see "Deriving from an existing plugin").
 3. An `INFO` mapping with default manufacturer and model information.
 4. Protocol constants annotated with `Final`.
-5. A `_FIELDS: tuple[BMSDp, ...]` class variable (`Final` where possible)
+5. A `_FIELDS: tuple[BMSDp[BMSValue], ...] ` class variable (`Final` where possible)
    containing the `BMSDp` entries used for declarative field decoding. Define
    multiple `_FIELDS_*` variants, or an equivalent per-variant structure (see
    `daly_bms.py`), when the protocol has more than one frame layout.
@@ -217,7 +217,7 @@ For line-oriented or tag-oriented protocols, keep the line parsing in
 `_notification_handler()` rather than introducing a separate `_process_line()`
 pass-through. Store parsed lines in a `_msg` dictionary keyed by the line's
 identifier when multiple line types contribute to one update. Define a
-`_FIELDS: tuple[BMSDp, ...]` for the fields that can be declaratively decoded,
+`_FIELDS: tuple[BMSDp[BMSValue], ...] ` for the fields that can be declaratively decoded,
 and use `BaseBMS._decode_data()` in `_async_update()`; only retain custom
 parsing for values or framing that `BMSDp` cannot represent.
 

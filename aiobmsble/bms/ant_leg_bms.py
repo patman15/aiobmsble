@@ -19,6 +19,7 @@ from aiobmsble import (
     BMSInfo,
     BMSPrbDef,
     BMSSample,
+    BMSValue,
     MatcherPattern,
     PrbType as PT,
     Severity as SV,
@@ -47,7 +48,7 @@ class BMS(BaseBMS):
     _RSP_STAT: Final[int] = 0xFF
     _RSP_STAT_LEN: Final[int] = 140
 
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 10),
         BMSDp("current", 70, 4, True, lambda x: x / -10),
         BMSDp("battery_level", 74, 1, False),

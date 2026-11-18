@@ -14,7 +14,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
 
 
@@ -49,7 +49,7 @@ class BMS(BaseBMS):
         cmds: tuple[BMS._dcmd, ...]
         info: BMS._dcmd
         mos: BMS._dcmd | None
-        fields: tuple[BMSDp, ...]
+        fields: tuple[BMSDp[BMSValue], ...]
 
     _PROTOS: Final[dict[Proto, BMS._ProtoDef]] = {
         Proto.D2: _ProtoDef(

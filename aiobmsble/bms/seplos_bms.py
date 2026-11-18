@@ -16,9 +16,10 @@ from aiobmsble import (
     BMSDp,
     BMSInfo,
     BMSLimits,
-    BMSPDp,
+    BMSPackValue,
     BMSPrbDef,
     BMSSample,
+    BMSValue,
     Limit,
     LimitDp,
     MatcherPattern,
@@ -98,7 +99,7 @@ class BMS(BaseBMS):
         "PIA": (0x4, 0x1000, _PIA_LEN),
         "PIB": (0x4, 0x1100, _PIB_LEN),
     }
-    _FIELDS: Final[tuple[BMSDp, ...]] = (  # Protocol Seplos V3
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (  # Protocol Seplos V3
         BMSDp("voltage", 0, 4, False, lambda x: swap32(x) / 100, _EIA_LEN),
         BMSDp("current", 4, 4, True, lambda x: swap32(x, True) / 10, _EIA_LEN),
         BMSDp("cycle_charge", 8, 4, False, lambda x: swap32(x) / 100, _EIA_LEN),
@@ -113,14 +114,14 @@ class BMS(BaseBMS):
         BMSDp("heater", 7, 1, False, lambda x: bool(x & 8), _EIC_LEN),
         BMSDp("balancer", 7, 1, False, lambda x: bool(x & 4), _EIC_LEN),  # limit FET
     )
-    _PFIELDS: Final[tuple[BMSPDp, ...]] = (
-        BMSPDp("voltage", 0, 2, False, lambda x: x / 100),
-        BMSPDp("current", 2, 2, True, lambda x: x / 100),
-        BMSPDp("cycle_charge", 4, 2, False, lambda x: x / 100),
-        BMSPDp("design_capacity", 6, 2, False, lambda x: x // 100),
-        BMSPDp("battery_level", 10, 2, False, lambda x: x / 10),
-        BMSPDp("battery_health", 12, 2, False, lambda x: x / 10),
-        BMSPDp("cycles", 14, 2, False, lambda x: x),
+    _PFIELDS: Final[tuple[BMSDp[BMSPackValue], ...] ] = (
+        BMSDp("voltage", 0, 2, False, lambda x: x / 100),
+        BMSDp("current", 2, 2, True, lambda x: x / 100),
+        BMSDp("cycle_charge", 4, 2, False, lambda x: x / 100),
+        BMSDp("design_capacity", 6, 2, False, lambda x: x // 100),
+        BMSDp("battery_level", 10, 2, False, lambda x: x / 10),
+        BMSDp("battery_health", 12, 2, False, lambda x: x / 10),
+        BMSDp("cycles", 14, 2, False, lambda x: x),
     )
     # SPA register offsets: byte position = 2 * (register - 0x1300)
     _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = (

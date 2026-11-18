@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from typing import Final
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
 from aiobmsble.bms.vatrer_bms import BMS as VatrerBMS
 
 
@@ -18,7 +18,7 @@ class BMS(VatrerBMS):
     _REG_COUNT: Final[int] = 0x46  # 70 holding registers polled in one request
 
     # BMSDp(key, pos, size, signed, fct, idx); pos/idx documented in docs/c4s_bms.md
-    _FIELDS: tuple[BMSDp, ...] = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...]  = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 100),
         BMSDp("current", 5, 4, True, lambda x: x / 100),
         BMSDp("battery_level", 9, 2, False),

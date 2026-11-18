@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, lrc_modbus
 
 
@@ -29,7 +29,7 @@ class BMS(BaseBMS):
     _MAX_LEN: Final[int] = 255
     _CELL_POS: Final[int] = 6
 
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("voltage", 2, 2, False, lambda x: x / 10),
         BMSDp("current", 0, 2, True, lambda x: x / 10),
         BMSDp("battery_level", 4, 2, False, lambda x: min(x, 100)),

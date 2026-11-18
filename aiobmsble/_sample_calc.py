@@ -10,7 +10,7 @@ from functools import lru_cache
 from statistics import fmean
 from typing import Any, Final, cast, get_type_hints
 
-from aiobmsble import BMSpackvalue, BMSSample, BMSValue, CommonValue, PackSample
+from aiobmsble import BMSPackValue, BMSSample, BMSValue, CommonValue, PackSample
 
 _HRS_TO_SECS: Final[int] = 60 * 60
 
@@ -201,7 +201,7 @@ def _apply_calculations(
 # --------------------------------------------------------------------------- #
 # Pack aggregation
 # --------------------------------------------------------------------------- #
-_PACK_AGGREGATES: Final[dict[BMSpackvalue, Callable[[list[Any]], Any]]] = {
+_PACK_AGGREGATES: Final[dict[BMSPackValue, Callable[[list[Any]], Any]]] = {
     "battery_health": min,
     "current": lambda v: round(sum(v), 3),
     "cycle_charge": lambda v: round(sum(v), 3),
@@ -221,7 +221,7 @@ def _aggregate_packs(data: BMSSample, packs: list[PackSample]) -> None:
     def _can_calc(key: CommonValue) -> bool:
         return key not in data and all(key in pack for pack in packs)
 
-    def _pvalues(key: BMSpackvalue) -> list[Any]:
+    def _pvalues(key: BMSPackValue) -> list[Any]:
         return [pack.get(key, 0) for pack in packs]
 
     if _can_calc("cell_count") and len(set(counts := _pvalues("cell_count"))) == 1:

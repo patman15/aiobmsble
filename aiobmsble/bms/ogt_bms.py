@@ -11,7 +11,15 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSSample,
+    BMSValue,
+    MatcherPattern,
+    TempSensor as TS,
+)
 from aiobmsble.basebms import BaseBMS
 
 
@@ -22,7 +30,7 @@ class BMS(BaseBMS):
     # magic crypt sequence of length 16
     _CRY_SEQ: Final[tuple[int, ...]] = (2, 5, 4, 3, 1, 4, 1, 6, 8, 3, 7, 2, 5, 8, 9, 3)
     # Fields for type A: register -> BMSDp
-    _FIELDS_A: Final[tuple[BMSDp, ...]] = (
+    _FIELDS_A: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("battery_level", 0, 1, False, idx=2),
         BMSDp("cycle_charge", 0, 3, False, lambda x: x / 1000, 4),
         BMSDp("voltage", 0, 2, False, lambda x: x / 1000, 8),
@@ -33,7 +41,7 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 0, 3, False, lambda x: x // 1000, 60),
     )
     # Fields for type B: register -> BMSDp
-    _FIELDS_B: Final[tuple[BMSDp, ...]] = (
+    _FIELDS_B: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("temperature", 0, 2, False, lambda x: [TS(round(x / 10 - 273.15, 3))], 8),
         BMSDp("voltage", 0, 2, False, lambda x: x / 1000, 9),
         BMSDp("current", 0, 3, False, lambda x: x / 1000, 10),
@@ -73,7 +81,7 @@ class BMS(BaseBMS):
         )
         self._exp_reply: int = 0x0
         self._response: BMS._Response = BMS._Response(0, 0)
-        self._fields: tuple[BMSDp, ...] = (
+        self._fields: tuple[BMSDp[BMSValue], ...]  = (
             BMS._FIELDS_A if self._type == "A" else BMS._FIELDS_B if self._type == "B" else ()
         )
         self._header: str = "+RAA" if self._type == "A" else "+R16" if self._type == "B" else ""

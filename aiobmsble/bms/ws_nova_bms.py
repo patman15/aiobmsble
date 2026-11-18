@@ -12,7 +12,16 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSPrbDef, BMSSample, MatcherPattern, PrbType as PT
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPrbDef,
+    BMSSample,
+    BMSValue,
+    MatcherPattern,
+    PrbType as PT,
+)
 from aiobmsble.basebms import BaseBMS, b2str
 
 
@@ -23,7 +32,7 @@ class BMS(BaseBMS):
     _HEAD: Final[bytes] = b"\x3a"  # beginning of frame
     _TAIL: Final[bytes] = b"\x7e"  # end of frame
     _MIN_LEN: Final[int] = 238  # heater*2 + tail
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp(
             "current",
             10,

@@ -10,7 +10,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
 from aiobmsble.basebms import BaseBMS, crc_modbus
 
 
@@ -25,7 +25,7 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 16
     _MAX_TEMPS: Final[int] = 6
     _BLOCKS: Final[tuple[int, ...]] = (0x0000, 0x0020, 0x0030)  # used as message index in _FIELDS
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("voltage", 0x08 * 2, 2, False, lambda x: x / 10, 0x20),
         BMSDp("current", 0x09 * 2, 2, False, lambda x: (30000 - x) / 10, 0x20),
         BMSDp("battery_level", 0x0A * 2, 2, False, lambda x: x / 10, 0x20),

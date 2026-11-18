@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from typing import Final
 
-from aiobmsble import BMSDp, BMSInfo, MatcherPattern, TempSensor as TS
+from aiobmsble import BMSDp, BMSInfo, BMSValue, MatcherPattern, TempSensor as TS
 from aiobmsble.basebms import b2str, swap32
 from aiobmsble.bms.jbd_bms import BMS as JBDBMS
 
@@ -18,7 +18,7 @@ class BMS(JBDBMS):
     _VALID_CMD: frozenset[int] = frozenset({0x03, 0x04, 0x05, 0x08, 0xFF})
     _MAX_TEMP_COUNT: Final[int] = 4
     _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4 + (TS.T.MOSFET, TS.T.AMBIENT)
-    _FIELDS: tuple[BMSDp, ...] = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...]  = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),

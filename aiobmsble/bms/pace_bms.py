@@ -16,8 +16,9 @@ from aiobmsble import (
     BMSConfig,
     BMSDp,
     BMSInfo,
-    BMSPDp,
+    BMSPackValue,
     BMSSample,
+    BMSValue,
     MatcherPattern,
     PackSample,
     TempSensor,
@@ -47,7 +48,7 @@ class BMS(BaseBMS):
     _HWV_POS: Final[int] = 65
     _SWV_POS: Final[int] = 10
     _SYS_TEMP_POS: Final[int] = 53  # max/min cell temperature in 0x0a00 reply
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("current", 1, 4, True, lambda x: x / 100),
         BMSDp("voltage", 5, 4, False, lambda x: x / 100),
         BMSDp("cycle_charge", 9, 4, False, lambda x: x / 100),
@@ -57,14 +58,14 @@ class BMS(BaseBMS):
         BMSDp("pack_count", 0, 1, False),
         BMSDp("cycles", 23, 4, False),
     )
-    _PFIELDS: Final[tuple[BMSPDp, ...]] = (  # pack values, 0x0a01 reply
-        BMSPDp("current", 1, 2, True, lambda x: x / 100),
-        BMSPDp("voltage", 3, 2, False, lambda x: x / 100),
-        BMSPDp("cycle_charge", 5, 2, False, lambda x: x / 100),
-        BMSPDp("design_capacity", 9, 2, False, lambda x: x // 100),
-        BMSPDp("battery_level", 11, 1, False),
-        BMSPDp("battery_health", 12, 1, False),
-        BMSPDp("cycles", 13, 2, False),
+    _PFIELDS: Final[tuple[BMSDp[BMSPackValue], ...] ] = (  # pack values, 0x0a01 reply
+        BMSDp("current", 1, 2, True, lambda x: x / 100),
+        BMSDp("voltage", 3, 2, False, lambda x: x / 100),
+        BMSDp("cycle_charge", 5, 2, False, lambda x: x / 100),
+        BMSDp("design_capacity", 9, 2, False, lambda x: x // 100),
+        BMSDp("battery_level", 11, 1, False),
+        BMSDp("battery_health", 12, 1, False),
+        BMSDp("cycles", 13, 2, False),
     )
 
     def __init__(

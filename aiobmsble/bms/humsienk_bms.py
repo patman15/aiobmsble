@@ -18,6 +18,7 @@ from aiobmsble import (
     BMSLimits,
     BMSPrbDef,
     BMSSample,
+    BMSValue,
     Limit,
     LimitDp,
     MatcherPattern,
@@ -41,7 +42,7 @@ class BMS(BaseBMS):
     _PRB_MASK: Final[int] = (
         0xFF7F7F7F  # bits 7, 15, 23 are chrg FET, heater, dischrg FET
     )
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("voltage", 3, 4, False, lambda x: x / 1000, 0x21),
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),
         BMSDp("battery_level", 11, 1, False, idx=0x21),

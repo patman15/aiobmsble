@@ -17,6 +17,7 @@ from aiobmsble import (
     BMSInfo,
     BMSPrbDef,
     BMSSample,
+    BMSValue,
     MatcherPattern,
     PrbType as PT,
     TempSensor as TS,
@@ -39,7 +40,7 @@ class BMS(BaseBMS):
     _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
     _POS_SWVER: Final[int] = 22  # position of SW version
     _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4
-    _FIELDS: tuple[BMSDp, ...] = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...]  = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),
@@ -53,7 +54,7 @@ class BMS(BaseBMS):
         BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
         BMSDp("temp_count", 26, 1, False),  # count is not limited
     )  # general protocol v4
-    _FIELDS_D10: tuple[BMSDp, ...] = (
+    _FIELDS_D10: tuple[BMSDp[BMSValue], ...]  = (
         BMSDp("current", 6, 2, True, lambda x: x / 10),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 10),
         BMSDp("design_capacity", 10, 2, False, lambda x: x // 10),

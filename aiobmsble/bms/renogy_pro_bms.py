@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, MatcherPattern
+from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSValue, MatcherPattern
 from aiobmsble.bms.renogy_bms import BMS as RenogyBMS
 
 
@@ -17,7 +17,7 @@ class BMS(RenogyBMS):
 
     INFO: BMSInfo = {"manufacturer": "Renogy", "model": "BT battery pro"}
     _HEAD: bytes = b"\xff\x03"  # SOP, read fct (x03)
-    FIELDS: tuple[BMSDp, ...] = (
+    FIELDS: tuple[BMSDp[BMSValue], ...]  = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),
         BMSDp("current", 3, 2, True, lambda x: x / 10),
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),

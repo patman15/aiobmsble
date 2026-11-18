@@ -16,6 +16,7 @@ from aiobmsble import (
     BMSInfo,
     BMSPrbDef,
     BMSSample,
+    BMSValue,
     MatcherPattern,
     PrbType as PT,
     Severity as SV,
@@ -33,7 +34,7 @@ class BMS(BaseBMS):
     _CELL_POS: Final[int] = 3
     _MIN_LEN: Final[int] = 5
     _PRB_MASK: Final[int] = ~((0xE << 16) | (0xFF << 8))
-    FIELDS: tuple[BMSDp, ...] = (
+    FIELDS: tuple[BMSDp[BMSValue], ...]  = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),
         BMSDp("current", 3, 2, True, lambda x: x / 100),
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),

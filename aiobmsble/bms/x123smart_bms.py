@@ -17,6 +17,7 @@ from aiobmsble import (
     BMSInfo,
     BMSLimits,
     BMSSample,
+    BMSValue,
     Limit,
     LimitDp,
     MatcherPattern,
@@ -36,7 +37,7 @@ class BMS(BaseBMS):
     ALIVE_INTERVAL = 1.0  # s, keep-alive poll rate (app uses 330 ms)
     _CR: Final[bytes] = b"\r"
     _SEP: Final[bytes] = b"_"
-    _FIELDS: tuple[BMSDp, ...] = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...]  = (
         BMSDp("voltage", 1, 1, False, lambda x: x * BMS._V_SCALE, ord("U") << 8),
         BMSDp("current", 3, 1, False, lambda x: x * 0.05, ord("U") << 8),
         BMSDp("battery_level", 4, 1, False, idx=ord("E") << 8),
@@ -247,7 +248,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSDp, ...],
+        fields: tuple[BMSDp[BMSValue], ...] ,
         data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",

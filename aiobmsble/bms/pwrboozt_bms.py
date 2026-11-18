@@ -10,7 +10,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSPrbDef, BMSSample, MatcherPattern, PrbType as PT
+from aiobmsble import BMSDp, BMSInfo, BMSPrbDef, BMSSample, BMSValue, MatcherPattern, PrbType as PT
 from aiobmsble.basebms import crc_sum
 
 from .ej_bms import BMS as EJBMS
@@ -20,7 +20,7 @@ class BMS(EJBMS):
     """PowerBoozt battery implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Powerboozt", "model": "battery"}
-    _FIELDS: tuple[BMSDp, ...] = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...]  = (
         BMSDp("battery_charging", 45, 1, False, lambda x: bool(x & 0x1)),
         BMSDp("battery_level", 69, 1, False),
         BMSDp("current", 54, 4, True, lambda x: (x & 0x7FFFFFFF) * (-1 if (x >> 31) else 1) / 1000),
