@@ -44,14 +44,14 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 18, 1, False),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(1 << 0, PT.CHARGE_OVERTEMP, text="Charging overtemperature"),
-        BMSPrbDef(1 << 1, PT.DISCHARGE_OVERTEMP, text="Discharging overtemperature"),
-        BMSPrbDef(1 << 2, PT.CHARGE_UNDERTEMP, text="Charging undertemperature"),
-        BMSPrbDef(1 << 3, PT.DISCHARGE_UNDERTEMP, text="Discharging undertemperature"),
-        BMSPrbDef(1 << 4, PT.DISCHARGE_OVERCURRENT, text="Discharging overcurrent"),
-        BMSPrbDef(1 << 5, PT.CHARGE_OVERCURRENT, text="Charging overcurrent"),
-        BMSPrbDef(1 << 6, PT.PACK_UNDERVOLTAGE, text="Undervoltage"),
-        BMSPrbDef(1 << 7, PT.PACK_OVERVOLTAGE, text="Overvoltage"),
+        BMSPrbDef(1 << 0, PT.CHARGE_OVERTEMP),
+        BMSPrbDef(1 << 1, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(1 << 2, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 3, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 4, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 5, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 6, PT.PACK_UNDERVOLTAGE),
+        BMSPrbDef(1 << 7, PT.PACK_OVERVOLTAGE),
     )
 
     def __init__(
@@ -92,9 +92,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         # check for beginning of frame

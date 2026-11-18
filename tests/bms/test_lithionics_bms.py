@@ -388,7 +388,7 @@ async def test_fixed_length_status_code_masked(
     bms = BMS(generate_ble_device(name="Li3-022724009"))
     result: BMSSample = await bms.async_update()
 
-    assert result.get("problem_code") == 0x000020  # over-current
+    assert result.get("problem_code") == 0x000020  # overcurrent
     assert result.get("problem") is True
 
     await bms.disconnect()

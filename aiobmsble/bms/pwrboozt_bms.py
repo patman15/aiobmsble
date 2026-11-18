@@ -31,16 +31,16 @@ class BMS(EJBMS):
         BMSDp("heater", 104, 4, False, bool),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(0x0010, PT.CHARGE_OVERCURRENT),
-        BMSPrbDef(0x0020, PT.SHORT_CIRCUIT),
-        BMSPrbDef(0x0040, PT.DISCHARGE_OVERCURRENT),
-        BMSPrbDef(0x0080, PT.DISCHARGE_OVERCURRENT),
-        BMSPrbDef(0x0004, PT.CELL_OVERVOLTAGE),
-        BMSPrbDef(0x0100, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(0x0200, PT.CHARGE_UNDERTEMP),
-        BMSPrbDef(0x0008, PT.CELL_UNDERVOLTAGE),
-        BMSPrbDef(0x0400, PT.DISCHARGE_OVERTEMP),
-        BMSPrbDef(0x0800, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 4, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 5, PT.SHORT_CIRCUIT),
+        BMSPrbDef(1 << 6, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 7, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 2, PT.CELL_OVERVOLTAGE),
+        BMSPrbDef(1 << 8, PT.CHARGE_OVERTEMP),
+        BMSPrbDef(1 << 9, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 3, PT.CELL_UNDERVOLTAGE),
+        BMSPrbDef(1 << 10, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(1 << 11, PT.DISCHARGE_UNDERTEMP),
     )
 
     @staticmethod

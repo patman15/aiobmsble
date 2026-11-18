@@ -39,9 +39,7 @@ class BMS(BaseBMS):
         key: BMSValue
         pos: int  # position within the message
         fmt: str  # type conversion
-        fct: Callable[[int], Any] = (
-            lambda x: x
-        )  # conversion function (default do nothing)
+        fct: Callable[[int], Any] = lambda x: x  # conversion function (default do nothing)
         idx: int = -1  # array index containing the message to be parsed
 
     INFO: BMSInfo = {"manufacturer": "Neey", "model": "Balancer"}
@@ -63,17 +61,19 @@ class BMS(BaseBMS):
         BMSDp("battery_level", 250, "<f", lambda x: round(x, 3)),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, 0x01, "Wrong cell count"),
-        BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, 0x03, "AcqLine Res exceed"),
-        BMSPrbDef(0xFF, PT.PACK_UNDERVOLTAGE, SV.PROTECT, 0x07, "Low voltage"),
-        BMSPrbDef(0xFF, PT.AMBIENT_OVERTEMP, SV.PROTECT, 0x08, "System Overtemp"),
-        BMSPrbDef(0xFF, PT.COMM_FAILURE, SV.FAULT, 0x09, "Host fails"),
-        BMSPrbDef(0xFF, PT.OTHER, SV.INFO, 0x0A, "Low battery voltage - balancing stopped"),
-        BMSPrbDef(0xFF, PT.OTHER, SV.INFO, 0x0B, "Temperature too high - balancing stopped"),
+        BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x01, text="Wrong cell count"),
+        BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x03, text="AcqLine Res exceed"),
+        BMSPrbDef(0xFF, PT.PACK_UNDERVOLTAGE, SV.PROTECT, value=0x07),
+        BMSPrbDef(0xFF, PT.SYSTEM_OVERTEMP, SV.PROTECT, value=0x08),
+        BMSPrbDef(0xFF, PT.COMM_FAILURE, SV.FAULT, value=0x09, text="Host fails"),
+        BMSPrbDef(
+            0xFF, PT.OTHER, SV.INFO, value=0x0A, text="Low battery voltage - balancing stopped"
+        ),
+        BMSPrbDef(
+            0xFF, PT.OTHER, SV.INFO, value=0x0B, text="Temperature too high - balancing stopped"
+        ),
     )
-    _PRB_CODES: Final[frozenset[int]] = frozenset(
-        d.value for d in _PROBLEMS if d.value is not None
-    )
+    _PRB_CODES: Final[frozenset[int]] = frozenset(d.value for d in _PROBLEMS if d.value is not None)
     _FIELDS_v1: Final[tuple[BMSDp, ...]] = (
         *_FIELDS[:4],
         BMSDp("balance_current", 217, "<f", lambda x: round(x, 3)),
@@ -142,14 +142,11 @@ class BMS(BaseBMS):
         await self._fetch_device_info()
         self._valid_reply = 0x02  # cell information
 
-    def _notification_handler(
-        self, _sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Retrieve BMS data update."""
 
         if (
-            len(self._frame) >= self._exp_len
-            or not self._frame.startswith(BMS._HEAD_RSP)
+            len(self._frame) >= self._exp_len or not self._frame.startswith(BMS._HEAD_RSP)
         ) and data.startswith(BMS._HEAD_RSP):
             self._frame.clear()
             self._exp_len = max(
@@ -159,9 +156,7 @@ class BMS(BaseBMS):
 
         self._frame.extend(data)
 
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         # verify that data is long enough
         if len(self._frame) < self._exp_len:
@@ -192,9 +187,7 @@ class BMS(BaseBMS):
             )
             return
 
-        if not self._check_integrity(
-            self._frame, crc_sum, slice(None, -2), slice(-2, -1)
-        ):
+        if not self._check_integrity(self._frame, crc_sum, slice(None, -2), slice(-2, -1)):
             self._frame.clear()
             return
 

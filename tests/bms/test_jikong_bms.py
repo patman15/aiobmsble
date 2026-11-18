@@ -909,7 +909,7 @@ async def test_non_stale_data(
         (
             bytearray(b"\x00\x80"),
             "last_bit",
-            BMSProblem(PT.DISCHARGE_OVERTEMP, SV.PROTECT, "Discharge over-temperature"),
+            BMSProblem(PT.DISCHARGE_OVERTEMP, SV.PROTECT, "Discharge overtemperature"),
         ),
     ],
     ids=lambda param: param[1],
@@ -959,7 +959,7 @@ async def test_problem_response(
 @pytest.mark.parametrize(
     ("bit", "expected"),
     [
-        (27, BMSProblem(PT.DISCHARGE_UNDERTEMP, SV.PROTECT, "Discharge under-temperature")),
+        (27, BMSProblem(PT.DISCHARGE_UNDERTEMP, SV.PROTECT, "Discharge undertemperature")),
         (31, BMSProblem(PT.UNKNOWN, SV.WARN, "Unknown problem bit 31")),
     ],
     ids=("known_high_bit", "unknown_high_bit"),
