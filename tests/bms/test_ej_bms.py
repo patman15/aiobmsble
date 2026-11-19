@@ -330,7 +330,7 @@ async def test_problem_response(
     result: BMSSample = await bms.async_update()
     assert result.get("problem", False)  # we expect a problem
     assert result.get("problem_code", 0) == (0x4 if problem_response[1] == "first_bit" else 0x800)
-    assert [problem.kind for problem in result["problems"]] == [
+    assert [problem.kind for problem in result.get("problems", [])] == [
         PT.PACK_OVERVOLTAGE if problem_response[1] == "first_bit" else PT.DISCHARGE_UNDERTEMP
     ]
 

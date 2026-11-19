@@ -258,6 +258,6 @@ async def test_problem_response(
         "problem": True,
         "problem_code": expected,
     }
-    assert [problem.kind for problem in result["problems"]] == expected_problem
+    assert [problem.kind for problem in result.get("problems", [])] == expected_problem
 
     await bms.disconnect()

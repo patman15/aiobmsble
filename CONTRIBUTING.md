@@ -34,8 +34,10 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
  9. Run linting and tests locally and confirm 100% branch coverage:
     ```bash
     ruff check .
+    ruff check aiobmsble --strict
     mypy .
     codespell .
+    pyright .
     pytest
     ```
 10. Commit the changes and open a pull request to the main repository.
@@ -73,6 +75,8 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
 - The code shall pass the automated linting checks:
   - `ruff check .`
   - `mypy .`
+  - `mypy aiobmsble --strict`
+  - `pyright .`
   - `codespell .`
 - Keep all names and comments in English.
 - Do not use `# pragma: no cover`.

@@ -54,6 +54,7 @@ ruff check .
 mypy .
 mypy aiobmsble --strict
 codespell .
+pyright .
 ```
 
 `pytest` is configured in `pyproject.toml` to discover `tests/`, run in parallel (`-n auto`), collect branch coverage for `aiobmsble` and `examples`, print missing lines, and fail below 100% branch coverage. The CI workflow runs the commands above (using `python3 -m ruff check .` for Ruff) across its supported Python-version matrix.
@@ -117,6 +118,7 @@ A pull request is expected to satisfy the repository PR checklist:
 - `ruff check .` passes;
 - `mypy .` passes (CI additionally runs `mypy aiobmsble --strict`);
 - `codespell .` passes;
+- `pyright .` passes;
 - `pytest` passes with 100% branch coverage;
 - new code has focused tests using recorded device data;
 - for a new BMS, the `BMSSample` is populated with available data, frames are validated, and a recorded BLE advertisement is included.
@@ -499,7 +501,7 @@ logic, especially:
 - firmware-specific offsets
 
 These tests complement, but do not replace, end-to-end tests through
-`async_update()`.
+`update()`.
 
 ### Plugin checklist
 
