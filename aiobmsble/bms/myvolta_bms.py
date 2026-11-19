@@ -13,9 +13,9 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample
+from aiobmsble._streamparser import StreamParser
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
-from aiobmsble.utils import StreamParser
 
 
 class MsgT(IntEnum):

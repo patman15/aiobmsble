@@ -17,6 +17,7 @@ from typing import Any, Final, Literal, Self, final
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
+from bleak.backends.scanner import AdvertisementData
 from bleak.exc import BleakCharacteristicNotFoundError, BleakDeviceNotFoundError, BleakError
 from bleak_retry_connector import (
     BLEAK_TIMEOUT,
@@ -39,6 +40,7 @@ from aiobmsble import (
     __version__,
 )
 from aiobmsble._boundedbytearr import BoundedByteArray
+from aiobmsble._discovery import advertisement_matches
 from aiobmsble._sample_calc import derive_missing_fields
 from aiobmsble.plugin import (
     BMSDp,
@@ -183,6 +185,12 @@ class BaseBMS(ABC):
     @abstractmethod
     def matcher_dict_list() -> list[MatcherPattern]:
         """Return a list of Bluetooth advertisement matchers."""
+
+    @final
+    @classmethod
+    def matches(cls, adv: AdvertisementData, address: str) -> bool:
+        """Return whether this BMS matches BLE advertisement data."""
+        return any(advertisement_matches(matcher, adv, address) for matcher in cls.matcher_dict_list())
 
     @final
     @classmethod

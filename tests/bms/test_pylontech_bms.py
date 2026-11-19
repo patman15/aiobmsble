@@ -10,8 +10,9 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, Limit, TempSensor as TS, Threshold
+from aiobmsble._discovery import advertisement_matches
 from aiobmsble.bms.pylontech_bms import BMS
-from aiobmsble.utils import _advertisement_matches, adv_dict_to_advdata
+from aiobmsble.utils import adv_dict_to_advdata
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -258,5 +259,5 @@ def test_matcher_covers_rt_variants(
     if has_service_uuid:
         adv_dict["service_uuids"] = [normalize_uuid_str("180f")]
     adv: AdvertisementData = adv_dict_to_advdata(adv_dict)
-    matched: bool = any(_advertisement_matches(m, adv, "") for m in BMS.matcher_dict_list())
+    matched: bool = any(advertisement_matches(m, adv, "") for m in BMS.matcher_dict_list())
     assert matched is should_match

@@ -5,11 +5,9 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from fnmatch import translate
 from functools import cache
 import importlib
 import pkgutil
-import re
 from string import hexdigits
 from types import ModuleType
 from typing import Any, Final
@@ -18,7 +16,6 @@ from bleak.backends.scanner import AdvertisementData
 
 from aiobmsble.basebms import BaseBMS
 import aiobmsble.bms
-from aiobmsble.plugin import MatcherPattern
 
 _MODULE_POSTFIX: Final[str] = "_bms"
 
@@ -60,59 +57,6 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
     return AdvertisementData(**(advertisement_data_defaults | val_dict))
 
 
-def _advertisement_matches(
-    matcher: MatcherPattern, adv_data: AdvertisementData, mac_addr: str
-) -> bool:
-    """Determine whether the given advertisement data matches the specified pattern.
-
-    Args:
-        matcher (MatcherPattern): A dictionary containing the matching criteria.
-            Possible keys include:
-            - "local_name" (str): A pattern supporting Unix shell-style wildcards to match
-            - "manufacturer_data_start" (bytes): A byte sequence that the data should start with.
-            - "manufacturer_id" (int): A manufacturer ID to match.
-            - "oui" (str): Organizationally Unique Identifier of BD_ADDR (first 3 bytes)
-            - "service_data_uuid" (str): A specific service data UUID to match or "" for abscense.
-            - "service_uuid" (str): A specific service 128-bit UUID to match.
-
-        adv_data (AdvertisementData): An object containing the advertisement data to be checked.
-        mac_addr (str): Bluetooth device address in the format: "00:11:22:aa:bb:cc"
-
-    Returns:
-        bool: True if the advertisement data matches the specified pattern, False otherwise.
-
-    """
-    if (
-        service_uuid := matcher.get("service_uuid")
-    ) and service_uuid not in adv_data.service_uuids:
-        return False
-
-    if (service_data_uuid := matcher.get("service_data_uuid")) is not None and (
-        service_data_uuid not in adv_data.service_data
-        if service_data_uuid
-        else adv_data.service_data
-    ):
-        return False
-
-    if (oui := matcher.get("oui")) and not mac_addr.lower().startswith(oui.lower()[:8]):
-        return False
-
-    if (manufacturer_id := matcher.get("manufacturer_id")) is not None:
-        if manufacturer_id not in adv_data.manufacturer_data:
-            return False
-
-        if manufacturer_data_start := matcher.get("manufacturer_data_start"):
-            if not adv_data.manufacturer_data[manufacturer_id].startswith(
-                bytes(manufacturer_data_start)
-            ):
-                return False
-
-    return not (
-        (local_name := matcher.get("local_name"))
-        and not re.compile(translate(local_name)).match(adv_data.local_name or "")
-    )
-
-
 @cache
 def load_bms_plugins() -> set[ModuleType]:
     """Discover and load all available Battery Management System (BMS) plugin modules.
@@ -146,8 +90,8 @@ def load_bms_plugins() -> set[ModuleType]:
     return modules
 
 
-async def bms_cls(name: str) -> type[BaseBMS] | None:
-    """Return the BMS class that is defined by the name argument.
+async def get_bms(name: str) -> type[BaseBMS] | None:
+    """Return the BMS class identified by a plugin name.
 
     Args:
         name (str): The name of the BMS type (filename of the module)
@@ -173,135 +117,32 @@ async def bms_cls(name: str) -> type[BaseBMS] | None:
     return bms_class
 
 
-async def bms_matching(
-    adv_data: AdvertisementData, mac_addr: str
-) -> list[type[BaseBMS]]:
-    """Return the BMS classes that match the given advertisement data.
+def available_bms() -> frozenset[type[BaseBMS]]:
+    """Return all available BMS classes."""
+    return frozenset(bms_module.BMS for bms_module in load_bms_plugins())
 
-    Currently the function returns at most one match, but this behaviour might change
+
+async def identify(
+    adv: AdvertisementData, address: str
+) -> list[type[BaseBMS]]:
+    """Return the BMS class matching the given advertisement.
+
+    Currently the function is guaranteed to return one match only. This behaviour might change
     in the future to multiple entries, if BMSs cannot be distinguished uniquely using
     their Bluetooth advertisement / OUI (Organizationally Unique Identifier)
 
     Args:
-        adv_data (AdvertisementData): The advertisement data to match against available BMS plugins.
-        mac_addr (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
+        adv (AdvertisementData): The advertisement data to match against available BMS plugins.
+        address (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
     Returns:
         list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwise.
 
     """
     loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
-    bms_plugins: set[ModuleType] = await loop.run_in_executor(None, load_bms_plugins)
-
-    for bms_module in bms_plugins:
-        if bms_supported(bms_module.BMS, adv_data, mac_addr):
-            return [bms_module.BMS]
-    return []
+    bms_classes: frozenset[type[BaseBMS]] = await loop.run_in_executor(
+        None, available_bms
+    )
+    return [bms_class for bms_class in bms_classes if bms_class.matches(adv, address)]
 
 
-async def bms_identify(
-    adv_data: AdvertisementData, mac_addr: str
-) -> type[BaseBMS] | None:
-    """Return the BMS classes that best matches the given advertisement data.
-
-    Args:
-        adv_data (AdvertisementData): The advertisement data to match against available BMS plugins.
-        mac_addr (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
-
-    Returns:
-        type[BaseBMS] | None: The identified BMS class if a match is found, None otherwise
-
-    """
-
-    matching_bms: list[type[BaseBMS]] = await bms_matching(adv_data, mac_addr)
-    return matching_bms[0] if matching_bms else None
-
-
-def bms_supported(bms: type[BaseBMS], adv_data: AdvertisementData, mac_addr: str) -> bool:
-    """Determine if the given BMS is supported based on advertisement data.
-
-    Args:
-        bms (type[BaseBMS]): The BMS class to check.
-        adv_data (AdvertisementData): The advertisement data to match against.
-        mac_addr (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
-
-    Returns:
-        bool: True if the BMS is supported, False otherwise.
-
-    """
-    for matcher in bms.matcher_dict_list():
-        if _advertisement_matches(matcher, adv_data, mac_addr):
-            return True
-    return False
-
-
-class StreamParser:
-    """Stream parsers with start/end and escape handling."""
-
-    MAX_SIZE: Final[int] = 1024  # buffer size limit
-
-    def __init__(self, DLE: int = 0x10, STX: int = 0x02, ETX: int = 0x03) -> None:
-        """Initialize parser with specified control characters.
-
-        Args:
-            DLE (int): Data Link Escape character used for escaping control characters in the stream.
-            STX (int): Start of Text character indicating the beginning of a frame in the stream.
-            ETX (int): ETX character indicating the end of a frame in the stream.
-
-        """
-        self.DLE: Final[int] = DLE
-        self.STX: Final[int] = STX
-        self.ETX: Final[int] = ETX
-        self._in_frame: bool = False
-        self._escaped: bool = False
-        self._buffer: bytearray = bytearray()
-
-    def feed(self, data: bytes | bytearray) -> bytes | None:
-        """Feed arbitrary chunks of bytes."""
-        result_frame: bytes | None = None
-
-        # Cache instance variables in locals for better performance
-        dle: Final[int] = self.DLE
-        stx: Final[int] = self.STX
-        etc: Final[int] = self.ETX
-        max_size: Final[int] = self.MAX_SIZE
-        in_frame: bool = self._in_frame
-        escaped: bool = self._escaped
-        buffer: bytearray = self._buffer
-
-        for b in data:
-            if not in_frame:
-                # Look for escaped STX to start a frame
-                if escaped and b == stx:
-                    in_frame = True
-                    buffer.clear()
-                    escaped = False
-                    continue
-                escaped = b in (dle, stx, etc)
-                continue
-
-            # Inside a frame
-            if escaped:
-                escaped = False
-                if b in (dle, stx):
-                    buffer.append(b)
-                if b == etc:
-                    in_frame = False
-                    result_frame = bytes(buffer)
-                    buffer.clear()
-                continue
-
-            if b in (dle, etc):
-                escaped = True
-                continue
-
-            buffer.append(b)
-            if len(buffer) > max_size:
-                in_frame = False
-                buffer.clear()
-                continue
-
-        self._in_frame = in_frame
-        self._escaped = escaped
-
-        return result_frame

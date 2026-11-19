@@ -19,7 +19,7 @@ from bleak.exc import BleakError
 
 from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, __version__
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.utils import adv_dict_to_advdata, bms_identify
+from aiobmsble.utils import adv_dict_to_advdata, identify
 
 _MIN_RSSI: Final[int] = -75
 
@@ -135,8 +135,9 @@ async def identify_bms_from_json(json_str: str) -> None:
     await log_advertisement_issues(adv_dict)  # Log any potential issues
 
     # Identify BMS
-    if (bms_cls_result := await bms_identify(adv_data, adv_dict.get("address", ""))) is not None:
-        logger.info("Detected BMS type: %s", bms_cls_result.bms_id())
+    if bms_classes := await identify(adv_data, adv_dict.get("address", "")):
+        for bms_class in bms_classes:
+            logger.info("Detected BMS type: %s", bms_class.bms_id())
         return
 
     logger.info("No matching BMS type found for the given advertisement data")
@@ -155,7 +156,7 @@ async def detect_bms() -> None:
             repr(advertisement).replace(", ", ",\n\t"),
         )
 
-        if bms_cls := await bms_identify(advertisement, ble_dev.address):
+        for bms_cls in await identify(advertisement, ble_dev.address):
             bms_inst: BaseBMS = bms_cls(ble_device=ble_dev)
             logger.info("Found matching BMS type: %s", bms_inst.bms_id())
 
