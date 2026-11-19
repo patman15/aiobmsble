@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from functools import lru_cache
+import logging
 from math import isfinite
 from struct import error as StructError, unpack_from
 from typing import Any, Final, Literal, NamedTuple
@@ -44,7 +45,7 @@ class BMS(BaseBMS):
         Dp("voltage", 201, "<f", lambda x: round(x, 3)),
         Dp("delta_cell_voltage", 209, "<f", lambda x: round(x, 3)),
         Dp("problem_code", 216, "B", lambda x: x if x in BMS._PRB_CODES else 0),
-        Dp("balancer", 216, "B", lambda x: (x == 0x5)),
+        Dp("balancer", 216, "B", lambda x: x == 0x5),
         Dp("balance_current", 218, "<f", lambda x: round(x, 3)),
         Dp("current", 222, "<f", lambda x: round(x, 3)),
         Dp("design_capacity", 242, "<f", int),
@@ -74,10 +75,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._bms_info: dict[str, str] = {}
         self._exp_len: int = BMS._MIN_FRAME
         self._msg: bytes = b""

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
+import logging
 from typing import Final, NamedTuple
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -101,10 +102,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._proto: Proto = Proto.D2
         self._msg: bytes = b""
         self._mos_avail: bool | None = None

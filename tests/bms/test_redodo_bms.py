@@ -87,10 +87,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -160,7 +160,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -174,7 +174,7 @@ async def test_short_frame(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
 
     bms = BMS(generate_ble_device())
 
-    assert (await bms.async_update()).get("temperature") == []
+    assert (await bms.update()).get("temperature") == []
 
     await bms.disconnect()
 
@@ -230,7 +230,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS | {
+    assert await bms.update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 63),
     }
@@ -258,7 +258,7 @@ async def test_temp_sensor_detection(monkeypatch: pytest.MonkeyPatch, patch_blea
         _frame[-1] = crc_sum(_frame[:-1])  # update frame CRC
         monkeypatch.setattr(MockRedodoBleakClient, "_RESP", bytes(_frame))
 
-        assert await bms.async_update() == _RESULT_DEFS | {
+        assert await bms.update() == _RESULT_DEFS | {
             "temp_count": expected[0],
             "temperature": expected[1],
         }

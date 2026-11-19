@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -31,7 +32,7 @@ class BMS(BaseBMS):
     # command that triggers data streaming (fct. 0x43)
     _CMD_TRIGGER_DATA: Final[bytes] = b"\x09\x01\x01\x55\x80\x43\x00\x00\x12\x00\x84"
 
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 8, 2, False, lambda x: x / 100),
         BMSDp(
             "current",
@@ -57,10 +58,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._valid_reply: int = BMS._RT_DATA
         self._msg: bytes = b""
 

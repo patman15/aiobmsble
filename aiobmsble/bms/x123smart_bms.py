@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+import logging
 from typing import Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -26,7 +27,7 @@ class BMS(BaseBMS):
     ALIVE_INTERVAL = 1.0  # s, keep-alive poll rate (app uses 330 ms)
     _CR: Final[bytes] = b"\r"
     _SEP: Final[bytes] = b"_"
-    _FIELDS: tuple[BMSDp[BMSValue], ...]  = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 1, 1, False, lambda x: x * BMS._V_SCALE, ord("U") << 8),
         BMSDp("current", 3, 1, False, lambda x: x * 0.05, ord("U") << 8),
         BMSDp("battery_level", 4, 1, False, idx=ord("E") << 8),
@@ -65,10 +66,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[int, bytes] = {}
         self._cell_count: int = 0
 
@@ -107,7 +108,7 @@ class BMS(BaseBMS):
             raise ValueError("BMS data incomplete.")
         build: Final[str] = ver[2:]
         await self._cmd_expect_ok(b"E!")
-        return {"fw_version": f"{int(ver[0],16)}.{int(ver[1],16)}.{int(build,16)}"}
+        return {"fw_version": f"{int(ver[0], 16)}.{int(ver[1], 16)}.{int(build, 16)}"}
 
     @staticmethod
     def _parse_int(hex_str: str) -> int:
@@ -237,7 +238,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSDp[BMSValue], ...] ,
+        fields: tuple[BMSDp[BMSValue], ...],
         data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",

@@ -105,9 +105,9 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     patch_bleak_client(MockPylontechBleakClient)
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
     await bms.disconnect()
 
@@ -157,7 +157,7 @@ async def test_negative_temperature(monkeypatch: pytest.MonkeyPatch, patch_bleak
     )
     patch_bleak_client(MockPylontechBleakClient)
     bms = BMS(generate_ble_device())
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result.get("temperature") == [TS(-2.0), TS(-2.0)]
     await bms.disconnect()
 
@@ -197,7 +197,7 @@ async def test_invalid_response(
     patch_bleak_client(MockPylontechBleakClient)
     bms = BMS(generate_ble_device())
     with pytest.raises(TimeoutError):
-        await bms.async_update()
+        await bms.update()
     await bms.disconnect()
 
 

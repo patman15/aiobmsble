@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -26,7 +27,7 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 16
     _INFO_LEN: Final[int] = 113
     _CRC_LEN: Final[int] = 4
-    FIELDS: tuple[BMSDp[BMSValue], ...]  = (
+    FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 0, 4, False, lambda x: x / 1000),
         BMSDp("current", 4, 4, True, lambda x: x / 1000),
         BMSDp("battery_level", 14, 2, False),
@@ -50,10 +51,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: bytes = b""
 
     @staticmethod

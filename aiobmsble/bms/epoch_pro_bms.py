@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -32,7 +33,7 @@ class BMS(BaseBMS):
     _PACK_LEN: Final[int] = 0xA4
     _MAX_PACKS: Final[int] = 0x10
 
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("battery_level", 8, 2, False),
         BMSDp("battery_health", 10, 2, False),
         BMSDp("voltage", 14, 2, False, lambda x: x / 100),
@@ -43,7 +44,7 @@ class BMS(BaseBMS):
         # BMSDp("problem_code", 100, 8, False), # not verified
     )
 
-    _PFIELDS: Final[tuple[BMSDp[BMSPackValue], ...] ] = (
+    _PFIELDS: Final[tuple[BMSDp[BMSPackValue], ...]] = (
         BMSDp("cycles", 16, 2, False, lambda x: x),
         BMSDp("voltage", 46, 2, False, lambda x: x / 100),
         BMSDp("current", 48, 2, True, lambda x: x / 100),
@@ -52,10 +53,13 @@ class BMS(BaseBMS):
     )
 
     def __init__(
-        self, ble_device: BLEDevice, config: BMSConfig | None = None, logger_name: str = ""
+        self,
+        ble_device: BLEDevice,
+        config: BMSConfig | None = None,
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._exp_len: int = 0
         self._msg: dict[int, bytes] = {}
 

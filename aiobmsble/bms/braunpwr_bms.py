@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -22,7 +23,7 @@ class BMS(BaseBMS):
     _HEAD: Final[bytes] = b"\x7b"  # header for responses
     _TAIL: Final[int] = 0x7D  # tail for command
     _MIN_LEN: Final[int] = 4  # minimum frame size
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("cell_count", 3, 1, False, idx=0x2),
         BMSDp("temp_count", 3, 1, False, idx=0x3),
         BMSDp("voltage", 5, 2, False, lambda x: x / 100, 0x1),
@@ -44,10 +45,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[int, bytes] = {}
         self._exp_reply: tuple[int] = (0x01,)
 

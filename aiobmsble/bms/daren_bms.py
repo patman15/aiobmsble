@@ -18,7 +18,7 @@ class BMS(JBDBMS):
     _VALID_CMD: frozenset[int] = frozenset({0x03, 0x04, 0x05, 0x08, 0xFF})
     _MAX_TEMP_COUNT: Final[int] = 4
     _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4 + (TS.T.MOSFET, TS.T.AMBIENT)
-    _FIELDS: tuple[BMSDp[BMSValue], ...]  = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),

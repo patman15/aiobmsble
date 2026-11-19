@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from enum import Enum
 from functools import lru_cache
+import logging
 from typing import Final, cast
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -39,7 +40,7 @@ class BMS(BaseBMS):
     _HWV_POS: Final[int] = 65
     _SWV_POS: Final[int] = 10
     _SYS_TEMP_POS: Final[int] = 53  # max/min cell temperature in 0x0a00 reply
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("current", 1, 4, True, lambda x: x / 100),
         BMSDp("voltage", 5, 4, False, lambda x: x / 100),
         BMSDp("cycle_charge", 9, 4, False, lambda x: x / 100),
@@ -49,7 +50,7 @@ class BMS(BaseBMS):
         BMSDp("pack_count", 0, 1, False),
         BMSDp("cycles", 23, 4, False),
     )
-    _PFIELDS: Final[tuple[BMSDp[BMSPackValue], ...] ] = (  # pack values, 0x0a01 reply
+    _PFIELDS: Final[tuple[BMSDp[BMSPackValue], ...]] = (  # pack values, 0x0a01 reply
         BMSDp("current", 1, 2, True, lambda x: x / 100),
         BMSDp("voltage", 3, 2, False, lambda x: x / 100),
         BMSDp("cycle_charge", 5, 2, False, lambda x: x / 100),
@@ -63,10 +64,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._valid_reply: bytes = b""  # expected reply type
         self._msg: bytes = b""
 

@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -22,7 +23,7 @@ class BMS(BaseBMS):
     _FRAME_LEN: Final[int] = 5  # head + len + CRC
     _MAX_CELLS: Final[int] = 0x1F
     _MAX_TEMP: Final[int] = 6
-    _FIELDS: tuple[BMSDp[BMSValue], ...]  = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 100, 0x28),
         BMSDp("current", 5, 4, True, lambda x: x / 100, 0x28),
         BMSDp("battery_level", 9, 2, False, idx=0x28),
@@ -32,7 +33,7 @@ class BMS(BaseBMS):
         BMSDp("temp_count", 3, 2, False, lambda x: min(x, BMS._MAX_TEMP), 0x24),
         BMSDp("cycles", 15, 2, False, idx=0x28),
         BMSDp("delta_cell_voltage", 29, 2, False, lambda x: x / 1000, 0x28),
-        BMSDp("problem", 17, 15, False, lambda x: (x != 0), 0x24),
+        BMSDp("problem", 17, 15, False, lambda x: x != 0, 0x24),
         BMSDp("chrg_mosfet", 32, 1, False, lambda x: bool(x & 0x10), 0x24),
         BMSDp("dischrg_mosfet", 32, 1, False, lambda x: bool(x & 0x20), 0x24),
         BMSDp("balancer", 35, 4, False, idx=0x24),
@@ -46,10 +47,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[int, bytes] = {}
 
     @staticmethod

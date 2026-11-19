@@ -655,10 +655,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -733,7 +733,7 @@ async def test_hide_temp_count(
     temperature.pop(1)  # remove sensor 2
     ref_result["temperature"] = temperature.copy()
 
-    assert await bms.async_update() == ref_result
+    assert await bms.update() == ref_result
 
     await bms.disconnect()
 
@@ -754,7 +754,7 @@ async def test_stream_update(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
     assert bms._msg_event.is_set() is False, "BMS does not request fresh data"
     assert "requesting cell info" in caplog.text
 
@@ -766,7 +766,7 @@ async def test_stream_update(
     await _client._send_all()
 
     # query again to see if updated streaming data is used
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {"cycles": 0x73}
+    assert await bms.update() == _RESULT_DEFS[protocol_type] | {"cycles": 0x73}
     assert "requesting cell info" not in caplog.text, "BMS did not use streaming data"
 
     _cell_frame[_prot_offset + 182] = 0x37  # modify data to ensure new read
@@ -775,7 +775,7 @@ async def test_stream_update(
     # do not automatically send data this time
 
     # query again to see if BMS recovers if no data is sent
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {"cycles": 0x37}
+    assert await bms.update() == _RESULT_DEFS[protocol_type] | {"cycles": 0x37}
     assert "requesting cell info" in caplog.text, "BMS did not use streaming data"
 
 
@@ -799,7 +799,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
     assert not result
 
     await bms.disconnect()
@@ -825,7 +825,7 @@ async def test_invalid_frame_type(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
     assert not result
 
     await bms.disconnect()
@@ -842,7 +842,7 @@ async def test_oversized_response(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
 
     await bms.disconnect()
 
@@ -857,7 +857,7 @@ async def test_invalid_device(patch_bleak_client) -> None:
     result: BMSSample = {}
 
     with pytest.raises(ConnectionError, match=r"^Failed to detect characteristics from.*"):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
 
@@ -888,14 +888,14 @@ async def test_non_stale_data(
     # run an update which provides half a valid message and then disconnects
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
     assert not result
     await bms.disconnect()
 
     # restore working BMS responses and run a test again to see if stale data is kept
     monkeypatch.setattr(MockJikongBleakClient, "_response", orig_response)
 
-    assert await bms.async_update() == _RESULT_DEFS["JK02_32S"]
+    assert await bms.update() == _RESULT_DEFS["JK02_32S"]
 
 
 @pytest.fixture(
@@ -947,7 +947,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device(), BMSConfig(False))
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {
+    assert await bms.update() == _RESULT_DEFS[protocol_type] | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 15),
         "problems": [problem_response[2]],
@@ -979,7 +979,7 @@ async def test_32_bit_problem_response(
 
     bms = BMS(generate_ble_device(), BMSConfig(False))
 
-    assert await bms.async_update() == _RESULT_DEFS["JK02_32S"] | {
+    assert await bms.update() == _RESULT_DEFS["JK02_32S"] | {
         "problem": True,
         "problem_code": 1 << bit,
         "problems": [expected],

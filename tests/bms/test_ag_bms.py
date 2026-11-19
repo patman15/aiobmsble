@@ -72,7 +72,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == {
+    assert await bms.update() == {
         "voltage": 13.185,
         "current": -3.34,
         "battery_level": 60,
@@ -96,7 +96,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     }
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()

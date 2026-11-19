@@ -7,6 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 import contextlib
 from enum import IntEnum
 from functools import lru_cache
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -39,7 +40,7 @@ class BMS(BaseBMS):
     _RSP_STAT: Final[int] = 0xFF
     _RSP_STAT_LEN: Final[int] = 140
 
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 10),
         BMSDp("current", 70, 4, True, lambda x: x / -10),
         BMSDp("battery_level", 74, 1, False),
@@ -90,10 +91,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: bytes = b""
 
     @staticmethod

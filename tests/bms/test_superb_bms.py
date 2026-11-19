@@ -79,10 +79,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -108,7 +108,7 @@ async def test_update_chrg(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
         "power": 5.664,
     }
     del result["runtime"]
-    assert await bms.async_update() == result
+    assert await bms.update() == result
 
 
 async def test_tx_notimplemented(patch_bleak_client) -> None:
@@ -146,7 +146,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -171,7 +171,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result == _RESULT_DEFS | {"problem": True, "problem_code": 1}
 
     await bms.disconnect()

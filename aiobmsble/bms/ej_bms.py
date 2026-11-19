@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from enum import IntEnum
+import logging
 from string import hexdigits
 from typing import Final
 
@@ -37,7 +38,7 @@ class BMS(BaseBMS):
     _CELL_POS: Final[int] = 12
     _MAX_CELLS: Final[int] = 16
     _PRB_MASK: Final[int] = 0x0FFC
-    _FIELDS: tuple[BMSDp[BMSValue], ...]  = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("current", 44, 4, False, lambda x: ((x >> 16) - (x & 0xFFFF)) / 100, Cmd.RT),
         BMSDp("battery_level", 61, 1, False, idx=Cmd.RT),
         BMSDp("cycle_charge", 7, 2, False, lambda x: x / 10, Cmd.CAP),
@@ -69,10 +70,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: bytes = b""
 
     @staticmethod

@@ -104,7 +104,7 @@ class BaseBMS(ABC):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize the BMS.
 
@@ -115,27 +115,26 @@ class BaseBMS(ABC):
         Args:
             ble_device (BLEDevice): the Bleak BLE device to connect to
             config (BMSConfig | None): optional BMS configuration; defaults to `BMSConfig()` if not provided
-            logger_name (str): name of the logger for this BMS instance; defaults to the module name
+            logger (logging.Logger | None): logger for this BMS instance; defaults to the module logger
 
         """
-        assert (
-            getattr(self, "_notification_handler", None) is not None
-        ), "BMS class must define `_notification_handler` method"
+        assert getattr(self, "_notification_handler", None) is not None, (
+            "BMS class must define `_notification_handler` method"
+        )
         assert {"manufacturer", "model"}.issubset(self.INFO), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._cfg: Final[BMSConfig] = config or BMSConfig()
-        logger_name = logger_name or self.__class__.__module__
         self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
-            logging.getLogger(f"{logger_name}"),
+            logger or logging.getLogger(self.__class__.__module__),
             {"prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':', '')}:"},
         )
 
         self._log.debug(
             "%s: initializing %s, BT address: %s",
             __version__,
-            self.bms_id(),
+            self.bms_name(),
             ble_device.address,
         )
         self._client: BleakClient = BleakClient(
@@ -177,7 +176,7 @@ class BaseBMS(ABC):
 
     @final
     @classmethod
-    def get_bms_module(cls) -> str:
+    def module(cls) -> str:
         """Return BMS module name, e.g. aiobmsble.bms.dummy_bms."""
         return cls.__module__
 
@@ -190,11 +189,13 @@ class BaseBMS(ABC):
     @classmethod
     def matches(cls, adv: AdvertisementData, address: str) -> bool:
         """Return whether this BMS matches BLE advertisement data."""
-        return any(advertisement_matches(matcher, adv, address) for matcher in cls.matcher_dict_list())
+        return any(
+            advertisement_matches(matcher, adv, address) for matcher in cls.matcher_dict_list()
+        )
 
     @final
     @classmethod
-    def bms_id(cls) -> str:
+    def bms_name(cls) -> str:
         """Return static BMS information as string."""
         return f"{cls.INFO.get('manufacturer', 'unknown')} {cls.INFO.get('model', 'unknown')}"
 
@@ -425,7 +426,7 @@ class BaseBMS(ABC):
                     )
 
                     if self._log.isEnabledFor(logging.DEBUG):
-                        gatt: str = await self.get_GATT_profile()
+                        gatt: str = await self.gatt_profile()
                         self._log.debug(
                             "GATT profile for request %s:\n %s",
                             self.uuid_services(),
@@ -490,7 +491,7 @@ class BaseBMS(ABC):
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
-        for inv_wr_mode in ([False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]):
+        for inv_wr_mode in [False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]:
             try:
                 self._msg_event.clear()  # clear event before requesting new data
                 for attempt in range(BaseBMS.MAX_RETRY):
@@ -575,7 +576,7 @@ class BaseBMS(ABC):
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
     @final
-    async def async_update(self, raw: bool = False, keep_alive: bool | None = None) -> BMSSample:
+    async def update(self, raw: bool = False, keep_alive: bool | None = None) -> BMSSample:
         """Fetch the latest battery telemetry from the BMS.
 
         This calls the protocol-specific implementation in `_async_update()` and,
@@ -638,7 +639,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSDp[BMSValue], ...] ,
+        fields: tuple[BMSDp[BMSValue], ...],
         data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",
@@ -688,7 +689,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_pack(
-        fields: tuple[BMSDp[BMSPackValue], ...] ,
+        fields: tuple[BMSDp[BMSPackValue], ...],
         data: bytes,
         *,
         byteorder: Literal["little", "big"] = "big",
@@ -828,7 +829,7 @@ class BaseBMS(ABC):
         return True
 
     @final
-    async def get_GATT_profile(self) -> str:
+    async def gatt_profile(self) -> str:
         """Return a string containing all services, characteristics and descriptors of the connected device."""
         # Do not query values from device to avoid all kinds of exceptions that would need to be handled/ignored.
         if not self.is_connected:
@@ -839,7 +840,7 @@ class BaseBMS(ABC):
             for service in self._client.services:
                 lines.append(f"SRV {service}")
                 for char in service.characteristics:
-                    lines.append(f"  CHR {char} ({",".join(char.properties)})")
+                    lines.append(f"  CHR {char} ({','.join(char.properties)})")
                     lines.extend(f"    DCR {desc}" for desc in char.descriptors)
         except BleakError as exc:
             return str(exc)
@@ -848,5 +849,3 @@ class BaseBMS(ABC):
             return "no services found"
 
         return "\n".join(lines)
-
-

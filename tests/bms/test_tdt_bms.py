@@ -408,10 +408,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -438,7 +438,7 @@ async def test_update_wo_auth(
 
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    assert await bms.async_update() == _RESULT_DEFS["4S4Tv0.0"]
+    assert await bms.update() == _RESULT_DEFS["4S4Tv0.0"]
 
     await bms.disconnect()
 
@@ -471,10 +471,10 @@ async def test_update_0x1e_head(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS["4S4Tv0.0"]
+    assert await bms.update() == _RESULT_DEFS["4S4Tv0.0"]
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -561,7 +561,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -592,7 +592,7 @@ async def test_incorrect_CRC(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -631,7 +631,7 @@ async def test_short_frame(
     bms = BMS(generate_ble_device())
 
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
-        await bms.async_update()
+        await bms.update()
 
     await bms.disconnect()
 
@@ -661,9 +661,9 @@ async def test_init_fail(
 
     if throw_exception:
         with pytest.raises(BleakDeviceNotFoundError):
-            assert not await bms.async_update()
+            assert not await bms.update()
     else:
-        assert await bms.async_update() == _RESULT_DEFS["16S6Tv0.0"]
+        assert await bms.update() == _RESULT_DEFS["16S6Tv0.0"]
 
     await bms.disconnect()
 
@@ -740,7 +740,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device(), BMSConfig(False))
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result.get("problem", False)  # we expect a problem
     assert result.get("problem_code", 0) == (
         0x1 if problem_response[1].startswith("first_bit") else 0x8000

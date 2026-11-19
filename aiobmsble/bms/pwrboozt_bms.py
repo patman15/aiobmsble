@@ -20,7 +20,7 @@ class BMS(EJBMS):
     """PowerBoozt battery implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Powerboozt", "model": "battery"}
-    _FIELDS: tuple[BMSDp[BMSValue], ...]  = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("battery_charging", 45, 1, False, lambda x: bool(x & 0x1)),
         BMSDp("battery_level", 69, 1, False),
         BMSDp("current", 54, 4, True, lambda x: (x & 0x7FFFFFFF) * (-1 if (x >> 31) else 1) / 1000),

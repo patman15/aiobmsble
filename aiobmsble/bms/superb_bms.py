@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+import logging
 from struct import unpack_from
 from typing import Final
 
@@ -21,7 +22,7 @@ class BMS(BaseBMS):
 
     INFO: BMSInfo = {"manufacturer": "Super-B", "model": "Epsilon"}
     _INFO_LEN: Final[int] = 20
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("battery_level", 2, 1, False),
         BMSDp("battery_health", 3, 1, False),
         BMSDp("runtime", 4, 4, False, int),
@@ -33,10 +34,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: bytes = b""
 
     @staticmethod

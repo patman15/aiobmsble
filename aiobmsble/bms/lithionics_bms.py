@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from enum import IntEnum, auto
+import logging
 from typing import Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -35,7 +36,7 @@ class BMS(BaseBMS):
     _MAX_DIGITS: Final[int] = 9  # maximum length of a numeric field
     _MAX_MODULE: Final[int] = 9  # maximum module ID
 
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 0, 1, False, lambda x: x / 100, _Msg.prim),
         BMSDp("cell_voltages", 1, 4, False, lambda x: x / 100, _Msg.prim),
         BMSDp(
@@ -52,7 +53,7 @@ class BMS(BaseBMS):
         BMSDp("cycle_charge", 2, 1, False, lambda x: x, _Msg.stat),
         BMSDp("total_charge", 3, 1, False, lambda x: x, _Msg.stat),
     )
-    _FIELDS_FIXED: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS_FIXED: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 2, 1, False, lambda x: x / 10, _Msg.prim),
         BMSDp("battery_level", 3, 1, False, int, _Msg.prim),
         BMSDp("cycle_charge", 1, 1, False, lambda x: x / 10, _Msg.prim),
@@ -62,7 +63,7 @@ class BMS(BaseBMS):
         BMSDp("temperature", 8, 1, False, lambda x: round((x - 32) * 5 / 9, 3), _Msg.prim),
         BMSDp("problem_code", 9, 1, False, lambda x: int(str(x), 16) & BMS._PRB_MASK, _Msg.prim),
     )
-    _PFIELDS: Final[tuple[BMSDp[BMSPackValue], ...] ] = (
+    _PFIELDS: Final[tuple[BMSDp[BMSPackValue], ...]] = (
         BMSDp("cell_count", 5, 1, False, int),
         BMSDp("temperature", 6, 2, False),
         BMSDp("delta_cell_voltage", 8, 2, False),
@@ -72,10 +73,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[int, bytes] = {}
 
     @staticmethod
@@ -179,7 +180,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         try:
             await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
-            fields: tuple[BMSDp[BMSValue], ...]  = (
+            fields: tuple[BMSDp[BMSValue], ...] = (
                 BMS._FIELDS_FIXED if BMS._is_fixed_length(self._msg[BMS._Msg.prim]) else BMS._FIELDS
             )
             result: BMSSample = BMS._decode_data(fields, self._msg)
@@ -198,7 +199,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSDp[BMSValue], ...] ,
+        fields: tuple[BMSDp[BMSValue], ...],
         data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",

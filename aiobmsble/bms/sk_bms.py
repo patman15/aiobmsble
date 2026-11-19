@@ -1,5 +1,6 @@
 """Module to support SOK SK BMS over Modbus BLE."""
 
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -19,7 +20,7 @@ class BMS(BaseBMS):
     _FRAME_LEN: Final[int] = 249
     _MODEL_START: Final[int] = 187
     _MODEL_END: Final[int] = 207
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),
         BMSDp("battery_level", 4, 2, False),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),
@@ -39,10 +40,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: bytes = b""
 
     @staticmethod

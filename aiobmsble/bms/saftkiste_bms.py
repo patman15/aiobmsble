@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from datetime import datetime
 from functools import cache
+import logging
 from string import ascii_uppercase, digits
 from typing import Final
 from zlib import crc32
@@ -27,7 +28,7 @@ class BMS(BaseBMS):
     _MAX_CELLS: Final[int] = 4
     _MIN_LEN: Final[int] = 5  # minimum length (SOF+type+16bit)
     _VALID_RSP: Final[frozenset[int]] = frozenset({0x0, 0x2, 0x3, 0x10, 0x43})
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("cycle_charge", 7, 4, False, lambda x: x / 1000, 0x2),
         BMSDp("design_capacity", 11, 2, False, lambda x: x, 0x2),
         BMSDp("voltage", 13, 2, False, lambda x: x / 1000, 0x2),
@@ -43,10 +44,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[int, bytes] = {}
 
     @staticmethod
@@ -120,7 +121,7 @@ class BMS(BaseBMS):
             return
 
         if not self._check_integrity(
-            data, lambda x: (crc32(x) & 0xFF), slice(None, -1), slice(-1, None)
+            data, lambda x: crc32(x) & 0xFF, slice(None, -1), slice(-1, None)
         ):
             return
 

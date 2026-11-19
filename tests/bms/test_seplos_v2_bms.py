@@ -161,10 +161,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -220,7 +220,7 @@ async def test_short_message(monkeypatch: pytest.MonkeyPatch, patch_bleak_client
 
     result: BMSSample = {}
     with pytest.raises(ValueError, match="BMS data incomplete"):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -261,7 +261,7 @@ async def test_short_frame(
     patch_bleak_client(MockSeplosv2BleakClient)
 
     bms = BMS(generate_ble_device())
-    update = bms.device_info if operation == "device_info" else bms.async_update
+    update = bms.device_info if operation == "device_info" else bms.update
 
     with pytest.raises(ValueError, match="BMS data incomplete"):
         await update()
@@ -314,7 +314,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -371,7 +371,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS | {
+    assert await bms.update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": expected,
         "problems": problems,

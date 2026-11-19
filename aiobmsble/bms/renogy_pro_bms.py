@@ -4,6 +4,8 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import logging
+
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
@@ -18,7 +20,7 @@ class BMS(RenogyBMS):
 
     INFO: BMSInfo = {"manufacturer": "Renogy", "model": "BT battery pro"}
     _HEAD: bytes = b"\xff\x03"  # SOP, read fct (x03)
-    FIELDS: tuple[BMSDp[BMSValue], ...]  = (
+    FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),
         BMSDp("current", 3, 2, True, lambda x: x / 10),
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
@@ -32,10 +34,10 @@ class BMS(RenogyBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._char_write_handle: int = -1
 
     @staticmethod

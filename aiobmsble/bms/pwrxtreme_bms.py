@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from contextlib import suppress
+import logging
 from typing import Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -33,10 +34,10 @@ class BMS(TopbandBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._alive_task: asyncio.Task[None] | None = None
 
     @staticmethod

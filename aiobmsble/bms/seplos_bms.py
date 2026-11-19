@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from functools import lru_cache
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -103,7 +104,7 @@ class BMS(BaseBMS):
         "PIA": (0x4, 0x1000, _PIA_LEN),
         "PIB": (0x4, 0x1100, _PIB_LEN),
     }
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (  # Protocol Seplos V3
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (  # Protocol Seplos V3
         BMSDp("voltage", 0, 4, False, lambda x: swap32(x) / 100, _EIA_LEN),
         BMSDp("current", 4, 4, True, lambda x: swap32(x, True) / 10, _EIA_LEN),
         BMSDp("cycle_charge", 8, 4, False, lambda x: swap32(x) / 100, _EIA_LEN),
@@ -118,7 +119,7 @@ class BMS(BaseBMS):
         BMSDp("heater", 7, 1, False, lambda x: bool(x & 8), _EIC_LEN),
         BMSDp("balancer", 7, 1, False, lambda x: bool(x & 4), _EIC_LEN),  # limit FET
     )
-    _PFIELDS: Final[tuple[BMSDp[BMSPackValue], ...] ] = (
+    _PFIELDS: Final[tuple[BMSDp[BMSPackValue], ...]] = (
         BMSDp("voltage", 0, 2, False, lambda x: x / 100),
         BMSDp("current", 2, 2, True, lambda x: x / 100),
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 100),
@@ -161,10 +162,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[int, bytes] = {}
         self._pack_count: int = 0  # number of battery packs
         self._pkglen: int = 0  # expected packet length

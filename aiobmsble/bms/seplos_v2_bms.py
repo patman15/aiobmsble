@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from functools import lru_cache
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -111,7 +112,7 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 4, PT.OTHER, SV.WARN, text="Zero point calibration not done"),
         BMSPrbDef(1 << 5, PT.OTHER, SV.WARN, text="Perpetual calendar not synchronized"),
     )
-    _PFIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (  # Seplos V2: single machine data
+    _PFIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (  # Seplos V2: single machine data
         BMSDp("voltage", 2, 2, False, lambda x: x / 100),
         BMSDp("current", 0, 2, True, lambda x: x / 100),  # /10 for 0x62
         BMSDp("cycle_charge", 4, 2, False, lambda x: x / 100),  # /10 for 0x62
@@ -152,10 +153,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[int, bytes] = {}
         self._exp_len: int = BMS._MIN_LEN
         self._exp_reply: set[int] = set()

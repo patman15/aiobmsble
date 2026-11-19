@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import logging
 from string import digits, hexdigits
 from typing import Final, NamedTuple
 
@@ -23,7 +24,7 @@ class BMS(BaseBMS):
     # magic crypt sequence of length 16
     _CRY_SEQ: Final[tuple[int, ...]] = (2, 5, 4, 3, 1, 4, 1, 6, 8, 3, 7, 2, 5, 8, 9, 3)
     # Fields for type A: register -> BMSDp
-    _FIELDS_A: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS_A: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("battery_level", 0, 1, False, idx=2),
         BMSDp("cycle_charge", 0, 3, False, lambda x: x / 1000, 4),
         BMSDp("voltage", 0, 2, False, lambda x: x / 1000, 8),
@@ -34,7 +35,7 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 0, 3, False, lambda x: x // 1000, 60),
     )
     # Fields for type B: register -> BMSDp
-    _FIELDS_B: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS_B: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("temperature", 0, 2, False, lambda x: [TS(round(x / 10 - 273.15, 3))], 8),
         BMSDp("voltage", 0, 2, False, lambda x: x / 1000, 9),
         BMSDp("current", 0, 3, False, lambda x: x / 1000, 10),
@@ -53,10 +54,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._type: str = (
             self.name[9] if len(self.name) > 10 and set(self.name[10:]).issubset(digits) else "?"
         )
@@ -67,14 +68,14 @@ class BMS(BaseBMS):
         ) + (5 if (self._type == "A") else 8)
         self._log.info(
             "%s type: %c, ID: %s, key: 0x%X",
-            self.bms_id(),
+            self.bms_name(),
             self._type,
             self.name[10:],
             self._key,
         )
         self._exp_reply: int = 0x0
         self._response: BMS._Response = BMS._Response(0, 0)
-        self._fields: tuple[BMSDp[BMSValue], ...]  = (
+        self._fields: tuple[BMSDp[BMSValue], ...] = (
             BMS._FIELDS_A if self._type == "A" else BMS._FIELDS_B if self._type == "B" else ()
         )
         self._header: str = "+RAA" if self._type == "A" else "+R16" if self._type == "B" else ""

@@ -171,9 +171,9 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice"), BMSConfig(keep_alive_fixture)
     )
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
     # query again to check already connected state
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
     assert bms._client and bms._client.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -236,7 +236,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -265,7 +265,7 @@ async def test_wrong_length(
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice"))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
     await bms.disconnect()
 
 
@@ -290,7 +290,7 @@ async def test_unexpected_reply(
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice"))
 
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
-        await bms.async_update()
+        await bms.update()
 
     await bms.disconnect()
 
@@ -303,7 +303,7 @@ async def test_pack_count_limited(monkeypatch: pytest.MonkeyPatch, patch_bleak_c
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEDevice"))
 
-    result: BMSSample = await bms.async_update(raw=True)
+    result: BMSSample = await bms.update(raw=True)
     assert result.get("pack_count") == 2
     assert len(result.get("packs", [])) == 1
 

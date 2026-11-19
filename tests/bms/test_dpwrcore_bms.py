@@ -200,10 +200,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -221,7 +221,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
 
@@ -238,7 +238,7 @@ async def test_wrong_crc(patch_bleak_client, patch_bms_timeout, dev_name: str) -
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
 
@@ -254,7 +254,7 @@ async def test_short_frame(patch_bleak_client, patch_bms_timeout) -> None:
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "TBA-MockBLEDevice_C0FE"))
 
     with pytest.raises(TimeoutError):
-        await bms.async_update()
+        await bms.update()
 
     await bms.disconnect()
 
@@ -266,7 +266,7 @@ async def test_problem_response(patch_bleak_client, dev_name: str) -> None:
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name), BMSConfig(False))
 
-    assert await bms.async_update() == _RESULT_DEFS | {
+    assert await bms.update() == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 255,
     }
@@ -294,7 +294,7 @@ async def test_incomplete_msgs(monkeypatch, patch_bleak_client, dev_name: str) -
 
     result: BMSSample = {}
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
 
