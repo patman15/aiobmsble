@@ -219,13 +219,14 @@ class BaseBMS(ABC):
 
         keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
-            await self._connect()
-            dev_info: Final[BMSInfo] = await self._fetch_device_info()
-            self._log.debug("BMS info %s", dev_info)
-
-            if not keep_alive:
-                await self.disconnect()
-            return dev_info
+            try:
+                await self._connect()
+                dev_info: Final[BMSInfo] = await self._fetch_device_info()
+                self._log.debug("BMS info %s", dev_info)
+                return dev_info
+            finally:
+                if not keep_alive:
+                    await self.disconnect()
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
@@ -263,13 +264,14 @@ class BaseBMS(ABC):
 
         keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
-            await self._connect()
-            limits: Final[BMSLimits] = await self._fetch_limits()
-            self._log.debug("BMS limits %s", limits)
-
-            if not keep_alive:
-                await self.disconnect()
-            return limits
+            try:
+                await self._connect()
+                limits: Final[BMSLimits] = await self._fetch_limits()
+                self._log.debug("BMS limits %s", limits)
+                return limits
+            finally:
+                if not keep_alive:
+                    await self.disconnect()
 
     async def _fetch_limits(self) -> BMSLimits:
         """Fetch the thresholds via BLE (default: none available)."""
@@ -586,19 +588,19 @@ class BaseBMS(ABC):
 
         keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
-            await self._connect()
-            data: BMSSample = await self._async_update()
-            if not raw:
-                if self._PROBLEMS and "problem_code" in data:
-                    data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)
-                self._add_missing_values(data, self._raw_values())
-
-            if not keep_alive:
-                # disconnect after data update to force reconnect next time (slow!)
-                self._log.debug("forced disconnect of BMS after update")
-                await self.disconnect()
-
-            return data
+            try:
+                await self._connect()
+                data: BMSSample = await self._async_update()
+                if not raw:
+                    if self._PROBLEMS and "problem_code" in data:
+                        data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)
+                    self._add_missing_values(data, self._raw_values())
+                return data
+            finally:
+                if not keep_alive:
+                    # disconnect after data update to force reconnect next time (slow!)
+                    self._log.debug("forced disconnect of BMS after update")
+                    await self.disconnect()
 
     @final
     @staticmethod
