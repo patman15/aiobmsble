@@ -9,8 +9,8 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample, PrbType as PT, TempSensor as TS
-from aiobmsble.basebms import decode_problems
 from aiobmsble.bms.pwrboozt_bms import BMS
+from aiobmsble.plugin import decode_problems
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests

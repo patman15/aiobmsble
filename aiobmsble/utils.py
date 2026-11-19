@@ -16,9 +16,9 @@ from typing import Any, Final
 
 from bleak.backends.scanner import AdvertisementData
 
-from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
 import aiobmsble.bms
+from aiobmsble.plugin import MatcherPattern
 
 _MODULE_POSTFIX: Final[str] = "_bms"
 

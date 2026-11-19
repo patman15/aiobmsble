@@ -10,8 +10,8 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSDp, BMSInfo, BMSPrbDef, BMSSample, BMSValue, MatcherPattern, PrbType as PT
-from aiobmsble.basebms import crc_sum
+from aiobmsble import BMSInfo, BMSSample, PrbType as PT
+from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, crc_sum
 
 from .ej_bms import BMS as EJBMS
 

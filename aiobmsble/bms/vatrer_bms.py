@@ -9,8 +9,9 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, crc_modbus
 
 
 class BMS(BaseBMS):

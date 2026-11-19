@@ -11,18 +11,9 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import (
-    BMSConfig,
-    BMSDp,
-    BMSInfo,
-    BMSPrbDef,
-    BMSSample,
-    BMSValue,
-    MatcherPattern,
-    PrbType as PT,
-    TempSensor,
-)
-from aiobmsble.basebms import BaseBMS, crc_sum
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, TempSensor
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, crc_sum
 
 
 class BMS(BaseBMS):

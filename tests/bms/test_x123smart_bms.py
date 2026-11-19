@@ -10,8 +10,9 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 import pytest
 
-from aiobmsble import BMSConfig, BMSDp, BMSSample, Limit, TempSensor as TS, Threshold
+from aiobmsble import BMSConfig, BMSSample, Limit, TempSensor as TS, Threshold
 from aiobmsble.bms.x123smart_bms import BMS
+from aiobmsble.plugin import BMSDp
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests

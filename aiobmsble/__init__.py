@@ -6,57 +6,38 @@ This library is intended to query data from battery management systems
 that use Bluetooth LE. Stand-alone usage is possible in any Python environment
 (with necessary dependencies installed).
 
+User API: data types and BMS discovery. Plugin-author types live in `aiobmsble.plugin`.
+
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Final, Literal, NamedTuple, Self, TypedDict
+from typing import Self, TypedDict
+
+__all__ = [
+    "BMSConfig",
+    "BMSInfo",
+    "BMSLimits",
+    "BMSMode",
+    "BMSProblem",
+    "BMSSample",
+    "BatterySample",
+    "Limit",
+    "PackSample",
+    "PrbType",
+    "Severity",
+    "TempSensor",
+    "Threshold",
+    "__version__",
+]
 
 __version__: str = "0.0.0.dev0"
 with suppress(PackageNotFoundError):
     __version__ = version("aiobmsble")
-
-type CommonValue = Literal[
-    "battery_health",
-    "battery_level",
-    "cell_count",
-    "cell_voltages",
-    "current",
-    "cycle_capacity",
-    "cycle_charge",
-    "cycles",
-    "delta_cell_voltage",
-    "design_capacity",
-    "temp_count",
-    "temperature",
-    "voltage",
-]
-
-type BMSValue = CommonValue | Literal[
-    "battery_charging",
-    "battery_mode",
-    "power",
-    "total_charge",
-    "problem",
-    "runtime",
-    "balancer",
-    "balance_current",
-    "heater_current",
-    "pack_count",
-    "problem_code",
-    "problems",
-    "chrg_mosfet",
-    "dischrg_mosfet",
-    "heater",
-]
-
-type BMSPackValue = CommonValue
-
 
 class BMSMode(IntEnum):
     """Enumeration of BMS modes."""
@@ -151,66 +132,6 @@ class PrbType(StrEnum):
     UNKNOWN = auto()  # bit set but not described by the plugin
 
 
-class PrbDefault(NamedTuple):
-    """Default severity and human readable description of a problem type."""
-
-    level: Severity
-    text: str
-
-
-PROBLEM_DEFAULTS: Final[dict[PrbType, PrbDefault]] = {
-    PrbType.CELL_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell overvoltage"),
-    PrbType.CELL_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell undervoltage"),
-    PrbType.PACK_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack overvoltage"),
-    PrbType.PACK_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack undervoltage"),
-    PrbType.CELL_IMBALANCE: PrbDefault(Severity.WARN, "Cell voltage imbalance"),
-    PrbType.CHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
-    PrbType.DISCHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Discharge overcurrent"),
-    PrbType.SHORT_CIRCUIT: PrbDefault(Severity.PROTECT, "Short circuit"),
-    PrbType.CHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Charge overtemperature"),
-    PrbType.CHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
-    PrbType.DISCHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Discharge overtemperature"),
-    PrbType.DISCHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Discharge undertemperature"),
-    PrbType.MOSFET_OVERTEMP: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
-    # examples for SYSTEM_*TEMP: ambient, PCB, board, battery temperature. NOT: MOSFET temperature
-    PrbType.SYSTEM_OVERTEMP: PrbDefault(Severity.PROTECT, "System overtemperature"),
-    PrbType.SYSTEM_UNDERTEMP: PrbDefault(Severity.PROTECT, "System undertemperature"),
-    PrbType.LOW_SOC: PrbDefault(Severity.WARN, "Low state of charge"),
-    PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
-    PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET"),
-    PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end"),
-    PrbType.CELL_FAILURE: PrbDefault(Severity.FAULT, "Cell"),
-    PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor"),
-    PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication"),
-    PrbType.FUSE_BLOWN: PrbDefault(Severity.FAULT, "Fuse blown"),
-    PrbType.OTHER: PrbDefault(Severity.WARN, "Other problem"),
-    PrbType.UNKNOWN: PrbDefault(Severity.WARN, "Unknown problem"),
-}
-"""Default severity and generic description of each problem type."""
-
-
-class BMSPrbDef(NamedTuple):
-    """Map (a field of) a BMS problem code to a generic problem."""
-
-    mask: int  # bit(s) of problem_code to evaluate
-    kind: PrbType
-    level: Severity | None = None  # None: use PROBLEM_DEFAULTS[kind].level
-    value: int | None = None  # None: any bit of mask set, else (code & mask) == value
-    text: str = ""  # vendor specific description, overrides generic text
-
-    @property
-    def severity(self) -> Severity:
-        """Return the explicit level or the default level of the problem kind."""
-        return PROBLEM_DEFAULTS[self.kind].level if self.level is None else self.level
-
-    def matches(self, code: int) -> bool:
-        """Return True if this definition applies to the problem code."""
-        hit: Final[int] = code & self.mask
-        if self.value is None:
-            return bool(hit)
-        return hit == self.value
-
-
 @dataclass(frozen=True, slots=True)
 class BMSProblem:
     """Decoded problem reported by the BMS."""
@@ -280,17 +201,6 @@ class BMSSample(BatterySample, total=False):
     packs: list[PackSample]  # data from battery sub-systems
 
 
-class BMSDp[K: (BMSValue, BMSPackValue)](NamedTuple):
-    """Representation of main BMS data point."""
-
-    key: K
-    pos: int  # position within the message
-    size: int  # size in bytes
-    signed: bool  # signed value
-    fct: Callable[[int], Any] = lambda x: x  # conversion function (default do nothing)
-    idx: int = -1  # array index containing the message to be parsed
-
-
 @dataclass(slots=True, frozen=True)
 class BMSConfig:
     """Configuration for the BMS (connection)."""
@@ -350,30 +260,3 @@ class Threshold:
 type BMSLimits = dict[Limit, Threshold]
 """Thresholds configured in the BMS."""
 
-type ThresholdAttr = Literal["trip", "release", "delay"]
-
-
-@dataclass(frozen=True, slots=True)
-class LimitDp:
-    """Location and conversion of one threshold value in a raw frame."""
-
-    prot: Limit
-    attr: ThresholdAttr
-    pos: int  # byte offset in frame
-    size: int = 2  # size in bytes
-    scale: float = 1.0  # value = raw * scale - offset
-    offset: float = 0.0
-    signed: bool = False
-    invalid: int | None = None  # sentinel raw value meaning "disabled"
-
-
-class MatcherPattern(TypedDict, total=False):
-    """Optional patterns that can match Bleak advertisement data."""
-
-    local_name: str  # name pattern that supports Unix shell-style wildcards
-    manufacturer_data_start: list[int]  # start bytes of manufacturer data
-    manufacturer_id: int  # required manufacturer ID
-    oui: str  # required OUI used in the MAC address (first 3 bytes)
-    service_data_uuid: str  # service data for the service UUID
-    service_uuid: str  # 128-bit UUID that the device must advertise
-    connectable: bool  # True if active connections to the device are required

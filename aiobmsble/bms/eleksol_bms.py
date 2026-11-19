@@ -6,8 +6,9 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSInfo, MatcherPattern
+from aiobmsble import BMSInfo
 from aiobmsble.bms.jbd_bms import BMS as JbdBMS
+from aiobmsble.plugin import MatcherPattern
 
 
 class BMS(JbdBMS):

@@ -6,9 +6,9 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from typing import Final
 
-from aiobmsble import BMSDp, BMSInfo, BMSValue, MatcherPattern, TempSensor as TS
-from aiobmsble.basebms import b2str, swap32
+from aiobmsble import BMSInfo, TempSensor as TS
 from aiobmsble.bms.jbd_bms import BMS as JBDBMS
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, swap32
 
 
 class BMS(JBDBMS):

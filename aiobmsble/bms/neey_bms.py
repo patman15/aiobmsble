@@ -14,18 +14,9 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import (
-    BMSConfig,
-    BMSInfo,
-    BMSPrbDef,
-    BMSSample,
-    BMSValue,
-    MatcherPattern,
-    PrbType as PT,
-    Severity as SV,
-    TempSensor,
-)
-from aiobmsble.basebms import BaseBMS, b2str, crc_sum
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TempSensor
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_sum
 
 
 class BMS(BaseBMS):

@@ -10,7 +10,8 @@ The package requires Python `>=3.12`. It is licensed under Apache-2.0.
 
 ## Repository map
 
-- `aiobmsble/__init__.py` — public types and data models, including `BMSSample`, `BMSInfo`, `BMSConfig`, `BMSDp`, and `MatcherPattern`.
+- `aiobmsble/__init__.py` — user-facing types and data models, including `BMSSample`, `BMSInfo`, `BMSConfig`, and `BaseBMS` (lazily re-exported).
+- `aiobmsble/plugin.py` — plugin-author API: `BMSDp`, `LimitDp`, `BMSPrbDef`, `MatcherPattern`, `BMSValue`, and the CRC/decoding helpers.
 - `aiobmsble/basebms.py` — `BaseBMS`, BLE connection/operation behavior, common decoding, integrity helpers, and derived-value support.
 - `aiobmsble/bms/` — one plugin module per supported BMS protocol; modules generally expose a `BMS` subclass.
 - `aiobmsble/test_data/` — recorded BLE advertisements in JSON, packaged as data by `pyproject.toml`.
@@ -89,7 +90,7 @@ The documentation workflow runs those commands on pushes to `main`; generated ou
 
 - New protocol support belongs in `aiobmsble/bms/<name>_bms.py`, with a `BMS` class that ultimately derives from `BaseBMS`. For a genuinely new wire protocol, derive directly from `BaseBMS` and use `aiobmsble/bms/dummy_bms.py` as the template. When the device speaks a protocol that an existing plugin already implements, derive that plugin's `BMS` class instead (see "Deriving from an existing plugin" below).
 - A plugin must provide `INFO` with at least `default_manufacturer` and `default_model`, a unique `matcher_dict_list()`, `uuid_services()`, `uuid_rx()`, `uuid_tx()`, `_notification_handler()`, and `_async_update()`, either defined directly or inherited from a parent plugin.
-- Matchers must be unique across plugins so BLE auto-detection is reliable. A matcher can use the `MatcherPattern` fields defined in `aiobmsble/__init__.py`.
+- Matchers must be unique across plugins so BLE auto-detection is reliable. A matcher can use the `MatcherPattern` fields defined in `aiobmsble/plugin.py`.
 - Store returned telemetry in the `BMSSample` `TypedDict`, not a dataclass. Include the required common fields available from the device and use `BaseBMS._add_missing_values()`/the existing calculation helpers for consistent derived values.
 - Validate incoming frames according to the protocol (for example, start marker, length, allowed message type, and checksum/CRC). Discard invalid frames; only signal completion when a valid complete response is available.
 - Prefer `BaseBMS` helpers such as `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_check_integrity()`, and `_cmd_modbus()` before duplicating behavior.

@@ -11,20 +11,9 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import (
-    BMSConfig,
-    BMSDp,
-    BMSInfo,
-    BMSLimits,
-    BMSSample,
-    BMSValue,
-    Limit,
-    LimitDp,
-    MatcherPattern,
-    TempSensor,
-    Threshold,
-)
+from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TempSensor, Threshold
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSValue, LimitDp, MatcherPattern
 
 
 class BMS(BaseBMS):

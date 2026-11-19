@@ -9,8 +9,8 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
-from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.gobel_bms import BMS
+from aiobmsble.plugin import crc_modbus
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests

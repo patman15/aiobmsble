@@ -8,8 +8,9 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSValue, MatcherPattern
+from aiobmsble import BMSConfig, BMSInfo
 from aiobmsble.bms.renogy_bms import BMS as RenogyBMS
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
 class BMS(RenogyBMS):

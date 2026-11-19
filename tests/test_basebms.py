@@ -20,25 +20,26 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import (
-    PROBLEM_DEFAULTS,
     BMSConfig,
-    BMSDp,
     BMSInfo,
     BMSLimits,
-    BMSPrbDef,
     BMSProblem,
     BMSSample,
-    BMSValue,
     Limit,
-    LimitDp,
-    MatcherPattern,
     PrbType,
     Severity,
     TempSensor,
     Threshold,
 )
-from aiobmsble.basebms import (
-    BaseBMS,
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.bms.dummy_bms import BMS as DummyBMS
+from aiobmsble.plugin import (
+    PROBLEM_DEFAULTS,
+    BMSDp,
+    BMSPrbDef,
+    BMSValue,
+    LimitDp,
+    MatcherPattern,
     b2str,
     crc8,
     crc_modbus,
@@ -48,7 +49,6 @@ from aiobmsble.basebms import (
     lrc_modbus,
     lstr2int,
 )
-from aiobmsble.bms.dummy_bms import BMS as DummyBMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 

@@ -22,8 +22,8 @@ from aiobmsble import (
     Severity as SV,
     TempSensor as TS,
 )
-from aiobmsble.basebms import crc_sum, lstr2int
 from aiobmsble.bms.jikong_bms import BMS
+from aiobmsble.plugin import crc_sum, lstr2int
 from tests.bluetooth import generate_ble_device
 from tests.conftest import DefGATTChar, MockBleakClient
 from tests.test_basebms import BMSBasicTests

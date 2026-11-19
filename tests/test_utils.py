@@ -6,8 +6,8 @@ from typing import Any, Final
 
 import pytest
 
-from aiobmsble import MatcherPattern
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import MatcherPattern
 from aiobmsble.test_data import BmsAdvSample, bms_advertisements
 from aiobmsble.utils import (
     StreamParser,

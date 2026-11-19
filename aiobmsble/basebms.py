@@ -10,7 +10,6 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable, Iterable, MutableMapping
 from contextlib import suppress
 from functools import lru_cache
-from itertools import takewhile
 import logging
 from types import TracebackType
 from typing import Any, Final, Literal, Self, final
@@ -27,22 +26,13 @@ from bleak_retry_connector import (
 )
 
 from aiobmsble import (
-    PROBLEM_DEFAULTS,
     BMSConfig,
-    BMSDp,
     BMSInfo,
     BMSLimits,
-    BMSPackValue,
-    BMSPrbDef,
     BMSProblem,
     BMSSample,
-    BMSValue,
     Limit,
-    LimitDp,
-    MatcherPattern,
     PackSample,
-    PrbDefault,
-    PrbType,
     Severity,
     TempSensor,
     Threshold,
@@ -50,6 +40,17 @@ from aiobmsble import (
 )
 from aiobmsble._boundedbytearr import BoundedByteArray
 from aiobmsble._sample_calc import derive_missing_fields
+from aiobmsble.plugin import (
+    BMSDp,
+    BMSPackValue,
+    BMSPrbDef,
+    BMSValue,
+    LimitDp,
+    MatcherPattern,
+    b2str,
+    crc_modbus,
+    decode_problems,
+)
 
 
 class BaseBMS(ABC):
@@ -841,112 +842,3 @@ class BaseBMS(ABC):
         return "\n".join(lines)
 
 
-def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
-    """Translate a BMS problem code into generic problems.
-
-    Bits not explained by a matching definition are reported as UNKNOWN problems: a
-    value coded field (definitions with `value`) holding an undefined value is reported
-    once with its value, any other bit is reported individually.
-
-    Args:
-        code: BMS specific problem code, 0 means no problem
-        defs: definitions mapping (fields of) the code to generic problems
-
-    Returns:
-        list[BMSProblem]: decoded problems in order of the definitions
-
-    """
-    problems: list[BMSProblem] = []
-    explained: int = 0
-    fields: dict[int, bool] = {}  # mask of value coded field: definition matched
-    for d in defs:
-        hit: bool = d.matches(code)
-        if d.value is not None:
-            fields[d.mask] = fields.get(d.mask, False) or hit
-        if hit:
-            explained |= d.mask
-            problems.append(BMSProblem(d.kind, d.severity, d.text or PROBLEM_DEFAULTS[d.kind].text))
-    unknown: Final[PrbDefault] = PROBLEM_DEFAULTS[PrbType.UNKNOWN]
-    for mask, matched in fields.items():
-        if not matched and code & mask:
-            explained |= mask
-            value: int = (code & mask) >> ((mask & -mask).bit_length() - 1)
-            problems.append(
-                BMSProblem(PrbType.UNKNOWN, unknown.level, f"{unknown.text} value {value:#04x}")
-            )
-    remaining: Final[int] = code & ~explained
-    problems.extend(
-        BMSProblem(PrbType.UNKNOWN, unknown.level, f"{unknown.text} bit {bit}")
-        for bit in range(remaining.bit_length())
-        if remaining >> bit & 1
-    )
-    return problems
-
-
-def b2str(b: bytes) -> str:
-    """Decode a bytearray to string, stopping at the first non-printable character."""
-    s: Final[str] = b.decode("ascii", errors="ignore")
-    for i, c in enumerate(s):
-        if not c.isprintable():
-            return s[:i].strip()
-    return s.strip()
-
-
-def lstr2int(string: str) -> int:
-    """Convert the beginning of a string to an integer, till first non-digit is found."""
-    return int("".join(takewhile(str.isdigit, string)))
-
-
-def swap32(value: int, signed: bool = False) -> int:
-    """Swap high and low 16bit in 32bit integer."""
-    value = ((value >> 16) & 0xFFFF) | (value & 0xFFFF) << 16
-    if signed and value & 0x80000000:
-        value -= 0x100000000
-    return value
-
-
-def crc_modbus(data: bytes | bytearray) -> int:
-    """Calculate CRC-16-CCITT MODBUS."""
-    crc: int = 0xFFFF
-    for i in data:
-        crc ^= i & 0xFF
-        for _ in range(8):
-            crc = (crc >> 1) ^ 0xA001 if crc % 2 else (crc >> 1)
-    return crc & 0xFFFF
-
-
-def lrc_modbus(data: bytes | bytearray) -> int:
-    """Calculate MODBUS LRC."""
-    return ((sum(data) ^ 0xFFFF) + 1) & 0xFFFF
-
-
-def crc_xmodem(data: bytes | bytearray) -> int:
-    """Calculate CRC-16-CCITT XMODEM."""
-    crc: int = 0x0000
-    for byte in data:
-        crc ^= byte << 8
-        for _ in range(8):
-            crc = (crc << 1) ^ 0x1021 if (crc & 0x8000) else (crc << 1)
-    return crc & 0xFFFF
-
-
-def crc8(data: bytes | bytearray) -> int:
-    """Calculate CRC-8/MAXIM-DOW."""
-    crc: int = 0x00
-
-    for byte in data:
-        crc ^= byte
-        for _ in range(8):
-            crc = (crc >> 1) ^ 0x8C if crc & 0x1 else crc >> 1
-
-    return crc & 0xFF
-
-
-def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
-    """Calculate the sum of the frame bytes using the specified size.
-
-    Args:
-        frame: The input data for which the sum is to be calculated.
-        size (int, optional): The size of the sum in bytes (default is 1).
-    """
-    return sum(frame) & ((1 << (8 * size)) - 1)

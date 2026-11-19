@@ -2,7 +2,16 @@
 
 from typing import Final
 
+import aiobmsble
 from aiobmsble import TempSensor as TS
+
+
+def test_dropped_re_exports() -> None:
+    """Test that implementation types are imported from their direct modules."""
+    assert "BaseBMS" not in aiobmsble.__all__
+    assert "bms_identify" not in aiobmsble.__all__
+    assert not hasattr(aiobmsble, "BaseBMS")
+    assert not hasattr(aiobmsble, "bms_identify")
 
 
 def test_TempSensor() -> None:

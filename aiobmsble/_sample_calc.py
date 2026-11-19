@@ -10,7 +10,8 @@ from functools import lru_cache
 from statistics import fmean
 from typing import Any, Final, cast, get_type_hints
 
-from aiobmsble import BMSPackValue, BMSSample, BMSValue, CommonValue, PackSample
+from aiobmsble import BMSSample, PackSample
+from aiobmsble.plugin import BMSPackValue, BMSValue, CommonValue
 
 _HRS_TO_SECS: Final[int] = 60 * 60
 

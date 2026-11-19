@@ -15,8 +15,8 @@ from aiobmsble import (
     Severity as SV,
     TempSensor as TS,
 )
-from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.ant_bms import BMS
+from aiobmsble.plugin import crc_modbus
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests

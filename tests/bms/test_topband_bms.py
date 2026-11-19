@@ -9,8 +9,8 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
 from aiobmsble import BMSConfig, BMSProblem, BMSSample, PrbType as PT, Severity, TempSensor as TS
-from aiobmsble.basebms import decode_problems
 from aiobmsble.bms.topband_bms import BMS
+from aiobmsble.plugin import decode_problems
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests

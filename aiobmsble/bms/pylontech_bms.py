@@ -10,18 +10,9 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import (
-    BMSConfig,
-    BMSDp,
-    BMSInfo,
-    BMSLimits,
-    BMSSample,
-    BMSValue,
-    Limit,
-    LimitDp,
-    MatcherPattern,
-)
-from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
+from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSValue, LimitDp, MatcherPattern, b2str, crc_modbus
 
 
 class BMS(BaseBMS):

@@ -6,8 +6,9 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from typing import Final
 
-from aiobmsble import BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern, TempSensor
+from aiobmsble import BMSInfo, BMSSample, TempSensor
 from aiobmsble.bms.vatrer_bms import BMS as VatrerBMS
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
 class BMS(VatrerBMS):

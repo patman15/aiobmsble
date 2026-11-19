@@ -18,8 +18,8 @@ from aiobmsble import (
     TempSensor as TS,
     Threshold,
 )
-from aiobmsble.basebms import crc_xmodem, decode_problems
 from aiobmsble.bms.seplos_v2_bms import BMS
+from aiobmsble.plugin import crc_xmodem, decode_problems
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests

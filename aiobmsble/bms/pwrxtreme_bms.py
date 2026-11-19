@@ -12,8 +12,9 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSConfig, BMSInfo, BMSSample
 from aiobmsble.bms.topband_bms import BMS as TopbandBMS
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
 class BMS(TopbandBMS):
