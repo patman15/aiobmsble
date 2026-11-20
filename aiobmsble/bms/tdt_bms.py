@@ -216,7 +216,7 @@ class BMS(BaseBMS):
 
         return bytes(frame)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         for head in self._cmd_heads:

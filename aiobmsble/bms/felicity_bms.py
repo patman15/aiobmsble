@@ -146,7 +146,7 @@ class BMS(BaseBMS):
             TempSensor(temp / 10) for value in temp_list[0] if (temp := BMS._int(value)) != 0x7FFF
         ]
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         await self._await_msg(BMS._CMD_PRE + BMS._CMD_RT)

@@ -286,7 +286,7 @@ class BMS(BaseBMS):
         frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
         return bytes(frame)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         self._msg.clear()
         for block in BMS._QUERY.values():

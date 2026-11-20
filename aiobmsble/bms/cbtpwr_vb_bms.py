@@ -138,7 +138,7 @@ class BMS(BaseBMS):
         frame.extend(int.to_bytes(lrc_modbus(frame.hex().upper().encode()), 2, "big"))
         return BMS._HEAD + frame.hex().upper().encode() + BMS._TAIL
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         await self._await_msg(BMS._cmd(0x42))

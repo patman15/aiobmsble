@@ -165,7 +165,7 @@ class BMS(BaseBMS):
         """Assemble a TianPwr BMS command."""
         return BMS._HEAD + BMS._RDCMD + addr.to_bytes(1) + BMS._TAIL
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         self._msg.clear()

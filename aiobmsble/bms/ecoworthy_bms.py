@@ -115,7 +115,7 @@ class BMS(BaseBMS):
         if BMS._CMDS.issubset(self._msg.keys()):
             self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         if not self._msg_event.is_set():

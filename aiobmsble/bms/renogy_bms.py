@@ -130,7 +130,7 @@ class BMS(BaseBMS):
     def _read_int16(data: bytes, pos: int, signed: bool = False) -> int:
         return int.from_bytes(data[pos : pos + 2], byteorder="big", signed=signed)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13B2, count=0x7))

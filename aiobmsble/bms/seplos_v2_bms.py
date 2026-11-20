@@ -276,7 +276,7 @@ class BMS(BaseBMS):
         frame.extend(int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL)
         return bytes(frame)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         for cmd, data in BMS._CMDS:

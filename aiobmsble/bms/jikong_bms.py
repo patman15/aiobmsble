@@ -302,7 +302,7 @@ class BMS(BaseBMS):
 
         return result
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         if not self._msg_event.is_set() or self._msg[4] != 0x02:
             # request cell info (only if data is not constantly published)

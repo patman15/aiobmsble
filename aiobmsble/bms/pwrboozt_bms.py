@@ -127,7 +127,7 @@ class BMS(EJBMS):
         self._msg = msg
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         # query real-time information and capacity

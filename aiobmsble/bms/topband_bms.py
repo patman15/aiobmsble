@@ -122,7 +122,7 @@ class BMS(BaseBMS):
         self._msg_event.set()
         self._frame.clear()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)

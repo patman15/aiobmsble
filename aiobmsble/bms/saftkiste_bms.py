@@ -135,7 +135,7 @@ class BMS(BaseBMS):
         assert cmd in (0x2, 0x3, 0x4, 0x5, 0x10, 0x43)
         return BMS._HEAD + cmd.to_bytes(1)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         for cmd in (0x2, 0x3):
             await self._await_msg(BMS._cmd(cmd))

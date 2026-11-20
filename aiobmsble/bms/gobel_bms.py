@@ -169,7 +169,7 @@ class BMS(BaseBMS):
         self._msg = bytes(self._frame)
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(BMS._cmd_modbus(0x1, 0x3, *BMS._RD_CMD_STATUS))
 

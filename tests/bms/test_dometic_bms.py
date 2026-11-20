@@ -869,7 +869,7 @@ async def test_keep_alive_handler_broken_sender(
 async def test_update_with_preset_event(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client
 ) -> None:
-    """Test _async_update skips data request when msg_event is already set."""
+    """Test _update skips data request when msg_event is already set."""
     monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS)
     patch_bleak_client(MockDBBleakClient)
 

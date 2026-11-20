@@ -199,7 +199,7 @@ class BMS(BaseBMS):
             ]
         )
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         for addr in BMS._MSG_SET:

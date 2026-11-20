@@ -209,7 +209,7 @@ class BMS(BaseBMS):
         self._valid_reply = data[1]  # expected reply type
         await super()._await_msg(data, char, wait_for_notify, max_size)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         self._msg.clear()
         for cmd in BMS._CMDS:

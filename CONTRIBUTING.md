@@ -25,8 +25,8 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
     - `uuid_rx()` — 16/32/128-bit UUID of the characteristic that provides notifications (incoming data).
     - `uuid_tx()` — 16/32/128-bit UUID of the characteristic used to send commands.
     - `_notification_handler()` — callback invoked when a BLE notification arrives; validates the frame and sets `self._msg_event` when a complete, valid frame is available.
-    - `_async_update()` — sends command(s) to the BMS, parses the response, and returns a `BMSSample`.
- 5. Make sure that the `BMSSample` returned by `_async_update()` contains at minimum the keys listed before the *detailed information* comment in the [`BMSSample`](aiobmsble/__init__.py) class.
+    - `_update()` — sends command(s) to the BMS, parses the response, and returns a `BMSSample`.
+ 5. Make sure that the `BMSSample` returned by `_update()` contains at minimum the keys listed before the *detailed information* comment in the [`BMSSample`](aiobmsble/__init__.py) class.
  6. Add recorded BLE advertisement from a real device to `aiobmsble/test_data/my_bms.json`.
  7. Add a test file at `tests/bms/test_my_bms.py`. Subclass `BMSBasicTests` (from `tests/test_basebms.py`) and add BMS-specific tests. Use `tests/bms/test_dummy.py` as a template.
     -  Use recorded frames from a real device to mimic exact device behaviour, do **not** artificially generate device frames.
@@ -60,7 +60,7 @@ The template also shows optional overrides as comments:
 When the target device speaks a protocol that an existing plugin already implements, derive from that plugin's `BMS` class (which itself derives from `BaseBMS`) rather than from `BaseBMS` directly. The criterion is reuse of the parent's *wire protocol*: framing, notification assembly, command construction, checksum/CRC, and connection flow. Derive directly from `BaseBMS` only when introducing genuinely new framing, notification handling, command building, or integrity handling. There are two common patterns:
 
 - **OEM rebrand / twin** (identical protocol and field layout): override only device identity and BLE addressing, i.e. `INFO`, `matcher_dict_list()`, and `uuid_services()`/`uuid_rx()`/`uuid_tx()`. See `ag_bms.py` (from `ej_bms.py`) and `eleksol_bms.py` (from `jbd_bms.py`).
-- **Protocol variant** (same transport, different data map or a narrow behavioural tweak): additionally override the declarative field map (`_FIELDS`/`FIELDS`), protocol constants, scaling, and at most a small hook such as `_notification_handler()`, `_async_update()`, `_fetch_device_info()`, or `_init_connection()`. See `pwrboozt_bms.py` (from `ej_bms.py`), `c4s_bms.py` (from `vatrer_bms.py`), `daren_bms.py` (from `jbd_bms.py`), `pwrxtreme_bms.py` (from `topband_bms.py`), and `renogy_pro_bms.py` (from `renogy_bms.py`).
+- **Protocol variant** (same transport, different data map or a narrow behavioural tweak): additionally override the declarative field map (`_FIELDS`/`FIELDS`), protocol constants, scaling, and at most a small hook such as `_notification_handler()`, `_update()`, `_fetch_device_info()`, or `_init_connection()`. See `pwrboozt_bms.py` (from `ej_bms.py`), `c4s_bms.py` (from `vatrer_bms.py`), `daren_bms.py` (from `jbd_bms.py`), `pwrxtreme_bms.py` (from `topband_bms.py`), and `renogy_pro_bms.py` (from `renogy_bms.py`).
 
 Do not duplicate a parent's notification handler, command builder, or integrity logic in the child; override only what genuinely differs. When writing a plugin intended to be subclassed, expose the field tuple as a plain (non-`Final`) class attribute so a child can replace it or patch entries with `BMSDp._replace()` without touching protocol code.
 

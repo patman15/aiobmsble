@@ -176,7 +176,7 @@ class BMS(BaseBMS):
             result["cell_voltages"] = [BMS._int(value) / 100 for value in cell_values]
         return result
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         try:
             await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)

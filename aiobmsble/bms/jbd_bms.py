@@ -264,7 +264,7 @@ class BMS(BaseBMS):
         await self._await_msg(msg)
         self._valid_reply = 0x00
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         await self._await_cmd_resp(0x03)

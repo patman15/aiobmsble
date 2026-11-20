@@ -151,7 +151,7 @@ class BMS(BaseBMS):
         self._valid_reply = data[BMS._FRM_TYPE]  # expected reply type
         await super()._await_msg(data, char, wait_for_notify, max_size)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(BMS._cmd(BMS._Cmd.PACK_INFO, b"\x01\x01"))
         pack: PackSample = BMS._decode_pack(BMS._PFIELDS, self._msg, start=8)

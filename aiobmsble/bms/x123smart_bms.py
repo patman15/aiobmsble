@@ -216,7 +216,7 @@ class BMS(BaseBMS):
     def _crc_sum(data: bytes | bytearray) -> int:
         return (sum(data) - data.count(0x5F) * 0x5F) & 0xFF
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         try:

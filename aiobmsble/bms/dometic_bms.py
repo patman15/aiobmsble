@@ -219,7 +219,7 @@ class BMS(BaseBMS):
             voltages.extend(BMS._cell_voltages(data[0x56 + i], cells=2, start=4))
         return voltages
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         if self._disconnect_event.is_set():

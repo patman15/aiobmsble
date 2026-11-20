@@ -139,7 +139,7 @@ class BMS(BaseBMS):
         """Assemble a Wattstunde Nova BMS command frame."""
         return BMS._HEAD + cmd + BMS._TAIL
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         if not self._msg_event.is_set():
             self._log.debug("requesting BMS data")

@@ -97,11 +97,11 @@ async def test_bms_fail(
 ) -> None:
     """Check that an error message is given if BMS update query fails (TimeoutError)."""
 
-    async def mock_async_update(self) -> BMSSample:
+    async def mock_update(self) -> BMSSample:
         raise TimeoutError
 
     monkeypatch.setattr("aiobmsble.__main__.BleakScanner.discover", mock_discover)
-    monkeypatch.setattr("aiobmsble.bms.dummy_bms.BMS._async_update", mock_async_update)
+    monkeypatch.setattr("aiobmsble.bms.dummy_bms.BMS._update", mock_update)
     patch_bleak_client()
     with caplog.at_level(INFO):
         await main_mod.detect_bms()
@@ -116,7 +116,7 @@ async def test_bms_retry_with_secret(
 ) -> None:
     """Verify that a failed query will be retried when a BMS accepts a secret.
 
-    The first call to ``_async_update`` simulates a timeout while no secret is
+    The first call to ``_update`` simulates a timeout while no secret is
     supplied. ``detect_bms`` should catch the error, prompt for a secret via
     :func:`getpass.getpass`, and attempt the query again with the provided
     value.  The second attempt returns a valid sample which is logged.
@@ -145,7 +145,7 @@ async def test_bms_retry_with_secret(
             raise TimeoutError
         return {"voltage": 99}
 
-    monkeypatch.setattr(DummyBMS, "_async_update", fake_update)
+    monkeypatch.setattr(DummyBMS, "_update", fake_update)
 
     # patch getpass to avoid interactive prompt
     monkeypatch.setattr("getpass.getpass", lambda prompt="": "secret123")

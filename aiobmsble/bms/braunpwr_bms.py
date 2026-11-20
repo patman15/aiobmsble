@@ -148,7 +148,7 @@ class BMS(BaseBMS):
         assert len(data) <= 255, "data length must be a single byte."
         return bytes([*BMS._HEAD, cmd, len(data), *data, BMS._TAIL])
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         self._msg.clear()
         for cmd in BMS._CMDS:

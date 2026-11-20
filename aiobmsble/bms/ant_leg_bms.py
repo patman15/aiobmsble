@@ -171,7 +171,7 @@ class BMS(BaseBMS):
         _frame: bytes = bytes((cmd, cmd, adr)) + value.to_bytes(2, "big")
         return bytes(_frame) + crc_sum(_frame[2:]).to_bytes(1, "big")
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(BMS._cmd(BMS.CMD.GET, BMS.ADR.STATUS))
 

@@ -154,7 +154,7 @@ class BMS(BaseBMS):
         data: Final[bytes] = bytes([len(cmd) + 2, *cmd])
         return BMS._HEAD + data + bytes([BMS._crc(data), BMS._TAIL])
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         self._frame.clear()

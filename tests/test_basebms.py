@@ -131,7 +131,7 @@ class MinTestBMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
         # do not set event to make tests fail if wait_for_notify is not set
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {"problem_code": 21}
@@ -144,7 +144,7 @@ class DataTestBMS(MinTestBMS):
     def _calc_values() -> frozenset[BMSValue]:
         return frozenset({"power", "battery_charging"})
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {
@@ -204,7 +204,7 @@ class OpGuardTestBMS(MinTestBMS):
         finally:
             self._op_active = False
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         if self._op_active:
             raise RuntimeError("overlapping base operations")
 
@@ -252,7 +252,7 @@ class WMTestBMS(MinTestBMS):
         self._data = data
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(b"mock_command")
 
@@ -323,10 +323,10 @@ class BMSBasicTests:
         patch_bms_timeout: Callable[..., None],
         request: pytest.FixtureRequest,
     ) -> None:
-        """Verify that async_update returns BMSSample fields with the correct types."""
-        if "_async_update" not in self.bms_class.__dict__:
+        """Verify that update returns BMSSample fields with the correct types."""
+        if "_update" not in self.bms_class.__dict__:
             pytest.skip(
-                f"{self.bms_class.__name__} does not define _async_update(), skipping result type check."
+                f"{self.bms_class.__name__} does not define _update(), skipping result type check."
             )
 
         def _is_typed_dict(tp: Any) -> bool:
@@ -398,7 +398,7 @@ class BMSBasicTests:
         await bms.disconnect()
 
         hints: dict[str, Any] = get_type_hints(BMSSample)
-        assert isinstance(result, dict), "async_update must return a dict-like BMSSample"
+        assert isinstance(result, dict), "update must return a dict-like BMSSample"
 
         for key, value in result.items():
             assert key in hints, f"Unexpected result key '{key}' not defined in BMSSample"
@@ -573,7 +573,7 @@ def test_calc_values(sample: BMSSample, expected: BMSSample) -> None:
     [True, False],
     ids=["raw", "ext"],
 )
-async def test_async_update(patch_bleak_client: Callable[..., None], raw: bool) -> None:
+async def test_update(patch_bleak_client: Callable[..., None], raw: bool) -> None:
     """Check update function of the BMS returns values."""
     patch_bleak_client()
     bms: DataTestBMS = DataTestBMS(generate_ble_device())
@@ -633,18 +633,18 @@ class ProblemTestBMS(MinTestBMS):
     ],
     ids=["problems", "info_only", "no_problem", "no_problem_code"],
 )
-async def test_async_update_problems(
+async def test_update_problems(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client: Callable[..., None],
     sample: BMSSample,
     expected: BMSSample,
 ) -> None:
-    """Check that async_update decodes the problem code if the BMS defines _PROBLEMS."""
+    """Check that update decodes the problem code if the BMS defines _PROBLEMS."""
 
-    async def _async_update(_self: BaseBMS) -> BMSSample:
+    async def _update(_self: BaseBMS) -> BMSSample:
         return sample.copy()
 
-    monkeypatch.setattr(ProblemTestBMS, "_async_update", _async_update)
+    monkeypatch.setattr(ProblemTestBMS, "_update", _update)
     patch_bleak_client()
     bms: ProblemTestBMS = ProblemTestBMS(generate_ble_device())
     assert await bms.update() == sample | expected
@@ -714,10 +714,10 @@ def test_prb_def_severity() -> None:
     assert BMSPrbDef(0x1, PrbType.CELL_OVERVOLTAGE, Severity.WARN).severity == Severity.WARN
 
 
-async def test_op_guard_device_info_async_update(
+async def test_op_guard_device_info_update(
     patch_bleak_client: Callable[..., None],
 ) -> None:
-    """Verify device_info, limits, and async_update are serialized for one BMS instance."""
+    """Verify device_info, limits, and update are serialized for one BMS instance."""
     patch_bleak_client()
     bms: OpGuardTestBMS = OpGuardTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
     await bms._connect()

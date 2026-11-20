@@ -42,7 +42,7 @@ class BMS(VatrerBMS):
             }
         ]
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         self._msg.clear()
         await self._await_msg(

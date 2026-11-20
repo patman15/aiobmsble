@@ -200,7 +200,7 @@ class BMS(BaseBMS):
         self._msg = bytes(data)
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         result: BMSSample = {}
         proto_def = BMS._PROTOS[self._proto]

@@ -116,7 +116,7 @@ class BMS(TopbandBMS):
             return
         super()._notification_handler(sender, data)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         await self._await_msg(b"<B:ST>", wait_for_notify=False)

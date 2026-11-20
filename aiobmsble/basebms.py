@@ -560,14 +560,14 @@ class BaseBMS(ABC):
         self._msg_event.clear()
 
     @abstractmethod
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
     @final
     async def update(self, raw: bool = False) -> BMSSample:
         """Fetch the latest battery telemetry from the BMS.
 
-        This calls the protocol-specific implementation in `_async_update()` and,
+        This calls the protocol-specific implementation in `_update()` and,
         unless `raw` is `True`, fills in any derived or missing values expected by
         the library.
 
@@ -581,7 +581,7 @@ class BaseBMS(ABC):
         """
         async with self._op_lock:
             await self._connect()
-            data: BMSSample = await self._async_update()
+            data: BMSSample = await self._update()
             if not raw:
                 if self._PROBLEMS and "problem_code" in data:
                     data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)

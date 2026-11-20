@@ -98,7 +98,7 @@ class BMS(BaseBMS):
         self._msg = bytes(data)
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         for head in self._heads:
             try:
