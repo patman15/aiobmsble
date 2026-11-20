@@ -215,25 +215,19 @@ class BaseBMS(ABC):
         """Return 16-bit UUID of characteristic that provides write property."""
 
     @final
-    async def device_info(self, keep_alive: bool | None = None) -> BMSInfo:
+    async def device_info(self) -> BMSInfo:
         """Return device information read from the BMS over Bluetooth LE.
-
-        Args:
-            keep_alive (bool | None): Override the configured keep-alive behavior
-                for this update. If `None`, use the BMS configuration.
 
         Returns:
             Available device information, such as manufacturer, model, model ID,
             name, serial number, and software or hardware version.
         """
-
-        keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
             await self._connect()
             dev_info: Final[BMSInfo] = await self._fetch_device_info()
             self._log.debug("BMS info %s", dev_info)
 
-            if not keep_alive:
+            if not self._cfg.keep_alive:
                 await self.disconnect()
             return dev_info
 
@@ -256,28 +250,22 @@ class BaseBMS(ABC):
         return info
 
     @final
-    async def limits(self, keep_alive: bool | None = None) -> BMSLimits:
+    async def limits(self) -> BMSLimits:
         """Return protection thresholds configured in the BMS.
 
         The values are trip/recovery points of the BMS protections, not the
         operating envelope, and must not be used as charger/inverter set points.
 
-        Args:
-            keep_alive (bool | None): Override the configured keep-alive behavior
-                for this update. If `None`, use the BMS configuration.
-
         Returns:
             Reported protection thresholds, or an empty mapping if the BMS does
             not provide any. See `BMSLimits`.
         """
-
-        keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
             await self._connect()
             limits: Final[BMSLimits] = await self._fetch_limits()
             self._log.debug("BMS limits %s", limits)
 
-            if not keep_alive:
+            if not self._cfg.keep_alive:
                 await self.disconnect()
             return limits
 
@@ -576,7 +564,7 @@ class BaseBMS(ABC):
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
     @final
-    async def update(self, raw: bool = False, keep_alive: bool | None = None) -> BMSSample:
+    async def update(self, raw: bool = False) -> BMSSample:
         """Fetch the latest battery telemetry from the BMS.
 
         This calls the protocol-specific implementation in `_async_update()` and,
@@ -586,15 +574,11 @@ class BaseBMS(ABC):
         Args:
             raw (bool): If `True`, return the raw values reported by the BMS
                 without adding derived or missing fields.
-            keep_alive (bool | None): Override the configured keep-alive behavior
-                for this update. If `None`, use the BMS configuration.
 
         Returns:
             BMSSample: The retrieved BMS values.
 
         """
-
-        keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
             await self._connect()
             data: BMSSample = await self._async_update()
@@ -603,7 +587,7 @@ class BaseBMS(ABC):
                     data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)
                 self._add_missing_values(data, self._raw_values())
 
-            if not keep_alive:
+            if not self._cfg.keep_alive:
                 # disconnect after data update to force reconnect next time (slow!)
                 self._log.debug("forced disconnect of BMS after update")
                 await self.disconnect()
