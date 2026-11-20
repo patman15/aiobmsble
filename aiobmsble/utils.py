@@ -16,6 +16,7 @@ from bleak.backends.scanner import AdvertisementData
 
 from aiobmsble.basebms import BaseBMS
 import aiobmsble.bms
+from aiobmsble.exceptions import BMSConfigError
 
 _MODULE_POSTFIX: Final[str] = "_bms"
 
@@ -32,29 +33,32 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
         "tx_power": None,
     }
 
-    val_dict: dict[str, Any] = adv_dict.copy()
-    if "manufacturer_data" in adv_dict:
-        val_dict["manufacturer_data"] = {
-            int(k): bytes.fromhex(v) if isinstance(v, str) else v
-            for k, v in adv_dict["manufacturer_data"].items()
-        }
-    if "service_data" in adv_dict:
-        val_dict["service_data"] = {
-            k: bytes.fromhex(v) if isinstance(v, str) else v
-            for k, v in adv_dict["service_data"].items()
-        }
-    if "platform_data" in adv_dict:
-        pdata = adv_dict.get("platform_data", [])
-        assert isinstance(
-            pdata[0], str
-        ), "first entry of platform_data needs to be string."
-        parts = pdata[0].split(":")
-        assert len(parts) == 6 and all(
-            len(part) == 2 and all(c in hexdigits for c in part) for part in parts
-        ), "first entry of platform_data only accepts MAC addresses"
-        val_dict["platform_data"] = tuple(pdata)
+    try:
+        val_dict: dict[str, Any] = adv_dict.copy()
+        if "manufacturer_data" in adv_dict:
+            val_dict["manufacturer_data"] = {
+                int(k): bytes.fromhex(v) if isinstance(v, str) else v
+                for k, v in adv_dict["manufacturer_data"].items()
+            }
+        if "service_data" in adv_dict:
+            val_dict["service_data"] = {
+                k: bytes.fromhex(v) if isinstance(v, str) else v
+                for k, v in adv_dict["service_data"].items()
+            }
+        if "platform_data" in adv_dict:
+            pdata = adv_dict.get("platform_data", [])
+            assert isinstance(
+                pdata[0], str
+            ), "first entry of platform_data needs to be string."
+            parts = pdata[0].split(":")
+            assert len(parts) == 6 and all(
+                len(part) == 2 and all(c in hexdigits for c in part) for part in parts
+            ), "first entry of platform_data only accepts MAC addresses"
+            val_dict["platform_data"] = tuple(pdata)
 
-    return AdvertisementData(**(advertisement_data_defaults | val_dict))
+        return AdvertisementData(**(advertisement_data_defaults | val_dict))
+    except (AssertionError, IndexError, KeyError, TypeError, ValueError) as exc:
+        raise BMSConfigError("invalid advertisement data") from exc
 
 
 @cache

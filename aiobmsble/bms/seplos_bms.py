@@ -24,6 +24,7 @@ from aiobmsble import (
     TempSensor,
 )
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import (
     BMSDp,
     BMSPackValue,
@@ -207,7 +208,7 @@ class BMS(BaseBMS):
         for start in BMS._SPA_BLOCKS:
             await self._await_msg(BMS._cmd(0x0, 0x4, start, BMS._SPA_LEN))
             if BMS._SPA_LEN not in self._msg:
-                raise ValueError("BMS data incomplete.")
+                raise BMSDataError("BMS data incomplete.")
             payload += self._msg.pop(BMS._SPA_LEN)[BMS._HEAD_LEN : -BMS._CRC_LEN]
         return BMS._decode_limits(bytes(payload), BMS._LIMIT_FIELDS)
 
@@ -292,7 +293,7 @@ class BMS(BaseBMS):
         for block in BMS._QUERY.values():
             await self._await_msg(BMS._cmd(0x0, *block))
         if not BMS._CMDS.issubset(self._msg.keys()):
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError("BMS data incomplete.")
 
         data: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=BMS._HEAD_LEN)
 
@@ -302,7 +303,7 @@ class BMS(BaseBMS):
             for block in BMS._PQUERY.values():
                 await self._await_msg(self._cmd(pack, *block))
             if not {pack << 8 | cmd for cmd in BMS._PCMDS}.issubset(self._msg.keys()):
-                raise ValueError("BMS data incomplete.")
+                raise BMSDataError("BMS data incomplete.")
 
             pack_sample: PackSample = BMS._decode_pack(
                 BMS._PFIELDS, self._msg[pack << 8 | BMS._PIA_LEN], start=BMS._HEAD_LEN

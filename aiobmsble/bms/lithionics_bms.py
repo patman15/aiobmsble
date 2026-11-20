@@ -15,6 +15,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, PackSample, TempSensor as TS
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPackValue, BMSValue, MatcherPattern
 
 
@@ -153,7 +154,7 @@ class BMS(BaseBMS):
     def _int(value: str) -> int:
         """Convert a numeric CSV field, rejecting implausibly long values."""
         if len(value) > BMS._MAX_DIGITS:
-            raise ValueError(f"numeric field too long: {value}")
+            raise BMSDataError(f"numeric field too long: {value}")
         return int(value)
 
     @staticmethod
@@ -190,7 +191,7 @@ class BMS(BaseBMS):
                     BMS._decode_module(self._msg[module_key]) for module_key in module_keys
                 ]
         except (IndexError, ValueError) as exc:
-            raise ValueError("BMS data incomplete.") from exc
+            raise BMSDataError("BMS data incomplete.") from exc
         finally:
             self._msg.clear()  # never keep lines across updates
             self._msg_event.clear()

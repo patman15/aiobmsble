@@ -34,6 +34,7 @@ from aiobmsble import (
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
+from aiobmsble.exceptions import BMSConnectionError
 from aiobmsble.plugin import (
     PROBLEM_DEFAULTS,
     BMSDp,
@@ -784,7 +785,7 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
         (
             [BleakDeviceNotFoundError("mock_device")],
             [False],
-            [BleakDeviceNotFoundError("mock_device")],
+            [BMSConnectionError("mock_device")],
         ),
         (
             [None] * (BaseBMS.MAX_RETRY - 1) + [ValueError()],

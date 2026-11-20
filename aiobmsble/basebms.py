@@ -7,10 +7,11 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from abc import ABC, abstractmethod
 import asyncio
 from collections import defaultdict
-from collections.abc import Awaitable, Callable, Iterable, MutableMapping
-from contextlib import suppress
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, MutableMapping
+from contextlib import asynccontextmanager, suppress
 from functools import lru_cache
 import logging
+import struct
 from types import TracebackType
 from typing import Any, Final, Literal, Self, final
 
@@ -42,6 +43,16 @@ from aiobmsble import (
 from aiobmsble._boundedbytearr import BoundedByteArray
 from aiobmsble._discovery import advertisement_matches
 from aiobmsble._sample_calc import derive_missing_fields
+from aiobmsble.exceptions import (
+    BMSAuthError,
+    BMSCommandRejectedError,
+    BMSConfigError,
+    BMSConnectionError,
+    BMSDataError,
+    BMSError,
+    BMSTimeoutError,
+    BMSUnsupportedError,
+)
 from aiobmsble.plugin import (
     BMSDp,
     BMSPackValue,
@@ -149,14 +160,45 @@ class BaseBMS(ABC):
         self._connect_lock: Final[asyncio.Lock] = asyncio.Lock()
         self._op_lock: Final[asyncio.Lock] = asyncio.Lock()
         self._alive_task: asyncio.Task[None] | None = None
+        self._notification_tasks: set[asyncio.Task[None]] = set()
+        self._timeout_count: int = 0
+
+    @asynccontextmanager
+    async def _translate_errors(self) -> AsyncIterator[None]:
+        """Translate BLE and built-in errors to the public aiobmsble exceptions."""
+        try:
+            yield
+        except BMSError:
+            raise
+        except BleakCharacteristicNotFoundError as exc:
+            raise BMSUnsupportedError(
+                str(exc), bms_id=self.bms_name(), address=self._ble_device.address
+            ) from exc
+        except TimeoutError as exc:
+            raise BMSTimeoutError(
+                str(exc), bms_id=self.bms_name(), address=self._ble_device.address
+            ) from exc
+        except (BleakError, EOFError, BleakDeviceNotFoundError, ConnectionError) as exc:
+            raise BMSConnectionError(
+                str(exc), bms_id=self.bms_name(), address=self._ble_device.address
+            ) from exc
 
     @final
     async def __aenter__(self) -> Self:
         """Asynchronous context manager to implement `async with` functionality."""
         if not self._cfg.keep_alive:
-            raise ValueError("usage of context manager requires `BMSConfig(keep_alive=True)`.")
-        await self._connect()
-        return self
+            raise BMSConfigError(
+                "usage of context manager requires `BMSConfig(keep_alive=True)`.",
+                bms_id=self.bms_name(),
+                address=self._ble_device.address,
+            )
+        try:
+            async with self._translate_errors():
+                await self._connect()
+                return self
+        except BMSError as exc:
+            await self._handle_operation_error(exc)
+            raise
 
     @final
     async def __aexit__(
@@ -223,13 +265,18 @@ class BaseBMS(ABC):
             name, serial number, and software or hardware version.
         """
         async with self._op_lock:
-            await self._connect()
-            dev_info: Final[BMSInfo] = await self._fetch_device_info()
-            self._log.debug("BMS info %s", dev_info)
-
-            if not self._cfg.keep_alive:
-                await self.disconnect()
-            return dev_info
+            try:
+                async with self._translate_errors():
+                    await self._connect()
+                    dev_info: Final[BMSInfo] = await self._fetch_device_info()
+                    self._log.debug("BMS info %s", dev_info)
+            except BMSError as exc:
+                await self._handle_operation_error(exc)
+                raise
+            else:
+                if not self._cfg.keep_alive:
+                    await self.disconnect()
+                return dev_info
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
@@ -261,13 +308,18 @@ class BaseBMS(ABC):
             not provide any. See `BMSLimits`.
         """
         async with self._op_lock:
-            await self._connect()
-            limits: Final[BMSLimits] = await self._fetch_limits()
-            self._log.debug("BMS limits %s", limits)
-
-            if not self._cfg.keep_alive:
-                await self.disconnect()
-            return limits
+            try:
+                async with self._translate_errors():
+                    await self._connect()
+                    limits: Final[BMSLimits] = await self._fetch_limits()
+                    self._log.debug("BMS limits %s", limits)
+            except BMSError as exc:
+                await self._handle_operation_error(exc)
+                raise
+            else:
+                if not self._cfg.keep_alive:
+                    await self.disconnect()
+                return limits
 
     async def _fetch_limits(self) -> BMSLimits:
         """Fetch the thresholds via BLE (default: none available)."""
@@ -377,7 +429,39 @@ class BaseBMS(ABC):
         self._msg_event.clear()
 
         self._log.debug("start notify on RX characteristic %s", str(char_notify or self.uuid_rx()))
-        await self._client.start_notify(char_notify or self.uuid_rx(), self._notification_handler)
+        await self._client.start_notify(char_notify or self.uuid_rx(), self._notification_dispatcher)
+
+    @final
+    def _notification_dispatcher(
+        self, sender: BleakGATTCharacteristic, data: bytearray
+    ) -> Awaitable[None] | None:
+        """Dispatch notifications while guaranteeing malformed frames are dropped."""
+        try:
+            result = self._notification_handler(sender, data)
+            if hasattr(result, "__await__"):
+                task = asyncio.create_task(
+                    self._await_notification_result(result),  # type: ignore[arg-type]
+                    name="BMS notification handler",
+                )
+                self._notification_tasks.add(task)
+                task.add_done_callback(self._notification_tasks.discard)
+                return task
+        except (BufferError, IndexError, UnicodeDecodeError, ValueError, struct.error) as exc:
+            self._frame.clear()
+            self._log.debug(
+                "discarding malformed BMS notification (%s)", type(exc).__name__
+            )
+        return None
+
+    async def _await_notification_result(self, result: Awaitable[None]) -> None:
+        """Await an asynchronous notification handler and discard malformed frames."""
+        try:
+            await result
+        except (BufferError, IndexError, UnicodeDecodeError, ValueError, struct.error) as exc:
+            self._frame.clear()
+            self._log.debug(
+                "discarding malformed BMS notification (%s)", type(exc).__name__
+            )
 
     @abstractmethod
     def _notification_handler(
@@ -504,7 +588,11 @@ class BaseBMS(ABC):
             except BleakError as exc:
                 self._log.error("TX BLE request error (%s)", type(exc).__name__)
                 # try next write mode, without reconnecting, as recursion might occur
-        raise TimeoutError
+        raise BMSTimeoutError(
+            "BMS did not send a valid reply after retries.",
+            bms_id=self.bms_name(),
+            address=self._ble_device.address,
+        )
 
     async def _disconnect(self, reset: bool) -> None:
         """Override if actions in a subclass are required before connection is closed."""
@@ -525,10 +613,13 @@ class BaseBMS(ABC):
         task, self._alive_task = self._alive_task, None
         if task and not task.done():
             task.cancel()
-            with suppress(asyncio.CancelledError):
+            with suppress(asyncio.CancelledError, Exception):
                 await task
 
-        await self._disconnect(reset)
+        try:
+            await self._disconnect(reset)
+        except Exception as exc:  # noqa: BLE001
+            self._log.warning("subclass disconnect failed! (%s)", type(exc).__name__)
 
         try:
             await self._client.disconnect()
@@ -537,9 +628,14 @@ class BaseBMS(ABC):
         if reset:
             self._log.debug("closing stale BMS connections and resetting write mode")
             self._inv_wr_mode = None  # reset write mode
-            await close_stale_connections(
-                self._ble_device, only_other_adapters=False
-            )  # ensure all connections are closed
+            try:
+                await close_stale_connections(
+                    self._ble_device, only_other_adapters=False
+                )  # ensure all connections are closed
+            except Exception as exc:  # noqa: BLE001
+                self._log.warning(
+                    "failed to close stale BMS connections (%s)", type(exc).__name__
+                )
 
     @final
     async def disconnect(self, reset: bool = False) -> None:
@@ -563,6 +659,30 @@ class BaseBMS(ABC):
     async def _update(self) -> BMSSample:
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
+    async def _handle_operation_error(self, exc: BMSError) -> None:
+        """Clean up a failed public operation according to the exception kind."""
+        if isinstance(exc, BMSTimeoutError):
+            self._timeout_count += 1
+            await self.disconnect(reset=self._timeout_count >= BaseBMS.MAX_RETRY)
+            return
+        if isinstance(exc, BMSDataError) and self._cfg.keep_alive:
+            self._timeout_count = 0
+            return
+        if isinstance(exc, BMSDataError):
+            await self.disconnect()
+            self._timeout_count = 0
+            return
+
+        if isinstance(exc, BMSConnectionError):
+            await self.disconnect(reset=False)
+            self._timeout_count = 0
+            return
+
+        if isinstance(exc, (BMSAuthError, BMSConfigError, BMSCommandRejectedError)):
+            await self.disconnect()
+        else:
+            self._timeout_count = 0
+
     @final
     async def update(self, raw: bool = False) -> BMSSample:
         """Fetch the latest battery telemetry from the BMS.
@@ -580,19 +700,24 @@ class BaseBMS(ABC):
 
         """
         async with self._op_lock:
-            await self._connect()
-            data: BMSSample = await self._update()
-            if not raw:
-                if self._PROBLEMS and "problem_code" in data:
-                    data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)
-                self._add_missing_values(data, self._raw_values())
-
-            if not self._cfg.keep_alive:
-                # disconnect after data update to force reconnect next time (slow!)
-                self._log.debug("forced disconnect of BMS after update")
-                await self.disconnect()
-
-            return data
+            try:
+                async with self._translate_errors():
+                    await self._connect()
+                    data: BMSSample = await self._update()
+                    if not raw:
+                        if self._PROBLEMS and "problem_code" in data:
+                            data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)
+                        self._add_missing_values(data, self._raw_values())
+            except BMSError as exc:
+                await self._handle_operation_error(exc)
+                raise
+            else:
+                self._timeout_count = 0
+                if not self._cfg.keep_alive:
+                    # disconnect after data update to force reconnect next time (slow!)
+                    self._log.debug("forced disconnect of BMS after update")
+                    await self.disconnect()
+                return data
 
     @final
     @staticmethod

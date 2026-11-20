@@ -15,6 +15,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_sum
 
 
@@ -114,7 +115,7 @@ class BMS(BaseBMS):
 
         ver: bytes = self._msg[MsgT.VERSION][BMS._LEN_POS + 1 : -1]
         if len(ver) < 4:
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError("BMS data incomplete.")
         return BMSInfo(
             manufacturer=b2str(self._msg[MsgT.MANUF][BMS._LEN_POS + 1 : -1]),
             model=b2str(self._msg[MsgT.BMS_TYPE][BMS._LEN_POS + 1 : -1]),

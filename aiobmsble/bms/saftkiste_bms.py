@@ -17,6 +17,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSAuthError, BMSConfigError, BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
@@ -94,7 +95,7 @@ class BMS(BaseBMS):
                 self._log.error(
                     "Secret needs to be 6 characters, uppercase letters and digits only!"
                 )
-                raise ValueError("Invalid secret")
+                raise BMSConfigError("Invalid secret")
             auth_cmd: bytes = (
                 BMS._cmd(0x10)
                 + self._cfg.secret[:6].encode("ASCII")
@@ -103,7 +104,7 @@ class BMS(BaseBMS):
             await self._await_msg(auth_cmd + (crc32(auth_cmd) & 0xFF).to_bytes(1))
 
             if 0x0 not in self._msg:
-                raise ConnectionRefusedError("authentication failed")
+                raise BMSAuthError("authentication failed")
         else:
             self._log.warning("no password provided")
         await self._await_msg(BMS._cmd(0x43) + b"\x01\x01\xe7\x80\x69\x96")
@@ -140,7 +141,7 @@ class BMS(BaseBMS):
         for cmd in (0x2, 0x3):
             await self._await_msg(BMS._cmd(cmd))
         if not {0x2, 0x3}.issubset(self._msg.keys()):
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError("BMS data incomplete.")
 
         result: BMSSample = self._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         result["cell_voltages"] = BMS._cell_voltages(

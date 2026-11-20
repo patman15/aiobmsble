@@ -14,6 +14,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, crc_sum
 
 
@@ -130,13 +131,13 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
         if not BMS._CMDS.issubset(set(self._msg.keys())):
             self._log.debug("incomplete data set %s", self._msg.keys())
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError("BMS data incomplete.")
 
         voltages: list[float] = []
         for cmd in BMS._CELLV_CMDS:
             await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
             if cmd not in self._msg:
-                raise ValueError("BMS data incomplete.")
+                raise BMSDataError("BMS data incomplete.")
             cells: list[float] = BMS._cell_voltages(
                 self._msg[cmd], cells=5, start=4, byteorder="little"
             )

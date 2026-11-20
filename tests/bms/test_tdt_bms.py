@@ -12,6 +12,7 @@ import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.tdt_bms import BMS
+from aiobmsble.exceptions import BMSConnectionError
 from aiobmsble.plugin import crc_modbus
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -660,7 +661,7 @@ async def test_init_fail(
     bms = BMS(generate_ble_device())
 
     if throw_exception:
-        with pytest.raises(BleakDeviceNotFoundError):
+        with pytest.raises(BMSConnectionError):
             assert not await bms.update()
     else:
         assert await bms.update() == _RESULT_DEFS["16S6Tv0.0"]

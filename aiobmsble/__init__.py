@@ -18,13 +18,32 @@ from enum import IntEnum, StrEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
 from typing import Self, TypedDict
 
+from aiobmsble.exceptions import (
+    BMSAuthError,
+    BMSCommandRejectedError,
+    BMSConfigError,
+    BMSConnectionError,
+    BMSDataError,
+    BMSError,
+    BMSTimeoutError,
+    BMSUnsupportedError,
+)
+
 __all__ = [
+    "BMSAuthError",
+    "BMSCommandRejectedError",
     "BMSConfig",
+    "BMSConfigError",
+    "BMSConnectionError",
+    "BMSDataError",
+    "BMSError",
     "BMSInfo",
     "BMSLimits",
     "BMSMode",
     "BMSProblem",
     "BMSSample",
+    "BMSTimeoutError",
+    "BMSUnsupportedError",
     "BatterySample",
     "Limit",
     "PackSample",

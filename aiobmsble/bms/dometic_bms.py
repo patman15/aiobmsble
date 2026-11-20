@@ -16,6 +16,7 @@ from bleak_retry_connector import BLEAK_TIMEOUT
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
@@ -226,7 +227,7 @@ class BMS(BaseBMS):
             await super().disconnect()
             if not self._msg_event.is_set():
                 self._data_final.clear()
-                raise ValueError("BMS data incomplete")
+                raise BMSDataError("BMS data incomplete.")
 
         if not self._msg_event.is_set():
             self._log.debug("requesting data update")
@@ -244,7 +245,7 @@ class BMS(BaseBMS):
                 if not BMS._CMDS.issubset(data) or (
                     cap_msg := data.get(0x7) or self._design_cap.get(dev)
                 ) is None:
-                    raise ValueError("BMS data incomplete.")
+                    raise BMSDataError("BMS data incomplete.")
                 self._design_cap[dev] = data[0x7] = cap_msg
 
             self._known_packs |= self._data_final.keys()

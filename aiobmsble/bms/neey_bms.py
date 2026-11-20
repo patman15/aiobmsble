@@ -17,6 +17,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TempSensor
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_sum
 
 
@@ -219,7 +220,7 @@ class BMS(BaseBMS):
                 self._msg, cells=24, start=9, byteorder="little", size=4
             )
         except StructError as exc:
-            raise ValueError("BMS data incomplete.") from exc
+            raise BMSDataError("BMS data incomplete.") from exc
         finally:
             self._msg_event.clear()  # clear event for next update
 

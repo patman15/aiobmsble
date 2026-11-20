@@ -15,6 +15,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str, crc8
 
 
@@ -169,7 +170,7 @@ class BMS(BaseBMS):
         # check all responses are here, 0xF9 is not mandatory (not all BMS report it)
         if not BMS._RESPS.issubset(self._msg.keys() | {0xF9}):
             self._log.debug("incomplete data set %s", self._msg.keys())
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         return result | {

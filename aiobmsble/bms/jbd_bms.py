@@ -14,6 +14,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, TempSensor as TS
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSAuthError, BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_sum, swap32
 
 
@@ -141,7 +142,7 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         await self._await_cmd_resp(0x03)
         if len(self._msg) <= BMS._POS_SWVER:
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError("BMS data incomplete.")
         sw_version: Final[int] = self._msg[BMS._POS_SWVER]
         result: BMSInfo = {"sw_version": f"{sw_version >> 4}.{sw_version & 0xF}"}
         try:
@@ -192,7 +193,7 @@ class BMS(BaseBMS):
                 raise
             if self._msg[4] != 0x00:
                 self._log.warning("incorrect secret")
-                raise PermissionError("Incorrect secret.")
+                raise BMSAuthError("Incorrect secret.")
 
             await self._client.stop_notify(BMS.uuid_rx())
 

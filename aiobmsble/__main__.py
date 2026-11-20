@@ -19,6 +19,7 @@ from bleak.exc import BleakError
 
 from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, __version__
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSConfigError, BMSError
 from aiobmsble.utils import adv_dict_to_advdata, identify
 
 _MIN_RSSI: Final[int] = -75
@@ -66,7 +67,7 @@ async def _try_query(bms_cls: type[BaseBMS], ble_dev: BLEDevice, secret: str = "
             repr({str(k): v for k, v in limits.items()}).replace(", '", ",\n\t'"),
         )
         logger.info("BMS data: %s", repr(data).replace(", '", ",\n\t'"))
-    except (BleakError, TimeoutError, ConnectionError, ValueError) as exc:
+    except BMSError as exc:
         logger.error(
             "Failed to query BMS%s: %s",
             " with secret" if secret else "",
@@ -128,7 +129,7 @@ async def identify_bms_from_json(json_str: str) -> None:
     try:
         # Convert dictionary to AdvertisementData
         adv_data: AdvertisementData = adv_dict_to_advdata(filtered_dict)
-    except (AssertionError, IndexError, ValueError) as exc:
+    except BMSConfigError as exc:
         logger.error("Failed to convert advertisement data: %s", exc)
         return
 

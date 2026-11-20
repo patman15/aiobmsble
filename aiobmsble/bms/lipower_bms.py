@@ -13,6 +13,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSTimeoutError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, crc_modbus
 
 
@@ -112,6 +113,6 @@ class BMS(BaseBMS):
             except TimeoutError:
                 ...  # try next frame head
         else:
-            raise TimeoutError
+            raise BMSTimeoutError
 
         return BMS._decode_data(BMS._FIELDS, self._msg)

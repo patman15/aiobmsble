@@ -14,6 +14,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
@@ -164,7 +165,7 @@ class BMS(BaseBMS):
 
         if not BMS._CMDS.issubset(self._msg.keys()):
             self._log.debug("incomplete data set %s", self._msg.keys())
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError("BMS data incomplete.")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 

@@ -75,9 +75,7 @@ from typing import Final
 
 from bleak import BleakScanner
 from bleak.backends.device import BLEDevice
-from bleak.exc import BleakError
-
-from aiobmsble import BMSSample
+from aiobmsble import BMSAuthError, BMSError, BMSSample
 from aiobmsble.bms.dummy_bms import BMS  # TODO: use the right BMS class for your device
 
 NAME: Final[str] = "BT Device Name"  # TODO: replace with the name of your BLE device
@@ -101,12 +99,35 @@ async def main(dev_name: str) -> None:
             logger.info("Updating BMS data...")
             data: BMSSample = await bms.update()
             logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
-    except (BleakError, TimeoutError, ValueError, ConnectionError) as exc:
+    except BMSAuthError:
+        logger.error("BMS authentication failed; provide a valid secret.")
+    except BMSError as exc:
         logger.error("Failed to update BMS: %s", type(exc).__name__)
 
 
 if __name__ == "__main__":
     asyncio.run(main(NAME))  # pragma: no cover
+```
+
+### Exceptions
+Public operations raise exceptions derived from `BMSError`. `retryable` distinguishes
+temporary failures from configuration or authentication errors that require user action.
+
+```python
+from aiobmsble import BMSAuthError, BMSConfigError, BMSError
+
+try:
+    data = await bms.update()
+except BMSAuthError:
+    # Ask for a new secret/PIN and stop polling until it is provided.
+    pass
+except BMSConfigError:
+    # Fix the application configuration.
+    pass
+except BMSError as exc:
+    if exc.retryable:
+        # Mark the device unavailable and retry at the next poll interval.
+        pass
 ```
 
 ### Testing

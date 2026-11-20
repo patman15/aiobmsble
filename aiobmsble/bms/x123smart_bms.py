@@ -14,6 +14,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TempSensor, Threshold
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSAuthError, BMSCommandRejectedError, BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, LimitDp, MatcherPattern
 
 
@@ -105,7 +106,7 @@ class BMS(BaseBMS):
         await self._await_msg(b"V@" + BMS._CR)
         ver: Final[str] = self._msg.get(BMS._LMSG, b"").decode("ascii").split("_", 1)[0]
         if len(ver) < 3:
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError("BMS data incomplete.")
         build: Final[str] = ver[2:]
         await self._cmd_expect_ok(b"E!")
         return {"fw_version": f"{int(ver[0], 16)}.{int(ver[1], 16)}.{int(build, 16)}"}
@@ -154,7 +155,12 @@ class BMS(BaseBMS):
         """Send a command and wait for an 'OK' reply, raise otherwise."""
         await self._await_msg(cmd + BMS._CR)
         if (reply := self._msg.get(BMS._LMSG, b"")) != b"OK":
-            raise ConnectionRefusedError(f"command rejected ({reply.decode('ascii')})")
+            message = f"command rejected ({reply.decode('ascii')})"
+            if cmd.startswith(b"PW"):
+                raise BMSAuthError(message)
+            if cmd == b"E!" and not self._cfg.secret and reply:
+                raise BMSAuthError("secret required")
+            raise BMSCommandRejectedError(message)
         self._msg.clear()
         self._msg_event.clear()
 
@@ -163,7 +169,6 @@ class BMS(BaseBMS):
     ) -> None:
         """Set up notifications, keep-alive ping, PIN auth and data streaming."""
         await super()._init_connection(char_notify)
-
         if self._cfg.secret:
             # authenticate (4-digit PIN)
             await self._cmd_expect_ok(f"PW{self._cfg.secret}!".encode("ascii"))
@@ -223,7 +228,7 @@ class BMS(BaseBMS):
             await asyncio.wait_for(self._msg_event.wait(), timeout=BMS.TIMEOUT)
         except TimeoutError as exc:
             if len(self._msg):
-                raise ValueError("BMS data incomplete.") from exc
+                raise BMSDataError("BMS data incomplete.") from exc
             raise
         self._msg_event.clear()
 
@@ -270,7 +275,7 @@ class BMS(BaseBMS):
 
         for cell in range(cells):
             if (line := data.get(ord("C") << 8 + cell + 1)) is None:
-                raise ValueError("BMS data incomplete.")
+                raise BMSDataError("BMS data incomplete.")
             elements: list[str] = line.decode("ascii", errors="ignore").split("_")
             cell_v.append(BMS._parse_int(elements[3]) * BMS._V_SCALE)
             cell_t.append(
