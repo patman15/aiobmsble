@@ -857,6 +857,41 @@ async def test_wr_mode_reset(
     assert bms._inv_wr_mode is None
 
 
+@pytest.mark.parametrize(
+    "disconnect_error",
+    [
+        BleakError("mock BLE error"),
+        TimeoutError("mock timeout"),
+        EOFError("mock EOF"),
+        ConnectionError("mock connection error"),
+    ],
+    ids=["bleak-error", "timeout", "eof", "connection-error"],
+)
+async def test_disconnect_hook_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+    disconnect_error: Exception,
+) -> None:
+    """Verify disconnect hook failures are logged and the BLE client is disconnected."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms.async_update()
+
+    async def fail_disconnect_hook(_reset: bool) -> None:
+        raise disconnect_error
+
+    monkeypatch.setattr(bms, "_disconnect", fail_disconnect_hook)
+
+    with caplog.at_level(DEBUG):
+        await bms.disconnect()
+
+    assert not bms.is_connected
+    assert (
+        f"disconnect hook failed! ({type(disconnect_error).__name__})" in caplog.text
+    )
+
+
 def test_get_bms_module() -> None:
     """Check that basebms and dummy_bms return correct module name."""
     assert BaseBMS.get_bms_module() == "aiobmsble.basebms"

@@ -532,7 +532,10 @@ class BaseBMS(ABC):
             with suppress(asyncio.CancelledError):
                 await task
 
-        await self._disconnect(reset)
+        try:
+            await self._disconnect(reset)
+        except (BleakError, TimeoutError, EOFError, ConnectionError) as exc:
+            self._log.warning("disconnect hook failed! (%s)", type(exc).__name__)
 
         try:
             await self._client.disconnect()
