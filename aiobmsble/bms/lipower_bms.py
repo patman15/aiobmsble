@@ -4,14 +4,16 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
-from aiobmsble.basebms import BaseBMS, crc_modbus
+from aiobmsble import BMSConfig, BMSInfo, BMSSample
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -26,7 +28,7 @@ class BMS(BaseBMS):
         b"\xba",
     )  # alternative device IDs
     _MIN_LEN: Final[int] = 5  # minimal frame length, including SOF and checksum
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 15, 2, False, lambda x: x / 10),
         BMSDp("current", 12, 3, False, lambda x: (x & 0xFFFF) * -(1 ** (x >> 16)) / 100),
         BMSDp("battery_level", 5, 2, False),
@@ -45,10 +47,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._heads: tuple[bytes, ...] = BMS._DEV_IDS
         self._msg: bytes = b""
 

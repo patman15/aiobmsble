@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from functools import lru_cache
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -14,17 +15,15 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import (
     BMSConfig,
-    BMSDp,
     BMSInfo,
     BMSMode,
-    BMSPrbDef,
     BMSSample,
-    MatcherPattern,
     PrbType as PT,
     Severity as SV,
     TempSensor,
 )
-from aiobmsble.basebms import BaseBMS, b2str, crc_sum, lstr2int
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_sum, lstr2int
 
 
 class BMS(BaseBMS):
@@ -37,7 +36,7 @@ class BMS(BaseBMS):
     _BT_MODULE_MSG: Final = b"\x41\x54\x0d\x0a"  # AT\r\n from BLE module
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _INFO_LEN: Final[int] = 300
-    _FIELDS: Final[tuple[BMSDp, ...]] = (  # Protocol: JK02_32S; JK02_24S has offset -32
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (  # Protocol: JK02_32S; JK02_24S has offset -32
         BMSDp("voltage", 150, 4, False, lambda x: x / 1000),
         BMSDp("current", 158, 4, True, lambda x: x / 1000),
         BMSDp("problem_code", 166, 4, False),
@@ -89,10 +88,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: bytes = b""
         self._char_write_handle: int = -1
         self._sw_version: int = 0

@@ -698,10 +698,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive=keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -721,7 +721,7 @@ async def test_incomplete_first_update(
     bms = BMS(generate_ble_device(), BMSConfig())
 
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
-        await bms.async_update()
+        await bms.update()
 
     await bms.disconnect()
 
@@ -740,7 +740,7 @@ async def test_incomplete_pack(
     bms = BMS(generate_ble_device(), BMSConfig())
 
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
-        await bms.async_update()
+        await bms.update()
 
     await bms.disconnect()
 
@@ -758,11 +758,11 @@ async def test_inc_update(
     monkeypatch.setattr(  # patch minimal set with design capacity
         MockDBBleakClient, "_RESP", (*_PROTO_DEFS_MIN, b"#\x85\x00\x07\x00\x00\x00\x96")
     )
-    assert await bms.async_update() == _RESULT_DEFS_MIN
+    assert await bms.update() == _RESULT_DEFS_MIN
 
     # patch minimal set **without** design capacity
     monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS_MIN)
-    assert await bms.async_update() == _RESULT_DEFS_MIN
+    assert await bms.update() == _RESULT_DEFS_MIN
     await bms.disconnect()
 
 
@@ -789,14 +789,14 @@ async def test_bms_disconnect(
     bms = BMS(generate_ble_device(), BMSConfig())
 
     if complete_set:
-        assert await bms.async_update() == _RESULT_DEFS_MIN
+        assert await bms.update() == _RESULT_DEFS_MIN
         assert bms.is_connected is True
-        assert await bms.async_update() == _RESULT_DEFS_MIN  # BMS disconnects on next call
+        assert await bms.update() == _RESULT_DEFS_MIN  # BMS disconnects on next call
     else:
         with pytest.raises(TimeoutError):
-            await bms.async_update()
+            await bms.update()
         with pytest.raises(ValueError, match="BMS data incomplete"):
-            await bms.async_update()
+            await bms.update()
 
     assert bms.is_connected is False
 
@@ -831,7 +831,7 @@ async def test_alive_loop_running(monkeypatch: pytest.MonkeyPatch, patch_bleak_c
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive=True))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
     assert bms.is_connected is True
 
     written.clear()  # ignore init-sequence writes
@@ -860,7 +860,7 @@ async def test_keep_alive_handler_broken_sender(
 
     bms = BMS(generate_ble_device(), BMSConfig())
     with caplog.at_level(DEBUG):
-        await bms.async_update()
+        await bms.update()
     assert "unknown notification sender" in caplog.text
     assert "empty notification" in caplog.text
     await bms.disconnect()
@@ -874,10 +874,10 @@ async def test_update_with_preset_event(
     patch_bleak_client(MockDBBleakClient)
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive=True))
-    await bms.async_update()
+    await bms.update()
     # Yield twice so _send_info fills _data_final and sets _msg_event
     await asyncio.sleep(0)
     await asyncio.sleep(0)
     # Second update finds _msg_event pre-set and skips the APP+RDN=1 request
-    await bms.async_update()
+    await bms.update()
     await bms.disconnect()

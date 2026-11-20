@@ -136,10 +136,10 @@ async def test_update(
     device_name = "Lithionics" if protocol_type == "stream" else "Li3-022724009"
     bms = BMS(generate_ble_device(name=device_name), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -163,7 +163,7 @@ async def test_module_info_sorted(
     patch_bleak_client(MockLithionicsBleakClient)
 
     bms = BMS(generate_ble_device(name="Li3-022724009"))
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
 
     assert result.get("packs") == [
         {
@@ -211,7 +211,7 @@ async def test_invalid_module_id_ignored(
 
     bms = BMS(generate_ble_device(name="Li3-022724009"))
 
-    assert await bms.async_update() == _RESULT_DEFS["fixed_stream"]
+    assert await bms.update() == _RESULT_DEFS["fixed_stream"]
     assert "invalid module ID" in caplog.text
 
     await bms.disconnect()
@@ -231,7 +231,7 @@ async def test_malformed_module_not_persistent(
     patch_bleak_client(MockLithionicsBleakClient)
 
     bms = BMS(generate_ble_device(name="Li3-022724009"))
-    assert await bms.async_update() == _RESULT_DEFS["fixed_stream"]
+    assert await bms.update() == _RESULT_DEFS["fixed_stream"]
 
     await bms.disconnect()
 
@@ -278,7 +278,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -300,7 +300,7 @@ async def test_invalid_frame_length(
     result: BMSSample = {}
 
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     assert len(bms._frame) == 0
@@ -332,7 +332,7 @@ async def test_non_numeric_field_raises_value_error(
     bms = BMS(generate_ble_device(name="Lithionics"))
 
     with pytest.raises(ValueError, match="BMS data incomplete"):
-        await bms.async_update()
+        await bms.update()
 
     await bms.disconnect()
 
@@ -359,11 +359,11 @@ async def test_status_field_variants(
 
     bms = BMS(generate_ble_device(name="Lithionics"))
     if expected:
-        result: BMSSample = await bms.async_update()
+        result: BMSSample = await bms.update()
     else:
         patch_bms_timeout("lithionics_bms")
         with pytest.raises(TimeoutError):
-            await bms.async_update()
+            await bms.update()
         await bms.disconnect()
         return
 
@@ -386,7 +386,7 @@ async def test_fixed_length_status_code_masked(
     patch_bleak_client(MockLithionicsBleakClient)
 
     bms = BMS(generate_ble_device(name="Li3-022724009"))
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
 
     assert result.get("problem_code") == 0x000020  # overcurrent
     assert result.get("problem") is True

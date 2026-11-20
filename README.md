@@ -99,7 +99,7 @@ async def main(dev_name: str) -> None:
     try:
         async with BMS(ble_device=device) as bms:
             logger.info("Updating BMS data...")
-            data: BMSSample = await bms.async_update()
+            data: BMSSample = await bms.update()
             logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
     except (BleakError, TimeoutError, ValueError, ConnectionError) as exc:
         logger.error("Failed to update BMS: %s", type(exc).__name__)

@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from enum import StrEnum
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -13,8 +14,9 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 from bleak_retry_connector import BLEAK_TIMEOUT
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
 class BMS(BaseBMS):
@@ -35,7 +37,7 @@ class BMS(BaseBMS):
     ALIVE_INTERVAL: float | None = 24.0  # seconds
     _GATHER_TIMEOUT: Final[float] = BLEAK_TIMEOUT
     _UUID_SLC: Final[slice] = slice(4, 8)
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100, 0x2),
         BMSDp(
             "current",
@@ -62,10 +64,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize BMS."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._data_final: dict[int, dict[int, bytes]] = {}
         self._exp_reply: bytes = b""
         self._disconnect_event: asyncio.Event = asyncio.Event()

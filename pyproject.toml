@@ -38,7 +38,7 @@ dependencies = [
 dev = [
     "pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", 
     "mypy", "ruff>=0.17,<0.18.0", "pylint-per-file-ignores", "aiooui", 
-    "codespell", "pre-commit", "pdoc"
+    "pyright", "codespell", "pre-commit", "pdoc"
 ]
 
 [project.urls]
@@ -56,6 +56,13 @@ aiobmsble = "aiobmsble.__main__:main"
 
 [tool.setuptools_scm]
 
+[tool.pyright]
+include = ["aiobmsble", "examples", "scripts", "tests"]
+exclude = ["**/__pycache__"]
+typeCheckingMode = "standard"   # "basic", "standard", or "strict"
+venvPath = "."
+venv = ".venv"                  # lets pyright find installed dependencies
+reportMissingImports = "error"
 
 [tool.pytest.ini_options]
 minversion = "8.4"

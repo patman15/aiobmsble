@@ -4,12 +4,15 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import logging
+
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSInfo, BMSSample
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import MatcherPattern
 
 
 class BMS(BaseBMS):
@@ -22,7 +25,7 @@ class BMS(BaseBMS):
     # _HEAD: Final[bytes] = b"\x55"  # beginning of frame
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
-    # _FIELDS: Final[tuple[BMSDp, ...]] = () # TODO: define BMS sensor decoder definitions
+    # _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = () # TODO: define BMS sensor decoder definitions
     # _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = () # TODO: define BMS limits
     # _PROBLEMS: Final[tuple[BMSPrbDef, ...]] = () # TODO: add problem code decoder definitions
     #
@@ -32,10 +35,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:

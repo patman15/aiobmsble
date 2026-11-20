@@ -4,8 +4,9 @@ from typing import Final, cast
 
 import pytest
 
-from aiobmsble import BMSSample, BMSValue, _sample_calc
+from aiobmsble import BMSSample, _sample_calc
 from aiobmsble._sample_calc import _C, _validate_calc_registry, derive_missing_fields
+from aiobmsble.plugin import BMSValue
 
 
 def _noop_formula(_data: BMSSample) -> bool:

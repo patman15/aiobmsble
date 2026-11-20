@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from functools import lru_cache
+import logging
 from math import isfinite
 from struct import error as StructError, unpack_from
 from typing import Any, Final, Literal, NamedTuple
@@ -14,18 +15,9 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import (
-    BMSConfig,
-    BMSInfo,
-    BMSPrbDef,
-    BMSSample,
-    BMSValue,
-    MatcherPattern,
-    PrbType as PT,
-    Severity as SV,
-    TempSensor,
-)
-from aiobmsble.basebms import BaseBMS, b2str, crc_sum
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TempSensor
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_sum
 
 
 class BMS(BaseBMS):
@@ -33,7 +25,7 @@ class BMS(BaseBMS):
 
     type FieldList = tuple[tuple[BMSValue, int, str, Callable[[int], Any]], ...]
 
-    class BMSDp(NamedTuple):
+    class Dp(NamedTuple):
         """Representation of main BMS data point."""
 
         key: BMSValue
@@ -49,16 +41,16 @@ class BMS(BaseBMS):
     _TAIL: Final[int] = 0xFF  # end of message
     _TYPE_POS: Final[int] = 4  # frame type is right after the header
     _MIN_FRAME: Final[int] = 10  # header length
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
-        BMSDp("voltage", 201, "<f", lambda x: round(x, 3)),
-        BMSDp("delta_cell_voltage", 209, "<f", lambda x: round(x, 3)),
-        BMSDp("problem_code", 216, "B", lambda x: x if x in BMS._PRB_CODES else 0),
-        BMSDp("balancer", 216, "B", lambda x: (x == 0x5)),
-        BMSDp("balance_current", 218, "<f", lambda x: round(x, 3)),
-        BMSDp("current", 222, "<f", lambda x: round(x, 3)),
-        BMSDp("design_capacity", 242, "<f", int),
-        BMSDp("cycle_charge", 246, "<f", lambda x: round(x, 3)),
-        BMSDp("battery_level", 250, "<f", lambda x: round(x, 3)),
+    _FIELDS: Final[tuple[Dp, ...]] = (
+        Dp("voltage", 201, "<f", lambda x: round(x, 3)),
+        Dp("delta_cell_voltage", 209, "<f", lambda x: round(x, 3)),
+        Dp("problem_code", 216, "B", lambda x: x if x in BMS._PRB_CODES else 0),
+        Dp("balancer", 216, "B", lambda x: x == 0x5),
+        Dp("balance_current", 218, "<f", lambda x: round(x, 3)),
+        Dp("current", 222, "<f", lambda x: round(x, 3)),
+        Dp("design_capacity", 242, "<f", int),
+        Dp("cycle_charge", 246, "<f", lambda x: round(x, 3)),
+        Dp("battery_level", 250, "<f", lambda x: round(x, 3)),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
         BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x01, text="Wrong cell count"),
@@ -74,19 +66,19 @@ class BMS(BaseBMS):
         ),
     )
     _PRB_CODES: Final[frozenset[int]] = frozenset(d.value for d in _PROBLEMS if d.value is not None)
-    _FIELDS_v1: Final[tuple[BMSDp, ...]] = (
+    _FIELDS_v1: Final[tuple[Dp, ...]] = (
         *_FIELDS[:4],
-        BMSDp("balance_current", 217, "<f", lambda x: round(x, 3)),
+        Dp("balance_current", 217, "<f", lambda x: round(x, 3)),
     )
 
     def __init__(
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._bms_info: dict[str, str] = {}
         self._exp_len: int = BMS._MIN_FRAME
         self._msg: bytes = b""
@@ -271,7 +263,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _conv_data(fields: tuple[BMSDp, ...], data: bytes) -> BMSSample:
+    def _conv_data(fields: tuple[Dp, ...], data: bytes) -> BMSSample:
         """Return BMS data from status message."""
         result: BMSSample = {}
         for field in fields:

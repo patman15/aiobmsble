@@ -292,7 +292,7 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
 
     await bms.disconnect()
 
@@ -311,9 +311,9 @@ async def test_update(
 #     bms = BMS(generate_ble_device(), BMSConfig(secret=secret))
 #     if secret == "wrong":
 #         with pytest.raises(PermissionError):
-#             await bms.async_update()
+#             await bms.update()
 #     else:
-#         assert await bms.async_update() == _RESULT_DEFS
+#         assert await bms.update() == _RESULT_DEFS
 
 #     await bms.disconnect()
 
@@ -345,7 +345,7 @@ async def test_invalid_init(
     bms = BMS(generate_ble_device(), BMSConfig(secret="000000"))
 
     with pytest.raises(TimeoutError):
-        _result: BMSSample = await bms.async_update()
+        _result: BMSSample = await bms.update()
 
     await bms.disconnect()
 
@@ -401,7 +401,7 @@ async def test_device_info(patch_bleak_client, patch_bms_timeout) -> None:
 #     bms = BMS(generate_ble_device())
 
 #     with pytest.raises(TimeoutError):
-#         _result: BMSSample = await bms.async_update()
+#         _result: BMSSample = await bms.update()
 
 #     await bms.disconnect()
 
@@ -410,7 +410,7 @@ async def test_device_info(patch_bleak_client, patch_bms_timeout) -> None:
 #     """Test data update with BMS returning oversized data, result shall still be ok."""
 #     patch_bleak_client(MockOversizedBleakClient)
 #     bms = BMS(generate_ble_device())
-#     assert await bms.async_update() == _RESULT_DEFS
+#     assert await bms.update() == _RESULT_DEFS
 #     await bms.disconnect()
 
 
@@ -471,7 +471,7 @@ async def test_device_info(patch_bleak_client, patch_bms_timeout) -> None:
 #     patch_bleak_client(MockDarenBleakClient)
 #     bms = BMS(generate_ble_device())
 
-#     assert await bms.async_update() == _RESULT_DEFS | {
+#     assert await bms.update() == _RESULT_DEFS | {
 #         "problem": True,
 #         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 15),
 #     }

@@ -6,21 +6,23 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from contextlib import suppress
+import logging
 from typing import Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSInfo, BMSSample
 from aiobmsble.bms.topband_bms import BMS as TopbandBMS
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
 class BMS(TopbandBMS):
     """PowerXtreme BMS implementation."""
 
     INFO: BMSInfo = {"manufacturer": "PowerXtreme", "model": "smart BMS"}
-    FIELDS: tuple[BMSDp, ...] = tuple(
+    FIELDS: tuple[BMSDp[BMSValue], ...]  = tuple(
         f._replace(fct=lambda x: x / 10) if f.key == "current" else f
         for f in TopbandBMS.FIELDS
     )
@@ -32,10 +34,10 @@ class BMS(TopbandBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._alive_task: asyncio.Task[None] | None = None
 
     @staticmethod

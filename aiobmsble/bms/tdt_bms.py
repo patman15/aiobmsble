@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from functools import lru_cache
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -12,8 +13,9 @@ from bleak.backends.device import BLEDevice
 from bleak.exc import BleakCharacteristicNotFoundError
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
-from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -28,7 +30,7 @@ class BMS(BaseBMS):
     _RSP_VER: Final[frozenset[int]] = frozenset({0x00, 0x04})
     _CELL_POS: Final[int] = 0x8
     _INFO_LEN: Final[int] = 10  # minimal frame length
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 2, 2, False, lambda x: x / 100, 0x8C),
         BMSDp(
             "current",
@@ -44,7 +46,7 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 10, 2, False, lambda x: x // 10, 0x8C),
         BMSDp("battery_health", 14, 2, False, idx=0x8C),
     )  # problem code, switches are not included in the list, but extra
-    _FIELDS_v1: Final[tuple[BMSDp, ...]] = (
+    _FIELDS_v1: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp(
             "current",
             0,
@@ -63,15 +65,15 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[int, bytes] = {}
         self._cmd_heads: set[int] = BMS._CMD_HEADS
         self._valid_reply: int = 0  # expected reply type
         self._exp_len: int = 0
-        self._fields: tuple[BMSDp, ...] = BMS._FIELDS
+        self._fields: tuple[BMSDp[BMSValue], ...] = BMS._FIELDS
         self._crc_fix: bool | None = None  # disable CRC for 0x8D messages (BMS bug!)
 
     @staticmethod
@@ -133,9 +135,9 @@ class BMS(BaseBMS):
         }
 
     @staticmethod
-    def _merge_fields(base: tuple[BMSDp, ...], overrides: tuple[BMSDp, ...]) -> tuple[BMSDp, ...]:
+    def _merge_fields(base: tuple[BMSDp[BMSValue], ...] , overrides: tuple[BMSDp[BMSValue], ...] ) -> tuple[BMSDp[BMSValue], ...] :
         """Merge overrides into base fields, matching by name."""
-        override_map: dict[str, BMSDp] = {f.key: f for f in overrides}
+        override_map: dict[str, BMSDp[BMSValue]] = {f.key: f for f in overrides}
         return tuple(override_map.get(f.key, f) for f in base)
 
     async def _init_connection(

@@ -10,8 +10,8 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
-from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.daly_bms import BMS
+from aiobmsble.plugin import crc_modbus
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -228,10 +228,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -249,7 +249,7 @@ async def test_update_nomos(
 
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    assert await bms.async_update() == _RESULT_DEFS[0xD2] | {
+    assert await bms.update() == _RESULT_DEFS[0xD2] | {
         "temperature": [20.0, 21.0, 22.0, 23.0],
     }
 
@@ -300,7 +300,7 @@ async def test_mos_excl(
             "RESP",
             _PROTO_DEFS[0xD2] | {MOS_INFO: mos_info},
         )
-        assert await bms.async_update() == _RESULT_DEFS[0xD2] | {
+        assert await bms.update() == _RESULT_DEFS[0xD2] | {
             "temperature": [TS(v, TS.T.MOSFET) for v in expected]
             + [TS(v) for v in (20.0, 21.0, 22.0, 23.0)],
         }
@@ -315,7 +315,7 @@ async def test_too_short_frame(patch_bleak_client) -> None:
 
     bms: BMS = BMS(generate_ble_device())
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
-        await bms.async_update()
+        await bms.update()
 
     await bms.disconnect()
 
@@ -366,7 +366,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
 
@@ -430,7 +430,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result.get("problem", False)  # we expect a problem
     assert result.get("problem_code", 0) == (
         1 << (0 if problem_response[1] == "first_bit" else 63)

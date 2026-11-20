@@ -6,14 +6,16 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from collections.abc import Callable
 from json import JSONDecodeError, loads
+import logging
 from typing import Any, Final, Literal
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, MatcherPattern, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import MatcherPattern
 
 
 class BMS(BaseBMS):
@@ -46,10 +48,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[str, Any] = {}
 
     @staticmethod

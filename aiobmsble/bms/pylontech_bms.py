@@ -4,23 +4,16 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import (
-    BMSConfig,
-    BMSDp,
-    BMSInfo,
-    BMSLimits,
-    BMSSample,
-    Limit,
-    LimitDp,
-    MatcherPattern,
-)
-from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
+from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSValue, LimitDp, MatcherPattern, b2str, crc_modbus
 
 
 class BMS(BaseBMS):
@@ -34,7 +27,7 @@ class BMS(BaseBMS):
     # Contiguous block 0x1023-0x1024 = 2 registers (charge voltage / discharge cutoff)
     _LIMIT_BLOCK: Final[tuple[int, int]] = (0x1023, 2)
 
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 0, 2, False, lambda x: x / 100),
         BMSDp("current", 2, 2, True, lambda x: x / 10),
         BMSDp("battery_level", 12, 2, False),
@@ -52,10 +45,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: bytes = b""
         self._exp_len: int = 0
 
@@ -132,7 +125,7 @@ class BMS(BaseBMS):
         if not self._exp_len or len(self._frame) < self._exp_len:
             return
 
-        frame = bytes(self._frame[:self._exp_len])
+        frame = bytes(self._frame[: self._exp_len])
         self._frame.clear()
         self._exp_len = 0
 

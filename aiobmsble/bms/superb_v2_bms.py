@@ -4,13 +4,15 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, BMSValue, MatcherPattern
+from aiobmsble import BMSConfig, BMSInfo, BMSSample
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
 class BMS(BaseBMS):
@@ -19,7 +21,7 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"manufacturer": "Super-B", "model": "Epsilon v2"}
     _NOTIFY_CHAR: Final[str] = "e0fef452-9d2b-4005-a1e3-69fe1102b436"
     _FRAME_LEN: Final[int] = 24
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("current", 6, 4, True, lambda x: x / 1000, 0x2),
         BMSDp("voltage", 10, 2, False, lambda x: x / 1000, 0x2),
         BMSDp("battery_level", 1, 1, False, idx=0x0),
@@ -35,10 +37,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[int, bytes] = {}
 
     @staticmethod

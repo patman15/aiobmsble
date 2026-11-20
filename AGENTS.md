@@ -10,7 +10,8 @@ The package requires Python `>=3.12`. It is licensed under Apache-2.0.
 
 ## Repository map
 
-- `aiobmsble/__init__.py` — public types and data models, including `BMSSample`, `BMSInfo`, `BMSConfig`, `BMSDp`, and `MatcherPattern`.
+- `aiobmsble/__init__.py` — user-facing types and data models, including `BMSSample`, `BMSInfo`, `BMSConfig`, and `BaseBMS` (lazily re-exported).
+- `aiobmsble/plugin.py` — plugin-author API: `BMSDp`, `LimitDp`, `BMSPrbDef`, `MatcherPattern`, `BMSValue`, and the CRC/decoding helpers.
 - `aiobmsble/basebms.py` — `BaseBMS`, BLE connection/operation behavior, common decoding, integrity helpers, and derived-value support.
 - `aiobmsble/bms/` — one plugin module per supported BMS protocol; modules generally expose a `BMS` subclass.
 - `aiobmsble/test_data/` — recorded BLE advertisements in JSON, packaged as data by `pyproject.toml`.
@@ -53,6 +54,7 @@ ruff check .
 mypy .
 mypy aiobmsble --strict
 codespell .
+pyright .
 ```
 
 `pytest` is configured in `pyproject.toml` to discover `tests/`, run in parallel (`-n auto`), collect branch coverage for `aiobmsble` and `examples`, print missing lines, and fail below 100% branch coverage. The CI workflow runs the commands above (using `python3 -m ruff check .` for Ruff) across its supported Python-version matrix.
@@ -89,7 +91,7 @@ The documentation workflow runs those commands on pushes to `main`; generated ou
 
 - New protocol support belongs in `aiobmsble/bms/<name>_bms.py`, with a `BMS` class that ultimately derives from `BaseBMS`. For a genuinely new wire protocol, derive directly from `BaseBMS` and use `aiobmsble/bms/dummy_bms.py` as the template. When the device speaks a protocol that an existing plugin already implements, derive that plugin's `BMS` class instead (see "Deriving from an existing plugin" below).
 - A plugin must provide `INFO` with at least `default_manufacturer` and `default_model`, a unique `matcher_dict_list()`, `uuid_services()`, `uuid_rx()`, `uuid_tx()`, `_notification_handler()`, and `_async_update()`, either defined directly or inherited from a parent plugin.
-- Matchers must be unique across plugins so BLE auto-detection is reliable. A matcher can use the `MatcherPattern` fields defined in `aiobmsble/__init__.py`.
+- Matchers must be unique across plugins so BLE auto-detection is reliable. A matcher can use the `MatcherPattern` fields defined in `aiobmsble/plugin.py`.
 - Store returned telemetry in the `BMSSample` `TypedDict`, not a dataclass. Include the required common fields available from the device and use `BaseBMS._add_missing_values()`/the existing calculation helpers for consistent derived values.
 - Validate incoming frames according to the protocol (for example, start marker, length, allowed message type, and checksum/CRC). Discard invalid frames; only signal completion when a valid complete response is available.
 - Prefer `BaseBMS` helpers such as `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_check_integrity()`, and `_cmd_modbus()` before duplicating behavior.
@@ -116,6 +118,7 @@ A pull request is expected to satisfy the repository PR checklist:
 - `ruff check .` passes;
 - `mypy .` passes (CI additionally runs `mypy aiobmsble --strict`);
 - `codespell .` passes;
+- `pyright .` passes;
 - `pytest` passes with 100% branch coverage;
 - new code has focused tests using recorded device data;
 - for a new BMS, the `BMSSample` is populated with available data, frames are validated, and a recorded BLE advertisement is included.
@@ -166,7 +169,7 @@ A typical plugin contains:
    when reusing an existing protocol (see "Deriving from an existing plugin").
 3. An `INFO` mapping with default manufacturer and model information.
 4. Protocol constants annotated with `Final`.
-5. A `_FIELDS: tuple[BMSDp, ...]` class variable (`Final` where possible)
+5. A `_FIELDS: tuple[BMSDp[BMSValue], ...] ` class variable (`Final` where possible)
    containing the `BMSDp` entries used for declarative field decoding. Define
    multiple `_FIELDS_*` variants, or an equivalent per-variant structure (see
    `daly_bms.py`), when the protocol has more than one frame layout.
@@ -217,7 +220,7 @@ For line-oriented or tag-oriented protocols, keep the line parsing in
 `_notification_handler()` rather than introducing a separate `_process_line()`
 pass-through. Store parsed lines in a `_msg` dictionary keyed by the line's
 identifier when multiple line types contribute to one update. Define a
-`_FIELDS: tuple[BMSDp, ...]` for the fields that can be declaratively decoded,
+`_FIELDS: tuple[BMSDp[BMSValue], ...] ` for the fields that can be declaratively decoded,
 and use `BaseBMS._decode_data()` in `_async_update()`; only retain custom
 parsing for values or framing that `BMSDp` cannot represent.
 
@@ -498,7 +501,7 @@ logic, especially:
 - firmware-specific offsets
 
 These tests complement, but do not replace, end-to-end tests through
-`async_update()`.
+`update()`.
 
 ### Plugin checklist
 

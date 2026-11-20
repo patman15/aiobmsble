@@ -6,17 +6,12 @@ from typing import Any, Final
 
 import pytest
 
-from aiobmsble import MatcherPattern
+from aiobmsble._discovery import advertisement_matches
+from aiobmsble._streamparser import StreamParser
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import MatcherPattern
 from aiobmsble.test_data import BmsAdvSample, bms_advertisements
-from aiobmsble.utils import (
-    StreamParser,
-    _advertisement_matches,
-    adv_dict_to_advdata,
-    bms_cls,
-    bms_identify,
-    load_bms_plugins,
-)
+from aiobmsble.utils import adv_dict_to_advdata, available_bms, get_bms, identify, load_bms_plugins
 
 
 @pytest.fixture(
@@ -32,7 +27,7 @@ def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
     return request.param
 
 
-async def test_bms_identify(plugin: ModuleType) -> None:
+async def test_identify(plugin: ModuleType) -> None:
     """Test that each BMS is correctly detected by a pattern.
 
     This also ensures that each BMS has at least one advertisement.
@@ -49,33 +44,39 @@ async def test_bms_identify(plugin: ModuleType) -> None:
         assert advertisements, f"No advertisement provided for {bms_type} in test_data"
         adv, mac_addr, _type, _comments = advertisements[-1]
 
-    bms_class: type[BaseBMS] | None = await bms_identify(adv, mac_addr)
-    assert bms_class == plugin.BMS
+    bms_classes: list[type[BaseBMS]] = await identify(adv, mac_addr)
+    assert bms_classes == [plugin.BMS]
 
 
-async def test_bms_cls(plugin: ModuleType) -> None:
+async def test_get_bms(plugin: ModuleType) -> None:
     """Test that a BMS class is correctly returned from its name."""
     # strip _bms to get only type
     bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1]
-    bms_class: type[BaseBMS] | None = await bms_cls(bms_type)
+    bms_class: type[BaseBMS] | None = await get_bms(bms_type)
     assert bms_class == plugin.BMS
+
+def test_available_bms_returns_classes() -> None:
+    """Test that available_bms returns plugin classes rather than modules."""
+    bms_classes: frozenset[type[BaseBMS]] = available_bms()
+    assert bms_classes
+    assert all(isinstance(bms_class, type) for bms_class in bms_classes)
 
 
 @pytest.mark.parametrize("bms_type", ["unavailable_bms", "ignore_me"])
-async def test_bms_cls_none(bms_type: str) -> None:
+async def test_get_bms_none(bms_type: str) -> None:
     """Test that a BMS class is None when name is not correct."""
-    bms_class: type[BaseBMS] | None = await bms_cls(bms_type)
+    bms_class: type[BaseBMS] | None = await get_bms(bms_type)
     assert bms_class is None
 
 
 @pytest.mark.parametrize(
     "invalid_bms_class", [object(), object], ids=["not-a-type", "not-subclass"]
 )
-async def test_bms_cls_invalid_bms_class(
+async def test_get_bms_invalid_bms_class(
     monkeypatch: pytest.MonkeyPatch,
     invalid_bms_class: object,
 ) -> None:
-    """Test that bms_cls returns None if module.BMS is not a BaseBMS subclass."""
+    """Test that get_bms returns None if module.BMS is not a BaseBMS subclass."""
     test_module = ModuleType("aiobmsble.bms.invalid_bms")
     monkeypatch.setattr(test_module, "BMS", invalid_bms_class, raising=False)
 
@@ -85,7 +86,7 @@ async def test_bms_cls_invalid_bms_class(
 
     monkeypatch.setattr("aiobmsble.utils.importlib.import_module", import_module)
 
-    assert await bms_cls("invalid_bms") is None
+    assert await get_bms("invalid_bms") is None
 
 
 @pytest.mark.parametrize(
@@ -143,9 +144,9 @@ def test_load_bms_plugins_continue_paths(
         assert issubclass(module.BMS, BaseBMS)
 
 
-async def test_bms_identify_fail() -> None:
-    """Test if bms_identify returns None if matching BMS for advertisement does not exist."""
-    assert await bms_identify(adv_dict_to_advdata({}), "") is None
+async def test_identify_fail() -> None:
+    """Test if identify returns an empty list if no BMS matches."""
+    assert await identify(adv_dict_to_advdata({}), "") == []
 
 
 @pytest.mark.parametrize(
@@ -281,7 +282,7 @@ def test_advertisement_matches(
 
     """
     assert (
-        _advertisement_matches(matcher, adv_dict_to_advdata(adv_dict), mac_addr)
+        advertisement_matches(matcher, adv_dict_to_advdata(adv_dict), mac_addr)
         is expected
     )
 

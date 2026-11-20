@@ -15,8 +15,8 @@ import re
 from types import ModuleType
 from typing import Any, Final
 
-from aiobmsble import BMSValue
 from aiobmsble._sample_calc import _bms_registry
+from aiobmsble.plugin import BMSValue
 
 ALWAYS_CALC: Final[frozenset[str]] = frozenset({"problem"})
 ROOT: Final[Path] = Path(__file__).parents[1]

@@ -4,8 +4,9 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
-from aiobmsble import BMSInfo, MatcherPattern
+from aiobmsble import BMSInfo
 from aiobmsble.bms.ej_bms import BMS as EJBMS
+from aiobmsble.plugin import MatcherPattern
 
 
 class BMS(EJBMS):

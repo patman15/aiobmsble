@@ -51,6 +51,7 @@ class TestBasicBMS(BMSBasicTests):
 
     bms_class = BMS
 
+
 class MockRenogyProBleakClient(MockBleakClient):
     """Emulate a Renogy Pro BMS BleakClient."""
 
@@ -152,10 +153,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -173,7 +174,7 @@ async def test_invalid_device(patch_bleak_client) -> None:
     with pytest.raises(
         ConnectionError, match=r"^Failed to detect characteristics from.*"
     ):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
 

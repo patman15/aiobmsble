@@ -8,14 +8,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
+import logging
 from typing import Final, NamedTuple
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern, TempSensor
-from aiobmsble.basebms import BaseBMS, b2str, crc_modbus
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_modbus
 
 
 class Proto(IntEnum):
@@ -49,7 +51,7 @@ class BMS(BaseBMS):
         cmds: tuple[BMS._dcmd, ...]
         info: BMS._dcmd
         mos: BMS._dcmd | None
-        fields: tuple[BMSDp, ...]
+        fields: tuple[BMSDp[BMSValue], ...]
 
     _PROTOS: Final[dict[Proto, BMS._ProtoDef]] = {
         Proto.D2: _ProtoDef(
@@ -100,10 +102,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._proto: Proto = Proto.D2
         self._msg: bytes = b""
         self._mos_avail: bool | None = None

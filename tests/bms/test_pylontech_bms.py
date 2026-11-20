@@ -10,8 +10,9 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, Limit, TempSensor as TS, Threshold
+from aiobmsble._discovery import advertisement_matches
 from aiobmsble.bms.pylontech_bms import BMS
-from aiobmsble.utils import _advertisement_matches, adv_dict_to_advdata
+from aiobmsble.utils import adv_dict_to_advdata
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -104,9 +105,9 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     patch_bleak_client(MockPylontechBleakClient)
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
     await bms.disconnect()
 
@@ -156,7 +157,7 @@ async def test_negative_temperature(monkeypatch: pytest.MonkeyPatch, patch_bleak
     )
     patch_bleak_client(MockPylontechBleakClient)
     bms = BMS(generate_ble_device())
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result.get("temperature") == [TS(-2.0), TS(-2.0)]
     await bms.disconnect()
 
@@ -196,7 +197,7 @@ async def test_invalid_response(
     patch_bleak_client(MockPylontechBleakClient)
     bms = BMS(generate_ble_device())
     with pytest.raises(TimeoutError):
-        await bms.async_update()
+        await bms.update()
     await bms.disconnect()
 
 
@@ -258,5 +259,5 @@ def test_matcher_covers_rt_variants(
     if has_service_uuid:
         adv_dict["service_uuids"] = [normalize_uuid_str("180f")]
     adv: AdvertisementData = adv_dict_to_advdata(adv_dict)
-    matched: bool = any(_advertisement_matches(m, adv, "") for m in BMS.matcher_dict_list())
+    matched: bool = any(advertisement_matches(m, adv, "") for m in BMS.matcher_dict_list())
     assert matched is should_match

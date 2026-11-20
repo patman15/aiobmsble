@@ -15,8 +15,8 @@ from aiobmsble import (
     Severity as SV,
     TempSensor as TS,
 )
-from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.ant_bms import BMS
+from aiobmsble.plugin import crc_modbus
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -138,10 +138,10 @@ async def test_update(patch_bms_timeout, patch_bleak_client, keep_alive_fixture)
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -160,9 +160,9 @@ async def test_update_secret(
     bms = BMS(generate_ble_device(), BMSConfig(secret=secret))
     if secret == "wrong":
         with pytest.raises(TimeoutError):
-            await bms.async_update()
+            await bms.update()
     else:
-        assert await bms.async_update() == _RESULT_DEFS
+        assert await bms.update() == _RESULT_DEFS
 
     await bms.disconnect()
 
@@ -222,7 +222,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -287,7 +287,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     low: bool = problem_response[1] == "low_value"
     assert result == _RESULT_DEFS | {
         "problem": True,
@@ -370,6 +370,6 @@ async def test_mosfet_states(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS | expected
+    assert await bms.update() == _RESULT_DEFS | expected
 
     await bms.disconnect()
