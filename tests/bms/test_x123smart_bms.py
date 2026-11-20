@@ -10,8 +10,9 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 import pytest
 
-from aiobmsble import BMSConfig, BMSDp, BMSSample, Limit, TempSensor as TS, Threshold
+from aiobmsble import BMSConfig, BMSSample, Limit, TempSensor as TS, Threshold
 from aiobmsble.bms.x123smart_bms import BMS
+from aiobmsble.plugin import BMSDp
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -149,9 +150,9 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         BMSConfig(keep_alive_fixture, secret=Mock123SmartBleakClient.SECRET),
     )
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
     await asyncio.sleep(bms.ALIVE_INTERVAL or 0)  # wait for keep-alive ping to be sent
-    await bms.async_update()  # second query to cover already-connected path
+    await bms.update()  # second query to cover already-connected path
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -169,10 +170,10 @@ async def test_update_secret(
 
     bms = BMS(generate_ble_device(), BMSConfig(secret=secret))
     if secret == Mock123SmartBleakClient.SECRET:
-        assert await bms.async_update() == _RESULT_DEFS
+        assert await bms.update() == _RESULT_DEFS
     else:
         with pytest.raises((ConnectionError, TimeoutError)):
-            await bms.async_update()
+            await bms.update()
 
     await bms.disconnect()
 
@@ -308,7 +309,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(expected_exc):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -329,7 +330,7 @@ async def test_no_cmd_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -362,7 +363,7 @@ async def test_number_range(
 
     bms = BMS(generate_ble_device(), BMSConfig(secret=Mock123SmartBleakClient.SECRET))
 
-    assert await bms.async_update() == _RESULT_DEFS | result
+    assert await bms.update() == _RESULT_DEFS | result
 
     await bms.disconnect()
 
@@ -381,6 +382,6 @@ async def test_msg_too_short(
     )
     bms = BMS(generate_ble_device(), BMSConfig(secret=Mock123SmartBleakClient.SECRET))
 
-    assert "heater" not in await bms.async_update()
+    assert "heater" not in await bms.update()
 
     await bms.disconnect()

@@ -133,10 +133,10 @@ async def test_update(patch_bleak_client, patch_bms_timeout, keep_alive_fixture:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -171,7 +171,7 @@ async def test_repeated_cell_parts(patch_bleak_client, patch_bms_timeout) -> Non
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result.get("cell_voltages") == _RESULT_DEFS["cell_voltages"]
     assert result.get("cell_count") == 8
 
@@ -230,7 +230,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -273,7 +273,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result.get("problem", False)  # expect a problem report
     assert result.get("problem_code", 0) == (0x1 if problem_response[1] == "first_bit" else 0x8000)
     assert result.get("problems") == (

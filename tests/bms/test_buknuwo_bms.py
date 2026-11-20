@@ -63,8 +63,7 @@ class MockBuknuwoBleakClient(MockBleakClient):
 
         _response: Final[bytearray] = bytearray(self._RESP.get(bytes(data), b""))
         for notify_data in [
-            _response[i : i + BT_FRAME_SIZE]
-            for i in range(0, len(_response), BT_FRAME_SIZE)
+            _response[i : i + BT_FRAME_SIZE] for i in range(0, len(_response), BT_FRAME_SIZE)
         ]:
             self._notify_callback("MockBuknuwoBleakClient", notify_data)
 
@@ -76,7 +75,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == {
+    assert await bms.update() == {
         "battery_level": 99,
         "battery_health": 100,
         "cycles": 1,
@@ -96,7 +95,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     }
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -150,7 +149,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()

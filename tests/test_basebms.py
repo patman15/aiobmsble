@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import Awaitable, Buffer, Callable
 import inspect
+import logging
 from logging import DEBUG
 from string import hexdigits
 from types import UnionType
@@ -20,25 +21,26 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import (
-    PROBLEM_DEFAULTS,
     BMSConfig,
-    BMSDp,
     BMSInfo,
     BMSLimits,
-    BMSPrbDef,
     BMSProblem,
     BMSSample,
-    BMSValue,
     Limit,
-    LimitDp,
-    MatcherPattern,
     PrbType,
     Severity,
     TempSensor,
     Threshold,
 )
-from aiobmsble.basebms import (
-    BaseBMS,
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.bms.dummy_bms import BMS as DummyBMS
+from aiobmsble.plugin import (
+    PROBLEM_DEFAULTS,
+    BMSDp,
+    BMSPrbDef,
+    BMSValue,
+    LimitDp,
+    MatcherPattern,
     b2str,
     crc8,
     crc_modbus,
@@ -48,7 +50,6 @@ from aiobmsble.basebms import (
     lrc_modbus,
     lstr2int,
 )
-from aiobmsble.bms.dummy_bms import BMS as DummyBMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 
@@ -164,10 +165,10 @@ class AliveTestBMS(MinTestBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize the AliveTestBMS."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self.alive_calls: int = 0
         self.alive_raise: bool = False
 
@@ -185,10 +186,10 @@ class OpGuardTestBMS(MinTestBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize the OpGuardTestBMS."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._op_active = False
 
     async def _fetch_device_info(self) -> BMSInfo:
@@ -236,10 +237,10 @@ class WMTestBMS(MinTestBMS):
         char_tx_properties: list[str],
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize BMS."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._char_tx_properties: list[str] = char_tx_properties
 
     def _wr_response(self, char: int | str) -> bool:
@@ -263,19 +264,18 @@ class BMSBasicTests:
 
     bms_class: type[BaseBMS]
 
-    def test_bms_id(self) -> None:
+    def test_bms_name(self) -> None:
         """Test that the BMS returns default information."""
 
         for key in ("manufacturer", "model"):
             assert str(self.bms_class.INFO.get(key, "")).strip()
-        assert len(self.bms_class.bms_id().strip())
+        assert len(self.bms_class.bms_name().strip())
 
     async def test_matcher_dict(self) -> None:
         """Test that the BMS returns BT matcher."""
 
         assert len(self.bms_class.matcher_dict_list())
         for matcher in self.bms_class.matcher_dict_list():
-
             if manufacturer_id := matcher.get("manufacturer_id"):
                 assert manufacturer_id == manufacturer_id & 0xFFFF, f"incorrect {manufacturer_id=}"
 
@@ -394,7 +394,7 @@ class BMSBasicTests:
         patch_bleak_client(mock_client)
 
         bms: BaseBMS = self.bms_class(generate_ble_device())
-        result: BMSSample = await bms.async_update()
+        result: BMSSample = await bms.update()
         await bms.disconnect()
 
         hints: dict[str, Any] = get_type_hints(BMSSample)
@@ -474,7 +474,7 @@ async def test_device_info_fail(
     monkeypatch.setattr(BleakGATTServiceCollection, "get_service", lambda obj, char: None)
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=False))
-    await bms.async_update()  # run update to have connection open
+    await bms.update()  # run update to have connection open
     assert not await bms.device_info()  # if characteristic does not exist, no output
     assert bms.name == "MockBLEDevice"  # name is gathered from BLEDevice
     assert not bms._client.is_connected
@@ -486,7 +486,7 @@ async def test_limits_default(patch_bleak_client: Callable[..., None], connected
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     if connected:
-        await bms.async_update()  # run update to have connection open
+        await bms.update()  # run update to have connection open
 
     assert await bms.limits() == {}  # no limits available by default
     assert bms._client.is_connected is True
@@ -595,7 +595,7 @@ async def test_async_update(patch_bleak_client: Callable[..., None], raw: bool) 
                 "problem": True,
             }
         )
-    assert await bms.async_update(raw=raw) == base_result
+    assert await bms.update(raw=raw) == base_result
 
 
 class ProblemTestBMS(MinTestBMS):
@@ -647,8 +647,8 @@ async def test_async_update_problems(
     monkeypatch.setattr(ProblemTestBMS, "_async_update", _async_update)
     patch_bleak_client()
     bms: ProblemTestBMS = ProblemTestBMS(generate_ble_device())
-    assert await bms.async_update() == sample | expected
-    assert "problems" not in await bms.async_update(raw=True)
+    assert await bms.update() == sample | expected
+    assert "problems" not in await bms.update(raw=True)
     await bms.disconnect()
 
 
@@ -722,9 +722,7 @@ async def test_op_guard_device_info_async_update(
     bms: OpGuardTestBMS = OpGuardTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
     await bms._connect()
 
-    info, limits, data = await asyncio.gather(
-        bms.device_info(), bms.limits(), bms.async_update(raw=True)
-    )
+    info, limits, data = await asyncio.gather(bms.device_info(), bms.limits(), bms.update(raw=True))
     assert info == {"model": "mock_model"}
     assert limits == {Limit.CELL_OVP: Threshold(trip=3.65)}
     assert data == {"problem_code": 21}
@@ -834,9 +832,9 @@ async def test_write_mode(
     for output in exp_output:
         if isinstance(output, Exception):
             with pytest.raises(type(output)):
-                await bms.async_update()
+                await bms.update()
         else:
-            assert await bms.async_update() == {
+            assert await bms.update() == {
                 "problem": (output != 0),
                 "problem_code": output,
             }, f"{request.node.name} failed!"
@@ -851,7 +849,7 @@ async def test_wr_mode_reset(
     patch_bleak_client(MockWriteModeBleakClient)
 
     bms: WMTestBMS = WMTestBMS(["write_without"], generate_ble_device())
-    assert await bms.async_update() == {"problem": True, "problem_code": 0x42}
+    assert await bms.update() == {"problem": True, "problem_code": 0x42}
     assert bms._inv_wr_mode is False
     await bms.disconnect(True)
     assert bms._inv_wr_mode is None
@@ -859,8 +857,8 @@ async def test_wr_mode_reset(
 
 def test_get_bms_module() -> None:
     """Check that basebms and dummy_bms return correct module name."""
-    assert BaseBMS.get_bms_module() == "aiobmsble.basebms"
-    assert DummyBMS.get_bms_module() == "aiobmsble.bms.dummy_bms"
+    assert BaseBMS.module() == "aiobmsble.basebms"
+    assert DummyBMS.module() == "aiobmsble.bms.dummy_bms"
 
 
 def test_abstract_notification_handler() -> None:
@@ -882,6 +880,16 @@ def test_log_prefix_name_not_format_string(
     assert "initializing" in caplog.text
 
 
+def test_custom_logger(patch_bleak_client: Callable[..., None]) -> None:
+    """Check that a caller-provided logger is used by the BMS."""
+    patch_bleak_client(MockBleakClient)
+    custom_logger: logging.Logger = logging.getLogger("custom-aiobmsble")
+
+    bms = MinTestBMS(generate_ble_device(), logger=custom_logger)
+
+    assert bms._log.logger is custom_logger
+
+
 async def test_no_notify(
     patch_bleak_client: Callable[..., None], caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -890,7 +898,7 @@ async def test_no_notify(
 
     bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=False))
     with caplog.at_level(DEBUG):
-        result: BMSSample = await bms.async_update()
+        result: BMSSample = await bms.update()
     assert "MockBleakClient write_gatt_char afe2, data: b'mock_command'" in caplog.text
     assert result == {"problem": True, "problem_code": 21}
     assert not bms._client.is_connected
@@ -911,7 +919,7 @@ async def test_init_connect_fail(
 
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     with caplog.at_level(DEBUG), pytest.raises(ValueError, match="MockValueError"):
-        await bms.async_update()
+        await bms.update()
 
 
 async def test_context_mgr(
@@ -921,7 +929,7 @@ async def test_context_mgr(
     patch_bleak_client(MockBleakClient)
 
     async with DataTestBMS(generate_ble_device(), BMSConfig(keep_alive=True)) as bms:
-        assert await bms.async_update() == {
+        assert await bms.update() == {
             "voltage": 13,
             "current": 1.7,
             "battery_charging": True,
@@ -944,7 +952,7 @@ async def test_context_mgr_fail(
 
     with pytest.raises(ValueError, match=r"usage of context manager*"):
         async with MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=False)) as bms:
-            await bms.async_update()
+            await bms.update()
 
 
 def test_cmd_modbus() -> None:
@@ -1167,7 +1175,7 @@ def test_temperature(
     ],
 )
 def test_decode_data(
-    fields: tuple[BMSDp, ...],
+    fields: tuple[BMSDp[BMSValue], ...],
     data: bytes | dict[int, bytes],
     byteorder: Literal["little", "big"],
     start: int,
@@ -1243,7 +1251,7 @@ async def test_connect_timeout_fires(
     monkeypatch.setattr(bms, "_CONNECT_TIMEOUT", TEST_TIMEOUT)
 
     with caplog.at_level(DEBUG), pytest.raises(TimeoutError):
-        await bms.async_update()
+        await bms.update()
 
     assert "failed to initialize BMS connection" in caplog.text
 
@@ -1257,7 +1265,7 @@ async def test_connect_within_timeout(
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
 
     with caplog.at_level(DEBUG):
-        await bms.async_update()
+        await bms.update()
 
     assert "connection timed out" not in caplog.text
     assert bms._client.is_connected
@@ -1286,14 +1294,14 @@ async def test_connect_timeout_cleanup(
     monkeypatch.setattr(bms, "_CONNECT_TIMEOUT", TEST_TIMEOUT)
 
     with pytest.raises(TimeoutError):
-        await bms.async_update()
+        await bms.update()
 
     # disconnect called at least once (stale cleanup + timeout cleanup)
     assert len(disconnect_called) >= 1
 
 
 class MockGATTService:
-    """Mock BLE GATT service for get_GATT_profile()."""
+    """Mock BLE GATT service for gatt_profile()."""
 
     def __init__(self, name: str, characteristics: list["MockGATTCharacteristic"]) -> None:
         """Initialize mock GATT service."""
@@ -1306,7 +1314,7 @@ class MockGATTService:
 
 
 class MockGATTCharacteristic:
-    """Mock BLE GATT characteristic for get_GATT_profile()."""
+    """Mock BLE GATT characteristic for gatt_profile()."""
 
     def __init__(
         self,
@@ -1325,7 +1333,7 @@ class MockGATTCharacteristic:
 
 
 class MockGATTDescriptor:
-    """Mock BLE GATT descriptor for get_GATT_profile()."""
+    """Mock BLE GATT descriptor for gatt_profile()."""
 
     def __init__(self, name: str) -> None:
         """Initialize mock GATT descriptor."""
@@ -1383,14 +1391,14 @@ class MockEmptyGATTProfileBleakClient(MockBleakClient):
 async def test_get_gatt_profile(
     patch_bleak_client: Callable[..., None],
 ) -> None:
-    """Verify get_GATT_profile returns one line for each service, characteristic and descriptor."""
+    """Verify gatt_profile returns one line for each service, characteristic and descriptor."""
 
     patch_bleak_client(MockGATTProfileBleakClient)
 
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     await bms._client.connect()
 
-    result: str = await bms.get_GATT_profile()
+    result: str = await bms.gatt_profile()
 
     assert result.splitlines() == [
         "SRV service_1",
@@ -1407,29 +1415,29 @@ async def test_get_gatt_profile(
 async def test_get_gatt_profile_not_connected(
     patch_bleak_client: Callable[..., None],
 ) -> None:
-    """Verify get_GATT_profile returns error message when device not connected."""
+    """Verify gatt_profile returns error message when device not connected."""
     patch_bleak_client(MockBleakClient)
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
 
-    assert await bms.get_GATT_profile() == "device not connected"
+    assert await bms.gatt_profile() == "device not connected"
 
 
 async def test_get_gatt_profile_empty(
     patch_bleak_client: Callable[..., None],
 ) -> None:
-    """Verify get_GATT_profile returns error message when device not connected."""
+    """Verify gatt_profile returns error message when device not connected."""
     patch_bleak_client(MockEmptyGATTProfileBleakClient)
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     await bms._client.connect()
 
-    assert await bms.get_GATT_profile() == "no services found"
+    assert await bms.gatt_profile() == "no services found"
 
 
 async def test_get_gatt_profile_error(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client: Callable[..., None],
 ) -> None:
-    """Verify get_GATT_profile returns error string when BleakError occurs."""
+    """Verify gatt_profile returns error string when BleakError occurs."""
     patch_bleak_client(MockGATTProfileBleakClient)
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
     await bms._client.connect()
@@ -1440,7 +1448,7 @@ async def test_get_gatt_profile_error(
     # Monkeypatch services property to raise BleakError
     monkeypatch.setattr(MockGATTProfileBleakClient, "services", property(raise_bleak_error))
 
-    assert "mock error" in await bms.get_GATT_profile()
+    assert "mock error" in await bms.gatt_profile()
 
 
 async def test_alive_loop_running(
@@ -1451,7 +1459,7 @@ async def test_alive_loop_running(
     patch_bleak_client()
     bms: AliveTestBMS = AliveTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
 
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is True
 
     for _ in range(3):
@@ -1474,7 +1482,7 @@ async def test_alive_loop_exception(
     bms.alive_raise = True
 
     with caplog.at_level(DEBUG):
-        await bms.async_update()
+        await bms.update()
         for _ in range(10):
             await asyncio.sleep(0)
             if "terminated with unexpectedly" in caplog.text:
@@ -1489,7 +1497,7 @@ async def test_alive_task_disabled(patch_bleak_client: Callable[..., None]) -> N
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
 
-    await bms.async_update()
+    await bms.update()
     assert bms._alive_task is None
     await bms.disconnect()
 
@@ -1508,12 +1516,12 @@ async def test_reconnect_with_running_alive_task(
     patch_bleak_client()
 
     bms: AliveTestBMS = AliveTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
-    await bms.async_update()  # first update: keep-alive task created
+    await bms.update()  # first update: keep-alive task created
     task: Final = bms._alive_task
     assert task is not None and not task.done()
 
     await bms._client.disconnect()  # silent transport drop, task keeps running
-    await bms.async_update()  # reconnect: running task is reused, not recreated
+    await bms.update()  # reconnect: running task is reused, not recreated
     assert bms._alive_task is task
 
     await bms.disconnect()  # cleanup cancels the task

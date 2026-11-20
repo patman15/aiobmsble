@@ -128,7 +128,7 @@ async def test_update(patch_bleak_client, ogt_bms_name: str, keep_alive_fixture:
         BMSConfig(keep_alive_fixture),
     )
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
 
     # verify all sensors are reported
     if str(ogt_bms_name)[9] == "A":
@@ -149,7 +149,7 @@ async def test_update(patch_bleak_client, ogt_bms_name: str, keep_alive_fixture:
         }
 
     # query again to check already connected state
-    result = await bms.async_update()
+    result = await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -163,7 +163,7 @@ async def test_update_16s(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -
         "RESP_TYPE_B",
         MockOGTBleakClient.RESP_TYPE_B
         | {
-            key: bytearray(f"U{(chr(0x27),'(',')','Q')[key % 4]} S\x1d\x1a", "ascii")
+            key: bytearray(f"U{(chr(0x27), '(', ')', 'Q')[key % 4]} S\x1d\x1a", "ascii")
             for key in range(0x30, 0x3C)
         },
     )
@@ -172,7 +172,7 @@ async def test_update_16s(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "SmartBat-B12294"), BMSConfig(False))
 
     # verify all sensors are reported
-    assert await bms.async_update() == _RESULT_DEFS | {
+    assert await bms.update() == _RESULT_DEFS | {
         "current": 1.23,
         "delta_cell_voltage": 0.003,
         "power": 56.188,
@@ -254,7 +254,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -268,7 +268,7 @@ async def test_invalid_bms_type(patch_bleak_client, local_name: str) -> None:
 
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", local_name), BMSConfig(True))
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert not result
     assert bms._client.is_connected
     await bms.disconnect()

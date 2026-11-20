@@ -9,7 +9,7 @@ import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.sk_bms import BMS
-from aiobmsble.utils import adv_dict_to_advdata, bms_supported
+from aiobmsble.utils import adv_dict_to_advdata
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests, verify_device_info
@@ -68,7 +68,7 @@ class TestBasicBMS(BMSBasicTests):
 def test_matcher_excludes_topband_48v_models() -> None:
     """Do not match SK 48 V models that use the Topband protocol."""
     advertisement = adv_dict_to_advdata({"local_name": "SK48V100N"})
-    assert not bms_supported(BMS, advertisement, "")
+    assert not BMS.matches(advertisement, "")
 
 
 class MockSKBleakClient(MockBleakClient):
@@ -98,8 +98,8 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     patch_bleak_client(MockSKBleakClient)
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
-    await bms.async_update()
+    assert await bms.update() == _RESULT_DEFS
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
     await bms.disconnect()
 
@@ -139,7 +139,7 @@ async def test_invalid_response(
     bms = BMS(generate_ble_device())
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()

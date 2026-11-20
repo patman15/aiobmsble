@@ -117,10 +117,10 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         BMSConfig(keep_alive=keep_alive_fixture, secret="123456"),
     )
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -151,7 +151,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises((TimeoutError, ValueError)):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -178,7 +178,7 @@ async def test_invalid_secret(
 
     result: BMSSample = {}
     with pytest.raises(exception):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -191,7 +191,7 @@ async def test_missing_secret(patch_bleak_client, caplog: pytest.LogCaptureFixtu
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
     assert "no password provided" in caplog.text
 
     await bms.disconnect()

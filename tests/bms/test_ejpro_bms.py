@@ -63,6 +63,6 @@ async def test_update(patch_bleak_client) -> None:
     patch_bleak_client(MockEJProBleakClient)
     bms = BMS(generate_ble_device(), BMSConfig())
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     await bms.disconnect()

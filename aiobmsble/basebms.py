@@ -10,7 +10,6 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable, Iterable, MutableMapping
 from contextlib import suppress
 from functools import lru_cache
-from itertools import takewhile
 import logging
 from types import TracebackType
 from typing import Any, Final, Literal, Self, final
@@ -18,6 +17,7 @@ from typing import Any, Final, Literal, Self, final
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
+from bleak.backends.scanner import AdvertisementData
 from bleak.exc import BleakCharacteristicNotFoundError, BleakDeviceNotFoundError, BleakError
 from bleak_retry_connector import (
     BLEAK_TIMEOUT,
@@ -27,29 +27,32 @@ from bleak_retry_connector import (
 )
 
 from aiobmsble import (
-    PROBLEM_DEFAULTS,
     BMSConfig,
-    BMSDp,
     BMSInfo,
     BMSLimits,
-    BMSPDp,
-    BMSPrbDef,
     BMSProblem,
     BMSSample,
-    BMSValue,
     Limit,
-    LimitDp,
-    MatcherPattern,
     PackSample,
-    PrbDefault,
-    PrbType,
     Severity,
     TempSensor,
     Threshold,
     __version__,
 )
 from aiobmsble._boundedbytearr import BoundedByteArray
+from aiobmsble._discovery import advertisement_matches
 from aiobmsble._sample_calc import derive_missing_fields
+from aiobmsble.plugin import (
+    BMSDp,
+    BMSPackValue,
+    BMSPrbDef,
+    BMSValue,
+    LimitDp,
+    MatcherPattern,
+    b2str,
+    crc_modbus,
+    decode_problems,
+)
 
 
 class BaseBMS(ABC):
@@ -101,7 +104,7 @@ class BaseBMS(ABC):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize the BMS.
 
@@ -112,27 +115,26 @@ class BaseBMS(ABC):
         Args:
             ble_device (BLEDevice): the Bleak BLE device to connect to
             config (BMSConfig | None): optional BMS configuration; defaults to `BMSConfig()` if not provided
-            logger_name (str): name of the logger for this BMS instance; defaults to the module name
+            logger (logging.Logger | None): logger for this BMS instance; defaults to the module logger
 
         """
-        assert (
-            getattr(self, "_notification_handler", None) is not None
-        ), "BMS class must define `_notification_handler` method"
+        assert getattr(self, "_notification_handler", None) is not None, (
+            "BMS class must define `_notification_handler` method"
+        )
         assert {"manufacturer", "model"}.issubset(self.INFO), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._cfg: Final[BMSConfig] = config or BMSConfig()
-        logger_name = logger_name or self.__class__.__module__
         self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
-            logging.getLogger(f"{logger_name}"),
+            logger or logging.getLogger(self.__class__.__module__),
             {"prefix": f"{self.name}|{self._ble_device.address[-5:].replace(':', '')}:"},
         )
 
         self._log.debug(
             "%s: initializing %s, BT address: %s",
             __version__,
-            self.bms_id(),
+            self.bms_name(),
             ble_device.address,
         )
         self._client: BleakClient = BleakClient(
@@ -174,7 +176,7 @@ class BaseBMS(ABC):
 
     @final
     @classmethod
-    def get_bms_module(cls) -> str:
+    def module(cls) -> str:
         """Return BMS module name, e.g. aiobmsble.bms.dummy_bms."""
         return cls.__module__
 
@@ -185,7 +187,15 @@ class BaseBMS(ABC):
 
     @final
     @classmethod
-    def bms_id(cls) -> str:
+    def matches(cls, adv: AdvertisementData, address: str) -> bool:
+        """Return whether this BMS matches BLE advertisement data."""
+        return any(
+            advertisement_matches(matcher, adv, address) for matcher in cls.matcher_dict_list()
+        )
+
+    @final
+    @classmethod
+    def bms_name(cls) -> str:
         """Return static BMS information as string."""
         return f"{cls.INFO.get('manufacturer', 'unknown')} {cls.INFO.get('model', 'unknown')}"
 
@@ -205,25 +215,19 @@ class BaseBMS(ABC):
         """Return 16-bit UUID of characteristic that provides write property."""
 
     @final
-    async def device_info(self, keep_alive: bool | None = None) -> BMSInfo:
+    async def device_info(self) -> BMSInfo:
         """Return device information read from the BMS over Bluetooth LE.
-
-        Args:
-            keep_alive (bool | None): Override the configured keep-alive behavior
-                for this update. If `None`, use the BMS configuration.
 
         Returns:
             Available device information, such as manufacturer, model, model ID,
             name, serial number, and software or hardware version.
         """
-
-        keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
             await self._connect()
             dev_info: Final[BMSInfo] = await self._fetch_device_info()
             self._log.debug("BMS info %s", dev_info)
 
-            if not keep_alive:
+            if not self._cfg.keep_alive:
                 await self.disconnect()
             return dev_info
 
@@ -246,28 +250,22 @@ class BaseBMS(ABC):
         return info
 
     @final
-    async def limits(self, keep_alive: bool | None = None) -> BMSLimits:
+    async def limits(self) -> BMSLimits:
         """Return protection thresholds configured in the BMS.
 
         The values are trip/recovery points of the BMS protections, not the
         operating envelope, and must not be used as charger/inverter set points.
 
-        Args:
-            keep_alive (bool | None): Override the configured keep-alive behavior
-                for this update. If `None`, use the BMS configuration.
-
         Returns:
             Reported protection thresholds, or an empty mapping if the BMS does
             not provide any. See `BMSLimits`.
         """
-
-        keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
             await self._connect()
             limits: Final[BMSLimits] = await self._fetch_limits()
             self._log.debug("BMS limits %s", limits)
 
-            if not keep_alive:
+            if not self._cfg.keep_alive:
                 await self.disconnect()
             return limits
 
@@ -416,7 +414,7 @@ class BaseBMS(ABC):
                     )
 
                     if self._log.isEnabledFor(logging.DEBUG):
-                        gatt: str = await self.get_GATT_profile()
+                        gatt: str = await self.gatt_profile()
                         self._log.debug(
                             "GATT profile for request %s:\n %s",
                             self.uuid_services(),
@@ -481,7 +479,7 @@ class BaseBMS(ABC):
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
-        for inv_wr_mode in ([False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]):
+        for inv_wr_mode in [False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]:
             try:
                 self._msg_event.clear()  # clear event before requesting new data
                 for attempt in range(BaseBMS.MAX_RETRY):
@@ -566,7 +564,7 @@ class BaseBMS(ABC):
         """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
 
     @final
-    async def async_update(self, raw: bool = False, keep_alive: bool | None = None) -> BMSSample:
+    async def update(self, raw: bool = False) -> BMSSample:
         """Fetch the latest battery telemetry from the BMS.
 
         This calls the protocol-specific implementation in `_async_update()` and,
@@ -576,15 +574,11 @@ class BaseBMS(ABC):
         Args:
             raw (bool): If `True`, return the raw values reported by the BMS
                 without adding derived or missing fields.
-            keep_alive (bool | None): Override the configured keep-alive behavior
-                for this update. If `None`, use the BMS configuration.
 
         Returns:
             BMSSample: The retrieved BMS values.
 
         """
-
-        keep_alive = self._cfg.keep_alive if keep_alive is None else keep_alive
         async with self._op_lock:
             await self._connect()
             data: BMSSample = await self._async_update()
@@ -593,7 +587,7 @@ class BaseBMS(ABC):
                     data["problems"] = decode_problems(data["problem_code"], self._PROBLEMS)
                 self._add_missing_values(data, self._raw_values())
 
-            if not keep_alive:
+            if not self._cfg.keep_alive:
                 # disconnect after data update to force reconnect next time (slow!)
                 self._log.debug("forced disconnect of BMS after update")
                 await self.disconnect()
@@ -629,7 +623,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSDp, ...],
+        fields: tuple[BMSDp[BMSValue], ...],
         data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",
@@ -679,7 +673,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_pack(
-        fields: tuple[BMSPDp, ...],
+        fields: tuple[BMSDp[BMSPackValue], ...],
         data: bytes,
         *,
         byteorder: Literal["little", "big"] = "big",
@@ -819,7 +813,7 @@ class BaseBMS(ABC):
         return True
 
     @final
-    async def get_GATT_profile(self) -> str:
+    async def gatt_profile(self) -> str:
         """Return a string containing all services, characteristics and descriptors of the connected device."""
         # Do not query values from device to avoid all kinds of exceptions that would need to be handled/ignored.
         if not self.is_connected:
@@ -830,7 +824,7 @@ class BaseBMS(ABC):
             for service in self._client.services:
                 lines.append(f"SRV {service}")
                 for char in service.characteristics:
-                    lines.append(f"  CHR {char} ({",".join(char.properties)})")
+                    lines.append(f"  CHR {char} ({','.join(char.properties)})")
                     lines.extend(f"    DCR {desc}" for desc in char.descriptors)
         except BleakError as exc:
             return str(exc)
@@ -839,114 +833,3 @@ class BaseBMS(ABC):
             return "no services found"
 
         return "\n".join(lines)
-
-
-def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
-    """Translate a BMS problem code into generic problems.
-
-    Bits not explained by a matching definition are reported as UNKNOWN problems: a
-    value coded field (definitions with `value`) holding an undefined value is reported
-    once with its value, any other bit is reported individually.
-
-    Args:
-        code: BMS specific problem code, 0 means no problem
-        defs: definitions mapping (fields of) the code to generic problems
-
-    Returns:
-        list[BMSProblem]: decoded problems in order of the definitions
-
-    """
-    problems: list[BMSProblem] = []
-    explained: int = 0
-    fields: dict[int, bool] = {}  # mask of value coded field: definition matched
-    for d in defs:
-        hit: bool = d.matches(code)
-        if d.value is not None:
-            fields[d.mask] = fields.get(d.mask, False) or hit
-        if hit:
-            explained |= d.mask
-            problems.append(BMSProblem(d.kind, d.severity, d.text or PROBLEM_DEFAULTS[d.kind].text))
-    unknown: Final[PrbDefault] = PROBLEM_DEFAULTS[PrbType.UNKNOWN]
-    for mask, matched in fields.items():
-        if not matched and code & mask:
-            explained |= mask
-            value: int = (code & mask) >> ((mask & -mask).bit_length() - 1)
-            problems.append(
-                BMSProblem(PrbType.UNKNOWN, unknown.level, f"{unknown.text} value {value:#04x}")
-            )
-    remaining: Final[int] = code & ~explained
-    problems.extend(
-        BMSProblem(PrbType.UNKNOWN, unknown.level, f"{unknown.text} bit {bit}")
-        for bit in range(remaining.bit_length())
-        if remaining >> bit & 1
-    )
-    return problems
-
-
-def b2str(b: bytes) -> str:
-    """Decode a bytearray to string, stopping at the first non-printable character."""
-    s: Final[str] = b.decode("ascii", errors="ignore")
-    for i, c in enumerate(s):
-        if not c.isprintable():
-            return s[:i].strip()
-    return s.strip()
-
-
-def lstr2int(string: str) -> int:
-    """Convert the beginning of a string to an integer, till first non-digit is found."""
-    return int("".join(takewhile(str.isdigit, string)))
-
-
-def swap32(value: int, signed: bool = False) -> int:
-    """Swap high and low 16bit in 32bit integer."""
-    value = ((value >> 16) & 0xFFFF) | (value & 0xFFFF) << 16
-    if signed and value & 0x80000000:
-        value -= 0x100000000
-    return value
-
-
-def crc_modbus(data: bytes | bytearray) -> int:
-    """Calculate CRC-16-CCITT MODBUS."""
-    crc: int = 0xFFFF
-    for i in data:
-        crc ^= i & 0xFF
-        for _ in range(8):
-            crc = (crc >> 1) ^ 0xA001 if crc % 2 else (crc >> 1)
-    return crc & 0xFFFF
-
-
-def lrc_modbus(data: bytes | bytearray) -> int:
-    """Calculate MODBUS LRC."""
-    return ((sum(data) ^ 0xFFFF) + 1) & 0xFFFF
-
-
-def crc_xmodem(data: bytes | bytearray) -> int:
-    """Calculate CRC-16-CCITT XMODEM."""
-    crc: int = 0x0000
-    for byte in data:
-        crc ^= byte << 8
-        for _ in range(8):
-            crc = (crc << 1) ^ 0x1021 if (crc & 0x8000) else (crc << 1)
-    return crc & 0xFFFF
-
-
-def crc8(data: bytes | bytearray) -> int:
-    """Calculate CRC-8/MAXIM-DOW."""
-    crc: int = 0x00
-
-    for byte in data:
-        crc ^= byte
-        for _ in range(8):
-            crc = (crc >> 1) ^ 0x8C if crc & 0x1 else crc >> 1
-
-    return crc & 0xFF
-
-
-def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
-    """Calculate the sum of the frame bytes using the specified size.
-
-    Args:
-        frame: The input data for which the sum is to be calculated.
-        size (int, optional): The size of the sum in bytes (default is 1).
-    """
-    return sum(frame) & ((1 << (8 * size)) - 1)

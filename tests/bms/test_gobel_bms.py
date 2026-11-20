@@ -9,8 +9,8 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
-from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.gobel_bms import BMS
+from aiobmsble.plugin import crc_modbus
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -139,10 +139,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_MAIN_DATA
+    assert await bms.update() == _RESULT_MAIN_DATA
 
     # Query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -158,7 +158,7 @@ async def test_fragmented_response(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_MAIN_DATA
+    assert await bms.update() == _RESULT_MAIN_DATA
 
     await bms.disconnect()
 
@@ -242,9 +242,9 @@ async def test_invalid_response(
     result: BMSSample = {}
     if expect_timeout:
         with pytest.raises(TimeoutError):
-            result = await bms.async_update()
+            result = await bms.update()
     else:
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -311,7 +311,7 @@ async def test_edge_cases(
     patch_bleak_client(MockGobelBleakClient)
 
     bms = BMS(generate_ble_device())
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
 
     assert result.get(expected_key) == expected_value
 
@@ -329,7 +329,7 @@ async def test_mos_temp_ffff_invalid(
     patch_bleak_client(MockGobelBleakClient)
 
     bms = BMS(generate_ble_device())
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
 
     # Should only have one temperature (not the invalid MOSFET temp)
     assert result.get("temperature", []) == [25.0]
@@ -412,7 +412,7 @@ async def test_unexpected_data_ignored(
     patch_bleak_client(MockUnexpectedDataBleakClient)
 
     bms = BMS(generate_ble_device())
-    assert await bms.async_update() == _RESULT_MAIN_DATA
+    assert await bms.update() == _RESULT_MAIN_DATA
 
     await bms.disconnect()
 
@@ -444,6 +444,6 @@ async def test_short_initial_frame(
     patch_bleak_client(MockMinFrameBleakClient)
 
     bms = BMS(generate_ble_device())
-    assert await bms.async_update() == _RESULT_MAIN_DATA
+    assert await bms.update() == _RESULT_MAIN_DATA
 
     await bms.disconnect()

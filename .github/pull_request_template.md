@@ -13,9 +13,7 @@
 
 ### [Code Requirements][coding-guide]
 - [ ] There is no commented out code in this PR.
-- [ ] The code has been formatted according to Ruff. (`ruff check .`)
-- [ ] The code passes code quality checks of mypy. (`mypy .`)
-- [ ] The code passes spelling checks of codespell. (`codespell .`)
+- [ ] The code passes quality checks. (`pre-commit run --all-files`)
 
 ### [Architecture][architecture-guide] for new BMS types
 - [ ] The `BMSSample` structure is being filled with all available BMS data.

@@ -6,15 +6,17 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from enum import IntEnum
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSDp, BMSInfo, BMSSample, MatcherPattern
+from aiobmsble import BMSConfig, BMSInfo, BMSSample
+from aiobmsble._streamparser import StreamParser
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.utils import StreamParser
+from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
 class MsgT(IntEnum):
@@ -45,7 +47,7 @@ class BMS(BaseBMS):
         "model": "MyVolta BLE HW",
     }
     _PRB_MASK: Final[int] = 0xFF00FFFF  # mask to extract problem code (byte 3 unused)
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 0, 2, False, lambda x: x / 1000, MsgT.METRICS),
         BMSDp("current", 2, 2, True, lambda x: x / 100, MsgT.METRICS),
         BMSDp("battery_level", 6, 2, False, lambda x: x / 10, MsgT.METRICS),
@@ -66,10 +68,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[int, bytes] = {}
         self.parser: Final[StreamParser] = StreamParser(DLE=0x05, STX=0x55, ETX=0x04)
 

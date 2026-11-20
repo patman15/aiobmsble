@@ -1,18 +1,24 @@
 repos:
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
-  rev: v0.15.0
+  rev: v0.17.6
   hooks:
     # Run the linter.
     - id: ruff-check
-- repo: https://github.com/pre-commit/mirrors-mypy    
-  rev: 'v1.19.1'
+- repo: https://github.com/pre-commit/mirrors-mypy
+  rev: v2.4.1
   hooks:
     - id: mypy
       #args: [--strict, --ignore-missing-imports]
 - repo: https://github.com/codespell-project/codespell
-  rev: v2.4.1
+  rev: v2.4.3
   hooks:
   - id: codespell
-
-
+- repo: https://github.com/RobertCraigie/pyright-python
+  rev: v1.1.414
+  hooks:
+  - id: pyright
+    additional_dependencies:
+      - "bleak>=3.0.2,<4"
+      - "bleak-retry-connector>=4.6.3"
+      - "pytest"

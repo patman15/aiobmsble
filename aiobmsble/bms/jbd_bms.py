@@ -5,23 +5,16 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from functools import lru_cache
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import (
-    BMSConfig,
-    BMSDp,
-    BMSInfo,
-    BMSPrbDef,
-    BMSSample,
-    MatcherPattern,
-    PrbType as PT,
-    TempSensor as TS,
-)
-from aiobmsble.basebms import BaseBMS, b2str, crc_sum, swap32
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, TempSensor as TS
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_sum, swap32
 
 
 class BMS(BaseBMS):
@@ -39,7 +32,7 @@ class BMS(BaseBMS):
     _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
     _POS_SWVER: Final[int] = 22  # position of SW version
     _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4
-    _FIELDS: tuple[BMSDp, ...] = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 100),
@@ -53,7 +46,7 @@ class BMS(BaseBMS):
         BMSDp("cell_count", 25, 1, False, lambda x: min(x, BMS._MAX_CELL_COUNT)),
         BMSDp("temp_count", 26, 1, False),  # count is not limited
     )  # general protocol v4
-    _FIELDS_D10: tuple[BMSDp, ...] = (
+    _FIELDS_D10: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("current", 6, 2, True, lambda x: x / 10),
         BMSDp("cycle_charge", 8, 2, False, lambda x: x / 10),
         BMSDp("design_capacity", 10, 2, False, lambda x: x // 10),
@@ -81,10 +74,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._valid_reply: int = 0x00
         self._exp_len: int = 0
         self._msg: bytes = b""
@@ -102,7 +95,7 @@ class BMS(BaseBMS):
                 "12???BL*",  # SBL connect battery
                 "24???BL*",  # SBL connect battery
                 "@KsM:*",  # RVPOWER
-                "J-?????Y*", # Chins
+                "J-?????Y*",  # Chins
                 "JBD-*",
                 "LSG-*",  # Lossigy battery
                 "N-?????BL*",  # Nordström battery

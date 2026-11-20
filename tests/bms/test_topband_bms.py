@@ -9,8 +9,8 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
 from aiobmsble import BMSConfig, BMSProblem, BMSSample, PrbType as PT, Severity, TempSensor as TS
-from aiobmsble.basebms import decode_problems
 from aiobmsble.bms.topband_bms import BMS
+from aiobmsble.plugin import decode_problems
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -269,10 +269,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS[0xAF]
+    assert await bms.update() == _RESULT_DEFS[0xAF]
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -290,10 +290,10 @@ async def test_proto_variants(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is False
 
     await bms.disconnect()
@@ -395,7 +395,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -456,7 +456,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result == {
         "voltage": 13.7,
         "current": -13.0,
@@ -554,7 +554,7 @@ async def test_resync(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> No
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
 
-    assert await bms.async_update() == {
+    assert await bms.update() == {
         "voltage": 13.356,
         "current": 0.0,
         "battery_level": 95,

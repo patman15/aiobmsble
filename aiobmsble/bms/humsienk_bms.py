@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 from functools import lru_cache
+import logging
 from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -13,19 +14,16 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import (
     BMSConfig,
-    BMSDp,
     BMSInfo,
     BMSLimits,
-    BMSPrbDef,
     BMSSample,
     Limit,
-    LimitDp,
-    MatcherPattern,
     PrbType as PT,
     Severity as SV,
     TempSensor,
 )
-from aiobmsble.basebms import BaseBMS, b2str, crc_sum
+from aiobmsble.basebms import BaseBMS
+from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, LimitDp, MatcherPattern, b2str, crc_sum
 
 
 class BMS(BaseBMS):
@@ -41,7 +39,7 @@ class BMS(BaseBMS):
     _PRB_MASK: Final[int] = (
         0xFF7F7F7F  # bits 7, 15, 23 are chrg FET, heater, dischrg FET
     )
-    _FIELDS: Final[tuple[BMSDp, ...]] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
         BMSDp("voltage", 3, 4, False, lambda x: x / 1000, 0x21),
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),
         BMSDp("battery_level", 11, 1, False, idx=0x21),
@@ -109,10 +107,10 @@ class BMS(BaseBMS):
         self,
         ble_device: BLEDevice,
         config: BMSConfig | None = None,
-        logger_name: str = "",
+        logger: logging.Logger | None = None,
     ) -> None:
         """Initialize private BMS members."""
-        super().__init__(ble_device, config, logger_name)
+        super().__init__(ble_device, config, logger)
         self._msg: dict[int, bytes] = {}
         self._valid_reply: int = 0x00
 

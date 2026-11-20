@@ -110,7 +110,7 @@ async def test_async_update_discharging(patch_bleak_client) -> None:
 
     bms = BMS(device)
 
-    assert await bms.async_update() == {
+    assert await bms.update() == {
         "voltage": 13.08,
         "current": -2.454,  # 0x96090080: discharge
         "temperature": [TS(22.6)],
@@ -137,7 +137,7 @@ async def test_async_update_charging(patch_bleak_client) -> None:
 
     bms = BMS(device)
 
-    assert await bms.async_update() == {
+    assert await bms.update() == {
         "voltage": 13.39,
         "current": 13.414,
         "temperature": [TS(21.8)],
@@ -162,7 +162,7 @@ async def test_async_update_with_protection(patch_bleak_client) -> None:
 
     bms = BMS(device)
 
-    assert await bms.async_update() == {
+    assert await bms.update() == {
         "voltage": 13.08,
         "current": -2.454,  # 0x96090080: discharge
         "temperature": [TS(22.6)],
@@ -192,7 +192,7 @@ async def test_async_update_incomplete_data(patch_bleak_client, patch_bms_timeou
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        await bms.async_update()  # Should return empty dict for incomplete data
+        await bms.update()  # Should return empty dict for incomplete data
     assert not result
 
     await bms.disconnect()
@@ -209,10 +209,10 @@ async def test_async_update_already_streaming(patch_bleak_client) -> None:
     bms = BMS(device, BMSConfig(keep_alive=True))
 
     # First update to initialize
-    await bms.async_update()
+    await bms.update()
 
     # Second update should reuse existing connection
-    assert await bms.async_update() == {
+    assert await bms.update() == {
         "voltage": 13.39,
         "current": 13.414,
         "temperature": [TS(21.8)],
@@ -264,7 +264,7 @@ async def test_async_update_no_data_after_init(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     assert not bms._client.is_connected, "BMS should be disconnected if streaming is not working."
@@ -305,7 +305,7 @@ async def test_invalid_response(
     logging.getLogger(__name__)
     result: BMSSample = {}
     with caplog.at_level(logging.DEBUG), pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
     assert not result
     assert "failed to initialize BMS connection" in caplog.text
 

@@ -191,10 +191,10 @@ async def test_update(
     patch_bleak_client(MockECOWBleakClient)
 
     bms = BMS(generate_ble_device("e2:e7:79:00:00:00"), BMSConfig(keep_alive_fixture))
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
     await asyncio.sleep(1e-3)
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -211,10 +211,10 @@ async def test_unlock_update(
 
     bms = BMS(generate_ble_device("e2:e7:79:00:00:00"))
 
-    assert await bms.async_update() == next(reversed(_RESULT_DEFS.values()))
+    assert await bms.update() == next(reversed(_RESULT_DEFS.values()))
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
 
     await bms.disconnect()
 
@@ -288,7 +288,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -347,7 +347,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result == _RESULT_DEFS[0x1] | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 15),

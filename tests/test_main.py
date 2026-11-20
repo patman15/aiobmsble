@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 from collections.abc import Callable
+import logging
 from logging import DEBUG, INFO
 import sys
 from typing import Any, Final, Literal
@@ -127,9 +128,11 @@ async def test_bms_retry_with_secret(
     DummyBMS.accept_secret = True
     orig_init = DummyBMS.__init__
 
-    def init_with_secret(self, ble_device, config: BMSConfig = BMSConfig(True), logger_name: str = "") -> None:
+    def init_with_secret(
+        self, ble_device, config: BMSConfig = BMSConfig(True), logger: logging.Logger | None = None
+    ) -> None:
         # call original initializer and remember the secret
-        orig_init(self, ble_device, config, logger_name)
+        orig_init(self, ble_device, config, logger)
 
     monkeypatch.setattr(DummyBMS, "__init__", init_with_secret)
 
@@ -215,10 +218,10 @@ async def test_identify_bms_from_json_no_match(
 ) -> None:
     """Check that no match found is logged when no BMS can be identified."""
 
-    async def fake_bms_identify(adv, addr) -> None:
-        return None
+    async def fake_identify(adv, addr) -> list:
+        return []
 
-    monkeypatch.setattr(main_mod, "bms_identify", fake_bms_identify)
+    monkeypatch.setattr(main_mod, "identify", fake_identify)
 
     await main_mod.identify_bms_from_json('{"local_name": "dummy"}')
     assert "No matching BMS type found" in caplog.text
@@ -231,13 +234,13 @@ async def test_identify_bms_from_json_match(
 
     class FakeBMSClass:
         @staticmethod
-        def bms_id() -> Literal["SimpleBMS"]:
+        def bms_name() -> Literal["SimpleBMS"]:
             return "SimpleBMS"
 
-    async def fake_bms_identify(adv, addr) -> type[FakeBMSClass]:
-        return FakeBMSClass
+    async def fake_identify(adv, addr) -> list[type[FakeBMSClass]]:
+        return [FakeBMSClass]
 
-    monkeypatch.setattr(main_mod, "bms_identify", fake_bms_identify)
+    monkeypatch.setattr(main_mod, "identify", fake_identify)
 
     await main_mod.identify_bms_from_json(
         '{"name":"dummy","address":"AA:BB:CC:DD:EE:FF", "source":"B8:27:EB:00:00:00"}'
@@ -255,13 +258,13 @@ async def test_adv_no_issue_logging(
 
     class FakeBMSClass:
         @staticmethod
-        def bms_id() -> Literal["SimpleBMS"]:
+        def bms_name() -> Literal["SimpleBMS"]:
             return "SimpleBMS"
 
-    async def fake_bms_identify(adv, addr) -> type[FakeBMSClass]:
-        return FakeBMSClass
+    async def fake_identify(adv, addr) -> list[type[FakeBMSClass]]:
+        return [FakeBMSClass]
 
-    monkeypatch.setattr(main_mod, "bms_identify", fake_bms_identify)
+    monkeypatch.setattr(main_mod, "identify", fake_identify)
 
     await main_mod.identify_bms_from_json(
         '{"name":"dummy","address":"AA:BB:CC:DD:EE:FF", "rssi": -75, "connectable": true}'

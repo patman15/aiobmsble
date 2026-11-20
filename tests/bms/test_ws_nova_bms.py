@@ -109,10 +109,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -129,7 +129,7 @@ async def test_stream_update(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
     assert bms._msg_event.is_set() is False, "BMS does not request fresh data"
     assert "requesting BMS data" in caplog.text
 
@@ -141,7 +141,7 @@ async def test_stream_update(
     await _client._notify()
 
     # query again to see if updated streaming data is used
-    assert await bms.async_update() == _RESULT_DEFS | {"cycles": 0x9}
+    assert await bms.update() == _RESULT_DEFS | {"cycles": 0x9}
     assert "requesting BMS data" not in caplog.text, "BMS did not use streaming data"
 
     caplog.clear()
@@ -151,7 +151,7 @@ async def test_stream_update(
     monkeypatch.setattr(_client, "_RESP_NOTIFY", _frame)
 
     # query again to see if BMS recovers if no data is sent
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
     assert "requesting BMS data" in caplog.text, "BMS did not use streaming data"
 
 
@@ -201,7 +201,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -253,11 +253,11 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result | {"problems": []} == _RESULT_DEFS | {
         "problem": True,
         "problem_code": expected,
     }
-    assert [problem.kind for problem in result["problems"]] == expected_problem
+    assert [problem.kind for problem in result.get("problems", [])] == expected_problem
 
     await bms.disconnect()

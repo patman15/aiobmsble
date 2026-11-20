@@ -8,8 +8,8 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
-from aiobmsble.basebms import crc_modbus
 from aiobmsble.bms.rollsvb_bms import BMS
+from aiobmsble.plugin import crc_modbus
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -126,10 +126,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT
+    assert await bms.update() == _RESULT
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -143,7 +143,7 @@ async def test_update_charging(monkeypatch: pytest.MonkeyPatch, patch_bleak_clie
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_CHARGING
+    assert await bms.update() == _RESULT_CHARGING
 
     await bms.disconnect()
 
@@ -197,7 +197,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
 

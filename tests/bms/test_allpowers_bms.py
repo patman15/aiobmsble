@@ -136,11 +136,11 @@ async def test_update_discharging(
     patch_bleak_client(MockAllpowersBleakClient)
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive=keep_alive_fixture))
 
-    result = await bms.async_update()
+    result = await bms.update()
     assert result == _RESULT_DEFS["discharging"]
 
     # Second call exercises the already-connected path.
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -154,7 +154,7 @@ async def test_update_charging(
     patch_bleak_client(MockAllpowersBleakClient)
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS["charging"]
+    assert await bms.update() == _RESULT_DEFS["charging"]
 
     await bms.disconnect()
 
@@ -167,7 +167,7 @@ async def test_update_idle(
     patch_bleak_client(MockAllpowersBleakClient)
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS["idle"]
+    assert await bms.update() == _RESULT_DEFS["idle"]
 
     await bms.disconnect()
 
@@ -186,7 +186,7 @@ async def test_settings_frame_ignored(
     MockAllpowersSettingsOnlyClient._sent_settings = False
 
     bms = BMS(generate_ble_device())
-    assert await bms.async_update() == _RESULT_DEFS["discharging"]
+    assert await bms.update() == _RESULT_DEFS["discharging"]
 
     await bms.disconnect()
 
@@ -219,6 +219,6 @@ async def test_invalid_frame_ignored(
 
     bms = BMS(generate_ble_device())
     with pytest.raises(TimeoutError):
-        await bms.async_update()
+        await bms.update()
 
     await bms.disconnect()

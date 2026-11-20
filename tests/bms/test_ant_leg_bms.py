@@ -156,10 +156,10 @@ async def test_update(patch_bms_timeout, patch_bleak_client, keep_alive_fixture)
         BMSConfig(keep_alive_fixture),
     )
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -191,7 +191,7 @@ async def test_update_with_design_cap(monkeypatch, patch_bms_timeout, patch_blea
 
     bms = BMS(generate_ble_device(BT_ADDRESS, "MockBLEdevice"))
 
-    assert await bms.async_update() == _RESULT_DEFS_CAP
+    assert await bms.update() == _RESULT_DEFS_CAP
 
     await bms.disconnect()
 
@@ -226,7 +226,7 @@ async def test_update_empty_battery(monkeypatch, patch_bms_timeout, patch_bleak_
     _expected["battery_level"] = 0
     _expected.pop("design_capacity")
     _expected.pop("cycles")
-    assert await bms.async_update() == _expected
+    assert await bms.update() == _expected
 
     await bms.disconnect()
 
@@ -280,7 +280,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()

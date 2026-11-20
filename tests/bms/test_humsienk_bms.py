@@ -219,10 +219,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -284,7 +284,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -315,7 +315,7 @@ async def test_switch_states(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {
+    assert await bms.update() == _RESULT_DEFS[protocol_type] | {
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
         "heater": True,
@@ -379,7 +379,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result == _RESULT_DEFS[protocol_type] | {
         "problem": problems != [BMSProblem(PT.OTHER, SV.INFO, "Pre-discharge MOSFET on")],
         "problem_code": expected,

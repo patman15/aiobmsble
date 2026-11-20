@@ -17,8 +17,8 @@ from aiobmsble import (
     Severity as SV,
     TempSensor as TS,
 )
-from aiobmsble.basebms import crc_sum
 from aiobmsble.bms.neey_bms import BMS
+from aiobmsble.plugin import crc_sum
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -280,10 +280,10 @@ async def test_update(
     patch_bleak_client(MockNeeyBleakClient)
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
 
     # query again to check already connected state
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -326,7 +326,7 @@ async def test_stream_update(
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type]
+    assert await bms.update() == _RESULT_DEFS[protocol_type]
     assert bms._msg_event.is_set() is False
     assert "requesting cell info" in caplog.text
 
@@ -338,7 +338,7 @@ async def test_stream_update(
     await _client._send_all()
 
     # query again to see if updated streaming data is used
-    assert await bms.async_update() == _RESULT_DEFS[protocol_type] | {
+    assert await bms.update() == _RESULT_DEFS[protocol_type] | {
         "problem": True,
         "problem_code": 0x8,
         "problems": [BMSProblem(PT.SYSTEM_OVERTEMP, SV.PROTECT, "System overtemperature")],
@@ -373,7 +373,7 @@ async def test_invalid_response(
 
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
 
     assert not result
     await bms.disconnect()
@@ -388,7 +388,7 @@ async def test_oversized_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_c
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == _RESULT_DEFS["v1"]
+    assert await bms.update() == _RESULT_DEFS["v1"]
 
     await bms.disconnect()
 
@@ -416,14 +416,14 @@ async def test_non_stale_data(
     # run an update which provides half a valid message and then disconnects
     result: BMSSample = {}
     with pytest.raises(TimeoutError):
-        result = await bms.async_update()
+        result = await bms.update()
     assert not result
     await bms.disconnect()
 
     # restore working BMS responses and run a test again to see if stale data is kept
     monkeypatch.setattr(MockNeeyBleakClient, "_response", orig_response)
 
-    assert await bms.async_update() == _RESULT_DEFS["v1"]
+    assert await bms.update() == _RESULT_DEFS["v1"]
 
 
 async def test_short_frame(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
@@ -438,7 +438,7 @@ async def test_short_frame(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     bms = BMS(generate_ble_device())
 
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
-        await bms.async_update()
+        await bms.update()
     assert bms._msg_event.is_set() is False
 
     await bms.disconnect()
@@ -455,7 +455,7 @@ async def test_non_finite_value(monkeypatch: pytest.MonkeyPatch, patch_bleak_cli
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == {
+    assert await bms.update() == {
         k: v for k, v in _RESULT_DEFS["v2"].items() if k != "design_capacity"
     }
 
@@ -525,7 +525,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device(), BMSConfig(False))
 
-    assert await bms.async_update() == _RESULT_DEFS["v1"] | {
+    assert await bms.update() == _RESULT_DEFS["v1"] | {
         "problem": expected_problem is not None and expected_problem.level >= SV.WARN,
         "problem_code": problem_response if expected_problem else 0,
         "problems": [expected_problem] if expected_problem else [],

@@ -121,10 +121,10 @@ async def test_update(
 
     bms = BMS(generate_ble_device(), BMSConfig(keep_alive_fixture))
 
-    assert await bms.async_update() == _RESULT_DEFS
+    assert await bms.update() == _RESULT_DEFS
 
     # query again to check already connected state
-    await bms.async_update()
+    await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
     await bms.disconnect()
@@ -164,7 +164,7 @@ async def test_invalid_response(
     bms = BMS(generate_ble_device())
 
     with pytest.raises(TimeoutError):
-        await bms.async_update()
+        await bms.update()
 
     await bms.disconnect()
 
@@ -185,7 +185,7 @@ async def test_partly_base_data(
     bms = BMS(generate_ble_device())
 
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
-        await bms.async_update()
+        await bms.update()
 
     await bms.disconnect()
 
@@ -206,7 +206,7 @@ async def test_wrong_cell_response(
     bms = BMS(generate_ble_device())
 
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
-        await bms.async_update()
+        await bms.update()
 
     await bms.disconnect()
 
@@ -219,7 +219,7 @@ async def test_all_cell_voltages(patch_bleak_client, patch_bms_timeout) -> None:
 
     bms = BMS(generate_ble_device())
 
-    assert await bms.async_update() == {
+    assert await bms.update() == {
         "voltage": 13.4,
         "current": 0,
         "battery_level": 100,
@@ -302,7 +302,7 @@ async def test_problem_response(
 
     bms = BMS(generate_ble_device())
 
-    result: BMSSample = await bms.async_update()
+    result: BMSSample = await bms.update()
     assert result == _RESULT_DEFS | {
         "problem": True,
         "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 31),
