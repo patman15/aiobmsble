@@ -1,4 +1,8 @@
-"""Module to support SOK SK BMS over Modbus BLE."""
+"""Module to support SOK SK BMS over Modbus BLE.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 import logging
 from typing import Final

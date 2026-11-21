@@ -1,5 +1,8 @@
-"""Private helpers for BMS discovery."""
+"""Private helpers for BMS discovery.
 
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 from fnmatch import translate
 import re
 
