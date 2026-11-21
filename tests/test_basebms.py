@@ -16,7 +16,7 @@ from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
-from bleak.exc import BleakDeviceNotFoundError, BleakError
+from bleak.exc import BleakCharacteristicNotFoundError, BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
@@ -34,7 +34,15 @@ from aiobmsble import (
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
-from aiobmsble.exceptions import BMSConnectionError
+from aiobmsble.exceptions import (
+    BMSAuthError,
+    BMSCommandRejectedError,
+    BMSConnectionError,
+    BMSDataError,
+    BMSError,
+    BMSTimeoutError,
+    BMSUnsupportedError,
+)
 from aiobmsble.plugin import (
     PROBLEM_DEFAULTS,
     BMSDp,
@@ -919,8 +927,110 @@ async def test_init_connect_fail(
     monkeypatch.setattr(MinTestBMS, "_init_connection", _raise_value_error)
 
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
-    with caplog.at_level(DEBUG), pytest.raises(ValueError, match="MockValueError"):
+    with caplog.at_level(DEBUG), pytest.raises(BMSDataError, match="BMS data incomplete") as exc_info:
         await bms.update()
+    assert isinstance(exc_info.value.__cause__, ValueError)
+    assert exc_info.value.bms_id == MinTestBMS.bms_name()
+    assert exc_info.value.address == bms._ble_device.address
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected"),
+    [
+        (KeyError("k"), BMSDataError),
+        (IndexError(), BMSDataError),
+        (OverflowError(), BMSDataError),
+        (TimeoutError(), BMSTimeoutError),
+        (BleakCharacteristicNotFoundError("afe1"), BMSUnsupportedError),
+        (BleakError("link lost"), BMSConnectionError),
+        (EOFError(), BMSConnectionError),
+        (BMSDataError(), BMSDataError),
+        (BMSTimeoutError(), BMSTimeoutError),
+        (BMSAuthError(), BMSAuthError),
+        (BMSCommandRejectedError(), BMSCommandRejectedError),
+    ],
+    ids=[
+        "key",
+        "index",
+        "overflow",
+        "timeout",
+        "char_not_found",
+        "bleak",
+        "eof",
+        "bms_data",
+        "bms_timeout",
+        "bms_auth",
+        "bms_cmd_rejected",
+    ],
+)
+async def test_update_error_translation(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    exc: Exception,
+    expected: type[BMSError],
+) -> None:
+    """Check that update errors become BMSError with device context and a message."""
+
+    async def _raise(*_args: Any) -> NoReturn:
+        raise exc
+
+    patch_bleak_client(MockBleakClient)
+    monkeypatch.setattr(MinTestBMS, "_update", _raise)
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    with pytest.raises(expected) as exc_info:
+        await bms.update()
+    assert str(exc_info.value)
+    assert exc_info.value.bms_id == MinTestBMS.bms_name()
+    assert exc_info.value.address == bms._ble_device.address
+    # keep_alive (default) keeps the link only for data errors
+    assert bms.is_connected == (expected is BMSDataError)
+    await bms.disconnect()
+
+
+async def test_context_mgr_connect_fail(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client: Callable[..., None]
+) -> None:
+    """Check that a failed connect in the context manager raises BMSConnectionError."""
+
+    async def _raise(*_args: Any) -> NoReturn:
+        raise BleakError("no adapter")
+
+    patch_bleak_client(MockBleakClient)
+    monkeypatch.setattr(MinTestBMS, "_init_connection", _raise)
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
+    with pytest.raises(BMSConnectionError, match="no adapter") as exc_info:
+        async with bms:
+            pytest.fail("context body must not run")
+    assert isinstance(exc_info.value.__cause__, BleakError)
+    assert exc_info.value.retryable
+    assert not bms.is_connected
+
+
+async def test_disconnect_never_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Check that failures of subclass cleanup and stale-connection closing are only logged."""
+
+    async def _raise(*_args: Any, **_kwargs: Any) -> NoReturn:
+        raise RuntimeError("mock failure")
+
+    patch_bleak_client(MockBleakClient)
+    monkeypatch.setattr(MinTestBMS, "_disconnect", _raise)
+    monkeypatch.setattr("aiobmsble.basebms.close_stale_connections", _raise)
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._connect()
+    bms._inv_wr_mode = True
+    await bms.disconnect(reset=True)
+
+    assert not bms.is_connected
+    assert bms._inv_wr_mode is None
+    assert "subclass disconnect failed! (RuntimeError)" in caplog.text
+    assert "failed to close stale BMS connections (RuntimeError)" in caplog.text
 
 
 async def test_context_mgr(
