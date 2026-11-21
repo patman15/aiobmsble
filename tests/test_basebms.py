@@ -702,6 +702,20 @@ def test_decode_problems_unknown_text() -> None:
     ]
 
 
+def test_decode_problems_dedup_keeps_worst() -> None:
+    """Check that problems with same kind and text are reported once with highest severity."""
+    defs: Final[tuple[BMSPrbDef, ...]] = (
+        BMSPrbDef(0x01, PrbType.CELL_UNDERVOLTAGE, Severity.WARN, text="Cell undervoltage"),
+        BMSPrbDef(0x02, PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, text="Cell undervoltage"),
+        BMSPrbDef(0x04, PrbType.CELL_UNDERVOLTAGE, Severity.INFO, text="Cell undervoltage"),
+        BMSPrbDef(0x08, PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, text="Cell low"),
+    )
+    assert decode_problems(0x0F, defs) == [
+        BMSProblem(PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, "Cell undervoltage"),
+        BMSProblem(PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, "Cell low"),
+    ]
+
+
 def test_problem_str() -> None:
     """Check human readable representation of a problem."""
     problem: Final[BMSProblem] = decode_problems(

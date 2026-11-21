@@ -153,14 +153,15 @@ def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
 
     Bits not explained by a matching definition are reported as UNKNOWN problems: a
     value coded field (definitions with `value`) holding an undefined value is reported
-    once with its value, any other bit is reported individually.
+    once with its value, any other bit is reported individually. Problems with the same
+    kind and text are reported once, with the highest severity.
 
     Args:
         code: BMS specific problem code, 0 means no problem
         defs: definitions mapping (fields of) the code to generic problems
 
     Returns:
-        list[BMSProblem]: decoded problems in order of the definitions
+        list[BMSProblem]: decoded problems in order of first occurrence
 
     """
     problems: list[BMSProblem] = []
@@ -187,7 +188,13 @@ def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
         for bit in range(remaining.bit_length())
         if remaining >> bit & 1
     )
-    return problems
+    # deduplicate problems by kind and text
+    worst: dict[tuple[PrbType, str], BMSProblem] = {}
+    for problem in problems:
+        key: tuple[PrbType, str] = (problem.kind, problem.text)
+        if key not in worst or problem.level > worst[key].level:
+            worst[key] = problem
+    return list(worst.values())
 
 
 def b2str(b: bytes) -> str:
