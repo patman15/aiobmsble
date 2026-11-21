@@ -11,6 +11,7 @@ import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.saftkiste_bms import BMS
+from aiobmsble.exceptions import BMSAuthError
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -161,7 +162,7 @@ async def test_invalid_response(
     ("secret", "exception"),
     [
         ("no_number", ValueError),
-        ("012345", ConnectionRefusedError),
+        ("012345", BMSAuthError),
     ],
     ids=["invalid_secret", "wrong_password"],
 )

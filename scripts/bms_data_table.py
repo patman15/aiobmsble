@@ -6,6 +6,9 @@ Columns are the fields in `BMSSample` directly filled from received data
 A "✓" means that the data is natively available.
 A "." means that the data is not natively available, but all required fields for its calculation are available.
 Empty means that the data is not available at all.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import csv

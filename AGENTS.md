@@ -82,7 +82,7 @@ To regenerate the data table and API documentation as the documentation workflow
 
 ```bash
 python scripts/bms_data_table.py
-pdoc 'aiobmsble' '!aiobmsble.bms' -o docs
+pdoc -d google aiobmsble aiobmsble.basebms aiobmsble.exceptions aiobmsble.utils aiobmsble.plugin aiobmsble.test_data -o docs
 ```
 
 The documentation workflow runs those commands on pushes to `main`; generated output should be reviewed rather than hand-editing generated API pages.
@@ -90,7 +90,7 @@ The documentation workflow runs those commands on pushes to `main`; generated ou
 ## Architecture and coding conventions
 
 - New protocol support belongs in `aiobmsble/bms/<name>_bms.py`, with a `BMS` class that ultimately derives from `BaseBMS`. For a genuinely new wire protocol, derive directly from `BaseBMS` and use `aiobmsble/bms/dummy_bms.py` as the template. When the device speaks a protocol that an existing plugin already implements, derive that plugin's `BMS` class instead (see "Deriving from an existing plugin" below).
-- A plugin must provide `INFO` with at least `default_manufacturer` and `default_model`, a unique `matcher_dict_list()`, `uuid_services()`, `uuid_rx()`, `uuid_tx()`, `_notification_handler()`, and `_async_update()`, either defined directly or inherited from a parent plugin.
+- A plugin must provide `INFO` with at least `default_manufacturer` and `default_model`, a unique `matcher_dict_list()`, `uuid_services()`, `uuid_rx()`, `uuid_tx()`, `_notification_handler()`, and `_update()`, either defined directly or inherited from a parent plugin.
 - Matchers must be unique across plugins so BLE auto-detection is reliable. A matcher can use the `MatcherPattern` fields defined in `aiobmsble/plugin.py`.
 - Store returned telemetry in the `BMSSample` `TypedDict`, not a dataclass. Include the required common fields available from the device and use `BaseBMS._add_missing_values()`/the existing calculation helpers for consistent derived values.
 - Validate incoming frames according to the protocol (for example, start marker, length, allowed message type, and checksum/CRC). Discard invalid frames; only signal completion when a valid complete response is available.
@@ -180,7 +180,7 @@ A typical plugin contains:
    - `uuid_tx()`
 7. A notification handler that assembles and validates incoming frames.
 8. A cached command builder where commands are deterministic.
-9. `_async_update()` for requesting and decoding a complete sample.
+9. `_update()` for requesting and decoding a complete sample.
 10. `_fetch_device_info()` or `_init_connection()` only when the protocol
     requires additional setup or metadata exchange.
 
@@ -204,7 +204,7 @@ integrity handling. Current examples fall into two patterns:
 - **Protocol variant** (same transport, different data map or a narrow
   behavioral tweak): additionally override the declarative field map
   (`_FIELDS`/`FIELDS`), protocol constants, scaling, and at most a small hook
-  such as `_notification_handler()`, `_async_update()`, `_fetch_device_info()`,
+  such as `_notification_handler()`, `_update()`, `_fetch_device_info()`,
   or `_init_connection()`. See `pwrboozt_bms.py` (from `ej_bms.py`),
   `c4s_bms.py` (from `vatrer_bms.py`), `daren_bms.py` (from `jbd_bms.py`),
   `pwrxtreme_bms.py` (from `topband_bms.py`), and `renogy_pro_bms.py` (from
@@ -221,7 +221,7 @@ For line-oriented or tag-oriented protocols, keep the line parsing in
 pass-through. Store parsed lines in a `_msg` dictionary keyed by the line's
 identifier when multiple line types contribute to one update. Define a
 `_FIELDS: tuple[BMSDp[BMSValue], ...] ` for the fields that can be declaratively decoded,
-and use `BaseBMS._decode_data()` in `_async_update()`; only retain custom
+and use `BaseBMS._decode_data()` in `_update()`; only retain custom
 parsing for values or framing that `BMSDp` cannot represent.
 
 ### Discovery and UUIDs
@@ -309,7 +309,7 @@ Important rules:
 
 ### From notification handler to decoded sample
 
-The handler and `_async_update()` hand off through `self._frame` (a
+The handler and `_update()` hand off through `self._frame` (a
 `BoundedByteArray` provided by `BaseBMS` for accumulating fragments),
 `self._msg` (declared by the plugin as `bytes`, or a `dict` keyed by
 message/pack identifier when several replies contribute to one update), and
@@ -322,9 +322,9 @@ message/pack identifier when several replies contribute to one update), and
   `BMSSample`/`PackSample` fields itself.
 - `_await_msg()` sends the request, clears `_msg_event` first, then awaits it
   (through `_wait_event()`) with the base class's retry and timeout handling.
-  `_async_update()` calls `_await_msg()` once per required request/reply and
+  `_update()` calls `_await_msg()` once per required request/reply and
   only inspects `self._msg` after it returns.
-- All field decoding happens afterwards, inside `_async_update()` (or a small
+- All field decoding happens afterwards, inside `_update()` (or a small
   helper it calls): read `self._msg`/`self._msg[key]` and convert it via
   `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_decode_pack()`, or
   protocol-specific parsing.
@@ -336,7 +336,7 @@ retried.
 
 ### Update and decoding flow
 
-`_async_update()` should:
+`_update()` should:
 
 - Clear stale per-request state when appropriate.
 - Send requests through `_await_msg()`.

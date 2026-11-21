@@ -203,7 +203,7 @@ class BMS(BaseBMS):
                 break
         return raw_data
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         raw_data: Final[dict[int, bytes]] = await self._query_bms()
 

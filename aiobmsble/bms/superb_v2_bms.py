@@ -97,7 +97,7 @@ class BMS(BaseBMS):
         if BMS._CMDS.issubset(self._msg.keys()):
             self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(b"\x21\x54\x00")
         result: BMSSample = self._decode_data(BMS._FIELDS, self._msg)

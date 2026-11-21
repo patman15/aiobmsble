@@ -23,6 +23,7 @@ from aiobmsble import (
     TempSensor,
 )
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, LimitDp, MatcherPattern, b2str, crc_xmodem
 
 
@@ -193,7 +194,7 @@ class BMS(BaseBMS):
         await self._await_msg(BMS._cmd(0x51))
         _dat: Final[bytes] = self._msg[0x51]
         if len(_dat) <= BMS._SWV_POS:
-            raise ValueError("BMS data incomplete")
+            raise BMSDataError
         return {
             "model": b2str(_dat[26:36]),
             "sw_version": f"{int(_dat[BMS._SWV_POS - 1])}.{int(_dat[BMS._SWV_POS])}",
@@ -276,7 +277,7 @@ class BMS(BaseBMS):
         frame.extend(int.to_bytes(crc_xmodem(frame[1:]), 2, byteorder="big") + BMS._TAIL)
         return bytes(frame)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         for cmd, data in BMS._CMDS:
@@ -287,7 +288,7 @@ class BMS(BaseBMS):
         result["cell_count"] = self._msg[0x61][BMS._CELL_POS]
         temp_pos: Final[int] = BMS._CELL_POS + result["cell_count"] * 2 + 1
         if len(self._msg[0x51]) <= BMS._PACK_POS or len(self._msg[0x61]) <= temp_pos:
-            raise ValueError("BMS data incomplete")
+            raise BMSDataError
 
         # get extension pack count from manufacturer information (only main unit != 0)
         result["pack_count"] = self._msg[0x51][BMS._PACK_POS]
@@ -295,7 +296,7 @@ class BMS(BaseBMS):
         ct_blk_len: Final[int] = (result["cell_count"] + result["temp_count"]) * 2 + 2
 
         if (BMS._GSMD_LEN + ct_blk_len) > len(self._msg[0x61]):
-            raise ValueError("BMS data incomplete")
+            raise BMSDataError
 
         result |= BMS._decode_data(BMS._PFIELDS, self._msg[0x61], start=BMS._CELL_POS + ct_blk_len)
 
@@ -304,7 +305,7 @@ class BMS(BaseBMS):
         )
         cst_alarm_pos: Final[int] = states_pos + 1
         if len(self._msg[0x61]) <= cst_alarm_pos:
-            raise ValueError("BMS data incomplete")
+            raise BMSDataError
 
         # get switches from parallel data (main pack)
         states: Final[int] = self._msg[0x61][states_pos]

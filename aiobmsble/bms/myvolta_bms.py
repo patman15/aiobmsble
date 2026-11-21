@@ -133,7 +133,7 @@ class BMS(BaseBMS):
         """Calculate checksum as simple sum of all bytes modulo 256."""
         return 0xFF ^ (sum(data) % 256)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 

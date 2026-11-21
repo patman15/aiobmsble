@@ -23,6 +23,7 @@ from aiobmsble import (
     TempSensor,
 )
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSUnsupportedError
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_sum, lstr2int
 
 
@@ -168,7 +169,9 @@ class BMS(BaseBMS):
         if char_notify_handle == -1 or self._char_write_handle == -1:
             self._log.debug("failed to detect characteristics")
             await self._client.disconnect()
-            raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
+            raise BMSUnsupportedError(
+                f"Failed to detect characteristics from {self.name}."
+            )
 
         await super()._init_connection()
 
@@ -302,7 +305,7 @@ class BMS(BaseBMS):
 
         return result
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         if not self._msg_event.is_set() or self._msg[4] != 0x02:
             # request cell info (only if data is not constantly published)

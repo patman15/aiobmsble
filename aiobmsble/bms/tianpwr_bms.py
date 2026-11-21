@@ -13,6 +13,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TempSensor
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str
 
 
@@ -165,7 +166,7 @@ class BMS(BaseBMS):
         """Assemble a TianPwr BMS command."""
         return BMS._HEAD + BMS._RDCMD + addr.to_bytes(1) + BMS._TAIL
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         self._msg.clear()
@@ -174,7 +175,7 @@ class BMS(BaseBMS):
 
         if not BMS._CMDS.issubset(self._msg):
             self._log.debug("incomplete data set %s", self._msg.keys())
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 

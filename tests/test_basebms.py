@@ -16,7 +16,7 @@ from bleak.assigned_numbers import CharacteristicPropertyName
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
-from bleak.exc import BleakDeviceNotFoundError, BleakError
+from bleak.exc import BleakCharacteristicNotFoundError, BleakDeviceNotFoundError, BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
@@ -34,6 +34,15 @@ from aiobmsble import (
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.bms.dummy_bms import BMS as DummyBMS
+from aiobmsble.exceptions import (
+    BMSAuthError,
+    BMSCommandRejectedError,
+    BMSConnectionError,
+    BMSDataError,
+    BMSError,
+    BMSTimeoutError,
+    BMSUnsupportedError,
+)
 from aiobmsble.plugin import (
     PROBLEM_DEFAULTS,
     BMSDp,
@@ -131,7 +140,7 @@ class MinTestBMS(BaseBMS):
         self._log.debug("RX BLE data: %s", data)
         # do not set event to make tests fail if wait_for_notify is not set
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {"problem_code": 21}
@@ -144,7 +153,7 @@ class DataTestBMS(MinTestBMS):
     def _calc_values() -> frozenset[BMSValue]:
         return frozenset({"power", "battery_charging"})
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
         return {
@@ -204,7 +213,7 @@ class OpGuardTestBMS(MinTestBMS):
         finally:
             self._op_active = False
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         if self._op_active:
             raise RuntimeError("overlapping base operations")
 
@@ -252,7 +261,7 @@ class WMTestBMS(MinTestBMS):
         self._data = data
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(b"mock_command")
 
@@ -323,10 +332,10 @@ class BMSBasicTests:
         patch_bms_timeout: Callable[..., None],
         request: pytest.FixtureRequest,
     ) -> None:
-        """Verify that async_update returns BMSSample fields with the correct types."""
-        if "_async_update" not in self.bms_class.__dict__:
+        """Verify that update returns BMSSample fields with the correct types."""
+        if "_update" not in self.bms_class.__dict__:
             pytest.skip(
-                f"{self.bms_class.__name__} does not define _async_update(), skipping result type check."
+                f"{self.bms_class.__name__} does not define _update(), skipping result type check."
             )
 
         def _is_typed_dict(tp: Any) -> bool:
@@ -398,7 +407,7 @@ class BMSBasicTests:
         await bms.disconnect()
 
         hints: dict[str, Any] = get_type_hints(BMSSample)
-        assert isinstance(result, dict), "async_update must return a dict-like BMSSample"
+        assert isinstance(result, dict), "update must return a dict-like BMSSample"
 
         for key, value in result.items():
             assert key in hints, f"Unexpected result key '{key}' not defined in BMSSample"
@@ -573,7 +582,7 @@ def test_calc_values(sample: BMSSample, expected: BMSSample) -> None:
     [True, False],
     ids=["raw", "ext"],
 )
-async def test_async_update(patch_bleak_client: Callable[..., None], raw: bool) -> None:
+async def test_update(patch_bleak_client: Callable[..., None], raw: bool) -> None:
     """Check update function of the BMS returns values."""
     patch_bleak_client()
     bms: DataTestBMS = DataTestBMS(generate_ble_device())
@@ -633,18 +642,18 @@ class ProblemTestBMS(MinTestBMS):
     ],
     ids=["problems", "info_only", "no_problem", "no_problem_code"],
 )
-async def test_async_update_problems(
+async def test_update_problems(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client: Callable[..., None],
     sample: BMSSample,
     expected: BMSSample,
 ) -> None:
-    """Check that async_update decodes the problem code if the BMS defines _PROBLEMS."""
+    """Check that update decodes the problem code if the BMS defines _PROBLEMS."""
 
-    async def _async_update(_self: BaseBMS) -> BMSSample:
+    async def _update(_self: BaseBMS) -> BMSSample:
         return sample.copy()
 
-    monkeypatch.setattr(ProblemTestBMS, "_async_update", _async_update)
+    monkeypatch.setattr(ProblemTestBMS, "_update", _update)
     patch_bleak_client()
     bms: ProblemTestBMS = ProblemTestBMS(generate_ble_device())
     assert await bms.update() == sample | expected
@@ -714,10 +723,10 @@ def test_prb_def_severity() -> None:
     assert BMSPrbDef(0x1, PrbType.CELL_OVERVOLTAGE, Severity.WARN).severity == Severity.WARN
 
 
-async def test_op_guard_device_info_async_update(
+async def test_op_guard_device_info_update(
     patch_bleak_client: Callable[..., None],
 ) -> None:
-    """Verify device_info, limits, and async_update are serialized for one BMS instance."""
+    """Verify device_info, limits, and update are serialized for one BMS instance."""
     patch_bleak_client()
     bms: OpGuardTestBMS = OpGuardTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
     await bms._connect()
@@ -784,7 +793,7 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
         (
             [BleakDeviceNotFoundError("mock_device")],
             [False],
-            [BleakDeviceNotFoundError("mock_device")],
+            [BMSConnectionError("mock_device")],
         ),
         (
             [None] * (BaseBMS.MAX_RETRY - 1) + [ValueError()],
@@ -854,6 +863,39 @@ async def test_wr_mode_reset(
     await bms.disconnect(True)
     assert bms._inv_wr_mode is None
 
+@pytest.mark.parametrize(
+    "disconnect_error",
+    [
+        BleakError("mock BLE error"),
+        TimeoutError("mock timeout"),
+        EOFError("mock EOF"),
+        ConnectionError("mock connection error"),
+    ],
+    ids=["bleak-error", "timeout", "eof", "connection-error"],
+)
+async def test_disconnect_hook_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+    disconnect_error: Exception,
+) -> None:
+    """Verify disconnect hook failures are logged and the BLE client is disconnected."""
+    patch_bleak_client()
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms.update()
+
+    async def fail_disconnect_hook(_reset: bool) -> None:
+        raise disconnect_error
+
+    monkeypatch.setattr(bms, "_disconnect", fail_disconnect_hook)
+
+    with caplog.at_level(DEBUG):
+        await bms.disconnect()
+
+    assert not bms.is_connected
+    assert (
+        f"disconnect hook failed! ({type(disconnect_error).__name__})" in caplog.text
+    )
 
 def test_get_bms_module() -> None:
     """Check that basebms and dummy_bms return correct module name."""
@@ -918,8 +960,113 @@ async def test_init_connect_fail(
     monkeypatch.setattr(MinTestBMS, "_init_connection", _raise_value_error)
 
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
-    with caplog.at_level(DEBUG), pytest.raises(ValueError, match="MockValueError"):
+    with caplog.at_level(DEBUG), pytest.raises(BMSDataError, match="BMS data incomplete") as exc_info:
         await bms.update()
+    assert isinstance(exc_info.value.__cause__, ValueError)
+    assert exc_info.value.bms_id == MinTestBMS.bms_name()
+    assert exc_info.value.address == bms._ble_device.address
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected"),
+    [
+        (KeyError("k"), BMSDataError),
+        (IndexError(), BMSDataError),
+        (OverflowError(), BMSDataError),
+        (TimeoutError(), BMSTimeoutError),
+        (BleakCharacteristicNotFoundError("afe1"), BMSUnsupportedError),
+        (BleakError("link lost"), BMSConnectionError),
+        (EOFError(), BMSConnectionError),
+        (BMSDataError(), BMSDataError),
+        (BMSTimeoutError(), BMSTimeoutError),
+        (BMSAuthError(), BMSAuthError),
+        (BMSCommandRejectedError(), BMSCommandRejectedError),
+    ],
+    ids=[
+        "key",
+        "index",
+        "overflow",
+        "timeout",
+        "char_not_found",
+        "bleak",
+        "eof",
+        "bms_data",
+        "bms_timeout",
+        "bms_auth",
+        "bms_cmd_rejected",
+    ],
+)
+@pytest.mark.parametrize("keep_alive", [True, False], ids=["keep_alive", "disconnect"])
+async def test_update_error_translation(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    exc: Exception,
+    expected: type[BMSError],
+    keep_alive: bool,
+) -> None:
+    """Check that update errors become BMSError with device context and a message."""
+
+    async def _raise(*_args: Any) -> NoReturn:
+        raise exc
+
+    patch_bleak_client(MockBleakClient)
+    monkeypatch.setattr(MinTestBMS, "_update", _raise)
+
+    bms: MinTestBMS = MinTestBMS(
+        generate_ble_device(), BMSConfig(keep_alive=keep_alive)
+    )
+    with pytest.raises(expected) as exc_info:
+        await bms.update()
+    assert str(exc_info.value)
+    assert exc_info.value.bms_id == MinTestBMS.bms_name()
+    assert exc_info.value.address == bms._ble_device.address
+    assert bms.is_connected is keep_alive
+    await bms.disconnect()
+
+
+async def test_context_mgr_connect_fail(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client: Callable[..., None]
+) -> None:
+    """Check that a failed connect in the context manager raises BMSConnectionError."""
+
+    async def _raise(*_args: Any) -> NoReturn:
+        raise BleakError("no adapter")
+
+    patch_bleak_client(MockBleakClient)
+    monkeypatch.setattr(MinTestBMS, "_init_connection", _raise)
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
+    with pytest.raises(BMSConnectionError, match="no adapter") as exc_info:
+        async with bms:
+            pytest.fail("context body must not run")
+    assert isinstance(exc_info.value.__cause__, BleakError)
+    assert exc_info.value.retryable
+    assert not bms.is_connected
+
+
+async def test_disconnect_never_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client: Callable[..., None],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Check that failures of subclass cleanup and stale-connection closing are only logged."""
+
+    async def _raise(*_args: Any, **_kwargs: Any) -> NoReturn:
+        raise BleakError("mock failure")
+
+    patch_bleak_client(MockBleakClient)
+    monkeypatch.setattr(MinTestBMS, "_disconnect", _raise)
+    monkeypatch.setattr("aiobmsble.basebms.close_stale_connections", _raise)
+
+    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    await bms._connect()
+    bms._inv_wr_mode = True
+    await bms.disconnect(reset=True)
+
+    assert not bms.is_connected
+    assert bms._inv_wr_mode is None
+    assert "disconnect hook failed! (BleakError)" in caplog.text
+    assert "failed to close stale BMS connections (BleakError)" in caplog.text
 
 
 async def test_context_mgr(

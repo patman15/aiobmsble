@@ -12,6 +12,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo
 from aiobmsble.bms.renogy_bms import BMS as RenogyBMS
+from aiobmsble.exceptions import BMSUnsupportedError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
@@ -93,7 +94,9 @@ class BMS(RenogyBMS):
         if char_notify_handle == -1 or self._char_write_handle == -1:
             self._log.debug("failed to detect characteristics")
             await self._client.disconnect()
-            raise ConnectionError(f"Failed to detect characteristics from {self.name}.")
+            raise BMSUnsupportedError(
+                f"Failed to detect characteristics from {self.name}."
+            )
         self._log.debug(
             "using characteristics handle #%i (notify), #%i (write).",
             char_notify_handle,

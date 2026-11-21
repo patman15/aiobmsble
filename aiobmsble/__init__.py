@@ -1,12 +1,23 @@
-"""Package for battery management systems (BMS) via Bluetooth LE (aiobmsble).
-
-Asynchronous Library to Query Battery Management Systems via Bluetooth LE
+"""Asynchronous library to query battery management systems (BMS) via Bluetooth LE.
 
 This library is intended to query data from battery management systems
 that use Bluetooth LE. Stand-alone usage is possible in any Python environment
 (with necessary dependencies installed).
 
-User API: data types and BMS discovery. Plugin-author types live in `aiobmsble.plugin`.
+**Warning:** BMS readings are telemetry only. Do not use them to control actions that
+are safety relevant, e.g. prevent battery damage, overheating, or fire.
+
+.. include:: ../docs/quickstart.md
+
+## Modules
+
+- `aiobmsble`: data types returned by a BMS (`BMSSample`, `BMSInfo`, `BMSLimits`, ...)
+  and the connection configuration `BMSConfig`.
+- `aiobmsble.basebms`: `aiobmsble.basebms.BaseBMS`, the interface all BMS classes implement.
+- `aiobmsble.exceptions`: errors raised by BMS operations, also exported here.
+- `aiobmsble.utils`: discovery helpers to find the BMS class for a device.
+- `aiobmsble.test_data`: recorded advertisements for integration tests.
+- `aiobmsble.plugin`: types for plugin authors.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -18,13 +29,32 @@ from enum import IntEnum, StrEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
 from typing import Self, TypedDict
 
+from aiobmsble.exceptions import (
+    BMSAuthError,
+    BMSCommandRejectedError,
+    BMSConfigError,
+    BMSConnectionError,
+    BMSDataError,
+    BMSError,
+    BMSTimeoutError,
+    BMSUnsupportedError,
+)
+
 __all__ = [
+    "BMSAuthError",
+    "BMSCommandRejectedError",
     "BMSConfig",
+    "BMSConfigError",
+    "BMSConnectionError",
+    "BMSDataError",
+    "BMSError",
     "BMSInfo",
     "BMSLimits",
     "BMSMode",
     "BMSProblem",
     "BMSSample",
+    "BMSTimeoutError",
+    "BMSUnsupportedError",
     "BatterySample",
     "Limit",
     "PackSample",
@@ -137,8 +167,11 @@ class BMSProblem:
     """Decoded problem reported by the BMS."""
 
     kind: PrbType
+    """Generic problem category."""
     level: Severity
+    """Severity of the problem."""
     text: str
+    """Human readable (vendor specific) description."""
 
     def __str__(self) -> str:
         """Return human readable representation."""
@@ -150,7 +183,12 @@ class BMSProblem:
 
 
 class BatterySample(TypedDict, total=False):
-    """Common fields for battery samples."""
+    """Common fields for battery samples.
+
+    Units: voltage [V], current [A], charge [Ah], energy [Wh], power [W], temperature [°C],
+    level/health [%]. Current and power are positive while charging.
+    Only fields that the BMS provides (or that can be derived) are present.
+    """
 
     battery_level: float | int  # [%]
     battery_health: float | int  # [%]
@@ -205,8 +243,10 @@ class BMSSample(BatterySample, total=False):
 class BMSConfig:
     """Configuration for the BMS (connection)."""
 
-    keep_alive: bool = True  # keep connection after querying (enhances stability)
-    secret: str = ""  # application level secret for authentication
+    keep_alive: bool = True
+    """Keep the connection open between calls (faster, more stable)."""
+    secret: str = ""
+    """Application level secret/PIN, only used if the BMS class sets `accept_secret`."""
 
 
 class BMSInfo(TypedDict, total=False):
@@ -252,11 +292,14 @@ class Threshold:
     charger/inverter set points.
     """
 
-    trip: float  # trip point [V, A, °C]
-    release: float | None = None  # recovery point, if reported
-    delay: float | None = None  # [s] trip delay, if reported
+    trip: float
+    """Trip point [V, A, °C]."""
+    release: float | None = None
+    """Recovery point, if reported."""
+    delay: float | None = None
+    """Trip delay [s], if reported."""
 
 
 type BMSLimits = dict[Limit, Threshold]
-"""Thresholds configured in the BMS."""
+"""Thresholds configured in the BMS, returned by `aiobmsble.basebms.BaseBMS.limits()`."""
 

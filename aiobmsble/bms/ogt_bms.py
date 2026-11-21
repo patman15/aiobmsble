@@ -14,6 +14,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSTimeoutError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
@@ -164,7 +165,7 @@ class BMS(BaseBMS):
 
         return bytes(ord(cmd[i]) ^ self._key for i in range(len(cmd)))
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         result: BMSSample = {}
 
@@ -173,7 +174,7 @@ class BMS(BaseBMS):
             self._exp_reply = field.idx
             await self._await_msg(data=self._ogt_command(field.idx, field.size))
             if self._response.reg <= 0:
-                raise TimeoutError
+                raise BMSTimeoutError
 
             value = field.fct(self._response.value)
             result[field.key] = value

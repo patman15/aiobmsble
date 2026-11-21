@@ -1,7 +1,7 @@
 """Test aiobmsble library via fuzzing."""
 
-from asyncio import iscoroutinefunction
 from collections.abc import Awaitable, Callable
+import inspect
 from types import ModuleType
 from typing import Final
 
@@ -16,14 +16,14 @@ from tests.conftest import MockBleakClient
 
 
 @given(
-    data=st.binary(min_size=0, max_size=513)
+    notifications=st.lists(st.binary(min_size=0, max_size=513), min_size=1, max_size=6)
 )  # ATT is not allowed larger than 512 bytes
 async def test_notification_handler(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     pytestconfig: pytest.Config,
     plugin_fixture: ModuleType,
-    data: bytes,
+    notifications: list[bytes],
 ) -> None:
     """Test the notification handler."""
 
@@ -52,9 +52,10 @@ async def test_notification_handler(
         None, 1, "fff4", ["notify"], lambda: 512, BleakGATTService(None, 0, "fff0")
     )
 
-    if iscoroutinefunction(notify_handler):
-        await notify_handler(notify_characteristics, bytearray(data))
-    else:
-        notify_handler(notify_characteristics, bytearray(data))
+    for data in notifications:
+        if inspect.iscoroutinefunction(notify_handler):
+            await notify_handler(notify_characteristics, bytearray(data))
+        else:
+            notify_handler(notify_characteristics, bytearray(data))
 
     await bms_instance.disconnect()

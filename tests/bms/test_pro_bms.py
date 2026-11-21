@@ -101,7 +101,7 @@ class MockProBMSBleakClient(MockBleakClient):
 
 
 @pytest.mark.asyncio
-async def test_async_update_discharging(patch_bleak_client) -> None:
+async def test_update_discharging(patch_bleak_client) -> None:
     """Test async update with discharging data."""
     device: BLEDevice = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client: MockProBMSBleakClient = MockProBMSBleakClient(device)
@@ -128,7 +128,7 @@ async def test_async_update_discharging(patch_bleak_client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_update_charging(patch_bleak_client) -> None:
+async def test_update_charging(patch_bleak_client) -> None:
     """Test async update with charging data."""
     device: BLEDevice = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client: MockProBMSBleakClient = MockProBMSBleakClient(device)
@@ -153,7 +153,7 @@ async def test_async_update_charging(patch_bleak_client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_update_with_protection(patch_bleak_client) -> None:
+async def test_update_with_protection(patch_bleak_client) -> None:
     """Test async update with protection status."""
     device: BLEDevice = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client: MockProBMSBleakClient = MockProBMSBleakClient(device)
@@ -179,7 +179,7 @@ async def test_async_update_with_protection(patch_bleak_client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_update_incomplete_data(patch_bleak_client, patch_bms_timeout) -> None:
+async def test_update_incomplete_data(patch_bleak_client, patch_bms_timeout) -> None:
     """Test handling of incomplete data packet."""
     device: BLEDevice = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client: MockProBMSBleakClient = MockProBMSBleakClient(device)
@@ -199,7 +199,7 @@ async def test_async_update_incomplete_data(patch_bleak_client, patch_bms_timeou
 
 
 @pytest.mark.asyncio
-async def test_async_update_already_streaming(patch_bleak_client) -> None:
+async def test_update_already_streaming(patch_bleak_client) -> None:
     """Test async update when already streaming (second update)."""
     device: BLEDevice = generate_ble_device("AA:BB:CC:DD:EE:FF", "Pro BMS")
     mock_client: MockProBMSBleakClient = MockProBMSBleakClient(device)
@@ -229,7 +229,7 @@ async def test_async_update_already_streaming(patch_bleak_client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_update_no_data_after_init(
+async def test_update_no_data_after_init(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
 ) -> None:
     """Test when initialization completes but no valid data is received."""

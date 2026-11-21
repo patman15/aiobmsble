@@ -13,6 +13,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_modbus
 
 
@@ -130,7 +131,7 @@ class BMS(BaseBMS):
     def _read_int16(data: bytes, pos: int, signed: bool = False) -> int:
         return int.from_bytes(data[pos : pos + 2], byteorder="big", signed=signed)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13B2, count=0x7))
@@ -156,7 +157,7 @@ class BMS(BaseBMS):
 
         await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13EC, count=0x8))
         if len(self._msg) < BMS._MIN_LEN + 0x8 * 2:
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError
         result["problem_code"] = (
             int.from_bytes(self._msg[3:19], byteorder="big") & BMS._PRB_MASK
         )

@@ -12,6 +12,7 @@ from bleak.backends.device import BLEDevice
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, crc_modbus
 
 
@@ -105,14 +106,14 @@ class BMS(BaseBMS):
         self._msg[data[2]] = bytes(data)
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         self._msg.clear()
         for addr, length in BMS._CMDS:
             await self._await_msg(BMS._cmd_modbus(dev_id=0x2, addr=addr, count=length))
         if not BMS._RESPS.issubset(set(self._msg.keys())):
             self._log.debug("incomplete data set %s", self._msg.keys())
-            raise TimeoutError("BMS data incomplete.")
+            raise BMSDataError
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
         result["cell_voltages"] = BMS._cell_voltages(

@@ -15,6 +15,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError, BMSTimeoutError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_modbus
 
 
@@ -216,7 +217,7 @@ class BMS(BaseBMS):
 
         return bytes(frame)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         for head in self._cmd_heads:
@@ -231,7 +232,7 @@ class BMS(BaseBMS):
             except TimeoutError:
                 ...  # try next command head
         else:
-            raise TimeoutError
+            raise BMSTimeoutError
 
         result: BMSSample = {
             "cell_count": int.from_bytes(
@@ -240,7 +241,7 @@ class BMS(BaseBMS):
         }
         temp_pos: Final[int] = BMS._CELL_POS + result["cell_count"] * 2 + 1
         if len(self._msg[0x8C]) <= temp_pos:
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError
         result["temp_count"] = self._msg[0x8C][temp_pos]
 
         result["cell_voltages"] = BMS._cell_voltages(
@@ -259,7 +260,7 @@ class BMS(BaseBMS):
         )
         idx: Final[int] = result.get("cell_count", 0) + result.get("temp_count", 0)
         if len(self._msg[0x8D]) <= BMS._CELL_POS + idx + 8:
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError
 
         result |= BMS._decode_data(self._fields, self._msg, start=BMS._CELL_POS + idx * 2 + 2)
         result["problem_code"] = int.from_bytes(

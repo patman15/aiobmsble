@@ -1,6 +1,6 @@
 """Test the Seplos v2 implementation."""
 
-from collections.abc import Buffer
+from collections.abc import Awaitable, Buffer, Callable
 from typing import Final
 from uuid import UUID
 
@@ -236,10 +236,10 @@ def _truncate_frame(frame: bytes, length: int) -> bytes:
 @pytest.mark.parametrize(
     ("cmd", "length", "operation"),
     [
-        (b"\x00\x46\x51\x00\x00\x3a\x7f", 1, "async_update"),
-        (b"\x00\x46\x61\x00\x01\x00\xf7\xc1", 30, "async_update"),
-        (b"\x00\x46\x61\x00\x01\x00\xf7\xc1", 80, "async_update"),
-        (b"\x00\x46\x51\x00\x00\x3a\x7f", 1, "device_info"),
+        (b"\x00\x46\x51\x00\x00\x3a\x7f", 1, BMS.update),
+        (b"\x00\x46\x61\x00\x01\x00\xf7\xc1", 30, BMS.update),
+        (b"\x00\x46\x61\x00\x01\x00\xf7\xc1", 80, BMS.update),
+        (b"\x00\x46\x51\x00\x00\x3a\x7f", 1, BMS.device_info),
     ],
     ids=["short_info_update", "short_cells", "short_states", "short_device_info"],
 )
@@ -248,7 +248,7 @@ async def test_short_frame(
     patch_bleak_client,
     cmd: bytes,
     length: int,
-    operation: str,
+    operation: Callable[[BMS], Awaitable]
 ) -> None:
     """Reject valid but too short Seplos V2 response frames."""
 
@@ -261,10 +261,9 @@ async def test_short_frame(
     patch_bleak_client(MockSeplosv2BleakClient)
 
     bms = BMS(generate_ble_device())
-    update = bms.device_info if operation == "device_info" else bms.update
 
     with pytest.raises(ValueError, match="BMS data incomplete"):
-        await update()
+        await operation(bms)
 
     await bms.disconnect()
 

@@ -17,6 +17,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError, BMSTimeoutError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_modbus
 
 
@@ -174,7 +175,7 @@ class BMS(BaseBMS):
                 ...  # try next protocol
         else:
             self._proto = Proto.D2  # fallback to first protocol
-            raise TimeoutError
+            raise BMSTimeoutError
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         self._log.debug("RX BLE data: %s", data)
@@ -200,7 +201,7 @@ class BMS(BaseBMS):
         self._msg = bytes(data)
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         result: BMSSample = {}
         proto_def = BMS._PROTOS[self._proto]
@@ -239,7 +240,7 @@ class BMS(BaseBMS):
             rt_msgs[cmd.length] = self._msg
 
         if len(rt_msgs) != len(proto_def.cmds):
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError
 
         result |= BMS._decode_data(proto_def.fields, rt_msgs, start=BMS._HEAD_LEN)
 
