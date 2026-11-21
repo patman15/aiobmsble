@@ -74,7 +74,7 @@ class BaseBMS(ABC):
     `aiobmsble.utils.identify()` to find the class for a device, then query it:
 
     ```python
-    async with BMS(ble_device=device) as bms:  # requires BMSConfig(keep_alive=True)
+    async with BMS(ble_device=device) as bms:
         data = await bms.update()
     ```
 
@@ -82,7 +82,8 @@ class BaseBMS(ABC):
     The connection is (re-)established automatically by each call.
 
     Calls to `update()`, `device_info()`, `limits()` and `async with` raise only
-    `aiobmsble.exceptions.BMSError` subclasses. Link recovery is handled by the caller.
+    `aiobmsble.exceptions.BMSError` subclasses. Link recovery needs to be handled by
+    the caller.
     """
 
     INFO: BMSInfo  # static BMS info (available before connect)
@@ -145,9 +146,9 @@ class BaseBMS(ABC):
             logger (logging.Logger | None): logger for this BMS instance; defaults to the module logger
 
         """
-        assert getattr(self, "_notification_handler", None) is not None, (
-            "BMS class must define `_notification_handler` method"
-        )
+        assert (
+            getattr(self, "_notification_handler", None) is not None
+        ), "BMS class must define `_notification_handler` method"
         assert {"manufacturer", "model"}.issubset(self.INFO), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._cfg: Final[BMSConfig] = config or BMSConfig()
@@ -200,9 +201,7 @@ class BaseBMS(ABC):
             ) from exc
         except _PARSE_ERRORS as exc:
             # internal parser text (e.g. 'index out of range') is kept in __cause__ only
-            raise BMSDataError(
-                bms_id=self.bms_name(), address=self._ble_device.address
-            ) from exc
+            raise BMSDataError(bms_id=self.bms_name(), address=self._ble_device.address) from exc
         finally:
             if not self._cfg.keep_alive:
                 self._log.debug("forced disconnect after BMS operation")
@@ -609,8 +608,8 @@ class BaseBMS(ABC):
 
         try:
             await self._disconnect(reset)
-        except Exception as exc:  # noqa: BLE001
-            self._log.warning("subclass disconnect failed! (%s)", type(exc).__name__)
+        except (BleakError, TimeoutError, EOFError, ConnectionError) as exc:
+            self._log.warning("disconnect hook failed! (%s)", type(exc).__name__)
 
         try:
             await self._client.disconnect()
@@ -619,14 +618,10 @@ class BaseBMS(ABC):
         if reset:
             self._log.debug("closing stale BMS connections and resetting write mode")
             self._inv_wr_mode = None  # reset write mode
-            try:
-                await close_stale_connections(
-                    self._ble_device, only_other_adapters=False
-                )  # ensure all connections are closed
-            except Exception as exc:  # noqa: BLE001
-                self._log.warning(
-                    "failed to close stale BMS connections (%s)", type(exc).__name__
-                )
+            try:  # ensure all connections are closed
+                await close_stale_connections(self._ble_device, only_other_adapters=False)
+            except (BleakError, TimeoutError, EOFError) as exc:
+                self._log.error("failed to close stale BMS connections (%s)", type(exc).__name__)
 
     @final
     async def disconnect(self, reset: bool = False) -> None:
