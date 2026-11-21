@@ -11,6 +11,7 @@ from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.service import BleakGATTService
+from bleak.exc import BleakError
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
@@ -879,6 +880,54 @@ async def test_keep_alive_handler_broken_sender(
         await bms.update()
     assert "unknown notification sender" in caplog.text
     assert "empty notification" in caplog.text
+    await bms.disconnect()
+
+
+async def test_keep_alive_handler_write_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that keep-alive write failures are logged and ignored."""
+    monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS)
+    orig_write: Final = MockDBBleakClient.write_gatt_char
+
+    async def _mock_write_error(
+        self: MockDBBleakClient,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        data: Buffer,
+        response: bool | None = None,
+    ) -> None:
+        characteristic = str(char_specifier)[4:8]
+        payload = bytes(data)
+        if (
+            self._state == self._State.RUNNING
+            and characteristic == "0003"
+            and payload in (b"\xff", b"\xdf")
+        ):
+            raise BleakError("keep-alive write failed")
+
+        await orig_write(self, char_specifier, data, response)
+
+    monkeypatch.setattr(MockDBBleakClient, "write_gatt_char", _mock_write_error)
+    patch_bleak_client(MockDBBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=True))
+    with caplog.at_level(DEBUG):
+        assert await bms.update() == _RESULT_DEFS
+        await bms._keep_alive_handler(
+            BleakGATTCharacteristic(
+                object(),
+                99,
+                "00000004-0000-1000-8000-008025000000",
+                ["notify"],
+                lambda: BMS.BLE_MAX_ATTR_SIZE,
+                service=BleakGATTService(object(), 98, "mock_serv_chB"),
+            ),
+            bytearray(b"\x12"),
+        )
+
+    assert "keep-alive write failed (BMSTimeoutError)" in caplog.text
     await bms.disconnect()
 
 

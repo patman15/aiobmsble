@@ -12,11 +12,12 @@ from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
+from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.exceptions import BMSDataError
+from aiobmsble.exceptions import BMSDataError, BMSError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
@@ -143,8 +144,10 @@ class BMS(BaseBMS):
 
         self._log.debug("(%s): %s", "start" if page == 1 else "cnt.", data)
 
-        # acknowledge received frame
-        await self._await_msg(bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False)
+        try:
+            await self._await_msg(bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False)
+        except (BMSError, BleakError) as exc:
+            self._log.debug("acknowledge frame send failed (%s)", type(exc).__name__)
 
         if page == data[1] & 0xF:  # check if last page
             if len(self._frame) < BMS._MIN_LEN or not self._check_integrity(
