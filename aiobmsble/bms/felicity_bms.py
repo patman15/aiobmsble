@@ -163,4 +163,4 @@ class BMS(BaseBMS):
                 }
             )
         except (IndexError, OverflowError, TypeError, ValueError) as exc:
-            raise BMSDataError("BMS data incomplete.") from exc
+            raise BMSDataError from exc

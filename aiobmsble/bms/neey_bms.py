@@ -220,7 +220,7 @@ class BMS(BaseBMS):
                 self._msg, cells=24, start=9, byteorder="little", size=4
             )
         except StructError as exc:
-            raise BMSDataError("BMS data incomplete.") from exc
+            raise BMSDataError from exc
         finally:
             self._msg_event.clear()  # clear event for next update
 

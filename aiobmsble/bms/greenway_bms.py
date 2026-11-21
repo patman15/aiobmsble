@@ -115,7 +115,7 @@ class BMS(BaseBMS):
 
         ver: bytes = self._msg[MsgT.VERSION][BMS._LEN_POS + 1 : -1]
         if len(ver) < 4:
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
         return BMSInfo(
             manufacturer=b2str(self._msg[MsgT.MANUF][BMS._LEN_POS + 1 : -1]),
             model=b2str(self._msg[MsgT.BMS_TYPE][BMS._LEN_POS + 1 : -1]),

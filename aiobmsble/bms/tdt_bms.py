@@ -241,7 +241,7 @@ class BMS(BaseBMS):
         }
         temp_pos: Final[int] = BMS._CELL_POS + result["cell_count"] * 2 + 1
         if len(self._msg[0x8C]) <= temp_pos:
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
         result["temp_count"] = self._msg[0x8C][temp_pos]
 
         result["cell_voltages"] = BMS._cell_voltages(
@@ -260,7 +260,7 @@ class BMS(BaseBMS):
         )
         idx: Final[int] = result.get("cell_count", 0) + result.get("temp_count", 0)
         if len(self._msg[0x8D]) <= BMS._CELL_POS + idx + 8:
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
 
         result |= BMS._decode_data(self._fields, self._msg, start=BMS._CELL_POS + idx * 2 + 2)
         result["problem_code"] = int.from_bytes(

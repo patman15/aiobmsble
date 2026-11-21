@@ -131,13 +131,13 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
         if not BMS._CMDS.issubset(set(self._msg.keys())):
             self._log.debug("incomplete data set %s", self._msg.keys())
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
 
         voltages: list[float] = []
         for cmd in BMS._CELLV_CMDS:
             await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
             if cmd not in self._msg:
-                raise BMSDataError("BMS data incomplete.")
+                raise BMSDataError
             cells: list[float] = BMS._cell_voltages(
                 self._msg[cmd], cells=5, start=4, byteorder="little"
             )

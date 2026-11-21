@@ -141,7 +141,7 @@ class BMS(BaseBMS):
         self._msg.clear()
         await self._await_msg(BMS._cmd(1, 0x7654, 0x37))
         if BMS._SYS_KEY not in self._msg:
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
 
         result: BMSSample = BMS._decode_data(
             BMS._FIELDS, self._msg[BMS._SYS_KEY], start=BMS._HEAD_LEN
@@ -150,7 +150,7 @@ class BMS(BaseBMS):
         for pack in range(1, 1 + min(result.get("pack_count", 0), BMS._MAX_PACKS)):
             await self._await_msg(BMS._cmd(pack, 0x75F8, 0x52))
             if (pack_key := pack << 8 | BMS._PACK_LEN) not in self._msg:
-                raise BMSDataError("BMS data incomplete.")
+                raise BMSDataError
             pack_response: bytes = self._msg[pack_key]
 
             pack_sample: PackSample = BMS._decode_pack(

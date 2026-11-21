@@ -51,7 +51,7 @@ class BMS(VatrerBMS):
         )
         if BMS._REG_COUNT * 2 not in self._msg:
             self._log.debug("incomplete data set %s", self._msg.keys())
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg[BMS._REG_COUNT * 2])
         result["cell_voltages"] = BMS._cell_voltages(

@@ -148,7 +148,7 @@ class BMS(BaseBMS):
         temp_count: Final[int] = int.from_bytes(self._msg[temp_pos : temp_pos + 1])
         field_data_start: Final[int] = temp_pos + 2 * temp_count + 1
         if len(self._msg) < field_data_start + BMS._FIELDS_END:
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
         result["temp_count"] = temp_count
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=result.get("cell_count", 0), start=BMS._CELL_POS + 1

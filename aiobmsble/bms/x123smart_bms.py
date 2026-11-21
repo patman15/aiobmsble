@@ -106,7 +106,7 @@ class BMS(BaseBMS):
         await self._await_msg(b"V@" + BMS._CR)
         ver: Final[str] = self._msg.get(BMS._LMSG, b"").decode("ascii").split("_", 1)[0]
         if len(ver) < 3:
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
         build: Final[str] = ver[2:]
         await self._cmd_expect_ok(b"E!")
         return {"fw_version": f"{int(ver[0], 16)}.{int(ver[1], 16)}.{int(build, 16)}"}
@@ -155,11 +155,11 @@ class BMS(BaseBMS):
         """Send a command and wait for an 'OK' reply, raise otherwise."""
         await self._await_msg(cmd + BMS._CR)
         if (reply := self._msg.get(BMS._LMSG, b"")) != b"OK":
-            message = f"command rejected ({reply.decode('ascii')})"
+            message = f"Command rejected ({reply.decode('ascii') or 'no reply'})."
             if cmd.startswith(b"PW"):
                 raise BMSAuthError(message)
             if cmd == b"E!" and not self._cfg.secret and reply:
-                raise BMSAuthError("secret required")
+                raise BMSAuthError("Secret required.")
             raise BMSCommandRejectedError(message)
         self._msg.clear()
         self._msg_event.clear()
@@ -228,7 +228,7 @@ class BMS(BaseBMS):
             await asyncio.wait_for(self._msg_event.wait(), timeout=BMS.TIMEOUT)
         except TimeoutError as exc:
             if len(self._msg):
-                raise BMSDataError("BMS data incomplete.") from exc
+                raise BMSDataError from exc
             raise
         self._msg_event.clear()
 
@@ -275,7 +275,7 @@ class BMS(BaseBMS):
 
         for cell in range(cells):
             if (line := data.get(ord("C") << 8 + cell + 1)) is None:
-                raise BMSDataError("BMS data incomplete.")
+                raise BMSDataError
             elements: list[str] = line.decode("ascii", errors="ignore").split("_")
             cell_v.append(BMS._parse_int(elements[3]) * BMS._V_SCALE)
             cell_t.append(

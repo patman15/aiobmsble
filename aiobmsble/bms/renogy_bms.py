@@ -157,7 +157,7 @@ class BMS(BaseBMS):
 
         await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13EC, count=0x8))
         if len(self._msg) < BMS._MIN_LEN + 0x8 * 2:
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
         result["problem_code"] = (
             int.from_bytes(self._msg[3:19], byteorder="big") & BMS._PRB_MASK
         )

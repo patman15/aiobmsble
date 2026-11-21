@@ -191,7 +191,7 @@ class BMS(BaseBMS):
                     BMS._decode_module(self._msg[module_key]) for module_key in module_keys
                 ]
         except (IndexError, ValueError) as exc:
-            raise BMSDataError("BMS data incomplete.") from exc
+            raise BMSDataError from exc
         finally:
             self._msg.clear()  # never keep lines across updates
             self._msg_event.clear()

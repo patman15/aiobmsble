@@ -227,7 +227,7 @@ class BMS(BaseBMS):
             await super().disconnect()
             if not self._msg_event.is_set():
                 self._data_final.clear()
-                raise BMSDataError("BMS data incomplete.")
+                raise BMSDataError
 
         if not self._msg_event.is_set():
             self._log.debug("requesting data update")
@@ -245,7 +245,7 @@ class BMS(BaseBMS):
                 if not BMS._CMDS.issubset(data) or (
                     cap_msg := data.get(0x7) or self._design_cap.get(dev)
                 ) is None:
-                    raise BMSDataError("BMS data incomplete.")
+                    raise BMSDataError
                 self._design_cap[dev] = data[0x7] = cap_msg
 
             self._known_packs |= self._data_final.keys()

@@ -142,7 +142,7 @@ class BMS(BaseBMS):
         """Fetch the device information via BLE."""
         await self._await_cmd_resp(0x03)
         if len(self._msg) <= BMS._POS_SWVER:
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
         sw_version: Final[int] = self._msg[BMS._POS_SWVER]
         result: BMSInfo = {"sw_version": f"{sw_version >> 4}.{sw_version & 0xF}"}
         try:

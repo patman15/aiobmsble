@@ -101,7 +101,7 @@ class BMS(BaseBMS):
         result["serial_number"] = b2str(self._msg[9 : 9 + length])
         await self._await_msg(self._cmd(BMS._Cmd.VERSIONS))
         if len(self._msg) < BMS._HWV_POS:
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
         result["sw_version"] = b2str(
             self._msg[BMS._SWV_POS : BMS._SWV_POS + self._msg[BMS._SWV_POS - 1]]
         )
@@ -158,7 +158,7 @@ class BMS(BaseBMS):
         pack: PackSample = BMS._decode_pack(BMS._PFIELDS, self._msg, start=8)
         await self._await_msg(BMS._cmd(BMS._Cmd.CELL_INFO, b"\x01\x01"))
         if len(self._msg) < BMS._CELL_POS:
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
         pack["cell_count"] = self._msg[BMS._CELL_POS - 1]
         pack["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=pack["cell_count"], start=BMS._CELL_POS, gap=2

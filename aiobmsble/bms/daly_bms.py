@@ -240,7 +240,7 @@ class BMS(BaseBMS):
             rt_msgs[cmd.length] = self._msg
 
         if len(rt_msgs) != len(proto_def.cmds):
-            raise BMSDataError("BMS data incomplete.")
+            raise BMSDataError
 
         result |= BMS._decode_data(proto_def.fields, rt_msgs, start=BMS._HEAD_LEN)
 
