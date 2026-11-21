@@ -40,7 +40,7 @@ For details about the supported data per BMS, please have a look at [BMS data ta
 ### [API documentation](https://patman15.github.io/aiobmsble/)
 The project uses [pdoc](https://pdoc.dev/) to generate the [API documentation](https://patman15.github.io/aiobmsble/). You can generate it locally using the [installation for development](#for-development) and then running the command
 ```bash
-pdoc 'aiobmsble' '!aiobmsble.bms' -o docs
+pdoc -d google aiobmsble aiobmsble.basebms aiobmsble.exceptions aiobmsble.utils aiobmsble.plugin aiobmsble.test_data -o docs
 ```
 which will generate the documentation locally in the `/docs` folder.
 
@@ -112,6 +112,7 @@ if __name__ == "__main__":
 ### Exceptions
 Public operations raise exceptions derived from `BMSError`. `retryable` distinguishes
 temporary failures from configuration or authentication errors that require user action.
+All exception classes are described in the [API documentation](https://patman15.github.io/aiobmsble/aiobmsble/exceptions.html).
 
 ```python
 from aiobmsble import BMSAuthError, BMSConfigError, BMSError

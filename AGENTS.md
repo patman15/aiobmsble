@@ -82,7 +82,7 @@ To regenerate the data table and API documentation as the documentation workflow
 
 ```bash
 python scripts/bms_data_table.py
-pdoc 'aiobmsble' '!aiobmsble.bms' -o docs
+pdoc -d google aiobmsble aiobmsble.basebms aiobmsble.exceptions aiobmsble.utils aiobmsble.plugin aiobmsble.test_data -o docs
 ```
 
 The documentation workflow runs those commands on pushes to `main`; generated output should be reviewed rather than hand-editing generated API pages.

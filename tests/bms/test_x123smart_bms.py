@@ -250,7 +250,7 @@ async def test_cmd_reply_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     bms = BMS(generate_ble_device())
     monkeypatch.setattr(bms, "_await_msg", _no_reply)
 
-    with pytest.raises(BMSCommandRejectedError, match=r"command rejected \(\)"):
+    with pytest.raises(BMSCommandRejectedError, match=r"Command rejected \(no reply\)\."):
         await bms._cmd_expect_ok(b"E!")
 
 

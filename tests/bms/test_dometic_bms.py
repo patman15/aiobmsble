@@ -15,6 +15,7 @@ import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.dometic_bms import BMS
+from aiobmsble.exceptions import BMSDataError, BMSTimeoutError
 from tests.bluetooth import generate_ble_device
 from tests.conftest import LOGGER, MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -793,11 +794,26 @@ async def test_bms_disconnect(
         assert bms.is_connected is True
         assert await bms.update() == _RESULT_DEFS_MIN  # BMS disconnects on next call
     else:
-        with pytest.raises(TimeoutError):
+        # BMS sends disconnect ('+++') before the data set is complete
+        with pytest.raises(BMSDataError, match="BMS data incomplete"):
             await bms.update()
-        with pytest.raises(ValueError, match="BMS data incomplete"):
+        assert bms.is_connected is True
+        with pytest.raises(BMSDataError, match="BMS data incomplete"):
             await bms.update()
 
+    assert bms.is_connected is False
+
+
+async def test_gather_timeout(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that an incomplete data set without BMS disconnect times out."""
+
+    monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS_MIN[:-1])
+    monkeypatch.setattr(BMS, "_GATHER_TIMEOUT", 1e-3)
+    patch_bleak_client(MockDBBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig())
+    with pytest.raises(BMSTimeoutError):
+        await bms.update()
     assert bms.is_connected is False
 
 

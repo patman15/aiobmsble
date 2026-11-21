@@ -236,7 +236,12 @@ class BMS(BaseBMS):
             await self._await_msg(b"APP+RDN=1")
             self._msg_event.clear()
 
-        await asyncio.wait_for(self._wait_event(), timeout=BMS._GATHER_TIMEOUT)
+        try:
+            await asyncio.wait_for(self._wait_event(), timeout=BMS._GATHER_TIMEOUT)
+        except TimeoutError:
+            if self._disconnect_event.is_set():
+                raise BMSDataError from None
+            raise
 
         try:
             # restore design capacity if not received

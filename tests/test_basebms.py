@@ -963,11 +963,13 @@ async def test_init_connect_fail(
         "bms_cmd_rejected",
     ],
 )
+@pytest.mark.parametrize("keep_alive", [True, False], ids=["keep_alive", "disconnect"])
 async def test_update_error_translation(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client: Callable[..., None],
     exc: Exception,
     expected: type[BMSError],
+    keep_alive: bool,
 ) -> None:
     """Check that update errors become BMSError with device context and a message."""
 
@@ -977,14 +979,15 @@ async def test_update_error_translation(
     patch_bleak_client(MockBleakClient)
     monkeypatch.setattr(MinTestBMS, "_update", _raise)
 
-    bms: MinTestBMS = MinTestBMS(generate_ble_device())
+    bms: MinTestBMS = MinTestBMS(
+        generate_ble_device(), BMSConfig(keep_alive=keep_alive)
+    )
     with pytest.raises(expected) as exc_info:
         await bms.update()
     assert str(exc_info.value)
     assert exc_info.value.bms_id == MinTestBMS.bms_name()
     assert exc_info.value.address == bms._ble_device.address
-    # keep_alive (default) keeps the link only for data errors
-    assert bms.is_connected == (expected is BMSDataError)
+    assert bms.is_connected is keep_alive
     await bms.disconnect()
 
 
