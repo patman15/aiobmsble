@@ -811,7 +811,7 @@ async def test_gather_timeout(monkeypatch: pytest.MonkeyPatch, patch_bleak_clien
     monkeypatch.setattr(BMS, "_GATHER_TIMEOUT", 1e-3)
     patch_bleak_client(MockDBBleakClient)
 
-    bms = BMS(generate_ble_device(), BMSConfig())
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
     with pytest.raises(BMSTimeoutError):
         await bms.update()
     assert bms.is_connected is False
