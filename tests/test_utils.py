@@ -6,19 +6,25 @@ from typing import Any, Final
 
 import pytest
 
+from aiobmsble import PrbType, Severity
 from aiobmsble._discovery import advertisement_matches
 from aiobmsble._streamparser import StreamParser
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.plugin import MatcherPattern
+from aiobmsble.plugin import BMSPrbDef, MatcherPattern, decode_problems
 from aiobmsble.test_data import BmsAdvSample, bms_advertisements
-from aiobmsble.utils import adv_dict_to_advdata, available_bms, get_bms, identify, load_bms_plugins
+from aiobmsble.utils import (
+    adv_dict_to_advdata,
+    available_bms,
+    get_bms,
+    identify,
+    load_bms_plugins,
+    problem_levels,
+)
 
 
 @pytest.fixture(
     name="plugin",
-    params=sorted(
-        load_bms_plugins(), key=lambda plugin: getattr(plugin, "__name__", "")
-    ),
+    params=sorted(load_bms_plugins(), key=lambda plugin: getattr(plugin, "__name__", "")),
     ids=lambda param: param.__name__.rpartition(".")[2],
 )
 def plugin_fixture(request: pytest.FixtureRequest) -> ModuleType:
@@ -54,6 +60,7 @@ async def test_get_bms(plugin: ModuleType) -> None:
     bms_type: str = getattr(plugin, "__name__", "").rsplit(".", 1)[-1]
     bms_class: type[BaseBMS] | None = await get_bms(bms_type)
     assert bms_class == plugin.BMS
+
 
 def test_available_bms_returns_classes() -> None:
     """Test that available_bms returns plugin classes rather than modules."""
@@ -281,10 +288,7 @@ def test_advertisement_matches(
         That advertisement_matches(matcher, adv_data) returns the value specified by expected.
 
     """
-    assert (
-        advertisement_matches(matcher, adv_dict_to_advdata(adv_dict), mac_addr)
-        is expected
-    )
+    assert advertisement_matches(matcher, adv_dict_to_advdata(adv_dict), mac_addr) is expected
 
 
 def test_single_complete_frame() -> None:
@@ -394,3 +398,17 @@ def test_escape_then_etx_closes_frame() -> None:
     data: Final[bytes] = bytes([p.STX, p.STX]) + b"DATA" + bytes([p.DLE, p.ETX])
 
     assert p.feed(data) == b"DATA"
+
+
+def test_problem_levels() -> None:
+    """Check reduction of problems to the worst severity per problem type."""
+    defs: Final[tuple[BMSPrbDef, ...]] = (
+        BMSPrbDef(0x1, PrbType.CHARGE_OVERCURRENT, Severity.WARN),
+        BMSPrbDef(0x2, PrbType.CHARGE_OVERCURRENT),
+        BMSPrbDef(0x4, PrbType.FET_LOCKED),
+    )
+    assert problem_levels(decode_problems(0x7, defs)) == {
+        PrbType.CHARGE_OVERCURRENT: Severity.PROTECT,
+        PrbType.FET_LOCKED: Severity.INFO,
+    }
+    assert problem_levels([]) == {}
