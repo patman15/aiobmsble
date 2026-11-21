@@ -22,7 +22,19 @@ _MODULE_POSTFIX: Final[str] = "_bms"
 
 
 def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
-    """Generate an AdvertisementData instance from a JSON dictionary."""
+    """Generate an AdvertisementData instance from a JSON dictionary.
+
+    Args:
+        adv_dict: advertisement fields, e.g. `local_name`, `manufacturer_data`
+            (hex strings or bytes), `service_data`, `service_uuids`.
+
+    Returns:
+        AdvertisementData: advertisement usable with `identify()`.
+
+    Raises:
+        aiobmsble.exceptions.BMSConfigError: if the dictionary is malformed.
+
+    """
     advertisement_data_defaults: Final[dict[str, Any]] = {
         "local_name": None,
         "manufacturer_data": {},
@@ -58,7 +70,7 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
 
         return AdvertisementData(**(advertisement_data_defaults | val_dict))
     except (AssertionError, IndexError, KeyError, TypeError, ValueError) as exc:
-        raise BMSConfigError("invalid advertisement data") from exc
+        raise BMSConfigError("Invalid advertisement data.") from exc
 
 
 @cache
