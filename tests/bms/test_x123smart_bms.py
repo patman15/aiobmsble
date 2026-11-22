@@ -228,7 +228,7 @@ async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     patch_bleak_client(Mock123SmartBleakClient)
 
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {"fw_version": "3.2.53"}
+    assert await bms.device_info() == MockBleakClient.default_info | {"fw_version": "3.2.53"}
 
 
 async def test_device_info_invalid(

@@ -267,7 +267,7 @@ async def test_device_info(
     patch_bms_timeout()
     patch_bleak_client(MockDalyBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == _DEV_DEFS[protocol_type]
+    assert await bms.device_info() == MockBleakClient.default_info | _DEV_DEFS[protocol_type]
 
 
 @pytest.mark.parametrize(

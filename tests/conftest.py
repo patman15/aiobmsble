@@ -92,6 +92,18 @@ class MockBleakClient(BleakClient):
         self._ble_device: BLEDevice = address_or_ble_device
         self._services: Iterable[str] | None = services
 
+    default_info: Final[dict[str, str]] = {
+        {
+            "2a24": "model",
+            "2a25": "serial_number",
+            "2a26": "fw_version",
+            "2a27": "hw_version",
+            "2a28": "sw_version",
+            "2a29": "manufacturer",
+        }[char]: value.decode(encoding="ASCII")
+        for char, value in BT_INFO.items()
+    }
+
     @property
     def address(self) -> str:
         """Return device address."""

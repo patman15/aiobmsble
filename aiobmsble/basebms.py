@@ -290,32 +290,25 @@ class BaseBMS(ABC):
                 see `aiobmsble.exceptions` for the subclasses.
 
         """
-        async with (
-            self._op_lock,
-            self._translate_errors(),
-        ):
+        dev_info: BMSInfo = BMSInfo()
+        async with self._op_lock, self._translate_errors():
             await self._connect()
-            dev_info: Final[BMSInfo] = await self._fetch_device_info()
+            if self._client.services.get_service("180a"):
+                for char, key in BaseBMS._INFO_CHARS:
+                    with suppress(BleakCharacteristicNotFoundError):
+                        if value := bytes(await self._client.read_gatt_char(char)):
+                            dev_info[key] = b2str(value)
+                            self._log.debug("BT device %s: '%s'", key, dev_info.get(key))
+            else:
+                self._log.debug("No BT device information available.")
+
+            dev_info |= await self._fetch_device_info()
             self._log.debug("BMS info %s", dev_info)
         return dev_info
 
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
-        info: BMSInfo = BMSInfo()
-
-        if not self._client.services.get_service("180a"):
-            self._log.debug("No BT device information available.")
-            return info
-
-        for char, key in BaseBMS._INFO_CHARS:
-            try:
-                if value := bytes(await self._client.read_gatt_char(char)):
-                    info[key] = b2str(value)
-                    self._log.debug("BT device %s: '%s'", key, info.get(key))
-            except BleakCharacteristicNotFoundError:
-                pass
-
-        return info
+        return BMSInfo()
 
     @final
     async def limits(self) -> BMSLimits:

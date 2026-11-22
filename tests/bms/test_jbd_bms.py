@@ -344,12 +344,12 @@ async def test_device_info(patch_bleak_client, patch_bms_timeout, client: object
     patch_bleak_client(client)
     bms = BMS(generate_ble_device())
     if client == MockJBDBleakClient:
-        assert await bms.device_info() == {
+        assert await bms.device_info() == MockBleakClient.default_info | {
             "hw_version": "0123456789",
             "sw_version": "8.0",
         }
     else:
-        assert await bms.device_info() == {"sw_version": "8.0"}
+        assert await bms.device_info() == MockBleakClient.default_info | {"sw_version": "8.0"}
 
 
 async def test_device_info_short(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:

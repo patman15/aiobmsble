@@ -137,7 +137,7 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockBraunPWRBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
+    assert await bms.device_info() == MockBleakClient.default_info | {
         "hw_version": "KS_BLE_WIFI_Ver1.0.0_20240313",
         "sw_version": "2.3.1",
     }
