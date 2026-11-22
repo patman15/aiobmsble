@@ -17,7 +17,7 @@ from bleak_retry_connector import BLEAK_TIMEOUT
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.exceptions import BMSDataError, BMSError
+from aiobmsble.exceptions import BMSAuthError, BMSDataError, BMSError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
@@ -136,11 +136,16 @@ class BMS(BaseBMS):
         await super()._init_connection(char_notify)
 
         self._exp_reply = b"MST+AEN"
-        await self._await_msg(
-            b"APP+AEN"
-            + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
-            wait_for_notify=True,
-        )
+        try:
+            await self._await_msg(
+                b"APP+AEN"
+                + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
+                wait_for_notify=True,
+            )
+        except TimeoutError as exc:
+            if self._disconnect_event.is_set():
+                raise BMSAuthError from exc
+            raise
 
         self._exp_reply = b"MST+NET="
         await self._await_msg(b"APP+NET", wait_for_notify=True)
