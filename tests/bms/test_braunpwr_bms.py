@@ -9,7 +9,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, Limit, TempSensor as TS, Threshold
 from aiobmsble.bms.braunpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -54,6 +54,19 @@ _RESULT_DEFS: Final[BMSSample] = {
         "balancer": 32385,
 }
 
+_LIMIT_DEFS: Final[dict[Limit, Threshold]] = {
+    Limit.CELL_OVP: Threshold(trip=3.65, release=3.38, delay=2.0),
+    Limit.CELL_UVP: Threshold(trip=2.5, release=3.0, delay=3.0),
+    Limit.PACK_OVP: Threshold(trip=58.4, release=54.4, delay=3.0),
+    Limit.PACK_UVP: Threshold(trip=40.0, release=48.0, delay=3.0),
+    Limit.CHARGE_OTP: Threshold(trip=55.0, release=50.0, delay=3.0),
+    Limit.CHARGE_UTP: Threshold(trip=-1.0, release=5.0, delay=3.0),
+    Limit.DISCHARGE_OTP: Threshold(trip=60.0, release=55.0, delay=3.0),
+    Limit.DISCHARGE_UTP: Threshold(trip=-20.0, release=-15.0, delay=3.0),
+    Limit.CHARGE_OCP: Threshold(trip=215.0, delay=3.0),
+    Limit.DISCHARGE_OCP: Threshold(trip=215.0, delay=3.0),
+}
+
 
 class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
@@ -75,7 +88,16 @@ class MockBraunPWRBleakClient(MockBleakClient):
             b"\x0d\x05\x0d\x0a\x0d\x04\x0d\x07\x0d\x06\x0d\x08\x0d\x05\x0d\x06"
             b"\x0d\x08\x0d\x09\x7d"
         ),
-        0x03: b"{\x03\x09\x04\x0b\x91\x0b\x91\x0b\x91\x0b\x91}",
+        0x03: b"\x7b\x03\x09\x04\x0b\x91\x0b\x91\x0b\x91\x0b\x91\x7d",
+        0x05: (
+            b"\x7b\x05\x18\x0e\x42\x0d\x34\x07\xd0\x09\xc4\x0b\xb8\x0b\xb8\x16\xd0\x15\x40\x0b\xb8"
+            b"\x0f\xa0\x12\xc0\x0b\xb8\x7d"
+        ),
+        0x06: (
+            b"\x7b\x06\x18\x0c\xd1\x0c\x9f\x0b\xb8\x0a\xa1\x0a\xdd\x0b\xb8\x0d\x03\x0c\xd1\x0b\xb8"
+            b"\x09\xe3\x0a\x15\x0b\xb8\x7d"
+        ),
+        0x07: b"\x7b\x07\x0c\x53\xfc\x0b\xb8\x00\x00\x53\xfc\x0b\xb8\x00\x00\x7d",
         0x08: (
             b"\x7b\x08\x16\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7d"
@@ -130,6 +152,14 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.update()
     assert bms.is_connected is keep_alive_fixture
 
+    await bms.disconnect()
+
+
+async def test_limits(patch_bleak_client) -> None:
+    """Test decoding of the protection limit blocks."""
+    patch_bleak_client(MockBraunPWRBleakClient)
+    bms = BMS(generate_ble_device())
+    assert await bms.limits() == _LIMIT_DEFS
     await bms.disconnect()
 
 

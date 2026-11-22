@@ -11,9 +11,10 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TempSensor
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str
+from aiobmsble.exceptions import BMSDataError
+from aiobmsble.plugin import BMSDp, BMSValue, LimitDp, MatcherPattern, b2str
 
 
 class BMS(BaseBMS):
@@ -39,6 +40,55 @@ class BMS(BaseBMS):
     _CMDS: Final = frozenset(field.idx for field in _FIELDS)
     _INIT_CMDS: Final = frozenset(
         {0x74, 0xF4, 0xF5}  # SW version  # BMS program version  # BMS boot version
+    )
+    # protection limit blocks: (command, payload length, threshold fields)
+    _LIMIT_FRAMES: Final[tuple[tuple[int, int, tuple[LimitDp, ...]], ...]] = (
+        (
+            0x05,  # cell/pack over-/undervoltage: 12 words, cell [mV], pack [10 mV], delay [ms]
+            24,
+            (
+                LimitDp(Limit.CELL_OVP, "trip", 0, scale=0.001),
+                LimitDp(Limit.CELL_OVP, "release", 2, scale=0.001),
+                LimitDp(Limit.CELL_OVP, "delay", 4, scale=0.001),
+                LimitDp(Limit.CELL_UVP, "trip", 6, scale=0.001),
+                LimitDp(Limit.CELL_UVP, "release", 8, scale=0.001),
+                LimitDp(Limit.CELL_UVP, "delay", 10, scale=0.001),
+                LimitDp(Limit.PACK_OVP, "trip", 12, scale=0.01),
+                LimitDp(Limit.PACK_OVP, "release", 14, scale=0.01),
+                LimitDp(Limit.PACK_OVP, "delay", 16, scale=0.001),
+                LimitDp(Limit.PACK_UVP, "trip", 18, scale=0.01),
+                LimitDp(Limit.PACK_UVP, "release", 20, scale=0.01),
+                LimitDp(Limit.PACK_UVP, "delay", 22, scale=0.001),
+            ),
+        ),
+        (
+            0x06,  # charge/discharge temperature: 12 words, deciKelvin offset 2731, delay [ms]
+            24,
+            (
+                LimitDp(Limit.CHARGE_OTP, "trip", 0, scale=0.1, offset=273.1),
+                LimitDp(Limit.CHARGE_OTP, "release", 2, scale=0.1, offset=273.1),
+                LimitDp(Limit.CHARGE_OTP, "delay", 4, scale=0.001),
+                LimitDp(Limit.CHARGE_UTP, "trip", 6, scale=0.1, offset=273.1),
+                LimitDp(Limit.CHARGE_UTP, "release", 8, scale=0.1, offset=273.1),
+                LimitDp(Limit.CHARGE_UTP, "delay", 10, scale=0.001),
+                LimitDp(Limit.DISCHARGE_OTP, "trip", 12, scale=0.1, offset=273.1),
+                LimitDp(Limit.DISCHARGE_OTP, "release", 14, scale=0.1, offset=273.1),
+                LimitDp(Limit.DISCHARGE_OTP, "delay", 16, scale=0.001),
+                LimitDp(Limit.DISCHARGE_UTP, "trip", 18, scale=0.1, offset=273.1),
+                LimitDp(Limit.DISCHARGE_UTP, "release", 20, scale=0.1, offset=273.1),
+                LimitDp(Limit.DISCHARGE_UTP, "delay", 22, scale=0.001),
+            ),
+        ),
+        (
+            0x07,  # charge/discharge overcurrent: 6 words, current [10 mA], trip delay [ms], recovery delay
+            12,
+            (
+                LimitDp(Limit.CHARGE_OCP, "trip", 0, scale=0.01),
+                LimitDp(Limit.CHARGE_OCP, "delay", 2, scale=0.001),
+                LimitDp(Limit.DISCHARGE_OCP, "trip", 6, scale=0.01),
+                LimitDp(Limit.DISCHARGE_OCP, "delay", 8, scale=0.001),
+            ),
+        ),
     )
 
     def __init__(
@@ -90,6 +140,19 @@ class BMS(BaseBMS):
             "hw_version": b2str(self._msg[0x74][3:-1]),
         }
 
+    async def _fetch_limits(self) -> BMSLimits:
+        """Fetch the protection thresholds; each block is optional."""
+        limits: BMSLimits = {}
+        for cmd, length, fields in BMS._LIMIT_FRAMES:
+            self._exp_reply = (cmd,)
+            self._msg.pop(cmd, None)
+            await self._await_msg(BMS._cmd(cmd))
+            payload: bytes = self._msg.get(cmd, b"")[3:-1]
+            if len(payload) != length:
+                raise BMSDataError(bms_id=self.bms_name(), address=self._ble_device.address)
+            limits |= BMS._decode_limits(payload, fields)
+        return limits
+
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
@@ -105,7 +168,7 @@ class BMS(BaseBMS):
             data.startswith(BMS._HEAD)
             and len(self._frame) >= BMS._MIN_LEN
             and len(data) >= BMS._MIN_LEN
-            and data[1] in {*BMS._CMDS, *BMS._INIT_CMDS}
+            and data[1] in {*BMS._CMDS, *BMS._INIT_CMDS, *(c for c, _, _ in BMS._LIMIT_FRAMES)}
             and len(self._frame) >= BMS._MIN_LEN + self._frame[2]
         ):
             self._frame.clear()
