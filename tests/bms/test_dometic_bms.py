@@ -11,11 +11,12 @@ from uuid import UUID
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.service import BleakGATTService
+from bleak.exc import BleakError
 import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.dometic_bms import BMS
-from aiobmsble.exceptions import BMSDataError, BMSTimeoutError
+from aiobmsble.exceptions import BMSAuthError, BMSDataError, BMSTimeoutError
 from tests.bluetooth import generate_ble_device
 from tests.conftest import LOGGER, MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -450,6 +451,7 @@ class TestBasicBMS(BMSBasicTests):
     """Test the basic BMS functionality."""
 
     bms_class = BMS
+    config = BMSConfig(secret="123456")
 
 
 class MockDBBleakClient(MockBleakClient):
@@ -474,6 +476,7 @@ class MockDBBleakClient(MockBleakClient):
     )
 
     _RESP: tuple[bytes, ...] = _PROTO_DEFS
+    _PASS: Final[bytes] = b"123456"
     _chb_data: Final[bytes] = b"\x12"
     _chb_resp: Final[bytes] = b"\xff"
     _chc_data: Final[bytes] = b"\x9b\x00"
@@ -580,10 +583,14 @@ class MockDBBleakClient(MockBleakClient):
         if (
             self._state == self._State.WAIT_AEN
             and characteristic == "0001"
-            and payload == b"APP+AEN"
+            and payload.startswith(b"APP+AEN=")
         ):
-            self._state = self._State.WAIT_NET
-            await self._notify("chA", b"MST+AEN")
+            if payload[8:] == self._PASS:
+                self._state = self._State.WAIT_NET
+                await self._notify("chA", b"MST+AEN")
+            else:
+                await self._notify("chA", b"MST+ANE")
+                await self._notify("chA", b"+++")
             return
 
         if (
@@ -689,6 +696,22 @@ class MockDBBleakClient(MockBleakClient):
         self._cbs.clear()
 
 
+class MockDBBleakClientNoAuthReply(MockDBBleakClient):
+    """Mock that never replies to the authentication request."""
+
+    async def write_gatt_char(
+        self,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        data: Buffer,
+        response: bool | None = None,
+    ) -> None:
+        """Ignore the authentication request, pass all other writes through."""
+        if bytes(data).startswith(b"APP+AEN"):
+            await super(MockDBBleakClient, self).write_gatt_char(char_specifier, data, response)
+            return
+        await super().write_gatt_char(char_specifier, data, response)
+
+
 async def test_update(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client, keep_alive_fixture: bool
 ) -> None:
@@ -697,7 +720,7 @@ async def test_update(
     monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS)
     patch_bleak_client(MockDBBleakClient)
 
-    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=keep_alive_fixture))
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=keep_alive_fixture, secret="123456"))
 
     assert await bms.update() == _RESULT_DEFS
 
@@ -719,7 +742,7 @@ async def test_incomplete_first_update(
     )  # patch minimal set without design capacity
     patch_bleak_client(MockDBBleakClient)
 
-    bms = BMS(generate_ble_device(), BMSConfig())
+    bms = BMS(generate_ble_device(), BMSConfig(secret="123456"))
 
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
         await bms.update()
@@ -738,7 +761,7 @@ async def test_incomplete_pack(
     )  # design capacity of a second pack, without any other data
     patch_bleak_client(MockDBBleakClient)
 
-    bms = BMS(generate_ble_device(), BMSConfig())
+    bms = BMS(generate_ble_device(), BMSConfig(secret="123456"))
 
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
         await bms.update()
@@ -754,7 +777,7 @@ async def test_inc_update(
 
     patch_bleak_client(MockDBBleakClient)
 
-    bms = BMS(generate_ble_device(), BMSConfig())
+    bms = BMS(generate_ble_device(), BMSConfig(secret="123456"))
 
     monkeypatch.setattr(  # patch minimal set with design capacity
         MockDBBleakClient, "_RESP", (*_PROTO_DEFS_MIN, b"#\x85\x00\x07\x00\x00\x00\x96")
@@ -787,7 +810,7 @@ async def test_bms_disconnect(
     monkeypatch.setattr(BMS, "_GATHER_TIMEOUT", 1e-3)
     patch_bleak_client(MockDBBleakClient)
 
-    bms = BMS(generate_ble_device(), BMSConfig())
+    bms = BMS(generate_ble_device(), BMSConfig(secret="123456"))
 
     if complete_set:
         assert await bms.update() == _RESULT_DEFS_MIN
@@ -811,7 +834,31 @@ async def test_gather_timeout(monkeypatch: pytest.MonkeyPatch, patch_bleak_clien
     monkeypatch.setattr(BMS, "_GATHER_TIMEOUT", 1e-3)
     patch_bleak_client(MockDBBleakClient)
 
-    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False))
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=False, secret="123456"))
+    with pytest.raises(BMSTimeoutError):
+        await bms.update()
+    assert bms.is_connected is False
+
+
+async def test_wrong_password(patch_bms_timeout, patch_bleak_client) -> None:
+    """Test that a rejected secret raises BMSAuthError."""
+
+    patch_bms_timeout()
+    patch_bleak_client(MockDBBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(secret="654321"))
+    with pytest.raises(BMSAuthError):
+        await bms.update()
+    assert bms.is_connected is False
+
+
+async def test_auth_no_reply_timeout(patch_bms_timeout, patch_bleak_client) -> None:
+    """Test that a missing authentication reply raises BMSTimeoutError, not BMSAuthError."""
+
+    patch_bms_timeout()
+    patch_bleak_client(MockDBBleakClientNoAuthReply)
+
+    bms = BMS(generate_ble_device(), BMSConfig(secret="123456"))
     with pytest.raises(BMSTimeoutError):
         await bms.update()
     assert bms.is_connected is False
@@ -845,7 +892,7 @@ async def test_alive_loop_running(monkeypatch: pytest.MonkeyPatch, patch_bleak_c
 
     monkeypatch.setattr(MockDBBleakClient, "write_gatt_char", _watch_write)
 
-    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=True))
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=True, secret="123456"))
 
     assert await bms.update() == _RESULT_DEFS
     assert bms.is_connected is True
@@ -874,11 +921,59 @@ async def test_keep_alive_handler_broken_sender(
     monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS)
     patch_bleak_client(MockDBBleakClientBrokenSender)
 
-    bms = BMS(generate_ble_device(), BMSConfig())
+    bms = BMS(generate_ble_device(), BMSConfig(secret="123456"))
     with caplog.at_level(DEBUG):
         await bms.update()
     assert "unknown notification sender" in caplog.text
     assert "empty notification" in caplog.text
+    await bms.disconnect()
+
+
+async def test_keep_alive_handler_write_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that keep-alive write failures are logged and ignored."""
+    monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS)
+    orig_write: Final = MockDBBleakClient.write_gatt_char
+
+    async def _mock_write_error(
+        self: MockDBBleakClient,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        data: Buffer,
+        response: bool | None = None,
+    ) -> None:
+        characteristic = str(char_specifier)[4:8]
+        payload = bytes(data)
+        if (
+            self._state == self._State.RUNNING
+            and characteristic == "0003"
+            and payload in (b"\xff", b"\xdf")
+        ):
+            raise BleakError("keep-alive write failed")
+
+        await orig_write(self, char_specifier, data, response)
+
+    monkeypatch.setattr(MockDBBleakClient, "write_gatt_char", _mock_write_error)
+    patch_bleak_client(MockDBBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=True, secret="123456"))
+    with caplog.at_level(DEBUG):
+        assert await bms.update() == _RESULT_DEFS
+        await bms._keep_alive_handler(
+            BleakGATTCharacteristic(
+                object(),
+                99,
+                "00000004-0000-1000-8000-008025000000",
+                ["notify"],
+                lambda: BMS.BLE_MAX_ATTR_SIZE,
+                service=BleakGATTService(object(), 98, "mock_serv_chB"),
+            ),
+            bytearray(b"\x12"),
+        )
+
+    assert "keep-alive write failed (BMSTimeoutError)" in caplog.text
     await bms.disconnect()
 
 
@@ -889,7 +984,7 @@ async def test_update_with_preset_event(
     monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS)
     patch_bleak_client(MockDBBleakClient)
 
-    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=True))
+    bms = BMS(generate_ble_device(), BMSConfig(keep_alive=True, secret="123456"))
     await bms.update()
     # Yield twice so _send_info fills _data_final and sets _msg_event
     await asyncio.sleep(0)

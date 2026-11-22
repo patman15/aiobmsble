@@ -272,6 +272,7 @@ class BMSBasicTests:
     """Base class for BMS tests."""
 
     bms_class: type[BaseBMS]
+    config: BMSConfig = BMSConfig()
 
     def test_bms_name(self) -> None:
         """Test that the BMS returns default information."""
@@ -313,7 +314,7 @@ class BMSBasicTests:
 
     async def test_empty_notification(self) -> None:
         """Verify that notification handler does not crash with empty input."""
-        bms: BaseBMS = self.bms_class(generate_ble_device())
+        bms: BaseBMS = self.bms_class(generate_ble_device(), self.config)
         handler: Callable[..., Awaitable[None] | None] = bms._notification_handler  # type: ignore[attr-defined]
         char = BleakGATTCharacteristic(
             None, 1, "0001", ["notify"], lambda: 512, BleakGATTService(None, 0, "fff0")
@@ -402,7 +403,7 @@ class BMSBasicTests:
         patch_bms_timeout()
         patch_bleak_client(mock_client)
 
-        bms: BaseBMS = self.bms_class(generate_ble_device())
+        bms: BaseBMS = self.bms_class(generate_ble_device(), self.config)
         result: BMSSample = await bms.update()
         await bms.disconnect()
 

@@ -1,6 +1,7 @@
 """Test the D-powercore BMS implementation."""
 
 from collections.abc import Buffer
+from logging import DEBUG
 from typing import Final
 from uuid import UUID
 
@@ -256,6 +257,44 @@ async def test_short_frame(patch_bleak_client, patch_bms_timeout) -> None:
     with pytest.raises(TimeoutError):
         await bms.update()
 
+    await bms.disconnect()
+
+
+async def test_acknowledge_write_error(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    caplog: pytest.LogCaptureFixture,
+    dev_name: str,
+) -> None:
+    """Test that frame acknowledgment failures are logged and ignored."""
+    orig_write: Final = MockDPwrcoreBleakClient.write_gatt_char
+
+    async def _mock_write_error(
+        self: MockDPwrcoreBleakClient,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        data: Buffer,
+        response: bool | None = None,
+    ) -> None:
+        if bytes(data)[0] & 0x80:
+            raise BleakError("acknowledge write failed")
+
+        await orig_write(self, char_specifier, data, response)
+
+    monkeypatch.setattr(
+        MockDPwrcoreBleakClient,
+        "write_gatt_char",
+        _mock_write_error,
+    )
+    patch_bleak_client(MockDPwrcoreBleakClient)
+
+    bms = BMS(
+        generate_ble_device("cc:cc:cc:cc:cc:cc", dev_name),
+        BMSConfig(keep_alive=False),
+    )
+
+    with caplog.at_level(DEBUG):
+        assert await bms.update() == _RESULT_DEFS
+    assert "acknowledge frame send failed (BMSTimeoutError)" in caplog.text
     await bms.disconnect()
 
 

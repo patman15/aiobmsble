@@ -11,12 +11,13 @@ from typing import Final
 
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
+from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 from bleak_retry_connector import BLEAK_TIMEOUT
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.exceptions import BMSDataError
+from aiobmsble.exceptions import BMSAuthError, BMSDataError, BMSError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
@@ -135,11 +136,16 @@ class BMS(BaseBMS):
         await super()._init_connection(char_notify)
 
         self._exp_reply = b"MST+AEN"
-        await self._await_msg(
-            b"APP+AEN"
-            + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
-            wait_for_notify=True,
-        )
+        try:
+            await self._await_msg(
+                b"APP+AEN"
+                + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
+                wait_for_notify=True,
+            )
+        except TimeoutError as exc:
+            if self._disconnect_event.is_set():
+                raise BMSAuthError from exc
+            raise
 
         self._exp_reply = b"MST+NET="
         await self._await_msg(b"APP+NET", wait_for_notify=True)
@@ -154,18 +160,21 @@ class BMS(BaseBMS):
             self._log.debug("empty notification")
             return
 
-        match sender.uuid:
-            case BMS._NotifyChars.ch_b_rx:
-                await self._await_msg(
-                    self._ka_resp.to_bytes(1), BMS._NotifyChars.ch_b_tx, False
-                )
-                self._ka_resp ^= 0x20
-                self._ch_b_event.set()
-            case BMS._NotifyChars.ch_c_rx:
-                await self._await_msg(bytes(data), BMS._NotifyChars.ch_c_tx, False)
-                self._ch_c_event.set()
-            case _:
-                self._log.debug("unknown notification sender")
+        try:
+            match sender.uuid:
+                case BMS._NotifyChars.ch_b_rx:
+                    await self._await_msg(
+                        self._ka_resp.to_bytes(1), BMS._NotifyChars.ch_b_tx, False
+                    )
+                    self._ka_resp ^= 0x20
+                    self._ch_b_event.set()
+                case BMS._NotifyChars.ch_c_rx:
+                    await self._await_msg(bytes(data), BMS._NotifyChars.ch_c_tx, False)
+                    self._ch_c_event.set()
+                case _:
+                    self._log.debug("unknown notification sender")
+        except (BMSError, BleakError) as exc:
+                self._log.debug("keep-alive write failed (%s)", type(exc).__name__)
         return
 
     async def _notification_handler(
