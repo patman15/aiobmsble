@@ -202,7 +202,7 @@ class BMS(BaseBMS):
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if (
-            len(data) >= 3
+            len(data) >= BMS._INFO_LEN
             and data.startswith(BMS._HEAD_RSP)
             and data[1] in self._VALID_CMD
             and data[2] in (0x00, 0x80)
