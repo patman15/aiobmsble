@@ -853,25 +853,136 @@ async def test_oversized_response(
     await bms.disconnect()
 
 
-class MockLostFragmentBleakClient(MockJikongBleakClient):
-    """Emulate a Jikong BMS BleakClient that loses a BLE fragment of a frame."""
+# Recorded JK02_32S (SW: 11.54) cell info notifications with BLE fragments lost on air.
+# A frame is sent as 128 + 22 + 128 + 22 bytes, only the last frame of each sequence is complete.
+_LOST_FRAGMENT_DEFS: Final[dict[str, tuple[list[bytearray], float]]] = {
+    "cells_as_current": (  # frames 0x4E and 0x4F incomplete, unpatched result 217582.84 A
+        [
+            bytearray(  # 128 bytes
+                b"\x55\xaa\xeb\x90\x02\x4e\xf5\x0c\xf8\x0c\xf8\x0c\xf6\x0c\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\xf7\x0c\x02\x00\x01\x00"
+                b"\x33\x00\x35\x00\x34\x00\x35\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            ),
+            bytearray(  # 22 bytes
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x42\x01\x00\x00"
+                b"\x00\x00"
+            ),
+            bytearray(  # 128 bytes
+                b"\x55\xaa\xeb\x90\x02\x4f\xf6\x0c\xf8\x0c\xf8\x0c\xf8\x0c\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\xf7\x0c\x02\x00\x01\x00"
+                b"\x33\x00\x35\x00\x34\x00\x35\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            ),
+            bytearray(  # 22 bytes
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x42\x01\x00\x00"
+                b"\x00\x00"
+            ),
+            bytearray(  # 128 bytes
+                b"\xdd\x33\x00\x00\xbd\xea\x00\x00\x52\xee\xff\xff\x33\x01\x2f\x01\x00\x00\x08\x00"
+                b"\x00\x00\x00\x63\x98\x39\x04\x00\xc0\x45\x04\x00\x26\x00\x00\x00\xc6\xc5\xa5\x00"
+                b"\x64\x00\x00\x00\xaf\xd3\x81\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\xff\x00\x01\x00\x00\x00\xd8\x03\x00\x00\x17\x00\x93\x90\x3f\x40"
+                b"\x00\x00\x00\x00\x2f\x05\x00\x00\x00\x01\x00\x01\x02\x07\x00\x00\xc1\x26\x93\x00"
+                b"\x00\x00\x00\x00\x42\x01\x00\x00\x00\x00\xd9\x03\x13\xb7\x0e\x00\xc9\x01\x00\x00"
+                b"\x80\x51\x01\x00\x00\x00\x00\x00"
+            ),
+            bytearray(  # 128 bytes
+                b"\x55\xaa\xeb\x90\x02\x50\xf4\x0c\xf9\x0c\xf9\x0c\xf6\x0c\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\xf6\x0c\x02\x00\x01\x00"
+                b"\x33\x00\x35\x00\x34\x00\x35\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            ),
+            bytearray(  # 22 bytes
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x42\x01\x00\x00"
+                b"\x00\x00"
+            ),
+            bytearray(  # 128 bytes
+                b"\xda\x33\x00\x00\xac\xea\x00\x00\x52\xee\xff\xff\x33\x01\x2f\x01\x00\x00\x08\x00"
+                b"\x00\x00\x00\x63\x97\x39\x04\x00\xc0\x45\x04\x00\x26\x00\x00\x00\xc7\xc5\xa5\x00"
+                b"\x64\x00\x00\x00\xaf\xd3\x81\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\xff\x00\x01\x00\x00\x00\xd8\x03\x00\x00\x17\x00\x93\x90\x3f\x40"
+                b"\x00\x00\x00\x00\x2f\x05\x00\x00\x00\x01\x00\x01\x02\x07\x00\x00\xc6\x26\x93\x00"
+                b"\x00\x00\x00\x00\x42\x01\x00\x00\x00\x00\xd9\x03\x13\xb7\x0e\x00\xc9\x01\x00\x00"
+                b"\x80\x51\x01\x00\x00\x00\x00\x00"
+            ),
+            bytearray(  # 22 bytes
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x01\xfe\xff\x7f\xdc\x0f\x01\x00\x80\x03\x00\x00"
+                b"\x00\x1e"
+            ),
+        ],
+        -4.526,
+    ),
+    "max_current": (  # frame 0x8C incomplete, unpatched result 2147483.137 A
+        [
+            bytearray(  # 128 bytes
+                b"\x55\xaa\xeb\x90\x02\x8c\xf6\x0c\xf9\x0c\xf8\x0c\xf8\x0c\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\xf8\x0c\x02\x00\x01\x00"
+                b"\x33\x00\x35\x00\x34\x00\x35\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            ),
+            bytearray(  # 22 bytes
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x3f\x01\x00\x00"
+                b"\x00\x00"
+            ),
+            bytearray(  # 22 bytes
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x01\xfe\xff\x7f\xdc\x0f\x01\x00\x80\x03\x00\x00"
+                b"\x00\xd8"
+            ),
+            bytearray(  # 128 bytes
+                b"\x55\xaa\xeb\x90\x02\x8d\xf6\x0c\xf8\x0c\xf8\x0c\xf8\x0c\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\xf8\x0c\x02\x00\x01\x00"
+                b"\x33\x00\x35\x00\x34\x00\x35\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            ),
+            bytearray(  # 22 bytes
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x3f\x01\x00\x00"
+                b"\x00\x00"
+            ),
+            bytearray(  # 128 bytes
+                b"\xdf\x33\x00\x00\x32\xff\x00\x00\xc8\xec\xff\xff\x31\x01\x2d\x01\x00\x00\x08\x00"
+                b"\x00\x00\x00\x62\x8f\x2d\x04\x00\xc0\x45\x04\x00\x26\x00\x00\x00\xd0\xd1\xa5\x00"
+                b"\x64\x00\x00\x00\x85\xdc\x81\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+                b"\x00\x00\x00\x00\xff\x00\x01\x00\x00\x00\xd8\x03\x00\x00\x19\x00\x93\x90\x3f\x40"
+                b"\x00\x00\x00\x00\x2f\x05\x00\x00\x00\x01\x00\x01\x02\x07\x00\x00\x1d\x7f\x93\x00"
+                b"\x00\x00\x00\x00\x3f\x01\x00\x00\x00\x00\xd9\x03\xe9\xbf\x0e\x00\xc9\x01\x00\x00"
+                b"\x80\x51\x01\x00\x00\x00\x00\x00"
+            ),
+            bytearray(  # 22 bytes
+                b"\x00\x00\x00\x00\x00\x00\x00\x00\x01\xfe\xff\x7f\xdc\x0f\x01\x00\x80\x03\x00\x00"
+                b"\x00\xd8"
+            ),
+        ],
+        -4.92,
+    ),
+}
 
-    def _cell_fragments(self) -> list[bytearray]:
-        """Return a cell frame with a lost middle fragment followed by a complete cell frame."""
-        frame1: Final[bytearray] = bytearray(self._FRAME["cell"])
-        frame2: Final[bytearray] = bytearray(self._FRAME["cell"])
-        frags1: Final[list[bytearray]] = [
-            frame1[i : i + BT_FRAME_SIZE] for i in range(0, len(frame1), BT_FRAME_SIZE)
-        ]
-        del frags1[1]  # middle fragment is lost on air
-        # tweak the (lost) checksum of frame 1, so that a merged frame with the first fragment of
-        # frame 2 passes the 8-bit checksum (happens for 1 of 256 lost fragments in the field)
-        merged: Final[bytearray] = (bytearray().join(frags1) + frame2)[: BMS._INFO_LEN]
-        frags1[-1][-1] = (frags1[-1][-1] + merged[-1] - crc_sum(merged[:-1])) & 0xFF
-        return [
-            *frags1,
-            *(frame2[i : i + BT_FRAME_SIZE] for i in range(0, len(frame2), BT_FRAME_SIZE)),
-        ]
+
+class MockLostFragmentBleakClient(MockJikongBleakClient):
+    """Emulate a streaming Jikong BMS that loses BLE fragments on air."""
+
+    _FRAGMENTS: list[bytearray] = []
+
+    async def _send_fragments(self) -> None:
+        assert self._notify_callback, "send fragments called but notification not enabled"
+        for notify_data in self._FRAGMENTS:
+            self._notify_callback("MockJikongBleakClient", notify_data)
+            await asyncio.sleep(0)  # notifications arrive one by one, BMS user reads in between
 
     async def write_gatt_char(
         self,
@@ -879,34 +990,46 @@ class MockLostFragmentBleakClient(MockJikongBleakClient):
         data: Buffer,
         response: bool | None = None,
     ) -> None:
-        """Issue write command to GATT, cell info is answered with a lost fragment."""
+        """Issue write command to GATT, cell info is answered with recorded notifications."""
 
         if not bytes(data).startswith(self.HEAD_CMD + self.CMD_INFO):
             await super().write_gatt_char(char_specifier, data, response)
             return
 
-        assert self._notify_callback, "write to characteristics but notification not enabled"
-        for notify_data in self._cell_fragments():
-            self._notify_callback("MockJikongBleakClient", notify_data)
+        self._task = asyncio.create_task(self._send_fragments(), name="send_fragments")
 
 
+@pytest.mark.parametrize(
+    ("fragments", "current"), _LOST_FRAGMENT_DEFS.values(), ids=_LOST_FRAGMENT_DEFS.keys()
+)
 async def test_lost_fragment(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
-    protocol_type: str,
     caplog: pytest.LogCaptureFixture,
+    fragments: list[bytearray],
+    current: float,
 ) -> None:
-    """Test that a frame header always starts a new frame, even if the last one is incomplete."""
+    """Test that a frame with lost BLE fragments is not merged with the next frame."""
 
-    monkeypatch.setattr(MockLostFragmentBleakClient, "_FRAME", _PROTO_DEFS[protocol_type])
+    monkeypatch.setattr(MockLostFragmentBleakClient, "_FRAME", _PROTO_DEFS["JK02_32S"])
     patch_bleak_client(MockLostFragmentBleakClient)
 
     bms = BMS(generate_ble_device())
 
+    # reference result from the complete (last) frame of the recording only
+    last_start: Final[int] = max(
+        idx for idx, frag in enumerate(fragments) if frag.startswith(BMS._HEAD_RSP)
+    )
+    monkeypatch.setattr(MockLostFragmentBleakClient, "_FRAGMENTS", fragments[last_start:])
+    ref: BMSSample = await bms.update()
+    assert ref.get("current") == current
+
+    # full recording including incomplete frames shall result in the same values
+    monkeypatch.setattr(MockLostFragmentBleakClient, "_FRAGMENTS", fragments)
     result: BMSSample = await bms.update()
-    assert abs(result.get("current", 0)) < 1000, "misaligned frame decoded"
-    assert result == _RESULT_DEFS[protocol_type]
-    assert "discarding incomplete frame (172 bytes)" in caplog.text
+    assert result.get("current") == current, "misaligned frame decoded"
+    assert result == ref
+    assert "discarding incomplete frame" in caplog.text
 
     await bms.disconnect()
 
