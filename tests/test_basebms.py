@@ -703,6 +703,20 @@ def test_decode_problems_unknown_text() -> None:
     ]
 
 
+def test_decode_problems_dedup_keeps_worst() -> None:
+    """Check that problems with same kind and text are reported once with highest severity."""
+    defs: Final[tuple[BMSPrbDef, ...]] = (
+        BMSPrbDef(0x01, PrbType.CELL_UNDERVOLTAGE, Severity.WARN, text="Cell undervoltage"),
+        BMSPrbDef(0x02, PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, text="Cell undervoltage"),
+        BMSPrbDef(0x04, PrbType.CELL_UNDERVOLTAGE, Severity.INFO, text="Cell undervoltage"),
+        BMSPrbDef(0x08, PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, text="Cell low"),
+    )
+    assert decode_problems(0x0F, defs) == [
+        BMSProblem(PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, "Cell undervoltage"),
+        BMSProblem(PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, "Cell low"),
+    ]
+
+
 def test_problem_str() -> None:
     """Check human readable representation of a problem."""
     problem: Final[BMSProblem] = decode_problems(
@@ -864,6 +878,7 @@ async def test_wr_mode_reset(
     await bms.disconnect(True)
     assert bms._inv_wr_mode is None
 
+
 @pytest.mark.parametrize(
     "disconnect_error",
     [
@@ -894,9 +909,8 @@ async def test_disconnect_hook_error(
         await bms.disconnect()
 
     assert not bms.is_connected
-    assert (
-        f"disconnect hook failed! ({type(disconnect_error).__name__})" in caplog.text
-    )
+    assert f"disconnect hook failed! ({type(disconnect_error).__name__})" in caplog.text
+
 
 def test_get_bms_module() -> None:
     """Check that basebms and dummy_bms return correct module name."""
@@ -961,7 +975,10 @@ async def test_init_connect_fail(
     monkeypatch.setattr(MinTestBMS, "_init_connection", _raise_value_error)
 
     bms: MinTestBMS = MinTestBMS(generate_ble_device())
-    with caplog.at_level(DEBUG), pytest.raises(BMSDataError, match="BMS data incomplete") as exc_info:
+    with (
+        caplog.at_level(DEBUG),
+        pytest.raises(BMSDataError, match="BMS data incomplete") as exc_info,
+    ):
         await bms.update()
     assert isinstance(exc_info.value.__cause__, ValueError)
     assert exc_info.value.bms_id == MinTestBMS.bms_name()
@@ -1013,9 +1030,7 @@ async def test_update_error_translation(
     patch_bleak_client(MockBleakClient)
     monkeypatch.setattr(MinTestBMS, "_update", _raise)
 
-    bms: MinTestBMS = MinTestBMS(
-        generate_ble_device(), BMSConfig(keep_alive=keep_alive)
-    )
+    bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=keep_alive))
     with pytest.raises(expected) as exc_info:
         await bms.update()
     assert str(exc_info.value)

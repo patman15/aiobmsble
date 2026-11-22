@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from collections.abc import Iterable
 from functools import cache
 import importlib
 import pkgutil
@@ -14,6 +15,7 @@ from typing import Any, Final
 
 from bleak.backends.scanner import AdvertisementData
 
+from aiobmsble import BMSProblem, PrbType, Severity
 from aiobmsble.basebms import BaseBMS
 import aiobmsble.bms
 from aiobmsble.exceptions import BMSConfigError
@@ -59,9 +61,7 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
             }
         if "platform_data" in adv_dict:
             pdata = adv_dict.get("platform_data", [])
-            assert isinstance(
-                pdata[0], str
-            ), "first entry of platform_data needs to be string."
+            assert isinstance(pdata[0], str), "first entry of platform_data needs to be string."
             parts = pdata[0].split(":")
             assert len(parts) == 6 and all(
                 len(part) == 2 and all(c in hexdigits for c in part) for part in parts
@@ -138,9 +138,7 @@ def available_bms() -> frozenset[type[BaseBMS]]:
     return frozenset(bms_module.BMS for bms_module in load_bms_plugins())
 
 
-async def identify(
-    adv: AdvertisementData, address: str
-) -> list[type[BaseBMS]]:
+async def identify(adv: AdvertisementData, address: str) -> list[type[BaseBMS]]:
     """Return the BMS class matching the given advertisement.
 
     Currently the function is guaranteed to return one match only. This behaviour might change
@@ -156,9 +154,24 @@ async def identify(
 
     """
     loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
-    bms_classes: frozenset[type[BaseBMS]] = await loop.run_in_executor(
-        None, available_bms
-    )
+    bms_classes: frozenset[type[BaseBMS]] = await loop.run_in_executor(None, available_bms)
     return [bms_class for bms_class in bms_classes if bms_class.matches(adv, address)]
 
 
+def problem_levels(problems: Iterable[BMSProblem]) -> dict[PrbType, Severity]:
+    """Reduce decoded problems to the worst severity per problem type.
+
+    A BMS can report the same problem type more than once, e.g. as warning and as
+    protection. Consumers that track one level per type can use this reduction.
+
+    Args:
+        problems: decoded problems, e.g. `BMSSample["problems"]`
+
+    Returns:
+        dict[PrbType, Severity]: worst level of each reported problem type
+
+    """
+    levels: dict[PrbType, Severity] = {}
+    for problem in problems:
+        levels[problem.kind] = max(problem.level, levels.get(problem.kind, Severity.OK))
+    return levels
