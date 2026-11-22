@@ -853,6 +853,64 @@ async def test_oversized_response(
     await bms.disconnect()
 
 
+class MockLostFragmentBleakClient(MockJikongBleakClient):
+    """Emulate a Jikong BMS BleakClient that loses a BLE fragment of a frame."""
+
+    def _cell_fragments(self) -> list[bytearray]:
+        """Return a cell frame with a lost middle fragment followed by a complete cell frame."""
+        frame1: Final[bytearray] = bytearray(self._FRAME["cell"])
+        frame2: Final[bytearray] = bytearray(self._FRAME["cell"])
+        frags1: Final[list[bytearray]] = [
+            frame1[i : i + BT_FRAME_SIZE] for i in range(0, len(frame1), BT_FRAME_SIZE)
+        ]
+        del frags1[1]  # middle fragment is lost on air
+        # tweak the (lost) checksum of frame 1, so that a merged frame with the first fragment of
+        # frame 2 passes the 8-bit checksum (happens for 1 of 256 lost fragments in the field)
+        merged: Final[bytearray] = (bytearray().join(frags1) + frame2)[: BMS._INFO_LEN]
+        frags1[-1][-1] = (frags1[-1][-1] + merged[-1] - crc_sum(merged[:-1])) & 0xFF
+        return [
+            *frags1,
+            *(frame2[i : i + BT_FRAME_SIZE] for i in range(0, len(frame2), BT_FRAME_SIZE)),
+        ]
+
+    async def write_gatt_char(
+        self,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        data: Buffer,
+        response: bool | None = None,
+    ) -> None:
+        """Issue write command to GATT, cell info is answered with a lost fragment."""
+
+        if not bytes(data).startswith(self.HEAD_CMD + self.CMD_INFO):
+            await super().write_gatt_char(char_specifier, data, response)
+            return
+
+        assert self._notify_callback, "write to characteristics but notification not enabled"
+        for notify_data in self._cell_fragments():
+            self._notify_callback("MockJikongBleakClient", notify_data)
+
+
+async def test_lost_fragment(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    protocol_type: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a frame header always starts a new frame, even if the last one is incomplete."""
+
+    monkeypatch.setattr(MockLostFragmentBleakClient, "_FRAME", _PROTO_DEFS[protocol_type])
+    patch_bleak_client(MockLostFragmentBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = await bms.update()
+    assert abs(result.get("current", 0)) < 1000, "misaligned frame decoded"
+    assert result == _RESULT_DEFS[protocol_type]
+    assert "discarding incomplete frame (172 bytes)" in caplog.text
+
+    await bms.disconnect()
+
+
 async def test_invalid_device(patch_bleak_client) -> None:
     """Test data update with BMS returning invalid data."""
 
