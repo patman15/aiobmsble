@@ -192,7 +192,7 @@ async def test_device_info_model_only(monkeypatch: pytest.MonkeyPatch, patch_ble
     bms = BMS(generate_ble_device())
     info: BMSInfo = await bms.device_info()
     assert info.get("model_id") == "KS-16"
-    assert "serial_number" not in info
+    assert info.get("serial_number") == "mock_serial_number"
     await bms.disconnect()
 
 
