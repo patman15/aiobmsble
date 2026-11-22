@@ -143,9 +143,9 @@ class BMS(BaseBMS):
     async def _fetch_limits(self) -> BMSLimits:
         """Fetch the protection thresholds; each block is optional."""
         limits: BMSLimits = {}
+        self._msg.clear()
         for cmd, length, fields in BMS._LIMIT_FRAMES:
             self._exp_reply = (cmd,)
-            self._msg.pop(cmd, None)
             await self._await_msg(BMS._cmd(cmd))
             payload: bytes = self._msg.get(cmd, b"")[3:-1]
             if len(payload) != length:

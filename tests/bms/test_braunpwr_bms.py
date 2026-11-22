@@ -11,6 +11,7 @@ import pytest
 
 from aiobmsble import BMSConfig, BMSSample, Limit, TempSensor as TS, Threshold
 from aiobmsble.bms.braunpwr_bms import BMS
+from aiobmsble.exceptions import BMSDataError
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -290,4 +291,18 @@ async def test_problem_response(
     assert result.get("problem", False)  # expect a problem report
     assert result.get("problem_code", 0) == problem_response[1]
 
+    await bms.disconnect()
+
+
+async def test_limits_incomplete(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+    """Test that a truncated protection limit block raises a data error."""
+    monkeypatch.setattr(
+        MockBraunPWRBleakClient,
+        "RESP",
+        MockBraunPWRBleakClient.RESP | {0x05: b"\x7b\x05\x02\x00\x00\x7d"},
+    )
+    patch_bleak_client(MockBraunPWRBleakClient)
+    bms = BMS(generate_ble_device())
+    with pytest.raises(BMSDataError):
+        await bms.limits()
     await bms.disconnect()
