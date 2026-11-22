@@ -200,8 +200,13 @@ class BMS(BaseBMS):
         if len(self._frame) < BMS._MIN_LEN or len(self._frame) < BMS._MIN_LEN + self._frame[2]:
             return
 
+        if self._frame[:1] != BMS._HEAD:
+            self._log.debug("incorrect SOF")
+            self._frame.clear()
+            return
+
         if self._frame[-1] != BMS._TAIL:
-            self._log.debug("incorrect frame end (length: %i).", len(self._frame))
+            self._log.debug("incorrect EOF")
             self._frame.clear()
             return
 

@@ -199,10 +199,10 @@ async def test_device_info_model_only(monkeypatch: pytest.MonkeyPatch, patch_ble
 @pytest.fixture(
     name="wrong_response",
     params=[
-        # (
-        #     b"!\x03\x09\x04\x0b\x91\x0b\x91\x0b\x91\x0b\x91}",
-        #     "wrong_SOF",
-        # ),
+        (
+            b"!\x03\x09\x04\x0b\x91\x0b\x91\x0b\x91\x0b\x91}",
+            "wrong_SOF",
+        ),
         (
             b"{\x03\x09\x04\x0b\x91\x0b\x91\x0b\x91\x0b\x91-",
             "wrong_EOF",
