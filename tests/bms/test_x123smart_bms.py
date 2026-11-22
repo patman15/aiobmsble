@@ -10,7 +10,16 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, Limit, TempSensor as TS, Threshold
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    Limit,
+    PrbType,
+    Severity,
+    TempSensor as TS,
+    Threshold,
+)
 from aiobmsble.bms.x123smart_bms import BMS
 from aiobmsble.exceptions import BMSAuthError, BMSCommandRejectedError
 from aiobmsble.plugin import BMSDp
@@ -337,15 +346,19 @@ async def test_no_cmd_response(
     await bms.disconnect()
 
 
+_VOLT_FAULT = BMSProblem(PrbType.SENSOR_FAILURE, Severity.FAULT, "Overall voltage")
+_VOLT_FAULT_SAMPLE = BMSSample(voltage=0, power=0, problem=True, problems=[_VOLT_FAULT])
+
+
 @pytest.mark.parametrize(
     ("wrong_response", "result"),
     [
-        (b"U_XXXX" + _PROTO_DEFS[6:], BMSSample(voltage=0, power=0, problem=True)),
-        (b"U_123X" + _PROTO_DEFS[6:], BMSSample(voltage=0, power=0, problem=True)),
-        (b"U_" + _PROTO_DEFS[6:], BMSSample(voltage=0, power=0, problem=True)),
+        (b"U_XXXX" + _PROTO_DEFS[6:], _VOLT_FAULT_SAMPLE),
+        (b"U_123X" + _PROTO_DEFS[6:], _VOLT_FAULT_SAMPLE),
+        (b"U_" + _PROTO_DEFS[6:], _VOLT_FAULT_SAMPLE),
         (
             b"U_" + b"F" * 400 + _PROTO_DEFS[6:],
-            BMSSample(voltage=0, power=0, problem=True),
+            _VOLT_FAULT_SAMPLE,
         ),
         (_PROTO_DEFS[:43] + _PROTO_DEFS[46:], BMSSample()),
     ],

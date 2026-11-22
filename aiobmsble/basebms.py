@@ -35,6 +35,7 @@ from aiobmsble import (
     BMSSample,
     Limit,
     PackSample,
+    PrbType,
     Severity,
     TempSensor,
     Threshold,
@@ -376,25 +377,50 @@ class BaseBMS(ABC):
 
         derive_missing_fields(data, raw_values)
 
-        battery_level: Final[float] = data.get("battery_level", 0)
+        battery_level: Final[float | None] = data.get("battery_level")
         cell_voltages: Final[list[float]] = data.get("cell_voltages", [])
-        problems: Final[list[BMSProblem] | None] = data.get("problems")
+        problems: list[BMSProblem] | None = data.get("problems")
 
-        # do sanity check on values to set problem state
+        # sanity checks on values, each failing check is reported as a problem
+        checks: Final[list[tuple[bool, BMSProblem]]] = [
+            (
+                data.get("voltage") is not None and data.get("voltage", 0) <= 0,
+                BMSProblem(PrbType.SENSOR_FAILURE, Severity.FAULT, "Overall voltage"),
+            ),
+            (
+                any(v <= 0 or v > BaseBMS._MAX_CELL_VOLT for v in cell_voltages),
+                BMSProblem(PrbType.CELL_FAILURE, Severity.FAULT, "Cell voltage"),
+            ),
+            (
+                data.get("delta_cell_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
+                BMSProblem(PrbType.CELL_FAILURE, Severity.FAULT, "Cell voltage delta"),
+            ),
+            (
+                data.get("cycle_charge") is not None and data.get("cycle_charge", 0.0) <= 0.0,
+                BMSProblem(PrbType.SENSOR_FAILURE, Severity.WARN, "Cycle charge"),
+            ),
+            (
+                battery_level is not None and battery_level <= 0,
+                BMSProblem(PrbType.SENSOR_FAILURE, Severity.WARN, "Battery level"),
+            ),
+            (
+                battery_level is not None and battery_level > 100,
+                BMSProblem(PrbType.SENSOR_FAILURE, Severity.INFO, "Battery level"),
+            ),
+        ]
+        if failed := [problem for check, problem in checks if check]:
+            problems = [*(problems or []), *failed]
+            data["problems"] = problems
+
+        # decoded problems: operating state notices (INFO) are not a problem
         data["problem"] = any(
             [
                 data.get("problem", False),
-                # decoded problems: operating state notices (INFO) are not a problem
                 (
                     any(p.level >= Severity.WARN for p in problems)
                     if problems is not None
                     else data.get("problem_code", False)
                 ),
-                data.get("voltage") is not None and data.get("voltage", 0) <= 0,
-                any(v <= 0 or v > BaseBMS._MAX_CELL_VOLT for v in cell_voltages),
-                data.get("delta_cell_voltage", 0) > BaseBMS._MAX_CELL_VOLT,
-                data.get("cycle_charge") is not None and data.get("cycle_charge", 0.0) <= 0.0,
-                battery_level > 100,
             ]
         )
 

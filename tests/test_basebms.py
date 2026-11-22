@@ -748,8 +748,26 @@ async def test_op_guard_device_info_update(
         ({"cell_voltages": [-0.001]}, "negative cell voltage"),
         ({"delta_cell_voltage": 5.907}, "doubtful delta voltage"),
         ({"cycle_charge": 0}, "doubtful cycle charge"),
-        ({"battery_level": 101}, "doubtful SoC"),
+        ({"battery_level": 0}, "doubtful SoC"),
+        ({"voltage": 0}, "zero overall voltage"),
+        ({"cell_voltages": [0.0]}, "zero cell voltage"),
         ({"problem_code": 0x1}, "BMS problem code"),
+        (
+            {"problems": [BMSProblem(PrbType.LOW_SOC, Severity.WARN, "Low SoC")]},
+            "decoded warning",
+        ),
+        (
+            {
+                "problems": [
+                    BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.PROTECT, "Cell overvoltage")
+                ]
+            },
+            "decoded protection",
+        ),
+        (
+            {"problems": [BMSProblem(PrbType.AFE_FAILURE, Severity.FAULT, "Analog front-end")]},
+            "decoded fault",
+        ),
         ({"problem": True}, "BMS problem report"),
     ],
     ids=lambda param: param[1],
@@ -761,6 +779,73 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
     BaseBMS._add_missing_values(bms_data)
 
     assert ("problem", True) in bms_data.items()
+
+
+@pytest.mark.parametrize(
+    ("sample", "expected"),
+    [
+        (
+            {"cell_voltages": [3.4, 5.907]},
+            [BMSProblem(PrbType.CELL_FAILURE, Severity.FAULT, "Cell voltage")],
+        ),
+        (
+            {"voltage": -1},
+            [BMSProblem(PrbType.SENSOR_FAILURE, Severity.FAULT, "Overall voltage")],
+        ),
+        (
+            {"delta_cell_voltage": 5.907},
+            [BMSProblem(PrbType.CELL_FAILURE, Severity.FAULT, "Cell voltage delta")],
+        ),
+        (
+            {"cycle_charge": 0},
+            [BMSProblem(PrbType.SENSOR_FAILURE, Severity.WARN, "Cycle charge")],
+        ),
+        (
+            {"battery_level": 101},
+            [BMSProblem(PrbType.SENSOR_FAILURE, Severity.INFO, "Battery level")],
+        ),
+        (
+            {
+                "problems": [BMSProblem(PrbType.FET_LOCKED, Severity.INFO, "locked by app")],
+                "voltage": -1,
+            },
+            [
+                BMSProblem(PrbType.FET_LOCKED, Severity.INFO, "locked by app"),
+                BMSProblem(PrbType.SENSOR_FAILURE, Severity.FAULT, "Overall voltage"),
+            ],
+        ),
+    ],
+    ids=["cell_voltage", "voltage", "delta_voltage", "cycle_charge", "battery_level", "info_kept"],
+)
+def test_check_problems(sample: BMSSample, expected: list[BMSProblem]) -> None:
+    """Check that failing sanity checks are added to the decoded problems."""
+    bms_data: BMSSample = sample.copy()
+
+    BaseBMS._add_missing_values(bms_data)
+
+    assert bms_data.get("problems") == expected
+    assert bms_data.get("problem") == any(p.level >= Severity.WARN for p in expected)
+
+
+@pytest.mark.parametrize(
+    ("sample"),
+    [
+        (
+            {"problems": [BMSProblem(PrbType.FET_LOCKED, Severity.INFO, "locked by app")]},
+            "info only",
+        ),
+        ({"problems": [], "problem_code": 0x1}, "decoded problems take precedence"),
+        ({"voltage": 13.0, "cell_voltages": [3.4, 3.5]}, "valid values"),
+    ],
+    ids=lambda param: param[1],
+)
+def test_no_problems(sample: tuple[BMSSample, str]) -> None:
+    """Check that operating state notices and valid values do not set a problem."""
+    bms_data: BMSSample = sample[0].copy()
+
+    BaseBMS._add_missing_values(bms_data)
+
+    assert ("problem", False) in bms_data.items()
 
 
 @pytest.mark.parametrize(
