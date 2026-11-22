@@ -184,7 +184,7 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockPaceBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
+    assert await bms.device_info() == MockBleakClient.default_info | {
         "serial_number": "123456789012Z",
         "sw_version": "P16S100A-31916-1.06",
         "hw_version": "21939V140",

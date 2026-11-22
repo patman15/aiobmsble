@@ -133,7 +133,7 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockRenogyBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
+    assert await bms.device_info() == MockBleakClient.default_info | {
         "serial_number": "20210526",
         "name": "RBT100LFP12-BT",
         "sw_version": "0100",

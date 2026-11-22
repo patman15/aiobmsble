@@ -296,9 +296,8 @@ async def test_device_info(
     monkeypatch.setattr(MockNeeyBleakClient, "_FRAME", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockNeeyBleakClient)
     bms = BMS(generate_ble_device())
-    assert (
-        await bms.device_info()
-        == {
+    assert await bms.device_info() == MockBleakClient.default_info | (
+        {
             "model": "GW-24S4EB",
             "sw_version": "ZH-1.2.3",
             "hw_version": "HW-2.8.0",

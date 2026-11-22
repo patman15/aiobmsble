@@ -209,7 +209,7 @@ class OpGuardTestBMS(MinTestBMS):
         try:
             await asyncio.sleep(0)
             await self._await_msg(b"mock_info", wait_for_notify=False)
-            return {"model": "mock_model"}
+            return {"model_id": "mock_model_id"}
         finally:
             self._op_active = False
 
@@ -750,7 +750,7 @@ async def test_op_guard_device_info_update(
     await bms._connect()
 
     info, limits, data = await asyncio.gather(bms.device_info(), bms.limits(), bms.update(raw=True))
-    assert info == {"model": "mock_model"}
+    assert info == MockBleakClient.default_info | {"model_id": "mock_model_id"}
     assert limits == {Limit.CELL_OVP: Threshold(trip=3.65)}
     assert data == {"problem_code": 21}
 

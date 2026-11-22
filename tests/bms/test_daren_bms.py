@@ -355,7 +355,7 @@ async def test_device_info(patch_bleak_client, patch_bms_timeout) -> None:
     patch_bms_timeout()
     patch_bleak_client(MockDarenBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
+    assert await bms.device_info() == MockBleakClient.default_info | {
         "fw_version": "DR-WIFI02_V1.2.7",
         "hw_version": "V2.21",
         "sw_version": "DR_STD05_16S200JC26_V1.5.4_T2",

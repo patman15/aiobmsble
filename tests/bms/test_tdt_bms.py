@@ -368,9 +368,7 @@ class MockTDTBleakClient(MockBleakClient):
         if self._handle_auth_char(char_specifier, data):
             return
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         resp: bytearray = self._response(char_specifier, data)
         for notify_data in [
@@ -385,10 +383,7 @@ class MockTDTBleakClient(MockBleakClient):
     ) -> bytearray:
         """Mock read GATT characteristics."""
 
-        if (
-            isinstance(char_specifier, str)
-            and normalize_uuid_str(char_specifier)[4:8] == "fffa"
-        ):
+        if isinstance(char_specifier, str) and normalize_uuid_str(char_specifier)[4:8] == "fffa":
             return bytearray(int.to_bytes(self._char_fffa, 1, "big"))
 
         return await super().read_gatt_char(char_specifier, kwargs=kwargs)
@@ -495,15 +490,8 @@ async def test_device_info(
     patch_bms_timeout()
     patch_bleak_client(MockTDTBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == (
-        {
-            "fw_version": "mock_FW_version",
-            "hw_version": "mock_HW_version",
-            "manufacturer": "mock_manufacturer",
-            "model": "mock_model",
-            "serial_number": "mock_serial_number",
-            "sw_version": "mock_SW_version",
-        }
+    assert await bms.device_info() == MockBleakClient.default_info | (
+        {}
         if protocol_type in ("4S4Tv0.0", "16S6Tv0.4")
         else (
             {
@@ -624,8 +612,7 @@ async def test_short_frame(
     monkeypatch.setattr(
         MockTDTBleakClient,
         "RESP",
-        _PROTO_DEFS["16S6Tv0.0"]
-        | {cmd: _truncate_frame(_PROTO_DEFS["16S6Tv0.0"][cmd], length)},
+        _PROTO_DEFS["16S6Tv0.0"] | {cmd: _truncate_frame(_PROTO_DEFS["16S6Tv0.0"][cmd], length)},
     )
     patch_bleak_client(MockTDTBleakClient)
 

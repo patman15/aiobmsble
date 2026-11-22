@@ -155,7 +155,7 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockFelicityBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == _INFO_DEFS
+    assert await bms.device_info() == MockBleakClient.default_info | _INFO_DEFS
 
 
 async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:

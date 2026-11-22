@@ -170,7 +170,7 @@ async def test_device_info(patch_bleak_client) -> None:
     """Test that the BMS returns initialized dynamic device information."""
     patch_bleak_client(MockBraunPWRBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == {
+    assert await bms.device_info() == MockBleakClient.default_info | {
         "hw_version": "KS_BLE_WIFI_Ver1.0.0_20240313",
         "sw_version": "2.3.1",
         "serial_number": "BL-250-100-100",
@@ -192,17 +192,17 @@ async def test_device_info_model_only(monkeypatch: pytest.MonkeyPatch, patch_ble
     bms = BMS(generate_ble_device())
     info: BMSInfo = await bms.device_info()
     assert info.get("model_id") == "KS-16"
-    assert "serial_number" not in info
+    assert info.get("serial_number") == "mock_serial_number"
     await bms.disconnect()
 
 
 @pytest.fixture(
     name="wrong_response",
     params=[
-        # (
-        #     b"!\x03\x09\x04\x0b\x91\x0b\x91\x0b\x91\x0b\x91}",
-        #     "wrong_SOF",
-        # ),
+        (
+            b"!\x03\x09\x04\x0b\x91\x0b\x91\x0b\x91\x0b\x91}",
+            "wrong_SOF",
+        ),
         (
             b"{\x03\x09\x04\x0b\x91\x0b\x91\x0b\x91\x0b\x91-",
             "wrong_EOF",

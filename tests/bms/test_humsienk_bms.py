@@ -235,7 +235,7 @@ async def test_device_info(
     monkeypatch.setattr(MockHumsienkBleakClient, "_RESP", _PROTO_DEFS[protocol_type])
     patch_bleak_client(MockHumsienkBleakClient)
     bms = BMS(generate_ble_device())
-    assert await bms.device_info() == _INFO_DEFS[protocol_type]
+    assert await bms.device_info() == MockBleakClient.default_info | _INFO_DEFS[protocol_type]
 
 
 async def test_limits(
