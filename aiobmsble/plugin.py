@@ -48,57 +48,14 @@ type BMSValue = CommonValue | Literal[
 type BMSPackValue = CommonValue
 
 
-class PrbDefault(NamedTuple):
-    """Default severity and human readable description of a problem type."""
-
-    level: Severity
-    text: str
-
-
-PROBLEM_DEFAULTS: Final[dict[PrbType, PrbDefault]] = {
-    PrbType.CELL_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell overvoltage"),
-    PrbType.CELL_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell undervoltage"),
-    PrbType.PACK_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack overvoltage"),
-    PrbType.PACK_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack undervoltage"),
-    PrbType.CELL_IMBALANCE: PrbDefault(Severity.WARN, "Cell voltage imbalance"),
-    PrbType.CHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
-    PrbType.DISCHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Discharge overcurrent"),
-    PrbType.SHORT_CIRCUIT: PrbDefault(Severity.PROTECT, "Short circuit"),
-    PrbType.CHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Charge overtemperature"),
-    PrbType.CHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
-    PrbType.DISCHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Discharge overtemperature"),
-    PrbType.DISCHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Discharge undertemperature"),
-    PrbType.MOSFET_OVERTEMP: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
-    # examples for SYSTEM_*TEMP: ambient, PCB, board, battery temperature. NOT: MOSFET temperature
-    PrbType.SYSTEM_OVERTEMP: PrbDefault(Severity.PROTECT, "System overtemperature"),
-    PrbType.SYSTEM_UNDERTEMP: PrbDefault(Severity.PROTECT, "System undertemperature"),
-    PrbType.LOW_SOC: PrbDefault(Severity.WARN, "Low state of charge"),
-    PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
-    PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET"),
-    PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end"),
-    PrbType.CELL_FAILURE: PrbDefault(Severity.FAULT, "Cell"),
-    PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor"),
-    PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication"),
-    PrbType.FUSE_BLOWN: PrbDefault(Severity.FAULT, "Fuse blown"),
-    PrbType.OTHER: PrbDefault(Severity.WARN, "Other problem"),
-    PrbType.UNKNOWN: PrbDefault(Severity.WARN, "Unknown problem"),
-}
-"""Default severity and generic description of each problem type."""
-
-
 class BMSPrbDef(NamedTuple):
     """Map (a field of) a BMS problem code to a generic problem."""
 
     mask: int  # bit(s) of problem_code to evaluate
     kind: PrbType
-    level: Severity | None = None  # None: use PROBLEM_DEFAULTS[kind].level
+    level: Severity | None = None  # None: default level of kind, see BMSProblem
     value: int | None = None  # None: any bit of mask set, else (code & mask) == value
-    text: str = ""  # vendor specific description, overrides generic text
-
-    @property
-    def severity(self) -> Severity:
-        """Return the explicit level or the default level of the problem kind."""
-        return PROBLEM_DEFAULTS[self.kind].level if self.level is None else self.level
+    text: str = ""  # vendor specific description, empty: generic text of kind
 
     def matches(self, code: int) -> bool:
         """Return True if this definition applies to the problem code."""
@@ -172,18 +129,18 @@ def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
             fields[d.mask] = fields.get(d.mask, False) or hit
         if hit:
             explained |= d.mask
-            problems.append(BMSProblem(d.kind, d.severity, d.text or PROBLEM_DEFAULTS[d.kind].text))
-    unknown: Final[PrbDefault] = PROBLEM_DEFAULTS[PrbType.UNKNOWN]
+            problems.append(BMSProblem(d.kind, d.level, d.text))
+    unknown: Final[str] = BMSProblem(PrbType.UNKNOWN).text
     for mask, matched in fields.items():
         if not matched and code & mask:
             explained |= mask
             value: int = (code & mask) >> ((mask & -mask).bit_length() - 1)
             problems.append(
-                BMSProblem(PrbType.UNKNOWN, unknown.level, f"{unknown.text} value {value:#04x}")
+                BMSProblem(PrbType.UNKNOWN, text=f"{unknown} value {value:#04x}")
             )
     remaining: Final[int] = code & ~explained
     problems.extend(
-        BMSProblem(PrbType.UNKNOWN, unknown.level, f"{unknown.text} bit {bit}")
+        BMSProblem(PrbType.UNKNOWN, text=f"{unknown} bit {bit}")
         for bit in range(remaining.bit_length())
         if remaining >> bit & 1
     )

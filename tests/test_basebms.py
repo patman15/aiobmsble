@@ -21,6 +21,7 @@ from bleak.uuids import normalize_uuid_str
 import pytest
 
 from aiobmsble import (
+    PROBLEM_DEFAULTS,
     BMSConfig,
     BMSInfo,
     BMSLimits,
@@ -44,7 +45,6 @@ from aiobmsble.exceptions import (
     BMSUnsupportedError,
 )
 from aiobmsble.plugin import (
-    PROBLEM_DEFAULTS,
     BMSDp,
     BMSPrbDef,
     BMSValue,
@@ -717,11 +717,14 @@ def test_problem_defaults_complete() -> None:
     assert set(PROBLEM_DEFAULTS) == set(PrbType)
 
 
-def test_prb_def_severity() -> None:
-    """Check that the severity defaults to the kind's level unless set explicitly."""
-    assert BMSPrbDef(0x1, PrbType.AFE_FAILURE).severity == Severity.FAULT
-    assert BMSPrbDef(0x1, PrbType.FET_LOCKED).severity == Severity.INFO
-    assert BMSPrbDef(0x1, PrbType.CELL_OVERVOLTAGE, Severity.WARN).severity == Severity.WARN
+def test_problem_defaults_applied() -> None:
+    """Check that omitted level and text are taken from the kind's defaults."""
+    assert BMSProblem(PrbType.AFE_FAILURE) == BMSProblem(
+        PrbType.AFE_FAILURE, Severity.FAULT, "Analog front-end"
+    )
+    assert BMSProblem(PrbType.FET_LOCKED).level == Severity.INFO
+    assert BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.WARN).text == "Cell overvoltage"
+    assert BMSProblem(PrbType.OTHER, text="Wire resistance").level == Severity.WARN
 
 
 async def test_op_guard_device_info_update(
