@@ -12,6 +12,7 @@ import pytest
 
 from aiobmsble import BMSConfig, BMSSample, Limit, TempSensor as TS, Threshold
 from aiobmsble.bms.x123smart_bms import BMS
+from aiobmsble.exceptions import BMSAuthError, BMSCommandRejectedError
 from aiobmsble.plugin import BMSDp
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -172,7 +173,7 @@ async def test_update_secret(
     if secret == Mock123SmartBleakClient.SECRET:
         assert await bms.update() == _RESULT_DEFS
     else:
-        with pytest.raises((ConnectionError, TimeoutError)):
+        with pytest.raises(BMSAuthError):
             await bms.update()
 
     await bms.disconnect()
@@ -249,7 +250,7 @@ async def test_cmd_reply_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     bms = BMS(generate_ble_device())
     monkeypatch.setattr(bms, "_await_msg", _no_reply)
 
-    with pytest.raises(ConnectionRefusedError, match=r"command rejected \(\)"):
+    with pytest.raises(BMSCommandRejectedError, match=r"Command rejected \(no reply\)\."):
         await bms._cmd_expect_ok(b"E!")
 
 

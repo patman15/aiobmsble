@@ -1,4 +1,8 @@
-"""Private stream parser for protocol plugins."""
+"""Private stream parser for protocol plugins.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 from typing import Final
 

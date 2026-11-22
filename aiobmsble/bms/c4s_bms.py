@@ -8,6 +8,7 @@ from typing import Final
 
 from aiobmsble import BMSInfo, BMSSample, TempSensor
 from aiobmsble.bms.vatrer_bms import BMS as VatrerBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
@@ -42,7 +43,7 @@ class BMS(VatrerBMS):
             }
         ]
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         self._msg.clear()
         await self._await_msg(
@@ -50,7 +51,7 @@ class BMS(VatrerBMS):
         )
         if BMS._REG_COUNT * 2 not in self._msg:
             self._log.debug("incomplete data set %s", self._msg.keys())
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg[BMS._REG_COUNT * 2])
         result["cell_voltages"] = BMS._cell_voltages(

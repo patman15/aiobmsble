@@ -137,7 +137,7 @@ class BMS(BaseBMS):
         self._msg = frame
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Read current BMS state and return a BMSSample."""
         await self._await_msg(
             BMS._cmd_modbus(

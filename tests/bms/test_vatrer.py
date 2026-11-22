@@ -9,6 +9,7 @@ import pytest
 
 from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
 from aiobmsble.bms.vatrer_bms import BMS
+from aiobmsble.exceptions import BMSDataError, BMSTimeoutError
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
@@ -150,7 +151,7 @@ async def test_invalid_response(
     bms = BMS(generate_ble_device())
 
     result: BMSSample = {}
-    with pytest.raises(TimeoutError):
+    with pytest.raises((BMSDataError, BMSTimeoutError)):
         result = await bms.update()
 
     assert not result

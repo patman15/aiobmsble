@@ -246,7 +246,7 @@ async def test_short_field_data(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(bms, "_await_msg", set_short_response)
 
     with pytest.raises(ValueError, match="BMS data incomplete\\."):
-        await bms._async_update()
+        await bms._update()
 
 
 @pytest.fixture(

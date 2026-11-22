@@ -15,6 +15,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, lrc_modbus
 
 
@@ -138,7 +139,7 @@ class BMS(BaseBMS):
         frame.extend(int.to_bytes(lrc_modbus(frame.hex().upper().encode()), 2, "big"))
         return BMS._HEAD + frame.hex().upper().encode() + BMS._TAIL
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         await self._await_msg(BMS._cmd(0x42))
@@ -147,7 +148,7 @@ class BMS(BaseBMS):
         temp_count: Final[int] = int.from_bytes(self._msg[temp_pos : temp_pos + 1])
         field_data_start: Final[int] = temp_pos + 2 * temp_count + 1
         if len(self._msg) < field_data_start + BMS._FIELDS_END:
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError
         result["temp_count"] = temp_count
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=result.get("cell_count", 0), start=BMS._CELL_POS + 1

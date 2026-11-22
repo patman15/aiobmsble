@@ -15,6 +15,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, PackSample, TempSensor
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPackValue, BMSValue, MatcherPattern, b2str, crc_modbus
 
 
@@ -100,7 +101,7 @@ class BMS(BaseBMS):
         result["serial_number"] = b2str(self._msg[9 : 9 + length])
         await self._await_msg(self._cmd(BMS._Cmd.VERSIONS))
         if len(self._msg) < BMS._HWV_POS:
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError
         result["sw_version"] = b2str(
             self._msg[BMS._SWV_POS : BMS._SWV_POS + self._msg[BMS._SWV_POS - 1]]
         )
@@ -151,13 +152,13 @@ class BMS(BaseBMS):
         self._valid_reply = data[BMS._FRM_TYPE]  # expected reply type
         await super()._await_msg(data, char, wait_for_notify, max_size)
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         await self._await_msg(BMS._cmd(BMS._Cmd.PACK_INFO, b"\x01\x01"))
         pack: PackSample = BMS._decode_pack(BMS._PFIELDS, self._msg, start=8)
         await self._await_msg(BMS._cmd(BMS._Cmd.CELL_INFO, b"\x01\x01"))
         if len(self._msg) < BMS._CELL_POS:
-            raise ValueError("BMS data incomplete.")
+            raise BMSDataError
         pack["cell_count"] = self._msg[BMS._CELL_POS - 1]
         pack["cell_voltages"] = BMS._cell_voltages(
             self._msg, cells=pack["cell_count"], start=BMS._CELL_POS, gap=2

@@ -15,6 +15,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import MatcherPattern
 
 
@@ -120,7 +121,7 @@ class BMS(BaseBMS):
     def _int(value: str) -> int:
         """Convert a JSON value to an integer within the 32 bit range."""
         if abs(result := int(value)) > BMS._MAX_VAL:
-            raise ValueError(f"value out of range: {result}")
+            raise BMSDataError(f"value out of range: {result}")
         return result
 
     @staticmethod
@@ -141,12 +142,12 @@ class BMS(BaseBMS):
     def _conv_temp(data: dict[str, object]) -> list[TempSensor]:
         temp_list = data.get("BtemList")
         if not isinstance(temp_list, list) or not temp_list:
-            raise ValueError("invalid temperature data")
+            raise BMSDataError("invalid temperature data")
         return [
             TempSensor(temp / 10) for value in temp_list[0] if (temp := BMS._int(value)) != 0x7FFF
         ]
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         await self._await_msg(BMS._CMD_PRE + BMS._CMD_RT)
@@ -162,4 +163,4 @@ class BMS(BaseBMS):
                 }
             )
         except (IndexError, OverflowError, TypeError, ValueError) as exc:
-            raise ValueError("BMS data incomplete.") from exc
+            raise BMSDataError from exc

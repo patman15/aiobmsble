@@ -13,6 +13,7 @@ from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSTimeoutError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, crc_modbus
 
 
@@ -98,7 +99,7 @@ class BMS(BaseBMS):
         self._msg = bytes(data)
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         for head in self._heads:
             try:
@@ -112,6 +113,6 @@ class BMS(BaseBMS):
             except TimeoutError:
                 ...  # try next frame head
         else:
-            raise TimeoutError
+            raise BMSTimeoutError
 
         return BMS._decode_data(BMS._FIELDS, self._msg)

@@ -16,6 +16,7 @@ from bleak_retry_connector import BLEAK_TIMEOUT
 
 from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSAuthError, BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
 
 
@@ -134,11 +135,16 @@ class BMS(BaseBMS):
         await super()._init_connection(char_notify)
 
         self._exp_reply = b"MST+AEN"
-        await self._await_msg(
-            b"APP+AEN"
-            + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
-            wait_for_notify=True,
-        )
+        try:
+            await self._await_msg(
+                b"APP+AEN"
+                + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
+                wait_for_notify=True,
+            )
+        except TimeoutError as exc:
+            if self._disconnect_event.is_set():
+                raise BMSAuthError from exc
+            raise
 
         self._exp_reply = b"MST+NET="
         await self._await_msg(b"APP+NET", wait_for_notify=True)
@@ -219,14 +225,14 @@ class BMS(BaseBMS):
             voltages.extend(BMS._cell_voltages(data[0x56 + i], cells=2, start=4))
         return voltages
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
 
         if self._disconnect_event.is_set():
             await super().disconnect()
             if not self._msg_event.is_set():
                 self._data_final.clear()
-                raise ValueError("BMS data incomplete")
+                raise BMSDataError
 
         if not self._msg_event.is_set():
             self._log.debug("requesting data update")
@@ -235,7 +241,12 @@ class BMS(BaseBMS):
             await self._await_msg(b"APP+RDN=1")
             self._msg_event.clear()
 
-        await asyncio.wait_for(self._wait_event(), timeout=BMS._GATHER_TIMEOUT)
+        try:
+            await asyncio.wait_for(self._wait_event(), timeout=BMS._GATHER_TIMEOUT)
+        except TimeoutError:
+            if self._disconnect_event.is_set():
+                raise BMSDataError from None
+            raise
 
         try:
             # restore design capacity if not received
@@ -244,7 +255,7 @@ class BMS(BaseBMS):
                 if not BMS._CMDS.issubset(data) or (
                     cap_msg := data.get(0x7) or self._design_cap.get(dev)
                 ) is None:
-                    raise ValueError("BMS data incomplete.")
+                    raise BMSDataError
                 self._design_cap[dev] = data[0x7] = cap_msg
 
             self._known_packs |= self._data_final.keys()

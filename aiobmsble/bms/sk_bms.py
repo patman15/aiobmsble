@@ -1,4 +1,8 @@
-"""Module to support SOK SK BMS over Modbus BLE."""
+"""Module to support SOK SK BMS over Modbus BLE.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
 
 import logging
 from typing import Final
@@ -109,7 +113,7 @@ class BMS(BaseBMS):
         self._msg = bytes(self._frame)
         self._msg_event.set()
 
-    async def _async_update(self) -> BMSSample:
+    async def _update(self) -> BMSSample:
         """Update battery status information."""
         self._frame.clear()
         self._msg = b""
