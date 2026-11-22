@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from contextlib import suppress
 import logging
 from typing import Final
 
@@ -41,6 +42,7 @@ class BMS(BaseBMS):
     _INIT_CMDS: Final = frozenset(
         {0x74, 0xF4, 0xF5}  # SW version  # BMS program version  # BMS boot version
     )
+    _INFO_CMDS: Final = frozenset({0x0A, 0x0B})  # reported model, serial number
     # protection limit blocks: (command, payload length, threshold fields)
     _LIMIT_FRAMES: Final[tuple[tuple[int, int, tuple[LimitDp, ...]], ...]] = (
         (
@@ -135,10 +137,25 @@ class BMS(BaseBMS):
         for cmd in BMS._INIT_CMDS:
             self._exp_reply = (cmd,)
             await self._await_msg(BMS._cmd(cmd))
-        return {
+        info: BMSInfo = {
             "sw_version": ".".join(str(x) for x in self._msg[0xF4][3:6]),
             "hw_version": b2str(self._msg[0x74][3:-1]),
         }
+
+        # identity replies are optional, an unset (empty or all-FF) reply is skipped
+        if model := await self._fetch_optional_str(0x0A):
+            info["model_id"] = model
+        if serial := await self._fetch_optional_str(0x0B):
+            info["serial_number"] = serial
+        return info
+
+    async def _fetch_optional_str(self, cmd: int) -> str:
+        """Fetch an optional ASCII identity reply, return empty string if absent."""
+        self._exp_reply = (cmd,)
+        self._msg.pop(cmd, None)
+        with suppress(TimeoutError):
+            await self._await_msg(BMS._cmd(cmd))
+        return b2str(self._msg.get(cmd, b"")[3:-1])
 
     async def _fetch_limits(self) -> BMSLimits:
         """Fetch the protection thresholds; each block is optional."""
@@ -160,32 +177,29 @@ class BMS(BaseBMS):
         await super()._init_connection()
         await self._fetch_device_info()
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         # check if answer is a heading of valid response type
         if (
             data.startswith(BMS._HEAD)
             and len(self._frame) >= BMS._MIN_LEN
             and len(data) >= BMS._MIN_LEN
-            and data[1] in {*BMS._CMDS, *BMS._INIT_CMDS, *(c for c, _, _ in BMS._LIMIT_FRAMES)}
+            and data[1]
+            in {
+                *BMS._CMDS,
+                *BMS._INIT_CMDS,
+                *BMS._INFO_CMDS,
+                *(c for c, _, _ in BMS._LIMIT_FRAMES),
+            }
             and len(self._frame) >= BMS._MIN_LEN + self._frame[2]
         ):
             self._frame.clear()
 
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
-        # verify that data is long enough
-        if (
-            len(self._frame) < BMS._MIN_LEN
-            or len(self._frame) < BMS._MIN_LEN + self._frame[2]
-        ):
+        if len(self._frame) < BMS._MIN_LEN or len(self._frame) < BMS._MIN_LEN + self._frame[2]:
             return
 
-        # check correct frame ending
         if self._frame[-1] != BMS._TAIL:
             self._log.debug("incorrect frame end (length: %i).", len(self._frame))
             self._frame.clear()
