@@ -14,9 +14,8 @@ from bleak.backends.service import BleakGATTService
 import pytest
 
 import aiobmsble
-from aiobmsble import BMSProblem, PrbType
+from aiobmsble import PROBLEM_DEFAULTS, BMSProblem, PrbType
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.plugin import PROBLEM_DEFAULTS
 from aiobmsble.test_data import bms_advertisements, ignore_advertisements
 from aiobmsble.utils import load_bms_plugins
 from tests.bluetooth import generate_ble_device

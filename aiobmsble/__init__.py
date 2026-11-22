@@ -27,7 +27,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
-from typing import Self, TypedDict
+from typing import Final, NamedTuple, Self, TypedDict
 
 from aiobmsble.exceptions import (
     BMSAuthError,
@@ -162,7 +162,44 @@ class PrbType(StrEnum):
     UNKNOWN = auto()  # bit set but not described by the plugin
 
 
-@dataclass(frozen=True, slots=True)
+class PrbDefault(NamedTuple):
+    """Default severity and human readable description of a problem type."""
+
+    level: Severity
+    text: str
+
+
+PROBLEM_DEFAULTS: Final[dict[PrbType, PrbDefault]] = {
+    PrbType.CELL_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell overvoltage"),
+    PrbType.CELL_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell undervoltage"),
+    PrbType.PACK_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack overvoltage"),
+    PrbType.PACK_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack undervoltage"),
+    PrbType.CELL_IMBALANCE: PrbDefault(Severity.WARN, "Cell voltage imbalance"),
+    PrbType.CHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
+    PrbType.DISCHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Discharge overcurrent"),
+    PrbType.SHORT_CIRCUIT: PrbDefault(Severity.PROTECT, "Short circuit"),
+    PrbType.CHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Charge overtemperature"),
+    PrbType.CHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
+    PrbType.DISCHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Discharge overtemperature"),
+    PrbType.DISCHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Discharge undertemperature"),
+    PrbType.MOSFET_OVERTEMP: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
+    # examples for SYSTEM_*TEMP: ambient, PCB, board, battery temperature. NOT: MOSFET temperature
+    PrbType.SYSTEM_OVERTEMP: PrbDefault(Severity.PROTECT, "System overtemperature"),
+    PrbType.SYSTEM_UNDERTEMP: PrbDefault(Severity.PROTECT, "System undertemperature"),
+    PrbType.LOW_SOC: PrbDefault(Severity.WARN, "Low state of charge"),
+    PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
+    PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET"),
+    PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end"),
+    PrbType.CELL_FAILURE: PrbDefault(Severity.FAULT, "Cell"),
+    PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor"),
+    PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication"),
+    PrbType.FUSE_BLOWN: PrbDefault(Severity.FAULT, "Fuse blown"),
+    PrbType.OTHER: PrbDefault(Severity.WARN, "Other problem"),
+    PrbType.UNKNOWN: PrbDefault(Severity.WARN, "Unknown problem"),
+}
+
+
+@dataclass(frozen=True, slots=True, init=False)
 class BMSProblem:
     """Decoded problem reported by the BMS."""
 
@@ -172,6 +209,15 @@ class BMSProblem:
     """Severity of the problem."""
     text: str
     """Human readable (vendor specific) description."""
+
+    def __init__(
+        self, kind: PrbType, level: Severity | None = None, text: str = ""
+    ) -> None:
+        """Create a problem, omitted level and text default to those of the problem kind."""
+        default: Final[PrbDefault] = PROBLEM_DEFAULTS[kind]
+        object.__setattr__(self, "kind", kind)
+        object.__setattr__(self, "level", default.level if level is None else level)
+        object.__setattr__(self, "text", text or default.text)
 
     def __str__(self) -> str:
         """Return human readable representation."""

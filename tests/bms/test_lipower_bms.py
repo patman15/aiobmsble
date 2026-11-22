@@ -7,7 +7,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample
+from aiobmsble import BMSConfig, BMSProblem, BMSSample, PrbType, Severity
 from aiobmsble.bms.lipower_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -87,7 +87,8 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_charging": False,
         "cycle_capacity": 1661.6,
         "power": -1.072,
-        "problem": True,
+        "problem": False,
+        "problems": [BMSProblem(PrbType.SENSOR_FAILURE, Severity.INFO, "Battery level")],
     },
 }
 

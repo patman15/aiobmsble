@@ -97,8 +97,9 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
   fields. Do not duplicate the `Severity` in vendor `text`; `BMSProblem.__str__()` adds
   the level automatically. For example, use `"SOC"` or `"MOSFET under-temperature"`
   rather than `"SOC protection"` or `"MOSFET under-temperature warning"`.
-- Use the shared `PROBLEM_DEFAULTS` kind and severity unless the protocol specifically
-  establishes a different level. `INFO` is for operating-state notices, `WARN` for
+- Omit `level` and `text` in `BMSPrbDef` (and `BMSProblem`) to use the shared
+  `PROBLEM_DEFAULTS` kind and severity, unless the protocol specifically establishes a
+  different level. `INFO` is for operating-state notices, `WARN` for
   limits approached or warnings, `PROTECT` for protection trips, and `FAULT` for
   hardware/internal failures. A custom text may describe a vendor-specific detail,
   but it must not contradict the selected kind or severity.

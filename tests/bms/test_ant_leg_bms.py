@@ -222,8 +222,13 @@ async def test_update_empty_battery(monkeypatch, patch_bms_timeout, patch_bleak_
 
     bms = BMS(generate_ble_device(BT_ADDRESS, "MockBLEdevice"))
 
-    _expected: BMSSample = _RESULT_DEFS.copy()
-    _expected["battery_level"] = 0
+    _expected: BMSSample = _RESULT_DEFS.copy() | {
+        "battery_level": 0.0,
+        "problems": [
+            BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage"),
+            BMSProblem(PT.SENSOR_FAILURE, SV.WARN, "Battery level"),
+        ],
+    }
     _expected.pop("design_capacity")
     _expected.pop("cycles")
     assert await bms.update() == _expected
