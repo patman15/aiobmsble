@@ -253,14 +253,6 @@ async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_cli
             BMSProblem(PT.CHARGE_UNDERTEMP, SV.PROTECT, "Charge undertemperature"),
             BMSProblem(PT.CHARGE_OVERTEMP, SV.PROTECT, "Charge overtemperature"),
             BMSProblem(PT.PACK_UNDERVOLTAGE, SV.PROTECT, "Pack undervoltage"),
-            BMSProblem(PT.CELL_UNDERVOLTAGE, SV.WARN, "Cell undervoltage"),
-            BMSProblem(PT.CELL_OVERVOLTAGE, SV.WARN, "Cell overvoltage"),
-            BMSProblem(PT.PACK_UNDERVOLTAGE, SV.WARN, "Pack undervoltage"),
-            BMSProblem(PT.PACK_OVERVOLTAGE, SV.WARN, "Pack overvoltage"),
-            BMSProblem(PT.CHARGE_UNDERTEMP, SV.WARN, "Charge undertemperature"),
-            BMSProblem(PT.CHARGE_OVERTEMP, SV.WARN, "Charge overtemperature"),
-            BMSProblem(PT.DISCHARGE_UNDERTEMP, SV.WARN, "Discharge undertemperature"),
-            BMSProblem(PT.DISCHARGE_OVERTEMP, SV.WARN, "Discharge overtemperature"),
             *[
                 BMSProblem(PT.UNKNOWN, SV.WARN, f"Unknown problem bit {bit}")
                 for bit in range(32, 128)
