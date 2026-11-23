@@ -84,27 +84,27 @@ class BaseBMS(ABC):
 
     Calls to `update()`, `device_info()`, `limits()` and `async with` raise only
     `aiobmsble.exceptions.BMSError` subclasses. Link recovery needs to be handled by
-    the caller.
+    the caller. `gatt_profile()` returns the GATT services of the connected device
+    for diagnostics.
     """
 
-    INFO: BMSInfo  # static BMS info (available before connect)
-    MAX_RETRY: Final[int] = 3  # max number of retries for data requests
-    TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    ACCEPT_SECRET: bool = False  # if True, the BMS accepts a secret for authentication
+    ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
     BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value
-    # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
-    _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
-    _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
+    INFO: BMSInfo  # static BMS info (available before connect)
+    TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    _CONNECT_TIMEOUT: Final[float] = MAX_CONNECT_ATTEMPTS * BLEAK_TIMEOUT + 1
+    _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _MAX_MSG_LEN: int = 0xFF  # maximum allowed frame length
-    _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
+    _MAX_RETRY: Final[int] = 3  # max number of retries for data requests
+    _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
+    _PROBLEMS: tuple[BMSPrbDef, ...] = ()  # decoding of problem_code, empty: not supported
+    # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
+    _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**_MAX_RETRY - 1)
     # Hard timeout for the entire connection setup (connect + GATT + notify).
     # Acts as a safety net when BlueZ hangs and bleak_retry_connector's
     # internal timeouts fail to fire.  Not ``Final`` so subclasses can tune.
-    _CONNECT_TIMEOUT: Final[float] = MAX_CONNECT_ATTEMPTS * BLEAK_TIMEOUT + 1
-    ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
-    _PROBLEMS: tuple[BMSPrbDef, ...] = ()  # decoding of problem_code, empty: not supported
-
-    accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
     _SKIP_INFO_CHARS: bool = False  # set True to skip information from _INFO_CHARS for BMSInfo()
     type _InfoCharType = Literal[
         "model", "serial_number", "fw_version", "sw_version", "hw_version", "manufacturer"
@@ -147,13 +147,14 @@ class BaseBMS(ABC):
             logger (logging.Logger | None): logger for this BMS instance; defaults to the module logger
 
         """
-        assert (
-            getattr(self, "_notification_handler", None) is not None
-        ), "BMS class must define `_notification_handler` method"
+        assert getattr(self, "_notification_handler", None) is not None, (
+            "BMS class must define `_notification_handler` method"
+        )
         assert {"manufacturer", "model"}.issubset(self.INFO), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._cfg: Final[BMSConfig] = config or BMSConfig()
         self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
+        """BLE device name of this instance, see `bms_name()` for the BMS type."""
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
             logger or logging.getLogger(self.__class__.__module__),
@@ -240,13 +241,13 @@ class BaseBMS(ABC):
     @final
     @classmethod
     def module(cls) -> str:
-        """Return BMS module name, e.g. aiobmsble.bms.dummy_bms."""
+        """Return the plugin module name of the BMS class, e.g. aiobmsble.bms.dummy_bms."""
         return cls.__module__
 
     @staticmethod
     @abstractmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Return a list of Bluetooth advertisement matchers."""
+        """Return the Bluetooth advertisement patterns used to identify the BMS."""
 
     @final
     @classmethod
@@ -259,26 +260,26 @@ class BaseBMS(ABC):
     @final
     @classmethod
     def bms_name(cls) -> str:
-        """Return manufacturer and model of the BMS type, e.g. for display."""
+        """Return manufacturer and model of the BMS type (not the BLE device `name`)."""
         return f"{cls.INFO.get('manufacturer', 'unknown')} {cls.INFO.get('model', 'unknown')}"
 
     @staticmethod
     @abstractmethod
     def uuid_services() -> tuple[str, ...]:
-        """Return list of 128-bit UUIDs of services required by BMS."""
+        """Return the UUIDs of the services required by the BMS."""
 
     @staticmethod
     @abstractmethod
     def uuid_rx() -> str:
-        """Return 16-bit UUID of characteristic that provides notification/read property."""
+        """Return the UUID (16/32/128-bit) of the characteristic providing notifications."""
 
     @staticmethod
     @abstractmethod
     def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
+        """Return the UUID (16/32/128-bit) of the characteristic used to send commands."""
 
     @final
-    async def device_info(self, raw: bool = False) -> BMSInfo:
+    async def device_info(self, *, raw: bool = False) -> BMSInfo:
         """Return device information read from the BMS over Bluetooth LE.
 
         Args:
@@ -350,7 +351,7 @@ class BaseBMS(ABC):
     def _raw_values() -> frozenset[BMSValue]:
         """Return values that shall not be calculated even if the BMS cannot provide them.
 
-        Default is `None`, i.e. calculate all possible missing values.
+        Default is an empty set, i.e. calculate all possible missing values.
         See _add_missing_values() function for the required input to actually do so.
 
         Returns:
@@ -365,11 +366,8 @@ class BaseBMS(ABC):
         """Calculate missing BMS values from existing ones.
 
         Args:
-            data: data dictionary with values received from BMS
-            raw_values: list of values that shall not be added to the dictionary
-
-        Returns:
-            None
+            data: data dictionary with values received from BMS, updated in place
+            raw_values: set of values that shall not be added to the dictionary
 
         """
         if not data:
@@ -582,7 +580,7 @@ class BaseBMS(ABC):
         for inv_wr_mode in [False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]:
             try:
                 self._msg_event.clear()  # clear event before requesting new data
-                for attempt in range(BaseBMS.MAX_RETRY):
+                for attempt in range(BaseBMS._MAX_RETRY):
                     await self._send_msg(
                         data, max_size, char or self.uuid_tx(), attempt, inv_wr_mode
                     )
@@ -650,7 +648,7 @@ class BaseBMS(ABC):
                 self._log.error("failed to close stale BMS connections (%s)", type(exc).__name__)
 
     @final
-    async def disconnect(self, reset: bool = False) -> None:
+    async def disconnect(self, *, reset: bool = False) -> None:
         """Disconnect the BMS, includes stopping notifications.
 
         Never raises; failures are logged. Safe to call when not connected.
@@ -672,10 +670,10 @@ class BaseBMS(ABC):
 
     @abstractmethod
     async def _update(self) -> BMSSample:
-        """Return a dictionary of BMS values (keys need to come from the SENSOR_TYPES list)."""
+        """Return the BMS values as `BMSSample` (implemented by the plugin)."""
 
     @final
-    async def update(self, raw: bool = False) -> BMSSample:
+    async def update(self, *, raw: bool = False) -> BMSSample:
         """Fetch the latest battery telemetry from the BMS.
 
         This calls the protocol-specific implementation in `_update()` and,

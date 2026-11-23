@@ -90,9 +90,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -131,11 +129,7 @@ class BMS(BaseBMS):
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
         result: BMSSample = BMS._decode_data(
-            (
-                BMS._FIELDS_V1
-                if self._msg[0xA1].startswith(BMS._HEAD)
-                else BMS._FIELDS_V2
-            ),
+            (BMS._FIELDS_V1 if self._msg[0xA1].startswith(BMS._HEAD) else BMS._FIELDS_V2),
             self._msg,
         )
 

@@ -136,7 +136,9 @@ class BMS(BaseBMS):
         }
 
     @staticmethod
-    def _merge_fields(base: tuple[BMSDp[BMSValue], ...] , overrides: tuple[BMSDp[BMSValue], ...] ) -> tuple[BMSDp[BMSValue], ...] :
+    def _merge_fields(
+        base: tuple[BMSDp[BMSValue], ...], overrides: tuple[BMSDp[BMSValue], ...]
+    ) -> tuple[BMSDp[BMSValue], ...]:
         """Merge overrides into base fields, matching by name."""
         override_map: dict[str, BMSDp[BMSValue]] = {f.key: f for f in overrides}
         return tuple(override_map.get(f.key, f) for f in base)

@@ -18,22 +18,22 @@ BT_FRAME_SIZE = 32
 
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "voltage": 13.3,
-        "current": 0.0,
-        "battery_level": 96,
-        "cycles": 0,
-        "cycle_charge": 192.0,
-        "cell_count": 4,
-        "cell_voltages": [3.328, 3.326, 3.326, 3.326],
-        "delta_cell_voltage": 0.002,
-        "design_capacity": 200,
-        "temperature": [TS(6.2), TS(7.3)],
-        "temp_count": 2,
-        "cycle_capacity": 2553.6,
-        "power": 0.0,
-        "battery_charging": False,
-        "problem": False,
-        "problem_code": 0,
+    "voltage": 13.3,
+    "current": 0.0,
+    "battery_level": 96,
+    "cycles": 0,
+    "cycle_charge": 192.0,
+    "cell_count": 4,
+    "cell_voltages": [3.328, 3.326, 3.326, 3.326],
+    "delta_cell_voltage": 0.002,
+    "design_capacity": 200,
+    "temperature": [TS(6.2), TS(7.3)],
+    "temp_count": 2,
+    "cycle_capacity": 2553.6,
+    "power": 0.0,
+    "battery_charging": False,
+    "problem": False,
+    "problem_code": 0,
 }
 
 
@@ -203,20 +203,14 @@ async def test_invalid_response(
     await bms.disconnect()
 
 
-async def test_short_cell_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_short_cell_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that a valid but too short cell info frame is rejected."""
 
     monkeypatch.setattr(  # answer cell request with (short) capacity frame
         MockCBTpwrVBBleakClient,
         "RESP",
         MockCBTpwrVBBleakClient.RESP
-        | {
-            b"~11014642E00201FD35\r": MockCBTpwrVBBleakClient.RESP[
-                b"~11014681A006010001FC71\r"
-            ]
-        },
+        | {b"~11014642E00201FD35\r": MockCBTpwrVBBleakClient.RESP[b"~11014681A006010001FC71\r"]},
     )
     patch_bleak_client(MockCBTpwrVBBleakClient)
 
@@ -232,9 +226,7 @@ async def test_short_field_data(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that data ending inside the last BMSDp field is rejected."""
 
     bms = BMS(generate_ble_device())
-    frame: Final[bytearray] = MockCBTpwrVBBleakClient.RESP[
-        b"~11014642E00201FD35\r"
-    ]
+    frame: Final[bytearray] = MockCBTpwrVBBleakClient.RESP[b"~11014642E00201FD35\r"]
     response: Final[bytes] = bytes.fromhex(frame[1:-1].decode())
     cell_count: Final[int] = response[BMS._CELL_POS]
     temp_pos: Final[int] = BMS._CELL_POS + cell_count * 2 + 1

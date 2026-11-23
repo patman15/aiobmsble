@@ -60,7 +60,7 @@ class BMS(BaseBMS):
         0x57,
     }  # do not wait for design capacity (won't change anyway)
 
-    accept_secret: bool = True
+    ACCEPT_SECRET: bool = True
 
     def __init__(
         self,
@@ -115,9 +115,7 @@ class BMS(BaseBMS):
         )
         self._ka_resp ^= 0x20
 
-    async def _subscribe_and_wait(
-        self, char_uuid: _NotifyChars, event: asyncio.Event
-    ) -> None:
+    async def _subscribe_and_wait(self, char_uuid: _NotifyChars, event: asyncio.Event) -> None:
         self._log.debug("Subscribing to notify characteristic %s", char_uuid)
 
         await self._client.start_notify(char_uuid, self._keep_alive_handler)
@@ -138,8 +136,7 @@ class BMS(BaseBMS):
         self._exp_reply = b"MST+AEN"
         try:
             await self._await_msg(
-                b"APP+AEN"
-                + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
+                b"APP+AEN" + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
                 wait_for_notify=True,
             )
         except TimeoutError as exc:
@@ -151,9 +148,7 @@ class BMS(BaseBMS):
         await self._await_msg(b"APP+NET", wait_for_notify=True)
         self._msg_event.clear()
 
-    async def _keep_alive_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    async def _keep_alive_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         self._log.debug("RX BLE data (UUID=%s): %s", sender.uuid[BMS._UUID_SLC], data)
 
         if not len(data):
@@ -174,12 +169,10 @@ class BMS(BaseBMS):
                 case _:
                     self._log.debug("unknown notification sender")
         except (BMSError, BleakError) as exc:
-                self._log.debug("keep-alive write failed (%s)", type(exc).__name__)
+            self._log.debug("keep-alive write failed (%s)", type(exc).__name__)
         return
 
-    async def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    async def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data (UUID=%s): %s", sender.uuid[BMS._UUID_SLC], data)
 
@@ -198,9 +191,7 @@ class BMS(BaseBMS):
             return
 
         if len(data) != BMS._FRAME_LEN:
-            self._log.debug(
-                "incorrect frame length %d != %d", len(data), BMS._FRAME_LEN
-            )
+            self._log.debug("incorrect frame length %d != %d", len(data), BMS._FRAME_LEN)
             return
 
         self._data_final.setdefault(data[2], {})[data[3]] = bytes(data)
@@ -256,9 +247,10 @@ class BMS(BaseBMS):
             # restore design capacity if not received
             for dev, data in self._data_final.items():
                 # packs might start reporting after the data set was signalled complete
-                if not BMS._CMDS.issubset(data) or (
-                    cap_msg := data.get(0x7) or self._design_cap.get(dev)
-                ) is None:
+                if (
+                    not BMS._CMDS.issubset(data)
+                    or (cap_msg := data.get(0x7) or self._design_cap.get(dev)) is None
+                ):
                     raise BMSDataError
                 self._design_cap[dev] = data[0x7] = cap_msg
 
@@ -266,12 +258,8 @@ class BMS(BaseBMS):
 
             result: BMSSample = BMSSample(pack_count=len(self._data_final))
             for pack in sorted(self._data_final):
-                pack_result: BMSSample = self._decode_data(
-                    BMS._FIELDS, self._data_final[pack]
-                )
-                pack_result["cell_voltages"] = BMS._cellV(
-                    self._data_final[pack], cells=4
-                )
+                pack_result: BMSSample = self._decode_data(BMS._FIELDS, self._data_final[pack])
+                pack_result["cell_voltages"] = BMS._cellV(self._data_final[pack], cells=4)
                 result.setdefault("packs", []).append(pack_result)
         finally:
             self._data_final.clear()

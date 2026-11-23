@@ -162,7 +162,7 @@ async def detect_bms() -> None:
             logger.info("Found matching BMS type: %s", bms_inst.bms_name())
 
             if not await _try_query(bms_cls, ble_dev):
-                if bms_cls.accept_secret:
+                if bms_cls.ACCEPT_SECRET:
                     secret: str = getpass.getpass(f"Enter secret for {bms_cls.__name__}: ")
                     await _try_query(bms_cls, ble_dev, secret)
 

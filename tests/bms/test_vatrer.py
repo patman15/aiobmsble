@@ -15,43 +15,42 @@ from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "voltage": 52.67,
-        "current": -4.96,
-        "battery_level": 40,
-        "battery_health": 100,
-        "cycle_charge": 39.7,
-        "cycle_capacity": 2090.999,
-        "cycles": 27,
-        "delta_cell_voltage": 0.003,
-        "cell_count": 16,
-        "runtime": 28814,
-        "temp_count": 4,
-        "temperature": [TS(v) for v in (18.0, 20.0, 19.0, 20.0, 20.0)]
-        + [TS(20.0, TS.T.MOSFET)],
-        "battery_charging": False,
-        "power": -261.243,
-        "balancer": False,
-        "chrg_mosfet": True,
-        "dischrg_mosfet": True,
-        "problem": False,
-        "cell_voltages": [
-            3.295,
-            3.295,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.296,
-            3.293,
-        ],
+    "voltage": 52.67,
+    "current": -4.96,
+    "battery_level": 40,
+    "battery_health": 100,
+    "cycle_charge": 39.7,
+    "cycle_capacity": 2090.999,
+    "cycles": 27,
+    "delta_cell_voltage": 0.003,
+    "cell_count": 16,
+    "runtime": 28814,
+    "temp_count": 4,
+    "temperature": [TS(v) for v in (18.0, 20.0, 19.0, 20.0, 20.0)] + [TS(20.0, TS.T.MOSFET)],
+    "battery_charging": False,
+    "power": -261.243,
+    "balancer": False,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
+    "problem": False,
+    "cell_voltages": [
+        3.295,
+        3.295,
+        3.296,
+        3.296,
+        3.296,
+        3.296,
+        3.296,
+        3.296,
+        3.296,
+        3.296,
+        3.296,
+        3.296,
+        3.296,
+        3.296,
+        3.296,
+        3.293,
+    ],
 }
 
 
@@ -91,9 +90,7 @@ class MockVatrerBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
-        self._notify_callback(
-            "MockVatrerBleakClient", bytearray(self.RESP.get(bytes(data), b""))
-        )
+        self._notify_callback("MockVatrerBleakClient", bytearray(self.RESP.get(bytes(data), b"")))
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
@@ -142,8 +139,7 @@ async def test_invalid_response(
     monkeypatch.setattr(
         MockVatrerBleakClient,
         "RESP",
-        MockVatrerBleakClient.RESP
-        | {b"\x02\x03\x00\x34\x00\x12\x84\x3a": wrong_response},
+        MockVatrerBleakClient.RESP | {b"\x02\x03\x00\x34\x00\x12\x84\x3a": wrong_response},
     )
 
     patch_bleak_client(MockVatrerBleakClient)
@@ -198,8 +194,7 @@ async def test_problem_response(
     monkeypatch.setattr(
         MockVatrerBleakClient,
         "RESP",
-        MockVatrerBleakClient.RESP
-        | {b"\x02\x03\x00\x34\x00\x12\x84\x3a": problem_response[0]},
+        MockVatrerBleakClient.RESP | {b"\x02\x03\x00\x34\x00\x12\x84\x3a": problem_response[0]},
     )
 
     patch_bleak_client(MockVatrerBleakClient)

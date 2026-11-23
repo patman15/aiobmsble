@@ -820,8 +820,9 @@ async def test_invalid_frame_type(
     monkeypatch.setattr(
         MockInvalidBleakClient,
         "_response",
-        lambda _s, _c, _d: bytearray(b"\x55\xaa\xeb\x90\x05")
-        + bytearray(295),  # invalid frame type (0x5)
+        lambda _s, _c, _d: (
+            bytearray(b"\x55\xaa\xeb\x90\x05") + bytearray(295)
+        ),  # invalid frame type (0x5)
     )
 
     patch_bleak_client(MockInvalidBleakClient)
@@ -882,8 +883,9 @@ async def test_non_stale_data(
     monkeypatch.setattr(
         MockJikongBleakClient,
         "_response",
-        lambda _s, _c, _d: bytearray(b"\x55\xaa\xeb\x90\x05")
-        + bytearray(10),  # invalid frame type (0x5)
+        lambda _s, _c, _d: (
+            bytearray(b"\x55\xaa\xeb\x90\x05") + bytearray(10)
+        ),  # invalid frame type (0x5)
     )
 
     patch_bleak_client(MockJikongBleakClient)

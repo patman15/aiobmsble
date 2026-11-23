@@ -158,9 +158,7 @@ class BMS(BaseBMS):
         await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13EC, count=0x8))
         if len(self._msg) < BMS._MIN_LEN + 0x8 * 2:
             raise BMSDataError
-        result["problem_code"] = (
-            int.from_bytes(self._msg[3:19], byteorder="big") & BMS._PRB_MASK
-        )
+        result["problem_code"] = int.from_bytes(self._msg[3:19], byteorder="big") & BMS._PRB_MASK
         result["chrg_mosfet"] = bool(self._msg[16] & 0x2)
         result["dischrg_mosfet"] = bool(self._msg[16] & 0x4)
         result["heater"] = bool(self._msg[17] & 0x20)

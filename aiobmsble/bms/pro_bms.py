@@ -105,9 +105,7 @@ class BMS(BaseBMS):
 
         self._valid_reply = BMS._RT_DATA
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         self._log.debug("RX BLE data: %s", data)
 
         if len(data) < BMS._MIN_LEN or not data.startswith(BMS._HEAD):
@@ -137,9 +135,7 @@ class BMS(BaseBMS):
             raise
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
-        result["power"] = result.get("power", 0) * (
-            -1 if result.get("current", 0) < 0 else 1
-        )
+        result["power"] = result.get("power", 0) * (-1 if result.get("current", 0) < 0 else 1)
         self._msg_event.clear()
         self._frame.clear()
         return result

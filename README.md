@@ -3,7 +3,7 @@
 [![License][license-shield]](LICENSE)
 
 # Aiobmsble
-Requires Python 3 and uses [asyncio](https://docs.python.org/3/library/asyncio.html) and [Bleak](https://pypi.org/project/bleak/)
+Requires Python 3.12+ and uses [asyncio](https://docs.python.org/3/library/asyncio.html) and [Bleak](https://pypi.org/project/bleak/)
 
 ## Asynchronous Library to Query Battery Management Systems via Bluetooth LE
 This library is intended to query data from battery management systems that use Bluetooth LE. Stand-alone usage is possible in any Python environment (with necessary dependencies installed). It is developed to support [BMS_BLE-HA integration](https://github.com/patman15/BMS_BLE-HA/) that was written to make BMS data available to Home Assistant, but can be hopefully useful for other use-cases as well.
@@ -61,7 +61,7 @@ returns the BMS type using the JSON advertisement data, e.g. from [Home Assistan
 In case you need a reference to include the code into your library, please see [\_\_main\_\_.py](/aiobmsble/__main__.py).
 
 ### From a Script
-This example can also be found as an [example](/examples/minimal.py) in the respective [folder](/main/examples).
+This example can also be found as an [example](/examples/minimal.py) in the respective [folder](/examples).
 ```python
 """Example of using the aiobmsble library to find a BLE device by name and print its sensor data.
 
@@ -75,6 +75,7 @@ from typing import Final
 
 from bleak import BleakScanner
 from bleak.backends.device import BLEDevice
+
 from aiobmsble import BMSAuthError, BMSError, BMSSample
 from aiobmsble.bms.dummy_bms import BMS  # TODO: use the right BMS class for your device
 
@@ -95,7 +96,7 @@ async def main(dev_name: str) -> None:
 
     logger.info("Found device: %s (%s)", device.name, device.address)
     try:
-        async with BMS(ble_device=device) as bms:
+        async with BMS(ble_device=device, logger=logger) as bms:
             logger.info("Updating BMS data...")
             data: BMSSample = await bms.update()
             logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
@@ -139,7 +140,7 @@ from aiobmsble.test_data import bms_advertisements
 
 def test_advertisements() -> None:
     """Run some tests with the advertisements"""
-    for advertisement, bms_type, _comments in bms_advertisements():
+    for advertisement, mac_address, bms_type, _comments in bms_advertisements():
         ...
 ```
 
@@ -147,7 +148,6 @@ def test_advertisements() -> None:
 Install python and pip if you have not already, then run:
 ```bash
 pip3 install pip --upgrade
-pip3 install wheel
 ```
 
 ### For Production:
@@ -155,7 +155,7 @@ pip3 install wheel
 ```bash
 pip3 install aiobmsble
 ```
-This will install the latest library release and all of it's python dependencies.
+This will install the latest library release and all of its python dependencies.
 
 ### For Development:
 ```bash
@@ -188,7 +188,7 @@ for helping with making the library better.
 - Jikong BMS: [esphome-jk-bms](https://github.com/syssi/esphome-jk-bms)
 - JBD BMS: [esphome-jbd-bms](https://github.com/syssi/esphome-jbd-bms)
 - D-powercore BMS: [Strom BMS monitor](https://github.com/majonessyltetoy/strom)
-- Pro BMS: [@daubman](https://github.com/patman15/BMS_BLE-HA/docs/pro_bms.md)
+- Pro BMS: [@daubman](https://github.com/patman15/aiobmsble/blob/main/docs/pro_bms.md)
 - Redodo BMS: [LiTime BMS Bluetooth](https://github.com/calledit/LiTime_BMS_bluetooth)
 - TianPower BMS: [esphome-tianpower-bms](https://github.com/syssi/esphome-tianpower-bms)
 - Greenway BMS: [surron-light-bee](https://github.com/patagonaa/surron-light-bee)

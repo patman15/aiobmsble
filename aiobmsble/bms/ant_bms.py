@@ -94,7 +94,7 @@ class BMS(BaseBMS):
         BMSPrbDef(0xFF00, PT.CELL_IMBALANCE, SV.PROTECT, value=0x1100),
         BMSPrbDef(0xFF00, PT.OTHER, SV.FAULT, value=0x1200, text="Charge self-test"),
     )
-    accept_secret: bool = True
+    ACCEPT_SECRET: bool = True
 
     def __init__(
         self,

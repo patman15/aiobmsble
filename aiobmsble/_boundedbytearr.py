@@ -327,7 +327,4 @@ class BoundedByteArray:
 
     def __repr__(self) -> str:
         """Return an unambiguous representation of the instance."""
-        return (
-            f"{type(self).__name__}"
-            f"(maxlen={self.maxlen}, initial={bytes(self._data)!r})"
-        )
+        return f"{type(self).__name__}(maxlen={self.maxlen}, initial={bytes(self._data)!r})"

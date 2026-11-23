@@ -68,8 +68,7 @@ async def test_detect_bms(
     assert "Found matching BMS type: Dummy Manufacturer dummy model" in caplog.text
     assert (
         "BMS data: {'battery_level': 73,\n\t'current': 1.5,\n\t'voltage': 12.0,\n"
-        "\t'battery_charging': True,\n\t'power': 18.0,\n\t'problem': False}\n"
-        in caplog.text
+        "\t'battery_charging': True,\n\t'power': 18.0,\n\t'problem': False}\n" in caplog.text
     )
 
 
@@ -125,7 +124,7 @@ async def test_bms_retry_with_secret(
     # prepare BLE scanning and client patching as in other tests
     monkeypatch.setattr("aiobmsble.__main__.BleakScanner.discover", mock_discover)
 
-    DummyBMS.accept_secret = True
+    DummyBMS.ACCEPT_SECRET = True
     orig_init = DummyBMS.__init__
 
     def init_with_secret(
@@ -196,9 +195,7 @@ def test_main_parses_json(
         called["identified"] = True
 
     monkeypatch.setattr(sys, "argv", ["prog", "--json", '{"local_name":"dummy"}'])
-    monkeypatch.setattr(
-        main_mod, "identify_bms_from_json", patch_identify_bms_from_json
-    )
+    monkeypatch.setattr(main_mod, "identify_bms_from_json", patch_identify_bms_from_json)
 
     main_mod.main()
 
@@ -276,9 +273,7 @@ async def test_identify_bms_from_json_invalid_advdata(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Check that invalid advertisement data in JSON input is handled gracefully."""
-    await main_mod.identify_bms_from_json(
-        '{"local_name":"dummy","platform_data":["bad"]}'
-    )
+    await main_mod.identify_bms_from_json('{"local_name":"dummy","platform_data":["bad"]}')
     assert "Failed to convert advertisement data" in caplog.text
 
 

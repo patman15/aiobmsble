@@ -480,9 +480,7 @@ async def test_problem_response(
         "problem_code": (1 if problem_response[1] == "first_bit" else 128),
         "problems": [
             BMSProblem(
-                PT.CHARGE_OVERTEMP
-                if problem_response[1] == "first_bit"
-                else PT.PACK_OVERVOLTAGE,
+                PT.CHARGE_OVERTEMP if problem_response[1] == "first_bit" else PT.PACK_OVERVOLTAGE,
                 Severity.PROTECT,
                 "Charge overtemperature"
                 if problem_response[1] == "first_bit"
@@ -510,9 +508,7 @@ async def test_problem_response(
 def test_problem_flag_definitions(bit: int, kind: PT, text: str) -> None:
     """Test each Topband problem flag is decoded with its specified label."""
 
-    assert decode_problems(1 << bit, BMS._PROBLEMS) == [
-        BMSProblem(kind, Severity.PROTECT, text)
-    ]
+    assert decode_problems(1 << bit, BMS._PROBLEMS) == [BMSProblem(kind, Severity.PROTECT, text)]
 
 
 async def test_resync(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:

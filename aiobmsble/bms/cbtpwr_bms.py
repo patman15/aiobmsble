@@ -30,7 +30,7 @@ class BMS(BaseBMS):
     _LEN_POS: Final[int] = 3
     _CMD_POS: Final[int] = 2
     _CELLV_CMDS: Final[tuple[int, ...]] = (0x5, 0x6, 0x7, 0x8)
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 4, 4, False, lambda x: x / 1000, 0x0B),
         BMSDp("current", 8, 4, True, lambda x: x / 1000, 0x0B),
         BMSDp("temperature", 4, 2, True, lambda x: [TS(x)], idx=0x09),
@@ -84,17 +84,12 @@ class BMS(BaseBMS):
         """Return characteristic that provides write property."""
         return "ffe9"
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Retrieve BMS data update."""
         self._log.debug("RX BLE data: %s", data)
 
         # verify that data is long enough
-        if (
-            len(data) < BMS._MIN_FRAME
-            or len(data) != BMS._MIN_FRAME + data[BMS._LEN_POS]
-        ):
+        if len(data) < BMS._MIN_FRAME or len(data) != BMS._MIN_FRAME + data[BMS._LEN_POS]:
             self._log.debug("incorrect frame length (%i): %s", len(data), data)
             return
 

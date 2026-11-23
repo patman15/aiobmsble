@@ -79,13 +79,9 @@ class BMS(BaseBMS):
     ) -> None:
         await super()._init_connection(char_notify)
         # subscribe to second notify characteristic
-        await self._client.start_notify(
-            BMS._NOTIFY_CHAR, self._notification_handler
-        )
+        await self._client.start_notify(BMS._NOTIFY_CHAR, self._notification_handler)
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data from %s: %s", str(sender)[:8], data)
 

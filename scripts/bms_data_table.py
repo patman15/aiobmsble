@@ -53,11 +53,7 @@ def file_has_field(path: Path, field: str) -> bool:
                     if getattr(item, "key", None) == field:
                         return True
                     # Some modules use tuple/list with the key as first element
-                    if (
-                        isinstance(item, (tuple, list))
-                        and len(item)
-                        and item[0] == field
-                    ):
+                    if isinstance(item, (tuple, list)) and len(item) and item[0] == field:
                         return True
     except ModuleNotFoundError:
         pass
@@ -75,23 +71,17 @@ def file_has_field(path: Path, field: str) -> bool:
 
 
 def get_bms_info(path: Path) -> tuple[str, str]:
-    """Extract default_manufacturer and default_model from BMS INFO class variable."""
+    """Extract manufacturer and model from BMS INFO class variable."""
 
     module: ModuleType = import_module(f"aiobmsble.bms.{path.stem}")
-    return module.BMS.INFO.get("default_manufacturer"), module.BMS.INFO.get(
-        "default_model"
-    )
+    return module.BMS.INFO.get("manufacturer"), module.BMS.INFO.get("model")
 
 
 def main() -> None:
     """Generate and print a markdown table of BMS data availability."""
 
-    fields: Final[tuple[BMSValue, ...]] = tuple(
-        field for field in get_bmssample_fields(INIT)
-    )
-    bms_files: Final[list[Path]] = sorted(
-        p for p in BMS_DIR.glob("*_bms.py") if p.is_file()
-    )
+    fields: Final[tuple[BMSValue, ...]] = tuple(field for field in get_bmssample_fields(INIT))
+    bms_files: Final[list[Path]] = sorted(p for p in BMS_DIR.glob("*_bms.py") if p.is_file())
     header: Final[tuple[str, ...]] = (
         "BMS",
         *(field.replace("_", " ") for field in fields),
@@ -110,9 +100,7 @@ def main() -> None:
             for field in fields
         )
 
-        available_fields: list[BMSValue] = [
-            field for field in fields if file_has_field(f, field)
-        ]
+        available_fields: list[BMSValue] = [field for field in fields if file_has_field(f, field)]
         for calc in _bms_registry():
             if calc.requires.issubset(available_fields):
                 # If all required fields for a calculated field are available,
@@ -125,8 +113,7 @@ def main() -> None:
             if field not in available_fields:
                 continue
             marks = tuple(
-                ("." if fld == field else mk)
-                for fld, mk in zip(fields, marks, strict=True)
+                ("." if fld == field else mk) for fld, mk in zip(fields, marks, strict=True)
             )
 
         rows.append([bms_name, *marks])

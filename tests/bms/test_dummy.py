@@ -31,9 +31,7 @@ class MockDummyBleakClient(MockBleakClient):
         await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
 
-        self._notify_callback(
-            "MockDummyBleakClient", bytearray(f"response to '{data!s}'", "UTF-8")
-        )
+        self._notify_callback("MockDummyBleakClient", bytearray(f"response to '{data!s}'", "UTF-8"))
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:

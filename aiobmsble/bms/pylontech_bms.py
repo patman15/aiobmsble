@@ -84,9 +84,7 @@ class BMS(BaseBMS):
 
         try:
             await self._await_msg(
-                BMS._cmd_modbus(
-                    dev_id=BMS._DEV_ID, addr=BMS._REG_SN[0], count=BMS._REG_SN[1]
-                )
+                BMS._cmd_modbus(dev_id=BMS._DEV_ID, addr=BMS._REG_SN[0], count=BMS._REG_SN[1])
             )
             if sn := b2str(self._msg[3 : 3 + BMS._REG_SN[1] * 2]):
                 info["serial_number"] = sn
@@ -98,9 +96,7 @@ class BMS(BaseBMS):
     async def _fetch_limits(self) -> BMSLimits:
         """Read charge voltage limit and discharge cutoff voltage registers."""
         await self._await_msg(
-            BMS._cmd_modbus(
-                dev_id=BMS._DEV_ID, addr=BMS._LIMIT_BLOCK[0], count=BMS._LIMIT_BLOCK[1]
-            )
+            BMS._cmd_modbus(dev_id=BMS._DEV_ID, addr=BMS._LIMIT_BLOCK[0], count=BMS._LIMIT_BLOCK[1])
         )
         return BMS._decode_limits(self._msg, BMS._LIMIT_FIELDS, byteorder="big")
 
@@ -111,9 +107,7 @@ class BMS(BaseBMS):
     ) -> None:
         """Accumulate BLE fragments; signal when a complete and valid Modbus frame arrives."""
         self._frame.extend(data)
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
         if len(self._frame) >= 5 and self._frame.startswith(b"\x01\x03"):
             self._exp_len = 3 + self._frame[2] + 2
@@ -129,9 +123,7 @@ class BMS(BaseBMS):
         self._frame.clear()
         self._exp_len = 0
 
-        if not self._check_integrity(
-            frame, crc_modbus, slice(None, -2), slice(-2, None), "little"
-        ):
+        if not self._check_integrity(frame, crc_modbus, slice(None, -2), slice(-2, None), "little"):
             return
 
         self._msg = frame
@@ -140,16 +132,12 @@ class BMS(BaseBMS):
     async def _update(self) -> BMSSample:
         """Read current BMS state and return a BMSSample."""
         await self._await_msg(
-            BMS._cmd_modbus(
-                dev_id=BMS._DEV_ID, addr=BMS._INFO_BLOCK[0], count=BMS._INFO_BLOCK[1]
-            )
+            BMS._cmd_modbus(dev_id=BMS._DEV_ID, addr=BMS._INFO_BLOCK[0], count=BMS._INFO_BLOCK[1])
         )
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=3)
         # Modbus exposes only min/max cell aggregates (0x1018, 0x1019), not per-cell values.
         result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=2, start=7)
-        result["temperature"] = BMS._temperature(
-            self._msg, values=2, start=11, divider=10
-        )
+        result["temperature"] = BMS._temperature(self._msg, values=2, start=11, divider=10)
 
         return result

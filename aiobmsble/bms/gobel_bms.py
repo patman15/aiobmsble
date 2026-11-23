@@ -118,13 +118,9 @@ class BMS(BaseBMS):
 
         return info
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
-        self._log.debug(
-            "RX BLE data (%s): %s", "start" if not self._frame else "cnt.", data
-        )
+        self._log.debug("RX BLE data (%s): %s", "start" if not self._frame else "cnt.", data)
 
         # Start of a new frame - check for valid Modbus response header
         if len(data) >= 2 and data[0] == BMS._SLAVE_ADDR:
@@ -181,9 +177,7 @@ class BMS(BaseBMS):
             )
             return {}
 
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, self._msg, byteorder="big", start=3
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="big", start=3)
 
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg,

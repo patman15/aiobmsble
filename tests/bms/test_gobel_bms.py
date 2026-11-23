@@ -103,9 +103,7 @@ class MockGobelBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
-        self._notify_callback(
-            "MockGobelBleakClient", self._response(char_specifier, data)
-        )
+        self._notify_callback("MockGobelBleakClient", self._response(char_specifier, data))
 
 
 class MockFragmentedBleakClient(MockGobelBleakClient):
@@ -148,9 +146,7 @@ async def test_update(
     await bms.disconnect()
 
 
-async def test_fragmented_response(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_fragmented_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test handling of fragmented BLE responses."""
 
     monkeypatch.setattr(MockFragmentedBleakClient, "_RESP", _FRAME_MAIN_DATA)
@@ -318,9 +314,7 @@ async def test_edge_cases(
     await bms.disconnect()
 
 
-async def test_mos_temp_ffff_invalid(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_mos_temp_ffff_invalid(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that MOSFET temperature of 0xFFFF is treated as invalid."""
 
     # Frame with 1 temp sensor at 25.0°C and invalid MOSFET temp
@@ -382,9 +376,7 @@ async def test_device_info_edge_cases(
     await bms.disconnect()
 
 
-async def test_unexpected_data_ignored(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_unexpected_data_ignored(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that unexpected data without a started frame is ignored."""
 
     class MockUnexpectedDataBleakClient(MockGobelBleakClient):
@@ -400,13 +392,9 @@ async def test_unexpected_data_ignored(
             await MockBleakClient.write_gatt_char(self, char_specifier, data, response)
             assert self._notify_callback is not None
             # Send data that looks like a continuation (doesn't start with slave addr)
-            self._notify_callback(
-                "MockUnexpectedDataBleakClient", bytearray([0xFF, 0xFF])
-            )
+            self._notify_callback("MockUnexpectedDataBleakClient", bytearray([0xFF, 0xFF]))
             # Then send the valid response
-            self._notify_callback(
-                "MockUnexpectedDataBleakClient", bytearray(self._RESP)
-            )
+            self._notify_callback("MockUnexpectedDataBleakClient", bytearray(self._RESP))
 
     monkeypatch.setattr(MockUnexpectedDataBleakClient, "_RESP", _FRAME_MAIN_DATA)
     patch_bleak_client(MockUnexpectedDataBleakClient)
@@ -417,9 +405,7 @@ async def test_unexpected_data_ignored(
     await bms.disconnect()
 
 
-async def test_short_initial_frame(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_short_initial_frame(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test handling of short initial frame that needs more data."""
 
     class MockMinFrameBleakClient(MockGobelBleakClient):

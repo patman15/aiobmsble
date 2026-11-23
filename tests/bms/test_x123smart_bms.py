@@ -84,9 +84,7 @@ class Mock123SmartBleakClient(MockBleakClient):
         **kwargs: Any,
     ) -> None:
         """Initialize MockBleakClient."""
-        super().__init__(
-            address_or_ble_device, disconnected_callback, services, **kwargs
-        )
+        super().__init__(address_or_ble_device, disconnected_callback, services, **kwargs)
         self._services = ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"]
         self._stream: bool = False
         self._authorized: bool = not self.REQUIRE_PASS
@@ -168,9 +166,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     await bms.disconnect()
 
 
-@pytest.mark.parametrize(
-    "secret", ["1234", "0000", ""], ids=["correct", "wrong", "missing"]
-)
+@pytest.mark.parametrize("secret", ["1234", "0000", ""], ids=["correct", "wrong", "missing"])
 async def test_update_secret(
     monkeypatch: pytest.MonkeyPatch, patch_bleak_client, secret: str
 ) -> None:
@@ -231,9 +227,7 @@ async def test_device_info(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) 
     assert await bms.device_info() == MockBleakClient.default_info | {"fw_version": "3.2.53"}
 
 
-async def test_device_info_invalid(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_device_info_invalid(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that an invalid version reply is rejected."""
     orig_reply: Final = Mock123SmartBleakClient._reply
 

@@ -78,10 +78,7 @@ class BMS(RenogyBMS):
                 if (
                     service.uuid == BMS.uuid_services()[0]
                     and char.uuid == normalize_uuid_str(BMS.uuid_tx())
-                    and any(
-                        prop in char.properties
-                        for prop in ("write", "write-without-response")
-                    )
+                    and any(prop in char.properties for prop in ("write", "write-without-response"))
                 ):
                     self._char_write_handle = char.handle
                 if (
@@ -94,9 +91,7 @@ class BMS(RenogyBMS):
         if char_notify_handle == -1 or self._char_write_handle == -1:
             self._log.debug("failed to detect characteristics")
             await self._client.disconnect()
-            raise BMSUnsupportedError(
-                f"Failed to detect characteristics from {self.name}."
-            )
+            raise BMSUnsupportedError(f"Failed to detect characteristics from {self.name}.")
         self._log.debug(
             "using characteristics handle #%i (notify), #%i (write).",
             char_notify_handle,
@@ -114,6 +109,4 @@ class BMS(RenogyBMS):
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
-        await super()._await_msg(
-            data, self._char_write_handle, wait_for_notify, max_size
-        )
+        await super()._await_msg(data, self._char_write_handle, wait_for_notify, max_size)

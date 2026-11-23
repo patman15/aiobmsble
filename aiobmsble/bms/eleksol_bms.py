@@ -20,9 +20,7 @@ class BMS(JbdBMS):
     def matcher_dict_list() -> list[MatcherPattern]:
         """Provide BluetoothMatcher definition."""
         return [
-            MatcherPattern(
-                oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True
-            )
+            MatcherPattern(oui=oui, service_uuid=BMS.uuid_services()[0], connectable=True)
             for oui in (
                 "A4:C1:37",
                 "A4:C1:38",

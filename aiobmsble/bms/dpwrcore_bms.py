@@ -54,9 +54,7 @@ class BMS(BaseBMS):
             lambda x: [TempSensor(round(x / 10 - 273.15, 3))],
             Cmd.LEGINFO2,
         ),
-        BMSDp(
-            "cell_count", 6, 1, False, lambda x: min(x, BMS._MAX_CELLS), Cmd.CELLVOLT
-        ),
+        BMSDp("cell_count", 6, 1, False, lambda x: min(x, BMS._MAX_CELLS), Cmd.CELLVOLT),
         BMSDp("cycles", 8, 2, False, idx=Cmd.LEGINFO2),
         BMSDp("problem_code", 15, 1, False, lambda x: x & 0xFF, Cmd.LEGINFO1),
     )
@@ -122,9 +120,7 @@ class BMS(BaseBMS):
             wait_for_notify=False,
         )
 
-    async def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    async def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         self._log.debug("RX BLE data: %s", data)
 
         if len(data) != BMS._PAGE_LEN:
@@ -170,10 +166,7 @@ class BMS(BaseBMS):
         frame: bytearray = bytearray([cmd.value, 0x00, 0x00]) + data
         checksum: Final[int] = BMS._crc(frame)
         frame = (
-            bytearray(b"\x3a\x03\x05")
-            + frame
-            + checksum.to_bytes(2, byteorder="big")
-            + b"\x0d\x0a"
+            bytearray(b"\x3a\x03\x05") + frame + checksum.to_bytes(2, byteorder="big") + b"\x0d\x0a"
         )
         frame = bytearray([len(frame) + 2, 0x11]) + frame
         frame.extend(bytes(BMS._PAGE_LEN - len(frame)))

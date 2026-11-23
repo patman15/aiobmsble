@@ -28,8 +28,10 @@ class BMS(BaseBMS):
     # _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = () # TODO: define BMS sensor decoder definitions
     # _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = () # TODO: define BMS limits
     # _PROBLEMS: Final[tuple[BMSPrbDef, ...]] = () # TODO: add problem code decoder definitions
+    # _SKIP_INFO_CHARS: bool = False  # set True to skip information from BT default chars for BMSInfo()
     #
-    # accept_secret: bool = True  # if the BMS accepts a secret for authentication
+    # ACCEPT_SECRET: bool = True  # if the BMS accepts a secret for authentication
+    # ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
 
     def __init__(
         self,
@@ -74,6 +76,10 @@ class BMS(BaseBMS):
     #     """Fetch the BMS limits via BLE."""
     #     TODO: query from BMS and use _decode_limits
     #     return {Limit.CELL_OVP: Threshold(trip=3.65, release=3.5)}
+
+    # async def _alive(self) -> None:
+    #     """Override to run periodic actions while `ALIVE_INTERVAL` is set."""
+    #     raise NotImplementedError
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""

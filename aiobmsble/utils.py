@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from functools import cache
 import importlib
 import pkgutil
@@ -21,6 +21,19 @@ import aiobmsble.bms
 from aiobmsble.exceptions import BMSConfigError
 
 _MODULE_POSTFIX: Final[str] = "_bms"
+
+
+def _platform_data(pdata: Sequence[Any]) -> tuple[Any, ...]:
+    """Validate platform data, the first entry needs to be a MAC address."""
+    if not isinstance(pdata[0], str):
+        raise BMSConfigError("first entry of platform_data needs to be string.")
+    parts: Final[list[str]] = pdata[0].split(":")
+    if not (
+        len(parts) == 6
+        and all(len(part) == 2 and all(c in hexdigits for c in part) for part in parts)
+    ):
+        raise BMSConfigError("first entry of platform_data only accepts MAC addresses")
+    return tuple(pdata)
 
 
 def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
@@ -60,16 +73,12 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
                 for k, v in adv_dict["service_data"].items()
             }
         if "platform_data" in adv_dict:
-            pdata = adv_dict.get("platform_data", [])
-            assert isinstance(pdata[0], str), "first entry of platform_data needs to be string."
-            parts = pdata[0].split(":")
-            assert len(parts) == 6 and all(
-                len(part) == 2 and all(c in hexdigits for c in part) for part in parts
-            ), "first entry of platform_data only accepts MAC addresses"
-            val_dict["platform_data"] = tuple(pdata)
+            val_dict["platform_data"] = _platform_data(adv_dict["platform_data"])
 
         return AdvertisementData(**(advertisement_data_defaults | val_dict))
-    except (AssertionError, IndexError, KeyError, TypeError, ValueError) as exc:
+    except BMSConfigError:
+        raise
+    except (IndexError, KeyError, TypeError, ValueError) as exc:
         raise BMSConfigError("Invalid advertisement data.") from exc
 
 
@@ -113,7 +122,7 @@ async def get_bms(name: str) -> type[BaseBMS] | None:
         name (str): The name of the BMS type (filename of the module)
 
     Returns:
-        type[BaseBMS] | None: If the BMS class defined by name is found, None otherwise.
+        type[BaseBMS] | None: the BMS class if found, None otherwise.
 
     """
     if not name.endswith(_MODULE_POSTFIX):
@@ -139,11 +148,11 @@ def available_bms() -> frozenset[type[BaseBMS]]:
 
 
 async def identify(adv: AdvertisementData, address: str) -> list[type[BaseBMS]]:
-    """Return the BMS class matching the given advertisement.
+    """Return the BMS classes matching the given advertisement.
 
-    Currently the function is guaranteed to return one match only. This behaviour might change
-    in the future to multiple entries, if BMSs cannot be distinguished uniquely using
-    their Bluetooth advertisement / OUI (Organizationally Unique Identifier)
+    Currently at most one class matches. This might change in the future, if BMSs
+    cannot be distinguished uniquely using their Bluetooth advertisement / OUI
+    (Organizationally Unique Identifier).
 
     Args:
         adv (AdvertisementData): The advertisement data to match against available BMS plugins.

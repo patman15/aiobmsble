@@ -69,7 +69,7 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 13, PT.OTHER, text="Charge timeout"),
     )  # bits 14, 15 undocumented
 
-    accept_secret: bool = True
+    ACCEPT_SECRET: bool = True
 
     def __init__(
         self,

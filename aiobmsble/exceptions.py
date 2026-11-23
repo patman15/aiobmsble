@@ -16,8 +16,9 @@ are translated and remain available as `__cause__`. Exceptions to this rule are
 | `BMSUnsupportedError` | required GATT service/characteristic missing | no |
 | `BMSCommandRejectedError` | BMS refused a command | no |
 
-Each exception also derives from the matching built-in exception (e.g. `BMSTimeoutError`
-is a `TimeoutError`), so existing `except` clauses keep working.
+Most exceptions also derive from the matching built-in exception (e.g. `BMSTimeoutError`
+is a `TimeoutError`), so existing `except` clauses keep working. `BMSCommandRejectedError`
+has no built-in counterpart and derives from `BMSError` only.
 
 Retries are already done inside the library. Retry a failed call at the next poll
 interval if `BMSError.retryable` is `True`; otherwise user action is required.
@@ -120,7 +121,7 @@ class BMSConfigError(BMSError, ValueError):
     default_msg = "Invalid configuration."
 
 
-class BMSUnsupportedError(BMSConnectionError):
+class BMSUnsupportedError(BMSError, ConnectionError):
     """Device lacks a required GATT service or characteristic.
 
     Usually the wrong BMS plugin was selected or the firmware is not supported.

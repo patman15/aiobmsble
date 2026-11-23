@@ -187,9 +187,7 @@ class MockDalyBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
-        self._notify_callback(
-            "MockDalyBleakClient", self._response(char_specifier, data)
-        )
+        self._notify_callback("MockDalyBleakClient", self._response(char_specifier, data))
 
 
 class MockInvalidBleakClient(MockDalyBleakClient):
@@ -432,8 +430,6 @@ async def test_problem_response(
 
     result: BMSSample = await bms.update()
     assert result.get("problem", False)  # we expect a problem
-    assert result.get("problem_code", 0) == (
-        1 << (0 if problem_response[1] == "first_bit" else 63)
-    )
+    assert result.get("problem_code", 0) == (1 << (0 if problem_response[1] == "first_bit" else 63))
 
     await bms.disconnect()

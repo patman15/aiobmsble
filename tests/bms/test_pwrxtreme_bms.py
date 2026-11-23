@@ -92,17 +92,13 @@ class MockPwrXtremeBleakClient(MockBleakClient):
     ) -> None:
         """Issue write command to GATT."""
 
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         match bytes(data):
             case b"<N:NA>":
                 self._notify_callback("MockPwrXtremeBleakClient", b"<N:X210-24092528>")
             case b"<M:SR>":
-                self._notify_callback(
-                    "MockPwrXtremeBleakClient", b"<M:EM01234567890123>"
-                )
+                self._notify_callback("MockPwrXtremeBleakClient", b"<M:EM01234567890123>")
             case b"<B:ST>":
                 self._notify_callback("MockPwrXtremeBleakClient", b"<B:AN>")
             case b"<H:ST>":
@@ -123,9 +119,7 @@ async def test_device_info(patch_bleak_client) -> None:
     assert await bms.device_info() == _INFO_DEFS
 
 
-async def test_device_info_timeout(
-    monkeypatch: pytest.MonkeyPatch, patch_bleak_client
-) -> None:
+async def test_device_info_timeout(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that a timeout fetching dynamic device information is ignored."""
     patch_bleak_client(MockPwrXtremeBleakClient)
     bms = BMS(generate_ble_device())
@@ -137,9 +131,7 @@ async def test_device_info_timeout(
 
     monkeypatch.setattr(bms, "_await_msg", await_msg)
 
-    assert await bms.device_info() == _INFO_DEFS | {
-        "serial_number": "mock_serial_number"
-    }
+    assert await bms.device_info() == _INFO_DEFS | {"serial_number": "mock_serial_number"}
 
 
 async def test_device_info_decode_error(
@@ -154,9 +146,7 @@ async def test_device_info_decode_error(
 
     monkeypatch.setattr(bms, "_await_msg", await_msg)
 
-    assert await bms.device_info() == _INFO_DEFS | {
-        "serial_number": "mock_serial_number"
-    }
+    assert await bms.device_info() == _INFO_DEFS | {"serial_number": "mock_serial_number"}
 
 
 async def test_alive(monkeypatch: pytest.MonkeyPatch) -> None:

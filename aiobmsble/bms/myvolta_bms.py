@@ -101,9 +101,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -119,9 +117,7 @@ class BMS(BaseBMS):
             self._log.debug("incorrect frame header: %s", frame)
             return
 
-        if not self._check_integrity(
-            frame, self._crc_sum, slice(1, -1), slice(-1, None)
-        ):
+        if not self._check_integrity(frame, self._crc_sum, slice(1, -1), slice(-1, None)):
             return
 
         self._msg[frame[1]] = frame
@@ -137,9 +133,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
         await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
 
-        result: BMSSample = self._decode_data(
-            BMS._FIELDS, self._msg, byteorder="little", start=7
-        )
+        result: BMSSample = self._decode_data(BMS._FIELDS, self._msg, byteorder="little", start=7)
         for msg_type in (
             MsgT.CELL_VOLTAGES1,
             MsgT.CELL_VOLTAGES2,
