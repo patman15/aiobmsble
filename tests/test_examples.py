@@ -4,9 +4,9 @@ from collections.abc import Callable
 from typing import Any, NoReturn
 
 from bleak.backends.device import BLEDevice
-from bleak.exc import BleakError
 import pytest
 
+from aiobmsble import BMSAuthError, BMSConnectionError, BMSError
 import examples.minimal
 from tests.bluetooth import generate_ble_device
 
@@ -67,21 +67,31 @@ class TestMinimal:
         assert "Device 'wrong_name' not found." in caplog.text
 
     @staticmethod
-    async def test_main_bt_err(
+    @pytest.mark.parametrize(
+        ("exc", "msg"),
+        [
+            (BMSConnectionError, "Failed to update BMS: BMSConnectionError"),
+            (BMSAuthError, "BMS authentication failed; provide a valid secret."),
+        ],
+        ids=["connection", "auth"],
+    )
+    async def test_main_bms_err(
         monkeypatch: pytest.MonkeyPatch,
         patch_find_device_by_name: Callable[[], None],
         patch_bleak_client: Callable,
         caplog: pytest.LogCaptureFixture,
+        exc: type[BMSError],
+        msg: str,
     ) -> None:
-        """Test that minimal example handles if a Bleak error occurs."""
+        """Test that minimal example handles BMS errors."""
 
-        def _raise_bleak_error(self: Any) -> NoReturn:
-            raise BleakError
+        def _raise_bms_error(self: Any) -> NoReturn:
+            raise exc
 
         patch_find_device_by_name()
         # Ensure BMS attribute exists on the examples.minimal module before monkeypatching
         assert hasattr(examples.minimal, "BMS")
-        monkeypatch.setattr(examples.minimal.BMS, "update", _raise_bleak_error)
+        monkeypatch.setattr(examples.minimal.BMS, "update", _raise_bms_error)
         patch_bleak_client()
         await examples.minimal.main("Dummy device")
-        assert "Failed to update BMS: BleakError" in caplog.text
+        assert msg in caplog.text

@@ -11,6 +11,26 @@ from typing import Any, Final, Literal, NamedTuple, TypedDict
 
 from aiobmsble import BMSProblem, Limit, PrbType, Severity
 
+__all__ = [
+    "BMSDp",
+    "BMSPackValue",
+    "BMSPrbDef",
+    "BMSValue",
+    "CommonValue",
+    "LimitDp",
+    "MatcherPattern",
+    "ThresholdAttr",
+    "b2str",
+    "crc8",
+    "crc_modbus",
+    "crc_sum",
+    "crc_xmodem",
+    "decode_problems",
+    "lrc_modbus",
+    "lstr2int",
+    "swap32",
+]
+
 type CommonValue = Literal[
     "battery_health",
     "battery_level",
@@ -155,8 +175,8 @@ def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
     return list(worst.values())
 
 
-def b2str(b: bytes) -> str:
-    """Decode a bytearray to string, stopping at the first non-printable character."""
+def b2str(b: bytes | bytearray) -> str:
+    """Decode bytes to string, stopping at the first non-printable character."""
     s: Final[str] = b.decode("ascii", errors="ignore")
     for i, c in enumerate(s):
         if not c.isprintable():
@@ -215,10 +235,14 @@ def crc8(data: bytes | bytearray) -> int:
 
 
 def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
-    """Calculate the sum of the frame bytes using the specified size.
+    """Calculate the sum of the frame bytes truncated to the specified size.
 
     Args:
-        frame: The input data for which the sum is to be calculated.
-        size (int, optional): The size of the sum in bytes (default is 1).
+        frame: the input data for which the sum is to be calculated
+        size: the size of the sum in bytes (default: 1)
+
+    Returns:
+        int: sum of all bytes modulo 2^(8 * size)
+
     """
     return sum(frame) & ((1 << (8 * size)) - 1)

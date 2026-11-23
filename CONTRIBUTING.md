@@ -19,9 +19,9 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
     from that plugin's `BMS` class instead (it transitively derives from `BaseBMS`) and
     override only what differs — see [Deriving from an existing plugin](#deriving-from-an-existing-plugin).
  4. The `BMS` class **must** define the following:
-    - `INFO: BMSInfo` — class-level attribute with at minimum `default_manufacturer` and `default_model`.
+    - `INFO: BMSInfo` — class-level attribute with at minimum `manufacturer` and `model`.
     - `matcher_dict_list()` — list of [`MatcherPattern`](aiobmsble/plugin.py) dicts used for BLE auto-detection. The pattern **must** be unique across all plugins.
-    - `uuid_services()` — tuple of 128-bit UUIDs of the BLE services required by the BMS.
+    - `uuid_services()` — tuple of UUIDs of the BLE services required by the BMS.
     - `uuid_rx()` — 16/32/128-bit UUID of the characteristic that provides notifications (incoming data).
     - `uuid_tx()` — 16/32/128-bit UUID of the characteristic used to send commands.
     - `_notification_handler()` — callback invoked when a BLE notification arrives; validates the frame and sets `self._msg_event` when a complete, valid frame is available.
@@ -34,8 +34,8 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
  9. Run linting and tests locally and confirm 100% branch coverage:
     ```bash
     ruff check .
-    ruff check aiobmsble --strict
     mypy .
+    mypy aiobmsble --strict
     codespell .
     pyright .
     pytest
@@ -91,8 +91,9 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
 - All plugin classes shall inherit from `BaseBMS`—directly, or via an existing plugin's `BMS` class when reusing that protocol (see [Deriving from an existing plugin](#deriving-from-an-existing-plugin))—and use its helper methods before overriding or replacing behaviour.
 - Prefer declarative field decoding: describe scalar values with [`BMSDp`](aiobmsble/plugin.py) entries in a `_FIELDS: tuple[BMSDp[BMSValue], ...]` class attribute and decode them via `BaseBMS._decode_data()` before writing manual parsing. Use per-variant `_FIELDS_*` tuples when the protocol has more than one frame layout.
 - When a protocol reports `problem_code`, add `_PROBLEMS: tuple[BMSPrbDef, ...]` to map
-  protocol fields/bits to stable `PrbType` kinds. Define `_PRB_MASK` for bits that
-  belong to the problem code; keep it positive and ensure every `_PROBLEMS` mask is
+  protocol fields/bits to stable `PrbType` kinds. By convention, define `_PRB_MASK` in the
+  plugin for bits that belong to the problem code and apply it in the `problem_code` field
+  conversion (`BaseBMS` does not use it); keep it positive and ensure every `_PROBLEMS` mask is
   reachable. Use `1 << n` for bit definitions and keep masks complete for value-coded
   fields. Do not duplicate the `Severity` in vendor `text`; `BMSProblem.__str__()` adds
   the level automatically. For example, use `"SOC"` or `"MOSFET under-temperature"`
@@ -105,7 +106,7 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
   but it must not contradict the selected kind or severity.
 - If available, data shall be read directly from the device. `BaseBMS._add_missing_values()` is only used to ensure consistent data across all BMS types.
 - Where possible, use the utility functions provided by `BaseBMS` (e.g. `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_check_integrity()`, `_cmd_modbus()`).
-- Tests shall use recorded frames from a real device (stored in `aiobmsble/test_data/`) to allow new parsed values to be added at a later point.
+- Tests shall use recorded frames from a real device (stored in the plugin test module in `tests/bms/`) to allow new parsed values to be added at a later point. Recorded advertisements are stored in `aiobmsble/test_data/`.
 
 to be extended ...
 

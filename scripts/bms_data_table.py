@@ -71,10 +71,10 @@ def file_has_field(path: Path, field: str) -> bool:
 
 
 def get_bms_info(path: Path) -> tuple[str, str]:
-    """Extract default_manufacturer and default_model from BMS INFO class variable."""
+    """Extract manufacturer and model from BMS INFO class variable."""
 
     module: ModuleType = import_module(f"aiobmsble.bms.{path.stem}")
-    return module.BMS.INFO.get("default_manufacturer"), module.BMS.INFO.get("default_model")
+    return module.BMS.INFO.get("manufacturer"), module.BMS.INFO.get("model")
 
 
 def main() -> None:

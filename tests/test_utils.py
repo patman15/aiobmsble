@@ -10,6 +10,7 @@ from aiobmsble import PrbType, Severity
 from aiobmsble._discovery import advertisement_matches
 from aiobmsble._streamparser import StreamParser
 from aiobmsble.basebms import BaseBMS
+from aiobmsble.exceptions import BMSConfigError
 from aiobmsble.plugin import BMSPrbDef, MatcherPattern, decode_problems
 from aiobmsble.test_data import BmsAdvSample, bms_advertisements
 from aiobmsble.utils import (
@@ -52,6 +53,23 @@ async def test_identify(plugin: ModuleType) -> None:
 
     bms_classes: list[type[BaseBMS]] = await identify(adv, mac_addr)
     assert bms_classes == [plugin.BMS]
+
+
+@pytest.mark.parametrize(
+    ("adv_dict", "msg"),
+    [
+        ({"platform_data": [123]}, "needs to be string"),
+        ({"platform_data": ["00:11:22:aa:bb"]}, "only accepts MAC addresses"),
+        ({"platform_data": ["00:11:22:aa:bb:zz"]}, "only accepts MAC addresses"),
+        ({"platform_data": []}, "Invalid advertisement data"),
+        ({"manufacturer_data": {"x": "00"}}, "Invalid advertisement data"),
+    ],
+    ids=["no_string", "short_mac", "no_hex_mac", "empty", "bad_manufacturer_id"],
+)
+def test_adv_dict_to_advdata_invalid(adv_dict: dict[str, Any], msg: str) -> None:
+    """Check that malformed advertisement data raises BMSConfigError."""
+    with pytest.raises(BMSConfigError, match=msg):
+        adv_dict_to_advdata(adv_dict)
 
 
 async def test_get_bms(plugin: ModuleType) -> None:

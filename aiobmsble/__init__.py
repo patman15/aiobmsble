@@ -69,7 +69,6 @@ __version__: str = "0.0.0.dev0"
 with suppress(PackageNotFoundError):
     __version__ = version("aiobmsble")
 
-
 class BMSMode(IntEnum):
     """Enumeration of BMS modes."""
 
@@ -81,7 +80,11 @@ class BMSMode(IntEnum):
 
 @dataclass(frozen=True, slots=True)
 class TempSensor:
-    """Represents a temperature sensor reading from the BMS."""
+    """Represents a temperature sensor reading from the BMS.
+
+    Instances compare equal to plain numbers by value, but to other `TempSensor`
+    instances by value and type. Ordering (`<`, `max()`, ...) uses the value only.
+    """
 
     @unique
     class T(IntEnum):
@@ -112,6 +115,38 @@ class TempSensor:
     def __float__(self) -> float:
         """Return the temperature value as a float."""
         return float(self.value)
+
+    @staticmethod
+    def _cmp_value(other: object) -> float | None:
+        if isinstance(other, TempSensor):
+            return other.value
+        if isinstance(other, (int, float)):
+            return other
+        return None
+
+    def __lt__(self, other: object) -> bool:
+        """Compare temperature value."""
+        if (val := self._cmp_value(other)) is None:
+            return NotImplemented
+        return self.value < val
+
+    def __le__(self, other: object) -> bool:
+        """Compare temperature value."""
+        if (val := self._cmp_value(other)) is None:
+            return NotImplemented
+        return self.value <= val
+
+    def __gt__(self, other: object) -> bool:
+        """Compare temperature value."""
+        if (val := self._cmp_value(other)) is None:
+            return NotImplemented
+        return self.value > val
+
+    def __ge__(self, other: object) -> bool:
+        """Compare temperature value."""
+        if (val := self._cmp_value(other)) is None:
+            return NotImplemented
+        return self.value >= val
 
     def __hash__(self) -> int:
         """Hash the TempSensor based on its value (consistent with equality to numbers)."""
@@ -270,7 +305,7 @@ class BMSSample(BatterySample, total=False):
     balancer: bool | int  # False: off, True: active or bit mask, 1: enabled/active
     balance_current: float  # [A]
     heater_current: float  # [A]
-    total_charge: int  # [Ah], overall discharged
+    total_charge: int  # [Ah], charge discharged over lifetime
     pack_count: int  # [#]
     problem_code: int  # BMS specific code, 0 no problem
     problems: list[BMSProblem]  # decoded problem_code, present if plugin defines _PROBLEMS
@@ -347,3 +382,4 @@ class Threshold:
 
 type BMSLimits = dict[Limit, Threshold]
 """Thresholds configured in the BMS, returned by `aiobmsble.basebms.BaseBMS.limits()`."""
+

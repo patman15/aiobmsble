@@ -43,7 +43,7 @@ def bms_advertisements(bms_filter: str | None = None) -> tuple[BmsAdvSample, ...
     """Provide all available BMS advertisements from test data directory.
 
     Load *_bms.json files from the packaged test data directory.
-    If no type is given, all available advertisemetns (any type) will be returned.
+    If no type is given, all available advertisements (any type) will be returned.
 
     Args:
         bms_filter (str|None): BMS type for which the advertisements should be returned.
@@ -78,8 +78,8 @@ def ignore_advertisements() -> tuple[BmsAdvSample, ...]:
     Load ignore.json files from the packaged test data directory.
 
     Returns:
-        BmsAdvList: List of tuples containing advertisement, reason why not to detect,
-        and a list of comments, i.e. list[tuple[AdvertisementData, str, str, list[str]]]
+        tuple[BmsAdvSample, ...]: tuples containing advertisement, MAC address, reason why
+        not to detect, and a list of comments
 
     """
 

@@ -966,7 +966,7 @@ async def test_wr_mode_reset(
     bms: WMTestBMS = WMTestBMS(["write_without"], generate_ble_device())
     assert await bms.update() == {"problem": True, "problem_code": 0x42}
     assert bms._inv_wr_mode is False
-    await bms.disconnect(True)
+    await bms.disconnect(reset=True)
     assert bms._inv_wr_mode is None
 
 
