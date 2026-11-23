@@ -105,7 +105,7 @@ class BaseBMS(ABC):
     _PROBLEMS: tuple[BMSPrbDef, ...] = ()  # decoding of problem_code, empty: not supported
 
     accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
-
+    _SKIP_INFO_CHARS: bool = False  # set True to skip information from _INFO_CHARS for BMSInfo()
     type _InfoCharType = Literal[
         "model", "serial_number", "fw_version", "sw_version", "hw_version", "manufacturer"
     ]
@@ -278,8 +278,12 @@ class BaseBMS(ABC):
         """Return 16-bit UUID of characteristic that provides write property."""
 
     @final
-    async def device_info(self) -> BMSInfo:
+    async def device_info(self, raw: bool = False) -> BMSInfo:
         """Return device information read from the BMS over Bluetooth LE.
+
+        Args:
+            raw (bool): If `True`, return the raw values reported by the BMS
+                without default information
 
         Returns:
             Available device information, such as manufacturer, model, model ID,
@@ -290,17 +294,20 @@ class BaseBMS(ABC):
                 see `aiobmsble.exceptions` for the subclasses.
 
         """
-        dev_info: BMSInfo = BMSInfo()
+        dev_info: BMSInfo = BMSInfo() if raw else self.INFO.copy()
         async with self._op_lock, self._translate_errors():
             await self._connect()
-            if self._client.services.get_service("180a"):
+            if not self._SKIP_INFO_CHARS and self._client.services.get_service("180a"):
                 for char, key in BaseBMS._INFO_CHARS:
                     with suppress(BleakCharacteristicNotFoundError):
                         if value := bytes(await self._client.read_gatt_char(char)):
                             dev_info[key] = b2str(value)
                             self._log.debug("BT device %s: '%s'", key, dev_info.get(key))
             else:
-                self._log.debug("No BT device information available.")
+                self._log.debug(
+                    "No BT device information %s.",
+                    "queried" if self._SKIP_INFO_CHARS else "available",
+                )
 
             dev_info |= await self._fetch_device_info()
             self._log.debug("BMS info %s", dev_info)

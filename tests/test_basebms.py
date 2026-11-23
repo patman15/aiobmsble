@@ -485,7 +485,10 @@ async def test_device_info_fail(
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=False))
     await bms.update()  # run update to have connection open
-    assert not await bms.device_info()  # if characteristic does not exist, no output
+    assert await bms.device_info() == {
+        "manufacturer": "Test Manufacturer",
+        "model": "minimal BMS for test",
+    }  # if characteristic does not exist, default values are returned
     assert bms.name == "MockBLEDevice"  # name is gathered from BLEDevice
     assert not bms._client.is_connected
 
@@ -966,6 +969,7 @@ async def test_wr_mode_reset(
     await bms.disconnect(True)
     assert bms._inv_wr_mode is None
 
+
 @pytest.mark.parametrize(
     "disconnect_error",
     [
@@ -996,9 +1000,8 @@ async def test_disconnect_hook_error(
         await bms.disconnect()
 
     assert not bms.is_connected
-    assert (
-        f"disconnect hook failed! ({type(disconnect_error).__name__})" in caplog.text
-    )
+    assert f"disconnect hook failed! ({type(disconnect_error).__name__})" in caplog.text
+
 
 def test_get_bms_module() -> None:
     """Check that basebms and dummy_bms return correct module name."""

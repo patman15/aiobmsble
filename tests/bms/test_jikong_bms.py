@@ -447,6 +447,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
 
 _DEV_DEFS: Final[dict[str, BMSInfo]] = {
     "JK02_24S": {
+        "manufacturer": "Jikong",
         "model": "JK-B2A20S20P",
         "hw_version": "10.XG",
         "sw_version": "10.08",
@@ -454,6 +455,7 @@ _DEV_DEFS: Final[dict[str, BMSInfo]] = {
         "serial_number": "20328160",
     },
     "JK02_32S": {
+        "manufacturer": "Jikong",
         "model": "JK_B2A8S20P",
         "hw_version": "11.XA",
         "sw_version": "11.48",
@@ -461,6 +463,7 @@ _DEV_DEFS: Final[dict[str, BMSInfo]] = {
         "serial_number": "404092C2",
     },
     "JK02_32S_v15": {
+        "manufacturer": "Jikong",
         "model": "JK_PB2A16S20P",
         "hw_version": "15A",
         "sw_version": "15.38",
@@ -468,6 +471,7 @@ _DEV_DEFS: Final[dict[str, BMSInfo]] = {
         "serial_number": "41018492",
     },
     "JK02_32S_v19.05": {
+        "manufacturer": "Jikong",
         "model": "JK_PB2A16S20P",
         "hw_version": "19A",
         "sw_version": "19.05",
@@ -475,6 +479,7 @@ _DEV_DEFS: Final[dict[str, BMSInfo]] = {
         "serial_number": "50321484",
     },
     "JK02_32S_v19.27": {
+        "manufacturer": "Jikong",
         "model": "JK-PB2A16S20P",
         "hw_version": "19A",
         "sw_version": "19.27",
@@ -558,7 +563,7 @@ class MockJikongBleakClient(MockBleakClient):
 
     @property
     def services(self) -> BleakGATTServiceCollection:
-        """Emulate JiKong BT service setup."""
+        """Emulate Jikong BT service setup."""
 
         serv_col = BleakGATTServiceCollection()
         service = BleakGATTService(None, 1, uuid=normalize_uuid_str("ffe0"))
@@ -593,7 +598,7 @@ class MockJikongBleakClient(MockBleakClient):
 
 
 class MockStreamBleakClient(MockJikongBleakClient):
-    """Mock JiKong BMS that already sends battery data (no request required)."""
+    """Mock Jikong BMS that already sends battery data (no request required)."""
 
     async def _send_all(self) -> None:
         assert self._notify_callback, "send_all frames called but notification not enabled"
@@ -603,11 +608,11 @@ class MockStreamBleakClient(MockJikongBleakClient):
 
 
 class MockWrongBleakClient(MockBleakClient):
-    """Mock invalid service for JiKong BMS."""
+    """Mock invalid service for Jikong BMS."""
 
     @property
     def services(self) -> BleakGATTServiceCollection:
-        """Emulate JiKong BT service setup."""
+        """Emulate Jikong BT service setup."""
 
         return BleakGATTServiceCollection()
 
