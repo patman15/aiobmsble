@@ -37,7 +37,7 @@ type CommonValue = Literal[
     "cell_count",
     "cell_voltages",
     "current",
-    "cycle_capacity",
+    "cycle_energy",
     "cycle_charge",
     "cycles",
     "delta_cell_voltage",

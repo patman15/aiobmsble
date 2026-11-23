@@ -35,7 +35,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycle_charge": 4.98,
     "design_capacity": 5,
     "cycles": 42,
-    "cycle_capacity": 77.688,
+    "cycle_energy": 77.688,
     "power": -44.772,
     "battery_charging": False,
     "runtime": 6246,
@@ -56,7 +56,7 @@ _RESULT_UNIT_BASE: Final[BMSSample] = {
     "current": -0.58,
     "cycle_charge": 47.19,
     "design_capacity": 62,
-    "cycle_capacity": 626.683,
+    "cycle_energy": 626.683,
     "power": -7.702,
     "temp_count": 3,
     "voltage": 13.28,
@@ -80,7 +80,7 @@ _RESULT_10D: Final[BMSSample] = _RESULT_UNIT_BASE | {
     "current": -5.8,
     "cycle_charge": 471.9,
     "design_capacity": 628,
-    "cycle_capacity": 6266.832,
+    "cycle_energy": 6266.832,
     "power": -77.024,
 }
 

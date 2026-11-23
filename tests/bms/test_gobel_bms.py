@@ -50,7 +50,7 @@ _RESULT_MAIN_DATA: Final[BMSSample] = {
     "cell_voltages": [3.327, 3.33, 3.33, 3.329],
     "chrg_mosfet": True,
     "current": 0.0,
-    "cycle_capacity": 4193.316,
+    "cycle_energy": 4193.316,
     "cycle_charge": 315.05,
     "cycles": 1,
     "delta_cell_voltage": 0.003,

@@ -145,5 +145,5 @@ their relation to the trip points.
   (`0x114` = 0 °C, `0x128` = 20 °C).
 - `design_capacity` is derived from the configured capacity and nominal cell
   voltage: `capacity_kWh * 1000 / (nominal_V * cell_count)`.
-- `cycle_capacity` is taken from the stored energy field (Wh).
+- `cycle_energy` is taken from the stored energy field (Wh).
 - SoC byte interpretation (plain vs. /2) still needs live validation.

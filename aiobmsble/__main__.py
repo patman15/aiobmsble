@@ -138,7 +138,7 @@ async def identify_bms_from_json(json_str: str) -> None:
     # Identify BMS
     if bms_classes := await identify(adv_data, adv_dict.get("address", "")):
         for bms_class in bms_classes:
-            logger.info("Detected BMS type: %s", bms_class.bms_name())
+            logger.info("Detected BMS type: %s", bms_class.bms_type())
         return
 
     logger.info("No matching BMS type found for the given advertisement data")
@@ -159,7 +159,7 @@ async def detect_bms() -> None:
 
         for bms_cls in await identify(advertisement, ble_dev.address):
             bms_inst: BaseBMS = bms_cls(ble_device=ble_dev)
-            logger.info("Found matching BMS type: %s", bms_inst.bms_name())
+            logger.info("Found matching BMS type: %s", bms_inst.bms_type())
 
             if not await _try_query(bms_cls, ble_dev):
                 if bms_cls.ACCEPT_SECRET:

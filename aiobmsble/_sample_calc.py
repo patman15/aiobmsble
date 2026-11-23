@@ -73,8 +73,8 @@ def _c_battery_level(data: _Sample) -> bool:
     return True
 
 
-def _c_cycle_capacity(data: _Sample) -> bool:
-    data["cycle_capacity"] = round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3)
+def _c_cycle_energy(data: _Sample) -> bool:
+    data["cycle_energy"] = round(data.get("voltage", 0) * data.get("cycle_charge", 0), 3)
     return True
 
 
@@ -117,7 +117,7 @@ _COMMON_CALCS: Final[tuple[_C, ...]] = (
     _C("cell_count", _fs("cell_voltages"), _c_cell_count),
     _C("cycle_charge", _fs("design_capacity", "battery_level"), _c_cycle_charge),
     _C("battery_level", _fs("design_capacity", "cycle_charge"), _c_battery_level),
-    _C("cycle_capacity", _fs("voltage", "cycle_charge"), _c_cycle_capacity),
+    _C("cycle_energy", _fs("voltage", "cycle_charge"), _c_cycle_energy),
     _C("power", _fs("voltage", "current"), _c_power),
 )
 
@@ -206,7 +206,7 @@ _PACK_AGGREGATES: Final[dict[BMSPackValue, Callable[[list[Any]], Any]]] = {
     "battery_health": min,
     "current": lambda v: round(sum(v), 3),
     "cycle_charge": lambda v: round(sum(v), 3),
-    "cycle_capacity": lambda v: round(sum(v), 3),
+    "cycle_energy": lambda v: round(sum(v), 3),
     "design_capacity": sum,
     "cycles": max,
     "delta_cell_voltage": max,

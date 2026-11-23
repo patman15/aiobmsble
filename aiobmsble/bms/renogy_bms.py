@@ -153,7 +153,7 @@ class BMS(BaseBMS):
             values=min(16, result.get("temp_count", 0)),
             start=BMS._TEMP_POS + 2,
             divider=10,
-        )  # TODO: add other sensors, but all are 0 in test.
+        )
 
         await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13EC, count=0x8))
         if len(self._msg) < BMS._MIN_LEN + 0x8 * 2:

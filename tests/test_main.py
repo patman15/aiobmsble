@@ -231,7 +231,7 @@ async def test_identify_bms_from_json_match(
 
     class FakeBMSClass:
         @staticmethod
-        def bms_name() -> Literal["SimpleBMS"]:
+        def bms_type() -> Literal["SimpleBMS"]:
             return "SimpleBMS"
 
     async def fake_identify(adv, addr) -> list[type[FakeBMSClass]]:
@@ -255,7 +255,7 @@ async def test_adv_no_issue_logging(
 
     class FakeBMSClass:
         @staticmethod
-        def bms_name() -> Literal["SimpleBMS"]:
+        def bms_type() -> Literal["SimpleBMS"]:
             return "SimpleBMS"
 
     async def fake_identify(adv, addr) -> list[type[FakeBMSClass]]:

@@ -154,7 +154,7 @@ class BaseBMS(ABC):
         self._ble_device: Final[BLEDevice] = ble_device
         self._cfg: Final[BMSConfig] = config or BMSConfig()
         self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
-        """BLE device name of this instance, see `bms_name()` for the BMS type."""
+        """BLE device name of this instance, see `bms_type()` for the BMS type."""
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
             logger or logging.getLogger(self.__class__.__module__),
@@ -164,7 +164,7 @@ class BaseBMS(ABC):
         self._log.debug(
             "%s: initializing %s, BT address: %s",
             __version__,
-            self.bms_name(),
+            self.bms_type(),
             ble_device.address,
         )
         self._client: BleakClient = BleakClient(
@@ -186,24 +186,24 @@ class BaseBMS(ABC):
         try:
             yield
         except BMSError as exc:
-            exc.bms_id = exc.bms_id or self.bms_name()
+            exc.bms_id = exc.bms_id or self.bms_type()
             exc.address = exc.address or self._ble_device.address
             raise
         except BleakCharacteristicNotFoundError as exc:
             raise BMSUnsupportedError(
-                str(exc), bms_id=self.bms_name(), address=self._ble_device.address
+                str(exc), bms_id=self.bms_type(), address=self._ble_device.address
             ) from exc
         except TimeoutError as exc:
             raise BMSTimeoutError(
-                str(exc), bms_id=self.bms_name(), address=self._ble_device.address
+                str(exc), bms_id=self.bms_type(), address=self._ble_device.address
             ) from exc
         except (BleakError, EOFError, BleakDeviceNotFoundError, ConnectionError) as exc:
             raise BMSConnectionError(
-                str(exc), bms_id=self.bms_name(), address=self._ble_device.address
+                str(exc), bms_id=self.bms_type(), address=self._ble_device.address
             ) from exc
         except _PARSE_ERRORS as exc:
             # internal parser text (e.g. 'index out of range') is kept in __cause__ only
-            raise BMSDataError(bms_id=self.bms_name(), address=self._ble_device.address) from exc
+            raise BMSDataError(bms_id=self.bms_type(), address=self._ble_device.address) from exc
         finally:
             if not self._cfg.keep_alive:
                 self._log.debug("forced disconnect after BMS operation")
@@ -215,7 +215,7 @@ class BaseBMS(ABC):
         if not self._cfg.keep_alive:
             raise BMSConfigError(
                 "usage of context manager requires `BMSConfig(keep_alive=True)`.",
-                bms_id=self.bms_name(),
+                bms_id=self.bms_type(),
                 address=self._ble_device.address,
             )
         async with self._translate_errors():
@@ -259,8 +259,8 @@ class BaseBMS(ABC):
 
     @final
     @classmethod
-    def bms_name(cls) -> str:
-        """Return manufacturer and model of the BMS type (not the BLE device `name`)."""
+    def bms_type(cls) -> str:
+        """Return manufacturer and model of the BMS type."""
         return f"{cls.INFO.get('manufacturer', 'unknown')} {cls.INFO.get('model', 'unknown')}"
 
     @staticmethod
@@ -604,7 +604,7 @@ class BaseBMS(ABC):
                 # try next write mode, without reconnecting, as recursion might occur
         raise BMSTimeoutError(
             "BMS did not send a valid reply after retries.",
-            bms_id=self.bms_name(),
+            bms_id=self.bms_type(),
             address=self._ble_device.address,
         )
 

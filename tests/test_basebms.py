@@ -274,12 +274,12 @@ class BMSBasicTests:
     bms_class: type[BaseBMS]
     config: BMSConfig = BMSConfig()
 
-    def test_bms_name(self) -> None:
+    def test_bms_type(self) -> None:
         """Test that the BMS returns default information."""
 
         for key in ("manufacturer", "model"):
             assert str(self.bms_class.INFO.get(key, "")).strip()
-        assert len(self.bms_class.bms_name().strip())
+        assert len(self.bms_class.bms_type().strip())
 
     async def test_matcher_dict(self) -> None:
         """Test that the BMS returns BT matcher."""
@@ -515,7 +515,7 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
     BaseBMS._add_missing_values(bms_data)
     ref = ref | {
         "cell_count": 2,
-        "cycle_capacity": 238,
+        "cycle_energy": 238,
         "delta_cell_voltage": 0.111,
         "power": (
             -91 if bms_data.get("current", 0) < 0 else 0 if bms_data.get("current") == 0 else 147
@@ -603,7 +603,7 @@ async def test_update(patch_bleak_client: Callable[..., None], raw: bool) -> Non
         base_result.update(
             {
                 "battery_charging": True,
-                "cycle_capacity": 247,
+                "cycle_energy": 247,
                 "power": 22.1,
                 "problem": True,
             }
@@ -1072,7 +1072,7 @@ async def test_init_connect_fail(
     ):
         await bms.update()
     assert isinstance(exc_info.value.__cause__, ValueError)
-    assert exc_info.value.bms_id == MinTestBMS.bms_name()
+    assert exc_info.value.bms_id == MinTestBMS.bms_type()
     assert exc_info.value.address == bms._ble_device.address
 
 
@@ -1125,7 +1125,7 @@ async def test_update_error_translation(
     with pytest.raises(expected) as exc_info:
         await bms.update()
     assert str(exc_info.value)
-    assert exc_info.value.bms_id == MinTestBMS.bms_name()
+    assert exc_info.value.bms_id == MinTestBMS.bms_type()
     assert exc_info.value.address == bms._ble_device.address
     assert bms.is_connected is keep_alive
     await bms.disconnect()
@@ -1188,7 +1188,7 @@ async def test_context_mgr(
             "current": 1.7,
             "battery_charging": True,
             "power": 22.1,
-            "cycle_capacity": 247,
+            "cycle_energy": 247,
             "cycle_charge": 19,
             "cycles": 23,
             "problem": True,
