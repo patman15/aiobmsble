@@ -22,10 +22,10 @@ class BMS(BaseBMS):
     """Offgridtec LiFePO4 Smart Pro type A and type B BMS implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Offgridtec", "model": "LiFePo4 Smart Pro"}
+    _SKIP_INFO_CHARS = True  # device reports mock values
     # magic crypt sequence of length 16
     _CRY_SEQ: Final[tuple[int, ...]] = (2, 5, 4, 3, 1, 4, 1, 6, 8, 3, 7, 2, 5, 8, 9, 3)
-    # Fields for type A: register -> BMSDp
-    _FIELDS_A: Final[tuple[BMSDp[BMSValue], ...]] = (
+    _FIELDS_A: Final[tuple[BMSDp[BMSValue], ...]] = (  # Fields for type A
         BMSDp("battery_level", 0, 1, False, idx=2),
         BMSDp("cycle_charge", 0, 3, False, lambda x: x / 1000, 4),
         BMSDp("voltage", 0, 2, False, lambda x: x / 1000, 8),
@@ -35,8 +35,7 @@ class BMS(BaseBMS):
         BMSDp("cycles", 0, 2, False, idx=44),
         BMSDp("design_capacity", 0, 3, False, lambda x: x // 1000, 60),
     )
-    # Fields for type B: register -> BMSDp
-    _FIELDS_B: Final[tuple[BMSDp[BMSValue], ...]] = (
+    _FIELDS_B: Final[tuple[BMSDp[BMSValue], ...]] = (  # Fields for type B
         BMSDp("temperature", 0, 2, False, lambda x: [TS(round(x / 10 - 273.15, 3))], 8),
         BMSDp("voltage", 0, 2, False, lambda x: x / 1000, 9),
         BMSDp("current", 0, 3, False, lambda x: x / 1000, 10),
