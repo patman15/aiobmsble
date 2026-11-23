@@ -647,9 +647,9 @@ class MockDBBleakClient(MockBleakClient):
         """Mock start_notify."""
         characteristic = str(char_specifier)[4:8]
 
-        assert callable(callback) and inspect.iscoroutinefunction(
-            callback
-        ), "callback must be an async function"
+        assert callable(callback) and inspect.iscoroutinefunction(callback), (
+            "callback must be an async function"
+        )
 
         self._enabled_notify.add(char_specifier)
 

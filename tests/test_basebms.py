@@ -293,9 +293,9 @@ class BMSBasicTests:
                 assert UUID(service_uuid), f"incorrect {service_uuid=}"
 
             if manufacturer_data_start := matcher.get("manufacturer_data_start"):
-                assert all(
-                    byte == byte & 0xFF for byte in manufacturer_data_start
-                ), "manufacturer_data_start needs to contain Byte values!"
+                assert all(byte == byte & 0xFF for byte in manufacturer_data_start), (
+                    "manufacturer_data_start needs to contain Byte values!"
+                )
 
             if oui := matcher.get("oui"):
                 parts: list[str] = oui.split(":")
@@ -413,9 +413,9 @@ class BMSBasicTests:
         for key, value in result.items():
             assert key in hints, f"Unexpected result key '{key}' not defined in BMSSample"
             expected_type = hints[key]
-            assert _is_instance_of_type(
-                value, expected_type
-            ), f"{key} has wrong type {type(value).__name__}; expected {expected_type}"
+            assert _is_instance_of_type(value, expected_type), (
+                f"{key} has wrong type {type(value).__name__}; expected {expected_type}"
+            )
 
 
 async def verify_device_info(
@@ -873,27 +873,27 @@ def test_no_problems(sample: tuple[BMSSample, str]) -> None:
     [
         ([b"\x12"], [True], [0x12]),
         (
-            [None] * 2 * (BaseBMS.MAX_RETRY),
-            [True] * (BaseBMS.MAX_RETRY) + [False] * (BaseBMS.MAX_RETRY),
+            [None] * 2 * (BaseBMS._MAX_RETRY),
+            [True] * (BaseBMS._MAX_RETRY) + [False] * (BaseBMS._MAX_RETRY),
             [TimeoutError()],
         ),
         (
-            [None] * (BaseBMS.MAX_RETRY - 1) + [b"\x13"],
-            [True] * (BaseBMS.MAX_RETRY),
+            [None] * (BaseBMS._MAX_RETRY - 1) + [b"\x13"],
+            [True] * (BaseBMS._MAX_RETRY),
             [0x13],
         ),
         (
-            [None] * (BaseBMS.MAX_RETRY) + [b"\x14"],
-            [True] * (BaseBMS.MAX_RETRY) + [False],
+            [None] * (BaseBMS._MAX_RETRY) + [b"\x14"],
+            [True] * (BaseBMS._MAX_RETRY) + [False],
             [0x14],
         ),
         (
             [BleakError()]
-            + [None] * (BaseBMS.MAX_RETRY - 1)
+            + [None] * (BaseBMS._MAX_RETRY - 1)
             + [b"\x15"]
-            + [None] * (BaseBMS.MAX_RETRY - 1)
+            + [None] * (BaseBMS._MAX_RETRY - 1)
             + [b"\x16"],
-            [True] + [False] * BaseBMS.MAX_RETRY + [False] * BaseBMS.MAX_RETRY,
+            [True] + [False] * BaseBMS._MAX_RETRY + [False] * BaseBMS._MAX_RETRY,
             [0x15, 0x16],
         ),
         (
@@ -902,8 +902,8 @@ def test_no_problems(sample: tuple[BMSSample, str]) -> None:
             [BMSConnectionError("mock_device")],
         ),
         (
-            [None] * (BaseBMS.MAX_RETRY - 1) + [ValueError()],
-            [True] * (BaseBMS.MAX_RETRY),
+            [None] * (BaseBMS._MAX_RETRY - 1) + [ValueError()],
+            [True] * (BaseBMS._MAX_RETRY),
             [ValueError()],
         ),
     ],
@@ -928,9 +928,9 @@ async def test_write_mode(
 ) -> None:
     """Check if write mode selection works correctly."""
 
-    assert len(replies) == len(
-        exp_wr_response
-    ), "Replies and expected responses must match in length!"
+    assert len(replies) == len(exp_wr_response), (
+        "Replies and expected responses must match in length!"
+    )
     patch_bms_timeout()
     monkeypatch.setattr(MockWriteModeBleakClient, "PATTERN", replies)
     monkeypatch.setattr(MockWriteModeBleakClient, "EXP_WRITE_RESPONSE", exp_wr_response)

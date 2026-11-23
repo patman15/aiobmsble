@@ -40,9 +40,7 @@ class BMS(BaseBMS):
         BMSDp("balancer", 35, 4, False, idx=0x24),
     )
     _RESPS = frozenset(field.idx for field in _FIELDS)
-    _CMDS: frozenset[tuple[int, int]] = frozenset(
-        {(0x0, 0x14), (0x34, 0x12), (0x15, 0x1F)}
-    )
+    _CMDS: frozenset[tuple[int, int]] = frozenset({(0x0, 0x14), (0x34, 0x12), (0x15, 0x1F)})
 
     def __init__(
         self,
@@ -80,9 +78,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 

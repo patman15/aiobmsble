@@ -15,22 +15,22 @@ from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "voltage": 13.4,
-        "current": -3.14,
-        "battery_level": 100,
-        "cycles": 3,
-        "cycle_charge": 40.0,
-        "cell_count": 5,
-        "cell_voltages": [3.339, 3.339, 3.338, 3.338, 2.317],
-        "delta_cell_voltage": 1.022,
-        "temperature": [TS(-2)],
-        "cycle_capacity": 536.0,
-        "design_capacity": 40,
-        "power": -42.076,
-        "runtime": 22608,
-        "battery_charging": False,
-        "problem": False,
-        "problem_code": 0,
+    "voltage": 13.4,
+    "current": -3.14,
+    "battery_level": 100,
+    "cycles": 3,
+    "cycle_charge": 40.0,
+    "cell_count": 5,
+    "cell_voltages": [3.339, 3.339, 3.338, 3.338, 2.317],
+    "delta_cell_voltage": 1.022,
+    "temperature": [TS(-2)],
+    "cycle_capacity": 536.0,
+    "design_capacity": 40,
+    "power": -42.076,
+    "runtime": 22608,
+    "battery_charging": False,
+    "problem": False,
+    "problem_code": 0,
 }
 
 
@@ -111,9 +111,7 @@ class MockAllCellsBleakClient(MockCBTpwrBleakClient):
         return bytearray(self.RESP.get(cmd, b""))
 
 
-async def test_update(
-    patch_bleak_client, patch_bms_timeout, keep_alive_fixture: bool
-) -> None:
+async def test_update(patch_bleak_client, patch_bms_timeout, keep_alive_fixture: bool) -> None:
     """Test CBT power BMS data update."""
 
     patch_bms_timeout()

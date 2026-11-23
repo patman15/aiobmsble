@@ -77,9 +77,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         raise NotImplementedError
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data.hex())
 
@@ -103,10 +101,7 @@ class BMS(BaseBMS):
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
         # runtime only applies while discharging with a valid (non-sentinel) reading
-        if (
-            result.get("power", 0) >= 0
-            or result.get("runtime") == BMS._RUNTIME_NONE * 60
-        ):
+        if result.get("power", 0) >= 0 or result.get("runtime") == BMS._RUNTIME_NONE * 60:
             result.pop("runtime", None)
 
         return result

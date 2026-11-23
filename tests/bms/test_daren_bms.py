@@ -197,9 +197,7 @@ class MockDarenBleakClient(MockBleakClient):
         **kwargs: Any,
     ) -> None:
         """Initialize MockBleakClient."""
-        super().__init__(
-            address_or_ble_device, disconnected_callback, services, **kwargs
-        )
+        super().__init__(address_or_ble_device, disconnected_callback, services, **kwargs)
         self._services = ["ff01", "ff02"]
 
     def _response(
@@ -216,8 +214,7 @@ class MockDarenBleakClient(MockBleakClient):
             self.UNLOCKED = True
             return (
                 MockDarenBleakClient.ACK_MSG
-                if sum(_msg[2:-1]) & 0xFF == _msg[-1]
-                and _msg[4:-1] == self.DEFAULT_SECRET
+                if sum(_msg[2:-1]) & 0xFF == _msg[-1] and _msg[4:-1] == self.DEFAULT_SECRET
                 else b"\xff\xaa\x15\x01\x01\x17"
             )
 
@@ -231,9 +228,7 @@ class MockDarenBleakClient(MockBleakClient):
         return b""
 
     async def _send_data(self, char_specifier, data) -> None:
-        assert (
-            self._notify_callback
-        ), "write to characteristics but notification not enabled"
+        assert self._notify_callback, "write to characteristics but notification not enabled"
 
         # always send two responses, to test timeout behaviour
         for resp in (
@@ -285,9 +280,7 @@ async def test_update(
 ) -> None:
     """Test Daren BMS data update."""
 
-    monkeypatch.setattr(
-        MockDarenBleakClient, "_RESP", _PROTO_DEFS[protocol_type].copy()
-    )
+    monkeypatch.setattr(MockDarenBleakClient, "_RESP", _PROTO_DEFS[protocol_type].copy())
     patch_bleak_client(MockDarenBleakClient)
 
     bms = BMS(generate_ble_device(), BMSConfig())

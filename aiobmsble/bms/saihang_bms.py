@@ -58,7 +58,8 @@ class BMS(BaseBMS):
                 "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
-            } for pattern in ("HL*", "SH*")
+            }
+            for pattern in ("HL*", "SH*")
         ]
 
     @staticmethod
@@ -76,9 +77,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "fffb"
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 

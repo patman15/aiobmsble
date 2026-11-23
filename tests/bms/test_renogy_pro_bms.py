@@ -19,27 +19,27 @@ BT_FRAME_SIZE = 512  # ATT max is 512 bytes
 
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "battery_charging": False,
-        "battery_level": 99.0,
-        "cell_voltages": [3.3, 3.3, 3.3, 3.3],
-        "cell_count": 4,
-        "current": -1.2,
-        "cycle_capacity": 2779.195,
-        "cycle_charge": 208.962,
-        "cycles": 6,
-        "delta_cell_voltage": 0.0,
-        "design_capacity": 211,
-        "power": -15.96,
-        "problem": False,
-        "problem_code": 0,
-        "problems": [],
-        "runtime": 626886,
-        "temperature": [TS(27.3), TS(26.8), TS(27.5)],
-        "temp_count": 3,
-        "voltage": 13.3,
-        "chrg_mosfet": True,
-        "dischrg_mosfet": True,
-        "heater": False,
+    "battery_charging": False,
+    "battery_level": 99.0,
+    "cell_voltages": [3.3, 3.3, 3.3, 3.3],
+    "cell_count": 4,
+    "current": -1.2,
+    "cycle_capacity": 2779.195,
+    "cycle_charge": 208.962,
+    "cycles": 6,
+    "delta_cell_voltage": 0.0,
+    "design_capacity": 211,
+    "power": -15.96,
+    "problem": False,
+    "problem_code": 0,
+    "problems": [],
+    "runtime": 626886,
+    "temperature": [TS(27.3), TS(26.8), TS(27.5)],
+    "temp_count": 3,
+    "voltage": 13.3,
+    "chrg_mosfet": True,
+    "dischrg_mosfet": True,
+    "heater": False,
 }
 
 
@@ -65,7 +65,7 @@ class MockRenogyProBleakClient(MockBleakClient):
         BASE_VALUE_CMD: bytearray(
             b"\x30\x03\x0e\xff\xf4\x00\x85\x00\x03\x30\x42\x00\x03\x3b\xda\x00\x06\x3e\x33"
         ),  # -1.2A, 13.3V, 208.9Ah [mAh], 211.9Ah [mAh], 6 cycles
-         b"\x30\x03\x13\xec\x00\x08\x85\x5c": bytearray(
+        b"\x30\x03\x13\xec\x00\x08\x85\x5c": bytearray(
             b"\x30\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x00\xf7\x62"
         ),
     }
@@ -171,9 +171,7 @@ async def test_invalid_device(patch_bleak_client) -> None:
 
     result: BMSSample = {}
 
-    with pytest.raises(
-        ConnectionError, match=r"^Failed to detect characteristics from.*"
-    ):
+    with pytest.raises(ConnectionError, match=r"^Failed to detect characteristics from.*"):
         result = await bms.update()
 
     assert not result

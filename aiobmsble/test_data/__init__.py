@@ -17,17 +17,14 @@ from aiobmsble.utils import adv_dict_to_advdata
 type BmsAdvSample = tuple[AdvertisementData, str, str, list[str]]
 
 
-def parse_adv_from_json(
-    entry: dict[str, Any], text_key: Literal["type", "reason"]
-) -> BmsAdvSample:
+def parse_adv_from_json(entry: dict[str, Any], text_key: Literal["type", "reason"]) -> BmsAdvSample:
     """Parse a JSON string into an AdvertisementData instance."""
     assert isinstance(entry, dict)
     assert {"advertisement", text_key, "_comments"}.issubset(entry.keys())
     adv: AdvertisementData = adv_dict_to_advdata(entry["advertisement"])
     mac_addr: str = (
         adv.platform_data[0]
-        if isinstance(adv.platform_data, tuple)
-        and isinstance(adv.platform_data[0], str)
+        if isinstance(adv.platform_data, tuple) and isinstance(adv.platform_data[0], str)
         else ""
     )
     bms_type: str = entry[text_key]
@@ -68,9 +65,7 @@ def bms_advertisements(bms_filter: str | None = None) -> tuple[BmsAdvSample, ...
                 assert isinstance(raw_data, list)
 
                 for entry in raw_data:
-                    adv, mac_addr, bms_type, comments = parse_adv_from_json(
-                        entry, "type"
-                    )
+                    adv, mac_addr, bms_type, comments = parse_adv_from_json(entry, "type")
                     assert resource.name == f"{bms_type}.json"
                     yield (adv, mac_addr, bms_type, comments)
 
@@ -89,11 +84,7 @@ def ignore_advertisements() -> tuple[BmsAdvSample, ...]:
     """
 
     def generate_entries() -> Generator[BmsAdvSample, Any, None]:
-        with (
-            resources.files(__package__)
-            .joinpath("ignore.json")
-            .open("r", encoding="UTF-8") as f
-        ):
+        with resources.files(__package__).joinpath("ignore.json").open("r", encoding="UTF-8") as f:
             raw_data: Any = json.load(f)
             assert isinstance(raw_data, list)
 

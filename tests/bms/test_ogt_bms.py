@@ -79,13 +79,13 @@ class MockOGTBleakClient(MockBleakClient):
         ) == normalize_uuid_str("fff6"):
             assert self._ble_device.name is not None
             if self._ble_device.name[9] == "A":
-                assert (
-                    bytes(data)[0:4] == b"\x3b\x42\x51\x51"
-                ), "BMS type A command header incorrect."
+                assert bytes(data)[0:4] == b"\x3b\x42\x51\x51", (
+                    "BMS type A command header incorrect."
+                )
             else:
-                assert (
-                    bytes(data)[0:4] == b"\x3b\x42\x21\x26"
-                ), "BMS type B command header incorrect."
+                assert bytes(data)[0:4] == b"\x3b\x42\x21\x26", (
+                    "BMS type B command header incorrect."
+                )
 
             reg: Final[int] = int(
                 bytearray((bytes(data)[x] ^ self.KEY) for x in range(4, 6)).decode(

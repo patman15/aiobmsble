@@ -27,23 +27,26 @@ type CommonValue = Literal[
     "voltage",
 ]
 
-type BMSValue = CommonValue | Literal[
-    "battery_charging",
-    "battery_mode",
-    "power",
-    "total_charge",
-    "problem",
-    "runtime",
-    "balancer",
-    "balance_current",
-    "heater_current",
-    "pack_count",
-    "problem_code",
-    "problems",
-    "chrg_mosfet",
-    "dischrg_mosfet",
-    "heater",
-]
+type BMSValue = (
+    CommonValue
+    | Literal[
+        "battery_charging",
+        "battery_mode",
+        "power",
+        "total_charge",
+        "problem",
+        "runtime",
+        "balancer",
+        "balance_current",
+        "heater_current",
+        "pack_count",
+        "problem_code",
+        "problems",
+        "chrg_mosfet",
+        "dischrg_mosfet",
+        "heater",
+    ]
+)
 
 type BMSPackValue = CommonValue
 
@@ -136,9 +139,7 @@ def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
         if not matched and code & mask:
             explained |= mask
             value: int = (code & mask) >> ((mask & -mask).bit_length() - 1)
-            problems.append(
-                BMSProblem(PrbType.UNKNOWN, text=f"{unknown} value {value:#04x}")
-            )
+            problems.append(BMSProblem(PrbType.UNKNOWN, text=f"{unknown} value {value:#04x}"))
     remaining: Final[int] = code & ~explained
     problems.extend(
         BMSProblem(PrbType.UNKNOWN, text=f"{unknown} bit {bit}")

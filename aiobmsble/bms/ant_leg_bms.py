@@ -54,8 +54,10 @@ class BMS(BaseBMS):
             103,
             2,
             False,
-            lambda x: ((x & 0xF00) if (x >> 8) not in (0x1, 0x4) else 0)
-            | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB) else 0),
+            lambda x: (
+                ((x & 0xF00) if (x >> 8) not in (0x1, 0x4) else 0)
+                | ((x & 0xF) if (x & 0xF) not in (0x1, 0x4, 0xB) else 0)
+            ),
         ),
         BMSDp("chrg_mosfet", 103, 1, False, lambda x: x == 0x1),
         BMSDp("dischrg_mosfet", 104, 1, False, lambda x: x == 0x1),
@@ -105,7 +107,8 @@ class BMS(BaseBMS):
                 "local_name": pattern,
                 "service_uuid": BMS.uuid_services()[0],
                 "connectable": True,
-            } for pattern in ("ANT-BLE[01]*", "ANT-BLE22*")
+            }
+            for pattern in ("ANT-BLE[01]*", "ANT-BLE22*")
         ]
 
     @staticmethod
@@ -123,9 +126,7 @@ class BMS(BaseBMS):
         """Return 16-bit UUID of characteristic that provides write property."""
         return "ffe1"
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
 
         self._log.debug("RX BLE data: %s", data)
@@ -192,9 +193,7 @@ class BMS(BaseBMS):
             with contextlib.suppress(ZeroDivisionError):
                 result["design_capacity"] = int(
                     round(
-                        result.get("cycle_charge", 0)
-                        / result.get("battery_level", 0)
-                        * 100,
+                        result.get("cycle_charge", 0) / result.get("battery_level", 0) * 100,
                         -1,
                     )
                 )  # leads to `cycles` not available when level == 0

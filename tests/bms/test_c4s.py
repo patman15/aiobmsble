@@ -28,22 +28,22 @@ _RESP: bytes = (
 
 
 _RESULT_DEFS: Final[BMSSample] = {
-        "voltage": 13.33,
-        "current": -3.42,
-        "battery_level": 98,
-        "cycle_charge": 92.17,
-        "design_capacity": 100,
-        "cycles": 107,
-        "battery_health": 98,
-        "delta_cell_voltage": 0.01,
-        "cell_count": 4,
-        "cell_voltages": [3.337, 3.33, 3.329, 3.339],
-        "temperature": [TS(28.0, TS.T.MOSFET), TS(27.0, TS.T.AMBIENT)],
-        "battery_charging": False,
-        "cycle_capacity": 1228.626,
-        "power": -45.589,
-        "runtime": 97021,
-        "problem": False,
+    "voltage": 13.33,
+    "current": -3.42,
+    "battery_level": 98,
+    "cycle_charge": 92.17,
+    "design_capacity": 100,
+    "cycles": 107,
+    "battery_health": 98,
+    "delta_cell_voltage": 0.01,
+    "cell_count": 4,
+    "cell_voltages": [3.337, 3.33, 3.329, 3.339],
+    "temperature": [TS(28.0, TS.T.MOSFET), TS(27.0, TS.T.AMBIENT)],
+    "battery_charging": False,
+    "cycle_capacity": 1228.626,
+    "power": -45.589,
+    "runtime": 97021,
+    "problem": False,
 }
 
 
@@ -67,9 +67,7 @@ class MockC4SBleakClient(MockBleakClient):
         """Issue write command to GATT."""
         await super().write_gatt_char(char_specifier, data, response)
         assert self._notify_callback is not None
-        self._notify_callback(
-            "MockC4SBleakClient", bytearray(self.RESP.get(bytes(data), b""))
-        )
+        self._notify_callback("MockC4SBleakClient", bytearray(self.RESP.get(bytes(data), b"")))
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:

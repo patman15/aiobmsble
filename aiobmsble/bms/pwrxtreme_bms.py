@@ -22,9 +22,8 @@ class BMS(TopbandBMS):
     """PowerXtreme BMS implementation."""
 
     INFO: BMSInfo = {"manufacturer": "PowerXtreme", "model": "smart BMS"}
-    FIELDS: tuple[BMSDp[BMSValue], ...]  = tuple(
-        f._replace(fct=lambda x: x / 10) if f.key == "current" else f
-        for f in TopbandBMS.FIELDS
+    FIELDS: tuple[BMSDp[BMSValue], ...] = tuple(
+        f._replace(fct=lambda x: x / 10) if f.key == "current" else f for f in TopbandBMS.FIELDS
     )
 
     ALIVE_INTERVAL = 3.0  # seconds
@@ -97,9 +96,7 @@ class BMS(TopbandBMS):
             self._ctrl_proto = b""
             self._msg_event.clear()
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         if self._ctrl_proto:
             if (

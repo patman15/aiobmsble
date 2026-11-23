@@ -122,9 +122,7 @@ class MockDPwrcoreBleakClient(MockBleakClient):
             "MockPwrcoreBleakClient", bytearray([data_ba[0] | 0x80]) + data_ba[1:]
         )
         for pos in range(1 + int((len(resp) - 1) / self.PAGE_LEN)):
-            await self._notify_callback(
-                "MockPwrcoreBleakClient", resp[pos * 20 :][: self.PAGE_LEN]
-            )
+            await self._notify_callback("MockPwrcoreBleakClient", resp[pos * 20 :][: self.PAGE_LEN])
 
 
 class MockWrongCRCBleakClient(MockDPwrcoreBleakClient):
@@ -192,9 +190,7 @@ class MockProblemBleakClient(MockDPwrcoreBleakClient):
         return super()._response(char_specifier, data)
 
 
-async def test_update(
-    patch_bleak_client, dev_name: str, keep_alive_fixture: bool
-) -> None:
+async def test_update(patch_bleak_client, dev_name: str, keep_alive_fixture: bool) -> None:
     """Test D-pwercore BMS data update."""
 
     patch_bleak_client(MockDPwrcoreBleakClient)
@@ -210,9 +206,7 @@ async def test_update(
     await bms.disconnect()
 
 
-async def test_invalid_response(
-    patch_bleak_client, patch_bms_timeout, dev_name: str
-) -> None:
+async def test_invalid_response(patch_bleak_client, patch_bms_timeout, dev_name: str) -> None:
     """Test data update with BMS returning invalid data."""
 
     patch_bms_timeout()

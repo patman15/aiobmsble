@@ -220,7 +220,11 @@ async def test_invalid_response(
         (b"\x46\x32\x32\x30", 0x0200, [PT.CHARGE_UNDERTEMP]),
         (b"\x43\x34\x32\x30", 0x0400, [PT.DISCHARGE_OVERTEMP]),
         (b"\x43\x38\x32\x30", 0x0800, [PT.DISCHARGE_UNDERTEMP]),
-        (b"\x46\x32\x33\x34", 0x0214, [PT.PACK_OVERVOLTAGE, PT.CHARGE_OVERCURRENT, PT.CHARGE_UNDERTEMP]),
+        (
+            b"\x46\x32\x33\x34",
+            0x0214,
+            [PT.PACK_OVERVOLTAGE, PT.CHARGE_OVERCURRENT, PT.CHARGE_UNDERTEMP],
+        ),
     ],
     ids=[
         "high_voltage",

@@ -20,7 +20,7 @@ class BMS(VatrerBMS):
     _REG_COUNT: Final[int] = 0x46  # 70 holding registers polled in one request
 
     # BMSDp(key, pos, size, signed, fct, idx); pos/idx documented in docs/c4s_bms.md
-    _FIELDS: tuple[BMSDp[BMSValue], ...]  = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 3, 2, False, lambda x: x / 100),
         BMSDp("current", 5, 4, True, lambda x: x / 100),
         BMSDp("battery_level", 9, 2, False),
@@ -46,9 +46,7 @@ class BMS(VatrerBMS):
     async def _update(self) -> BMSSample:
         """Update battery status information."""
         self._msg.clear()
-        await self._await_msg(
-            BMS._cmd_modbus(dev_id=0x2, addr=0x0, count=BMS._REG_COUNT)
-        )
+        await self._await_msg(BMS._cmd_modbus(dev_id=0x2, addr=0x0, count=BMS._REG_COUNT))
         if BMS._REG_COUNT * 2 not in self._msg:
             self._log.debug("incomplete data set %s", self._msg.keys())
             raise BMSDataError

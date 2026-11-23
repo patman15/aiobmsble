@@ -69,6 +69,7 @@ __version__: str = "0.0.0.dev0"
 with suppress(PackageNotFoundError):
     __version__ = version("aiobmsble")
 
+
 class BMSMode(IntEnum):
     """Enumeration of BMS modes."""
 
@@ -210,9 +211,7 @@ class BMSProblem:
     text: str
     """Human readable (vendor specific) description."""
 
-    def __init__(
-        self, kind: PrbType, level: Severity | None = None, text: str = ""
-    ) -> None:
+    def __init__(self, kind: PrbType, level: Severity | None = None, text: str = "") -> None:
         """Create a problem, omitted level and text default to those of the problem kind."""
         default: Final[PrbDefault] = PROBLEM_DEFAULTS[kind]
         object.__setattr__(self, "kind", kind)
@@ -292,7 +291,7 @@ class BMSConfig:
     keep_alive: bool = True
     """Keep the connection open between calls (faster, more stable)."""
     secret: str = ""
-    """Application level secret/PIN, only used if the BMS class sets `accept_secret`."""
+    """Application level secret/PIN, only used if the BMS class sets `ACCEPT_SECRET`."""
 
 
 class BMSInfo(TypedDict, total=False):
@@ -348,4 +347,3 @@ class Threshold:
 
 type BMSLimits = dict[Limit, Threshold]
 """Thresholds configured in the BMS, returned by `aiobmsble.basebms.BaseBMS.limits()`."""
-

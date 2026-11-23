@@ -137,6 +137,7 @@ For integration tests (using pytest) the library provides advertisement data tha
 ```python
 from aiobmsble.test_data import bms_advertisements
 
+
 def test_advertisements() -> None:
     """Run some tests with the advertisements"""
     for advertisement, bms_type, _comments in bms_advertisements():

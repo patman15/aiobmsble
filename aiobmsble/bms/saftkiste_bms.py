@@ -39,7 +39,7 @@ class BMS(BaseBMS):
         BMSDp("balancer", 33, 1, False, bool, idx=0x2),
         BMSDp("problem_code", 38, 2, False, idx=0x2),
     )
-    accept_secret: bool = True
+    ACCEPT_SECRET: bool = True
 
     def __init__(
         self,

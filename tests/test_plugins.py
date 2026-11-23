@@ -42,9 +42,9 @@ def test_advertisements_unique() -> None:
     for adv, mac_addr, bms_real, _comments in bms_advertisements():
         for bms_under_test in load_bms_plugins():
             supported: bool = bms_under_test.BMS.matches(adv, mac_addr)
-            assert supported == (
-                f"aiobmsble.bms.{bms_real}" == bms_under_test.__name__
-            ), f"{adv} {"incorrectly matches"if supported else "does not match"} {bms_under_test.__name__}!"
+            assert supported == (f"aiobmsble.bms.{bms_real}" == bms_under_test.__name__), (
+                f"{adv} {'incorrectly matches' if supported else 'does not match'} {bms_under_test.__name__}!"
+            )
 
 
 def test_advertisements_ignore() -> None:

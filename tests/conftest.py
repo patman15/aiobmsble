@@ -136,9 +136,9 @@ class MockBleakClient(BleakClient):
         """Mock start_notify."""
         LOGGER.debug("MockBleakClient start_notify for %s", char_specifier)
         assert self._connected, "start_notify called, but client not connected."
-        assert (
-            char_specifier not in self._enabled_notify
-        ), "start_notify called, but already notifying."
+        assert char_specifier not in self._enabled_notify, (
+            "start_notify called, but already notifying."
+        )
         self._notify_callback = callback
         self._enabled_notify.add(char_specifier)
 

@@ -36,10 +36,8 @@ class BMS(BaseBMS):
     INFO: BMSInfo = {"manufacturer": "Humsienk", "model": "BMC"}
     _HEAD: Final[bytes] = b"\xaa"  # beginning of frame
     _MIN_LEN: Final[int] = 5  # minimal frame len
-    _PRB_MASK: Final[int] = (
-        0xFF7F7F7F  # bits 7, 15, 23 are chrg FET, heater, dischrg FET
-    )
-    _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = (
+    _PRB_MASK: Final[int] = 0xFF7F7F7F  # bits 7, 15, 23 are chrg FET, heater, dischrg FET
+    _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
         BMSDp("voltage", 3, 4, False, lambda x: x / 1000, 0x21),
         BMSDp("current", 7, 4, True, lambda x: x / 1000, 0x21),
         BMSDp("battery_level", 11, 1, False, idx=0x21),
@@ -153,9 +151,7 @@ class BMS(BaseBMS):
     async def _fetch_limits(self) -> BMSLimits:
         """Fetch the thresholds (0x58 configuration frame)."""
         await self._await_msg(BMS._cmd(b"\x58"))
-        return BMS._decode_limits(
-            self._msg[0x58][3:-2], BMS._LIMIT_FIELDS, byteorder="little"
-        )
+        return BMS._decode_limits(self._msg[0x58][3:-2], BMS._LIMIT_FIELDS, byteorder="little")
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -164,9 +160,7 @@ class BMS(BaseBMS):
         await super()._init_connection(char_notify)
         await self._await_msg(BMS._cmd(b"\x00"))  # init
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -215,9 +209,7 @@ class BMS(BaseBMS):
         for cmd in BMS._CMDS:
             await self._await_msg(BMS._cmd(cmd))
 
-        result: BMSSample = BMS._decode_data(
-            BMS._FIELDS, data=self._msg, byteorder="little"
-        )
+        result: BMSSample = BMS._decode_data(BMS._FIELDS, data=self._msg, byteorder="little")
         result["cell_voltages"] = BMS._cell_voltages(
             self._msg[0x22], cells=24, start=3, byteorder="little"
         )
@@ -227,8 +219,7 @@ class BMS(BaseBMS):
             start=23,
             size=1,
             byteorder="little",
-            types=(TempSensor.T.CELL,) * 4
-            + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
+            types=(TempSensor.T.CELL,) * 4 + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
         )
 
         # Add problem for cell disconnect bitmap

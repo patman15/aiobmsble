@@ -19,9 +19,7 @@ def test_json_dict_to_advdata() -> None:
         "local_name": "dummy_bms",
         "rssi": -73,
         "manufacturer_data": {"12345": "00112233445566778899AABBCCDDEEFF"},
-        "service_data": {
-            "0000262a-0000-1000-8000-00805f9b34fb": "112233445566778899AABB"
-        },
+        "service_data": {"0000262a-0000-1000-8000-00805f9b34fb": "112233445566778899AABB"},
         "service_uuids": ["6e400001-b5a3-f393-e0a9-e50e24dcca9e"],
         "tx_power": 21,
         "platform_data": ("00:11:22:aa:bb:cc", 123, "test", {"check": "ok"}),

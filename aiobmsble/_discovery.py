@@ -3,6 +3,7 @@
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
+
 from fnmatch import translate
 import re
 
@@ -28,20 +29,16 @@ def advertisement_matches(
             if service_data_uuid
             else not adv_data.service_data
         )
-    matched = matched and (
-        not oui or mac_addr.lower().startswith(oui.lower()[:8])
-    )
+    matched = matched and (not oui or mac_addr.lower().startswith(oui.lower()[:8]))
     if manufacturer_id is not None:
         matched = matched and manufacturer_id in adv_data.manufacturer_data
         if manufacturer_data_start := matcher.get("manufacturer_data_start"):
             if manufacturer_id in adv_data.manufacturer_data:
-                matched = matched and adv_data.manufacturer_data[
-                    manufacturer_id
-                ].startswith(bytes(manufacturer_data_start))
+                matched = matched and adv_data.manufacturer_data[manufacturer_id].startswith(
+                    bytes(manufacturer_data_start)
+                )
     if "connectable" in matcher:
-        matched = matched and (
-            getattr(adv_data, "connectable", True) == matcher["connectable"]
-        )
+        matched = matched and (getattr(adv_data, "connectable", True) == matcher["connectable"])
     if local_name:
         matched = matched and bool(
             re.compile(translate(local_name)).match(adv_data.local_name or "")

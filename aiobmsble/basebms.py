@@ -87,24 +87,23 @@ class BaseBMS(ABC):
     the caller.
     """
 
-    INFO: BMSInfo  # static BMS info (available before connect)
-    MAX_RETRY: Final[int] = 3  # max number of retries for data requests
-    TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    ACCEPT_SECRET: bool = False  # if True, the BMS accepts a secret for authentication
+    ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
     BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value
-    # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
-    _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**MAX_RETRY - 1)
-    _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
+    INFO: BMSInfo  # static BMS info (available before connect)
+    TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    _CONNECT_TIMEOUT: Final[float] = MAX_CONNECT_ATTEMPTS * BLEAK_TIMEOUT + 1
+    _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _MAX_MSG_LEN: int = 0xFF  # maximum allowed frame length
-    _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
+    _MAX_RETRY: Final[int] = 3  # max number of retries for data requests
+    _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
+    _PROBLEMS: tuple[BMSPrbDef, ...] = ()  # decoding of problem_code, empty: not supported
+    # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
+    _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**_MAX_RETRY - 1)
     # Hard timeout for the entire connection setup (connect + GATT + notify).
     # Acts as a safety net when BlueZ hangs and bleak_retry_connector's
     # internal timeouts fail to fire.  Not ``Final`` so subclasses can tune.
-    _CONNECT_TIMEOUT: Final[float] = MAX_CONNECT_ATTEMPTS * BLEAK_TIMEOUT + 1
-    ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
-    _PROBLEMS: tuple[BMSPrbDef, ...] = ()  # decoding of problem_code, empty: not supported
-
-    accept_secret: bool = False  # if True, the BMS accepts a secret for authentication
     _SKIP_INFO_CHARS: bool = False  # set True to skip information from _INFO_CHARS for BMSInfo()
     type _InfoCharType = Literal[
         "model", "serial_number", "fw_version", "sw_version", "hw_version", "manufacturer"
@@ -147,9 +146,9 @@ class BaseBMS(ABC):
             logger (logging.Logger | None): logger for this BMS instance; defaults to the module logger
 
         """
-        assert (
-            getattr(self, "_notification_handler", None) is not None
-        ), "BMS class must define `_notification_handler` method"
+        assert getattr(self, "_notification_handler", None) is not None, (
+            "BMS class must define `_notification_handler` method"
+        )
         assert {"manufacturer", "model"}.issubset(self.INFO), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._cfg: Final[BMSConfig] = config or BMSConfig()
@@ -582,7 +581,7 @@ class BaseBMS(ABC):
         for inv_wr_mode in [False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]:
             try:
                 self._msg_event.clear()  # clear event before requesting new data
-                for attempt in range(BaseBMS.MAX_RETRY):
+                for attempt in range(BaseBMS._MAX_RETRY):
                     await self._send_msg(
                         data, max_size, char or self.uuid_tx(), attempt, inv_wr_mode
                     )

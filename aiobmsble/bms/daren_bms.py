@@ -38,7 +38,7 @@ class BMS(JBDBMS):
         BMSDp("current", 49, 2, True, lambda x: x / 10),
     )
 
-    accept_secret: bool = False
+    ACCEPT_SECRET: bool = False
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
