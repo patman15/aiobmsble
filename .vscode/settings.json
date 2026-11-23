@@ -11,5 +11,8 @@
     "chat.tools.terminal.autoApprove": {
         ".venv/bin/python": true
     },
-    "python.analysis.diagnosticMode": "workspace"
+    "python.analysis.diagnosticMode": "workspace",
+    "better-todo-tree.filtering.excludeGlobs": [
+        "*.md"
+    ]
 }

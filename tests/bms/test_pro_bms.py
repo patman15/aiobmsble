@@ -236,7 +236,6 @@ async def test_update_no_data_after_init(
 
     # Replace write_gatt_char to send init response after trigger command
     # This will set the event but not _streaming
-    # FIXME! put into class
     async def mock_write(self, char, data, response=None) -> None:
         await MockBleakClient.write_gatt_char(self, char, data, response)
         assert self._notify_callback is not None

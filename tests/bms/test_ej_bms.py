@@ -38,9 +38,9 @@ class MockEJBleakClient(MockBleakClient):
             return bytearray(
                 b":0082310080000101C00000880F540F3C0F510FD70F310F2C0F340F3A0FED0FED0000000000000000"
                 b"000000000000000248424242F0000000000000000001AB~"
-            )  # TODO: put numbers
+            )  # 39.517 V, -0.02 A, 1%, 0 cycles, 10 cells, 32 °C; MOSFETs on
         if cmd == 0x10:
-            return bytearray(b":009031001E00000002000A000AD8~")  # TODO: put numbers
+            return bytearray(b":009031001E00000002000A000AD8~")  # cycle_charge=0.2 Ah
         return bytearray()
 
     async def write_gatt_char(
@@ -131,7 +131,7 @@ class MockEJinvalidBleakClient(MockEJBleakClient):
         return bytearray(
             b":0082310080000101C00000880F540F3C0F510FD70F310F2C0F340F3A0FED0FED0000000000000000"
             b"000000000000000248424242F0000000000000000001AB~"
-        )  # TODO: put numbers
+        )  # 39.517 V, -0.02 A, 1%, 0 cycles, 10 cells, 32 °C; MOSFETs on
 
 
 class MockEJwrongCmdBleakClient(MockEJBleakClient):
