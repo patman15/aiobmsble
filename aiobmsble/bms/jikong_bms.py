@@ -196,12 +196,17 @@ class BMS(BaseBMS):
                 return
 
         # a response header always starts a new frame (previous one might have lost a fragment)
-        if data.startswith(BMS._HEAD_RSP) and 0 < len(self._frame) < BMS._INFO_LEN:
-            self._log.debug("discarding incomplete frame (%i bytes)", len(self._frame))
-
         if (
             data.startswith(BMS._HEAD_RSP)
-            or (len(self._frame) >= BMS._INFO_LEN and data.startswith(BMS._HEAD_CMD))
+            and self._frame.startswith(BMS._HEAD_RSP)
+            and len(self._frame) < BMS._INFO_LEN
+        ):
+            self._log.debug("discarding incomplete frame (%i bytes)", len(self._frame))
+
+        # start over on a new header, after a complete (processed) frame, or without a valid start
+        if (
+            data.startswith(BMS._HEAD_RSP)
+            or len(self._frame) >= BMS._INFO_LEN
             or not self._frame.startswith(BMS._HEAD_RSP)
         ):
             self._frame.clear()
