@@ -29,7 +29,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "design_capacity": 200,
     "temperature": [TS(6.2), TS(7.3)],
     "temp_count": 2,
-    "cycle_capacity": 2553.6,
+    "cycle_energy": 2553.6,
     "power": 0.0,
     "battery_charging": False,
     "problem": False,

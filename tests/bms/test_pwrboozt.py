@@ -34,7 +34,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycle_charge": 103.95,
     "power": -10.758,
     "runtime": 473696,
-    "cycle_capacity": 1415.591,
+    "cycle_energy": 1415.591,
     "problem": False,
 }
 

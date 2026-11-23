@@ -29,7 +29,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "battery_health": 100,
     "cycle_charge": 138.96,
     "cycles": 0,
-    "cycle_capacity": 7606.67,
+    "cycle_energy": 7606.67,
     "power": 0.0,
     "design_capacity": 230,
     "battery_charging": False,

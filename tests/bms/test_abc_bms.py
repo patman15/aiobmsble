@@ -34,7 +34,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "temperature": [TS(20, TS.T.GENERIC)],
     "delta_cell_voltage": 0.137,
     "design_capacity": 100,
-    "cycle_capacity": 2922.047,
+    "cycle_energy": 2922.047,
     "power": 0.0,
     "battery_charging": False,
     "problem": False,

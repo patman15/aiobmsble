@@ -515,7 +515,7 @@ def test_calc_pwr_chrg_temp(bms_data_fixture: BMSSample) -> None:
     BaseBMS._add_missing_values(bms_data)
     ref = ref | {
         "cell_count": 2,
-        "cycle_capacity": 238,
+        "cycle_energy": 238,
         "delta_cell_voltage": 0.111,
         "power": (
             -91 if bms_data.get("current", 0) < 0 else 0 if bms_data.get("current") == 0 else 147
@@ -603,7 +603,7 @@ async def test_update(patch_bleak_client: Callable[..., None], raw: bool) -> Non
         base_result.update(
             {
                 "battery_charging": True,
-                "cycle_capacity": 247,
+                "cycle_energy": 247,
                 "power": 22.1,
                 "problem": True,
             }
@@ -1188,7 +1188,7 @@ async def test_context_mgr(
             "current": 1.7,
             "battery_charging": True,
             "power": 22.1,
-            "cycle_capacity": 247,
+            "cycle_energy": 247,
             "cycle_charge": 19,
             "cycles": 23,
             "problem": True,

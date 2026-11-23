@@ -77,7 +77,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         4.009,
     ],
     "current": 14.971,
-    "cycle_capacity": 2260.859,
+    "cycle_energy": 2260.859,
     "cycle_charge": 28.172,
     "cycles": 16,
     "delta_cell_voltage": 0.009,

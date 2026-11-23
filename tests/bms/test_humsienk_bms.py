@@ -104,7 +104,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cell_voltages": [3.281, 3.291, 3.284, 3.28],
         "battery_charging": False,
         "power": -15.099,
-        "cycle_capacity": 833.23,
+        "cycle_energy": 833.23,
         "runtime": 198657,
         "delta_cell_voltage": 0.011,
         "temperature": [TS(v, TS.T.CELL) for v in (35.0, 26.0, 26.0, 26.0)]
@@ -129,7 +129,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cell_voltages": [3.409, 3.408, 3.412, 3.394],
         "battery_charging": True,
         "power": 23.29,
-        "cycle_capacity": 8487.712,
+        "cycle_energy": 8487.712,
         "delta_cell_voltage": 0.018,
         "temperature": [TS(v, TS.T.CELL) for v in (17.0, 26.0, 26.0, 26.0)]
         + [TS(18.0, TS.T.MOSFET), TS(26.0, TS.T.AMBIENT)],

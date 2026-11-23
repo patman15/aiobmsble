@@ -31,7 +31,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cell_voltages": [3.5, 3.3, 3.3, 3.3],
     "cell_count": 4,
     "current": -0.86,
-    "cycle_capacity": 1321.92,
+    "cycle_energy": 1321.92,
     "cycle_charge": 97.2,
     "cycles": 15,
     "delta_cell_voltage": 0.2,

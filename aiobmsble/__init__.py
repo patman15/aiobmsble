@@ -277,7 +277,7 @@ class BatterySample(TypedDict, total=False):
     current: float  # [A] (positive: charging)
     cycles: int  # [#]
     cycle_charge: int | float  # [Ah]
-    cycle_capacity: int | float  # [Wh]
+    cycle_energy: int | float  # [Wh]
     delta_cell_voltage: float  # [V]
     design_capacity: int  # [Ah]
     power: float  # [W] (positive: charging)

@@ -20,7 +20,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "battery_level": 40,
     "battery_health": 100,
     "cycle_charge": 39.7,
-    "cycle_capacity": 2090.999,
+    "cycle_energy": 2090.999,
     "cycles": 27,
     "delta_cell_voltage": 0.003,
     "cell_count": 16,

@@ -78,7 +78,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
         "battery_level": 60,
         "battery_charging": False,
         "chrg_mosfet": True,
-        "cycle_capacity": 777.915,
+        "cycle_energy": 777.915,
         "cycle_charge": 59.0,
         "cycles": 63,
         "cell_count": 4,

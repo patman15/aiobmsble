@@ -150,7 +150,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
             3.279,
         ],
         "current": 2.026,
-        "cycle_capacity": 9296.836,
+        "cycle_energy": 9296.836,
         "cycle_charge": 177.407,
         "delta_cell_voltage": 0.013,
         "design_capacity": 320,

@@ -50,7 +50,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "battery_health": 99,
     "design_capacity": 100,
     "cycle_charge": 91.0,
-    "cycle_capacity": round(13.24 * 91.0, 3),
+    "cycle_energy": round(13.24 * 91.0, 3),
     "temperature": [TS(15.0)] * 2,
     "cell_voltages": [3.312, 3.311],
     "delta_cell_voltage": 0.001,
