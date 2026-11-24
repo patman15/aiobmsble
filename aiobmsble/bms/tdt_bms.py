@@ -246,12 +246,12 @@ class BMS(BaseBMS):
             raise BMSDataError
         result["temp_count"] = self._msg[0x8C][temp_pos]
 
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg[0x8C],
             cells=result.get("cell_count", 0),
             start=BMS._CELL_POS + 1,
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg[0x8C],
             values=result["temp_count"],
             start=BMS._CELL_POS + result.get("cell_count", 0) * 2 + 2,

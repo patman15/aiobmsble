@@ -238,10 +238,10 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd))
 
         data: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
-        data["cell_voltages"] = BMS._cell_voltages(
+        data["cell_voltages"] = BMS._decode_cells(
             self._msg[0x2], cells=data.get("cell_count", 0), start=4
         )
-        data["temperature"] = BMS._temperature(
+        data["temperature"] = BMS._decode_temp(
             self._msg[0x3],
             values=data.get("temp_count", 0),
             start=4,

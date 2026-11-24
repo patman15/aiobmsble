@@ -127,7 +127,7 @@ class BMS(BaseBMS):
 
         await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
         return self._decode_data(BMS._FIELDS, self._msg, byteorder="little") | {
-            "cell_voltages": BMS._cell_voltages(
+            "cell_voltages": BMS._decode_cells(
                 self._msg, cells=BMS._MAX_CELLS, start=22, byteorder="little"
             )
         }

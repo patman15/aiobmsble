@@ -104,14 +104,14 @@ class BMS(BaseBMS):
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 
         await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x39, count=0x1))
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg, start=3, divider=10, types=(TempSensor.T.MOSFET,)
         )
 
         await self._await_msg(BMS._cmd_modbus(dev_id=0x1, addr=0x2E, count=BMS._MAX_TEMP + 1))
         result["temp_count"] = int.from_bytes(self._msg[3:5], "big")
         result["temperature"].extend(
-            BMS._temperature(
+            BMS._decode_temp(
                 self._msg,
                 values=result.get("temp_count", 0),
                 start=5,

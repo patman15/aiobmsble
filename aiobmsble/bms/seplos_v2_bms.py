@@ -333,12 +333,12 @@ class BMS(BaseBMS):
             & BMS._PRB_MASK
         )
 
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg[0x61],
             cells=self._msg[0x61][BMS._CELL_POS],
             start=10,
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg[0x61],
             values=result.get("temp_count", 0),
             start=BMS._CELL_POS + result.get("cell_count", 0) * 2 + 2,

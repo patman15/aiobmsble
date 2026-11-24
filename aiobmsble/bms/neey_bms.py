@@ -211,12 +211,12 @@ class BMS(BaseBMS):
                 (BMS._FIELDS if self._proto == "v2" else BMS._FIELDS_v1), self._msg
             )
             data["temperature"] = (
-                BMS._temperature(self._msg, values=4, start=226)
+                BMS._decode_temp(self._msg, values=4, start=226)
                 if self._proto == "v2"
-                else BMS._temperature(self._msg, values=2, start=221)
+                else BMS._decode_temp(self._msg, values=2, start=221)
             )
 
-            data["cell_voltages"] = BMS._cell_voltages(
+            data["cell_voltages"] = BMS._decode_cells(
                 self._msg, cells=24, start=9, byteorder="little", size=4
             )
         except StructError as exc:
@@ -227,7 +227,7 @@ class BMS(BaseBMS):
         return data
 
     @staticmethod
-    def _cell_voltages(
+    def _decode_cells(
         data: bytes,
         *,
         cells: int,
@@ -245,7 +245,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _temperature(
+    def _decode_temp(
         data: bytes,
         *,
         start: int,

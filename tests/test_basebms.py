@@ -1273,7 +1273,7 @@ def test_crc_calculations() -> None:
         "divider_one_raw_values",
     ],
 )
-def test_cell_voltages(
+def test_decode_cells(
     data: bytes,
     cells: int,
     start: int,
@@ -1283,7 +1283,7 @@ def test_cell_voltages(
     expected: list[float],
 ) -> None:
     """Test the _cell_voltages method of BaseBMS with various input parameters."""
-    result: list[float] = BaseBMS._cell_voltages(
+    result: list[float] = BaseBMS._decode_cells(
         data,
         cells=cells,
         start=start,
@@ -1351,7 +1351,7 @@ def test_cell_voltages(
         "div-1",
     ],
 )
-def test_temperature(
+def test_decode_temp(
     data: bytes,
     values: int,
     start: int,
@@ -1363,7 +1363,7 @@ def test_temperature(
     expected: tuple[float, ...],
 ) -> None:
     """Test the _temperature method of BaseBMS with various input parameters."""
-    result: list[TempSensor] = BaseBMS._temperature(
+    result: list[TempSensor] = BaseBMS._decode_temp(
         data,
         values=values,
         start=start,
@@ -1379,8 +1379,7 @@ def test_temperature(
 @pytest.mark.parametrize(
     ("fields", "data", "byteorder", "start", "expected"),
     [
-        # Test with big endian and multiple data points
-        (
+        (  # Test with big endian and multiple data points
             (
                 BMSDp("voltage", 0, size=2, signed=False),
                 BMSDp("current", 2, size=2, signed=True),
@@ -1390,32 +1389,28 @@ def test_temperature(
             0,
             {"voltage": 3456.0, "current": -20},
         ),
-        # Test with dict data, little endian
-        (
+        (  # Test with dict data, little endian
             (BMSDp("voltage", 0, size=2, signed=False, fct=lambda x: x / 10, idx=1),),
             {1: b"\x64\x00"},
             "little",
             0,
             {"voltage": 10},
         ),
-        # Test with missing dict data
-        (
+        (  # Test with missing dict data
             (BMSDp("voltage", 0, size=2, signed=False, idx=2),),
             {1: b"\x64\x00"},
             "little",
             0,
             {},
         ),
-        # Test with start
-        (
+        (  # Test with start
             (BMSDp("battery_level", 1, size=1, signed=False),),
             b"\x00\x7d",
             "big",
             0,
             {"battery_level": 125},
         ),
-        # Test with start shifting the slice
-        (
+        (  # Test with start shifting the slice
             (BMSDp("voltage", 0, size=2, signed=False),),
             b"\x00\x00\x12\x34",
             "big",

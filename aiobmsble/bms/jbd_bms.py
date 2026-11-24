@@ -276,7 +276,7 @@ class BMS(BaseBMS):
         if int.from_bytes(self._msg[ctrl : ctrl + 1]) & 0x80:
             result |= BMS._decode_data(self._FIELDS_D10, self._msg)
 
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=result.get("temp_count", 0),
             start=27,
@@ -287,7 +287,7 @@ class BMS(BaseBMS):
         )
 
         await self._await_cmd_resp(0x04)
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg, cells=result.get("cell_count", 0), start=4, byteorder="big"
         )
 

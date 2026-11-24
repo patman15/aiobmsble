@@ -247,7 +247,7 @@ class BMS(BaseBMS):
         rt1_msg: Final[bytes] = next(iter(rt_msgs.values()))
         # add temperature sensors
         result.setdefault("temperature", []).extend(
-            BMS._temperature(
+            BMS._decode_temp(
                 rt1_msg,
                 values=result.get("temp_count", 0),
                 start=proto_def.max_cells * 2 + BMS._HEAD_LEN,
@@ -256,7 +256,7 @@ class BMS(BaseBMS):
         )
 
         # get cell voltages
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             rt1_msg, cells=result.get("cell_count", 0), start=BMS._HEAD_LEN
         )
 

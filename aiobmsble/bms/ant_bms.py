@@ -244,14 +244,14 @@ class BMS(BaseBMS):
         result: BMSSample = {}
         result["battery_charging"] = self._msg[7] == 0x2
         result["cell_count"] = min(self._msg[BMS._CELL_COUNT], BMS._MAX_CELLS)
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg,
             cells=result["cell_count"],
             start=BMS._CELL_POS,
             byteorder="little",
         )
         result["temp_count"] = min(self._msg[BMS._TEMP_POS], BMS._MAX_TEMPS)
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=result["temp_count"] + 2,  # + MOSFET, balancer temperature
             start=BMS._CELL_POS + result["cell_count"] * 2,

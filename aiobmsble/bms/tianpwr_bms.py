@@ -181,11 +181,11 @@ class BMS(BaseBMS):
 
         for cmd in range(0x88, 0x89 + min(result.get("cell_count", 0), BMS._MAX_CELLS) // 8):
             await self._await_msg(BMS._cmd(cmd))
-            result["cell_voltages"] = result.setdefault("cell_voltages", []) + BMS._cell_voltages(
+            result["cell_voltages"] = result.setdefault("cell_voltages", []) + BMS._decode_cells(
                 self._msg.get(cmd, b""), cells=8, start=3
             )
 
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg[0x87],
             values=min(BMS._MAX_TEMP, result.get("temp_count", 0)),
             start=3,
@@ -193,7 +193,7 @@ class BMS(BaseBMS):
         )
 
         for idx, sensor_t in ((9, TempSensor.T.AMBIENT), (11, TempSensor.T.MOSFET)):
-            result["temperature"] += BMS._temperature(
+            result["temperature"] += BMS._decode_temp(
                 self._msg[0x83], start=idx, divider=10, types=(sensor_t,)
             )
 

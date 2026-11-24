@@ -319,7 +319,7 @@ class BMS(BaseBMS):
             else data.get("problem_code", 0)
         )
 
-        data["cell_voltages"] = BMS._cell_voltages(
+        data["cell_voltages"] = BMS._decode_cells(
             self._msg,
             cells=data.get("cell_count", 0),
             start=6,

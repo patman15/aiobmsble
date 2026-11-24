@@ -133,7 +133,7 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
             if cmd not in self._msg:
                 raise BMSDataError
-            cells: list[float] = BMS._cell_voltages(
+            cells: list[float] = BMS._decode_cells(
                 self._msg[cmd], cells=5, start=4, byteorder="little"
             )
             voltages.extend(cells)

@@ -150,10 +150,10 @@ class BMS(BaseBMS):
         if len(self._msg) < field_data_start + BMS._FIELDS_END:
             raise BMSDataError
         result["temp_count"] = temp_count
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg, cells=result.get("cell_count", 0), start=BMS._CELL_POS + 1
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=result.get("temp_count", 0),
             start=temp_pos + 1,

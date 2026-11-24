@@ -146,8 +146,8 @@ class BMS(BaseBMS):
             await self._await_msg(self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45"))
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=44)
-        result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=16, start=12)
-        result["temperature"] = BMS._temperature(
+        result["cell_voltages"] = BMS._decode_cells(self._msg, cells=16, start=12)
+        result["temperature"] = BMS._decode_temp(
             self._msg, values=4, start=48, size=1, signed=False, offset=40
         )
         self._msg_event.clear()

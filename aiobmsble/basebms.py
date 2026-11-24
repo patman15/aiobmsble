@@ -844,7 +844,7 @@ class BaseBMS(ABC):
         return result
 
     @staticmethod
-    def _cell_voltages(
+    def _decode_cells(
         data: bytes,
         *,
         cells: int,
@@ -883,7 +883,7 @@ class BaseBMS(ABC):
         ]
 
     @staticmethod
-    def _temperature(
+    def _decode_temp(
         data: bytes,
         *,
         start: int,

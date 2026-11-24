@@ -160,10 +160,10 @@ class BMS(BaseBMS):
         if len(self._msg) < BMS._CELL_POS:
             raise BMSDataError
         pack["cell_count"] = self._msg[BMS._CELL_POS - 1]
-        pack["cell_voltages"] = BMS._cell_voltages(
+        pack["cell_voltages"] = BMS._decode_cells(
             self._msg, cells=pack["cell_count"], start=BMS._CELL_POS, gap=2
         )
-        pack["temperature"] = BMS._temperature(
+        pack["temperature"] = BMS._decode_temp(
             self._msg,
             values=6,
             start=14,
@@ -175,7 +175,7 @@ class BMS(BaseBMS):
         )
         await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=8)
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=2,
             start=BMS._SYS_TEMP_POS,

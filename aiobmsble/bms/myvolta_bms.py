@@ -141,7 +141,7 @@ class BMS(BaseBMS):
             MsgT.CELL_VOLTAGES4,
         ):
             result.setdefault("cell_voltages", []).extend(
-                self._cell_voltages(
+                self._decode_cells(
                     self._msg[msg_type],
                     cells=4,
                     start=7,
@@ -158,7 +158,7 @@ class BMS(BaseBMS):
             # MsgT.TEMPS6, MsgT.TEMPS7, MsgT.TEMPS8,
         ):
             result.setdefault("temperature", []).extend(
-                self._temperature(
+                self._decode_temp(
                     self._msg[msg_type],
                     values=4,
                     start=7,

@@ -139,7 +139,7 @@ class BMS(BaseBMS):
 
         await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x1388, count=0x22))
         result["cell_count"] = BMS._read_int16(self._msg, BMS._CELL_POS)
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg,
             cells=min(16, result.get("cell_count", 0)),
             start=BMS._CELL_POS + 2,
@@ -148,7 +148,7 @@ class BMS(BaseBMS):
         )
 
         result["temp_count"] = BMS._read_int16(self._msg, BMS._TEMP_POS)
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=min(16, result.get("temp_count", 0)),
             start=BMS._TEMP_POS + 2,

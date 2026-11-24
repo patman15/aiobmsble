@@ -308,12 +308,12 @@ class BMS(BaseBMS):
             pack_sample: PackSample = BMS._decode_pack(
                 BMS._PFIELDS, self._msg[pack << 8 | BMS._PIA_LEN], start=BMS._HEAD_LEN
             )
-            pack_sample["cell_voltages"] = BMS._cell_voltages(
+            pack_sample["cell_voltages"] = BMS._decode_cells(
                 self._msg[pack << 8 | BMS._PIB_LEN], cells=16, start=BMS._HEAD_LEN
             )
 
             # add temperature sensors (4x cell temperature + 4 reserved)
-            pack_sample["temperature"] = BMS._temperature(
+            pack_sample["temperature"] = BMS._decode_temp(
                 self._msg[pack << 8 | BMS._PIB_LEN],
                 values=4,
                 start=BMS._TEMP_START,
@@ -321,7 +321,7 @@ class BMS(BaseBMS):
                 offset=2731,
                 divider=10,
                 types=(TempSensor.T.CELL,) * 4,
-            ) + BMS._temperature(
+            ) + BMS._decode_temp(
                 self._msg[pack << 8 | BMS._PIB_LEN],
                 values=2,
                 start=BMS._TEMP_START + 16,

@@ -179,13 +179,13 @@ class BMS(BaseBMS):
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="big", start=3)
 
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg,
             cells=min(result.get("cell_count", 0), BMS._MAX_CELLS),
             start=BMS._CELLV_START,
         )
 
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=min(result.get("temp_count", 0), BMS._MAX_TEMP),
             start=BMS._TEMP_START,
@@ -194,7 +194,7 @@ class BMS(BaseBMS):
         )
 
         # Append MOSFET temperature if valid (0xFFFF indicates no sensor)
-        mos_temp: list[TempSensor] = BMS._temperature(
+        mos_temp: list[TempSensor] = BMS._decode_temp(
             self._msg,
             start=BMS._TEMP_MOS_OFFSET,
             signed=True,

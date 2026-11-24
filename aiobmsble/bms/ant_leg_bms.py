@@ -178,7 +178,7 @@ class BMS(BaseBMS):
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="big")
 
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg,
             cells=result.get("cell_count", 0),
             start=6,
@@ -199,7 +199,7 @@ class BMS(BaseBMS):
                 )  # leads to `cycles` not available when level == 0
 
         # ANT-BMS carries 6 slots for temp sensors but only 4 looks like being connected by default
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg, values=4, start=91, size=2, byteorder="big", signed=True
         )
 

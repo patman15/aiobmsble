@@ -211,7 +211,7 @@ class BMS(BaseBMS):
             return {}
 
         result: BMSSample = self._decode_data(BMS._FIELDS, raw_data) | BMSSample(
-            cell_voltages=BMS._cell_voltages(
+            cell_voltages=BMS._decode_cells(
                 raw_data[BMS.Cmd.RT], cells=BMS._MAX_CELLS, start=BMS._CELL_POS
             )
         )

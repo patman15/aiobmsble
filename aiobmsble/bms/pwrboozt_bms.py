@@ -134,10 +134,10 @@ class BMS(EJBMS):
         await self._await_msg(b":015150000EFE~")
 
         return self._decode_data(BMS._FIELDS, self._msg) | {
-            "cell_voltages": BMS._cell_voltages(
+            "cell_voltages": BMS._decode_cells(
                 self._msg, cells=BMS._MAX_CELLS, start=BMS._CELL_POS
             ),
-            "temperature": BMS._temperature(
+            "temperature": BMS._decode_temp(
                 self._msg, start=48, values=4, size=1, signed=False, offset=40
             ),
         }

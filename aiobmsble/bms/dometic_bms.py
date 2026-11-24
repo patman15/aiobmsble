@@ -217,7 +217,7 @@ class BMS(BaseBMS):
         """Return cell voltages from status message."""
         voltages: list[float] = []
         for i in range(int(cells // 2)):
-            voltages.extend(BMS._cell_voltages(data[0x56 + i], cells=2, start=4))
+            voltages.extend(BMS._decode_cells(data[0x56 + i], cells=2, start=4))
         return voltages
 
     async def _update(self) -> BMSSample:

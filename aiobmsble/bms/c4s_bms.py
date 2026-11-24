@@ -52,10 +52,10 @@ class BMS(VatrerBMS):
             raise BMSDataError
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg[BMS._REG_COUNT * 2])
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg[BMS._REG_COUNT * 2], cells=result.get("cell_count", 0), start=47
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg[BMS._REG_COUNT * 2],
             start=35,
             values=BMS._TEMPS,

@@ -169,12 +169,12 @@ class BMS(BaseBMS):
         if result.get("runtime") == 0xFFFF * 60:
             result.pop("runtime", None)
 
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg.get(0x2, b""),
             cells=max(0, (len(self._msg.get(0x2, b"")) - 11) // 2),
             start=9,
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg.get(0x3, b""),
             values=result.get("temp_count", 0),
             start=14,

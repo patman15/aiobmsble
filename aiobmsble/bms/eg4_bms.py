@@ -159,12 +159,12 @@ class BMS(BaseBMS):
             if not result.get(field):
                 del result[field]
 
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg, values=1, start=39, types=(TempSensor.T.PCB,)
-        ) + BMS._temperature(
+        ) + BMS._decode_temp(
             self._msg,
             values=BMS._MAX_TEMP,
             start=69,
