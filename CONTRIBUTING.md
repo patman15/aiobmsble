@@ -57,7 +57,7 @@ The template also shows optional overrides as comments:
 - `_ALIVE_INTERVAL` — keep-alive period in seconds; `None` disables it.
 - `_alive()` — periodic actions, called while `_ALIVE_INTERVAL` is set.
 - `_fetch_limits()` — override to query the protection thresholds (trip/recovery points) of the BMS, returned by `limits()` as `BMSLimits`.
-- `_fetch_device_info()`, override to query device information from the BMS directly instead in addition to reading BLE standard service `0x180A`. Set `_SKIP_INFO_CHARS` to skip querying the standard service.
+- `_fetch_device_info()`, override to query device information from the BMS directly. Set `_SKIP_INFO_CHARS` to skip merge with standard service information queried before.
 
 
 ### Deriving from an existing plugin

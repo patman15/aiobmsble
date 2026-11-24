@@ -40,7 +40,7 @@ For details about the supported data per BMS, please have a look at [BMS data ta
 ### [API documentation](https://patman15.github.io/aiobmsble/)
 The project uses [pdoc](https://pdoc.dev/) to generate the [API documentation](https://patman15.github.io/aiobmsble/). You can generate it locally using the [installation for development](#for-development) and then running the command
 ```bash
-pdoc -d google aiobmsble aiobmsble.basebms aiobmsble.exceptions aiobmsble.utils aiobmsble.plugin aiobmsble.test_data -o docs
+pdoc -d google aiobmsble aiobmsble.basebms aiobmsble.exceptions aiobmsble.utils aiobmsble.plugin aiobmsble.test_data aiobmsble.bms -o docs
 ```
 which will generate the documentation locally in the `/docs` folder.
 
