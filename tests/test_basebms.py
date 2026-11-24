@@ -780,11 +780,7 @@ async def test_op_guard_device_info_update(
             "decoded warning",
         ),
         (
-            {
-                "problems": [
-                    BMSProblem(PrbType.CELL_OV, Severity.PROTECT, "Cell overvoltage")
-                ]
-            },
+            {"problems": [BMSProblem(PrbType.CELL_OV, Severity.PROTECT, "Cell overvoltage")]},
             "decoded protection",
         ),
         (

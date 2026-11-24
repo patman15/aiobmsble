@@ -25,7 +25,7 @@ class BMS(BaseBMS):
     # _HEAD: Final[bytes] = b"\x55"  # beginning of frame
     # _TAIL: Final[bytes] = b"\xAA"  # end of frame
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
-    # _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = () # TODO: define BMS sensor decoder definitions
+    # _FIELDS: tuple[BMSDp[BMSValue], ...] = () # TODO: define BMS sensor decoder definitions
     # _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = () # TODO: define BMS limits
     # _PROBLEMS: tuple[BMSPrbDef, ...] = () # TODO: add problem code decoder definitions
     # _SKIP_INFO_CHARS: bool = False  # set True to skip information from BT default chars for BMSInfo()
@@ -54,12 +54,12 @@ class BMS(BaseBMS):
 
     @staticmethod
     def uuid_rx() -> str:
-        """Return 16-bit UUID of characteristic that provides notification/read property."""
+        """Return the UUID (16/32/128-bit) of the characteristic providing notifications."""
         return "0000"  # TODO: change RX characteristic UUID here!
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
+        """Return the UUID (16/32/128-bit) of the characteristic used to send commands."""
         return "0000"  # TODO: change TX characteristic UUID here!
 
     async def _fetch_device_info(self) -> BMSInfo:
@@ -110,7 +110,7 @@ class BMS(BaseBMS):
         self._log.debug("replace with command to UUID %s", BMS.uuid_tx())
         # await self._await_msg(b"<some_command>")
 
-        # TODO: parse data from self._frame here
+        # TODO: parse data from self._msg here
 
         return {
             "battery_level": 73,

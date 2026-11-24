@@ -223,3 +223,29 @@ def test_no_pragma_no_cover() -> None:
                     pragma_no_cover_files.append((file_path.name, line_num))
 
     assert not pragma_no_cover_files, f"Found pragma no cover in: {pragma_no_cover_files}"
+
+
+def test_module_naming() -> None:
+    """Check that each BMS plugin has a test module named tests/bms/test_<name>_bms.py."""
+    tests_dir: Final[Path] = Path(__file__).parent / "bms"
+    missing: list[str] = [
+        plugin.__name__
+        for plugin in load_bms_plugins()
+        if not (tests_dir / f"test_{plugin.__name__.rsplit('.', 1)[-1]}.py").is_file()
+    ]
+    assert not missing, f"Missing test module for plugins: {missing}"
+
+
+def test_docs_naming() -> None:
+    """Check that each BMS doc page is named docs/<name>_bms.md after its plugin module."""
+    docs_dir: Final[Path] = Path(__file__).parent.parent / "docs"
+    extra_docs: Final[tuple[str, ...]] = ("quickstart.md",)
+    plugin_names: Final[set[str]] = {
+        plugin.__name__.rsplit(".", 1)[-1] for plugin in load_bms_plugins()
+    }
+    misnamed: list[str] = [
+        doc.name
+        for doc in sorted(docs_dir.glob("*.md"))
+        if doc.name not in extra_docs and doc.stem not in plugin_names
+    ]
+    assert not misnamed, f"Doc pages not named docs/<plugin_module>.md: {misnamed}"

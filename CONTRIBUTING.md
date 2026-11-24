@@ -36,8 +36,8 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
     ruff check .
     mypy .
     mypy aiobmsble --strict
-    codespell .
-    pyright .
+    codespell
+    pyright
     pytest
     ```
 10. Commit the changes and open a pull request to the main repository.
@@ -81,8 +81,8 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
   - `ruff check .`
   - `mypy .`
   - `mypy aiobmsble --strict`
-  - `pyright .`
-  - `codespell .`
+  - `pyright`
+  - `codespell`
 - Keep all names and comments in English.
 - Do not use `# pragma: no cover`.
 - Put documentation of the device / protocol into `docs/my_bms.md`.

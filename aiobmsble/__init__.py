@@ -259,9 +259,7 @@ class BMSProblem:
     text: str
     """Human readable (vendor specific) description."""
 
-    def __init__(
-        self, kind: PrbType, level: Severity | None = None, text: str = ""
-    ) -> None:
+    def __init__(self, kind: PrbType, level: Severity | None = None, text: str = "") -> None:
         """Create a problem, omitted level and text default to those of the problem kind."""
         default: Final[PrbDefault] = PROBLEM_DEFAULTS[kind]
         object.__setattr__(self, "kind", kind)
