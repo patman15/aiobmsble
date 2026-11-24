@@ -16,7 +16,7 @@ from aiobmsble.utils import adv_dict_to_advdata
 
 __all__: list[str] = ["BMSAdvSample", "bms_advertisements", "ignore_advertisements"]
 
-type BMSAdvSample = tuple[AdvertisementData, str, str, list[str]]
+type BMSAdvSample = tuple[AdvertisementData, str, str, tuple[str, ...]]
 
 
 def _parse_adv_from_json(
@@ -32,11 +32,11 @@ def _parse_adv_from_json(
         else ""
     )
     bms_type: str = entry[text_key]
-    comments: list[str] = entry["_comments"]
+    comments: tuple[str, ...] = tuple(entry["_comments"])
 
     assert isinstance(adv, AdvertisementData)
     assert isinstance(bms_type, str)
-    assert isinstance(comments, list)
+    assert isinstance(entry["_comments"], list)
     assert all(isinstance(c, str) for c in comments)
 
     return (adv, mac_addr, bms_type, comments)
@@ -50,18 +50,18 @@ def bms_advertisements(bms_filter: str | None = None) -> tuple[BMSAdvSample, ...
     If no filter is given, all available advertisements (any type) will be returned.
 
     Args:
-        bms_filter: prefix of the JSON file name, e.g. the BMS type `dummy_bms`,
-            for which the advertisements should be returned.
+        bms_filter: BMS type whose JSON file name must match exactly, e.g. `jbd_bms`
+            for `jbd_bms.json`.
 
     Returns:
         tuple[BMSAdvSample, ...]: Tuples containing advertisement, mac_addr, bms type,
-        and a list of comments, i.e. tuple[AdvertisementData, str, str, list[str]]
+        and a tuple of comments, i.e. tuple[AdvertisementData, str, str, tuple[str, ...]]
 
     """
 
     def generate_entries() -> Generator[BMSAdvSample, Any, None]:
         for resource in resources.files(__package__).iterdir():
-            if bms_filter and not resource.name.startswith(bms_filter):
+            if bms_filter and resource.name != f"{bms_filter}.json":
                 continue
             if not resource.name.endswith("_bms.json"):
                 continue
@@ -84,7 +84,7 @@ def ignore_advertisements() -> tuple[BMSAdvSample, ...]:
 
     Returns:
         tuple[BMSAdvSample, ...]: tuples containing advertisement, MAC address, reason why
-        not to detect, and a list of comments
+        not to detect, and a tuple of comments
 
     """
 

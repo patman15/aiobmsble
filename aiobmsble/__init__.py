@@ -15,7 +15,9 @@ are safety relevant, e.g. prevent battery damage, overheating, or fire.
   and the connection configuration `BMSConfig`.
 - `aiobmsble.basebms`: `aiobmsble.basebms.BaseBMS`, the interface all BMS classes implement.
 - `aiobmsble.exceptions`: errors raised by BMS operations, also exported here.
-- `aiobmsble.utils`: discovery helpers to find the BMS class for a device.
+- `aiobmsble.utils`: helpers to find the BMS class for a device (`available_bms()`,
+  `load_bms_plugins()`), convert advertisement dictionaries (`adv_dict_to_advdata()`),
+  and summarize problems (`problem_levels()`).
 - `aiobmsble.test_data`: recorded advertisements for integration tests.
 - `aiobmsble.plugin`: types for plugin authors.
 
