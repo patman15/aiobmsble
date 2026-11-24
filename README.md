@@ -58,57 +58,10 @@ aiobmsble --json '{"local_name": "dummy"}'
 returns the BMS type using the JSON advertisement data, e.g. from [Home Assistant Bluetooth Advertisement Monitor](https://www.home-assistant.io/integrations/bluetooth/#advertisement-monitor).
 
 ### From your Python code
-In case you need a reference to include the code into your library, please see [\_\_main\_\_.py](/aiobmsble/__main__.py).
+To include the library in your own code, see the [quick start](/docs/quickstart.md) and the [API documentation](https://patman15.github.io/aiobmsble/).
 
 ### From a Script
-This example can also be found as an [example](/examples/minimal.py) in the respective [folder](/examples).
-```python
-"""Example of using the aiobmsble library to find a BLE device by name and print its sensor data.
-
-Project: aiobmsble, https://pypi.org/p/aiobmsble/
-License: Apache-2.0, http://www.apache.org/licenses/
-"""
-
-import asyncio
-import logging
-from typing import Final
-
-from bleak import BleakScanner
-from bleak.backends.device import BLEDevice
-
-from aiobmsble import BMSAuthError, BMSError, BMSSample
-from aiobmsble.bms.dummy_bms import BMS  # TODO: use the right BMS class for your device
-
-NAME: Final[str] = "BT Device Name"  # TODO: replace with the name of your BLE device
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger: logging.Logger = logging.getLogger(__name__)
-
-
-async def main(dev_name: str) -> None:
-    """Find a BLE device by name and update its sensor data."""
-
-    device: BLEDevice | None = await BleakScanner.find_device_by_name(dev_name)
-    if device is None:
-        logger.error("Device '%s' not found.", dev_name)
-        return
-
-    logger.info("Found device: %s (%s)", device.name, device.address)
-    try:
-        async with BMS(ble_device=device, logger=logger) as bms:
-            logger.info("Updating BMS data...")
-            data: BMSSample = await bms.update()
-            logger.info("BMS data: %s", repr(data).replace(", ", ",\n\t"))
-    except BMSAuthError:
-        logger.error("BMS authentication failed; provide a valid secret.")
-    except BMSError as exc:
-        logger.error("Failed to update BMS: %s", type(exc).__name__)
-
-
-if __name__ == "__main__":
-    asyncio.run(main(NAME))  # pragma: no cover
-```
+See the [minimal example](/examples/minimal.py) in the [examples](/examples) folder. It scans for a device by name and prints its sensor data.
 
 ### Exceptions
 Public operations raise exceptions derived from `BMSError`. `retryable` distinguishes
