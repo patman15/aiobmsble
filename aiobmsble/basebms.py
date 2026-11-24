@@ -190,7 +190,7 @@ class BaseBMS(ABC):
             raise BMSTimeoutError(
                 str(exc), bms_type=self.bms_type(), address=self._ble_device.address
             ) from exc
-        except (BleakError, EOFError, BleakDeviceNotFoundError, ConnectionError) as exc:
+        except (BleakError, EOFError, ConnectionError) as exc:
             raise BMSConnectionError(
                 str(exc), bms_type=self.bms_type(), address=self._ble_device.address
             ) from exc
