@@ -17,9 +17,16 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.exc import BleakError
 
-from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, __version__
+from aiobmsble import (
+    BMSConfig,
+    BMSConfigError,
+    BMSError,
+    BMSInfo,
+    BMSLimits,
+    BMSSample,
+    __version__,
+)
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.exceptions import BMSConfigError, BMSError
 from aiobmsble.utils import adv_dict_to_advdata, identify
 
 _MIN_RSSI: Final[int] = -75
