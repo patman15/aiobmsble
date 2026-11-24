@@ -67,7 +67,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             MatcherPattern(oui=pattern, service_uuid=BMS.uuid_services()[0], connectable=True)
             for pattern in ("60:6E:41", "10:23:81")

@@ -13,7 +13,7 @@ class BMS(EJBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         # manufacturer_data_start=[0x11, 0x12, 0x13, 0x14, 0x15, 0x16],
         return [MatcherPattern(local_name="EJ*", manufacturer_id=21320, connectable=True)]
 

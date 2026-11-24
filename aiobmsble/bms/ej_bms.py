@@ -78,7 +78,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return (
             [  # Lithtech Energy (2x), Volthium
                 MatcherPattern(local_name=pattern, connectable=True)

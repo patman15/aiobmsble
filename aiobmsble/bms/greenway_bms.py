@@ -82,7 +82,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "oui": "C4:A9:B8",
