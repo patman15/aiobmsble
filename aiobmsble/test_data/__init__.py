@@ -50,11 +50,11 @@ def bms_advertisements(bms_filter: str | None = None) -> tuple[BMSAdvSample, ...
     If no filter is given, all available advertisements (any type) will be returned.
 
     Args:
-        bms_filter (str|None): prefix of the JSON file name, e.g. the BMS type `dummy_bms`,
+        bms_filter: prefix of the JSON file name, e.g. the BMS type `dummy_bms`,
             for which the advertisements should be returned.
 
     Returns:
-        tuple[BMSAdvSample, ...]: List of tuples containing advertisement, mac_addr, bms type,
+        tuple[BMSAdvSample, ...]: Tuples containing advertisement, mac_addr, bms type,
         and a list of comments, i.e. tuple[AdvertisementData, str, str, list[str]]
 
     """

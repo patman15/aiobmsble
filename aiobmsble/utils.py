@@ -131,7 +131,7 @@ async def get_bms(bms_type: str) -> type[BaseBMS] | None:
     """Return the BMS class identified by its BMS type.
 
     Args:
-        bms_type (str): BMS type, i.e. the plugin module name, e.g. `dummy_bms`
+        bms_type: BMS type, i.e. the plugin module name, e.g. `dummy_bms`
 
     Returns:
         type[BaseBMS] | None: the BMS class if found, None otherwise.
@@ -171,8 +171,8 @@ async def identify(adv: AdvertisementData, address: str) -> list[type[BaseBMS]]:
     (Organizationally Unique Identifier).
 
     Args:
-        adv (AdvertisementData): The advertisement data to match against available BMS plugins.
-        address (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
+        adv: The advertisement data to match against available BMS plugins.
+        address: Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
     Returns:
         list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwise.

@@ -119,7 +119,7 @@ class MinTestBMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [{"local_name": "Test", "connectable": True}]
 
     @staticmethod
@@ -1282,7 +1282,7 @@ def test_decode_cells(
     divider: int,
     expected: list[float],
 ) -> None:
-    """Test the _cell_voltages method of BaseBMS with various input parameters."""
+    """Test the _decode_cells method of BaseBMS with various input parameters."""
     result: list[float] = BaseBMS._decode_cells(
         data,
         cells=cells,
@@ -1362,7 +1362,7 @@ def test_decode_temp(
     divider: int,
     expected: tuple[float, ...],
 ) -> None:
-    """Test the _temperature method of BaseBMS with various input parameters."""
+    """Test the _decode_temp method of BaseBMS with various input parameters."""
     result: list[TempSensor] = BaseBMS._decode_temp(
         data,
         values=values,

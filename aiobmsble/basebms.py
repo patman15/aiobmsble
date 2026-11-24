@@ -88,6 +88,12 @@ class BaseBMS(ABC):
     `aiobmsble.exceptions.BMSError` subclasses. Stale connections need to be handled by
     the caller. `gatt_profile()` returns the GATT services of the connected device
     for diagnostics.
+
+    Naming convention for plugin authors: public static methods (`matcher_dict_list()`,
+    `uuid_services()`, `uuid_rx()`, `uuid_tx()`) and the class attributes `INFO` and
+    `ACCEPT_SECRET` describe the device type and are usable without an instance. Underscore
+    methods (`_update()`, `_notification_handler()`, `_fetch_device_info()`, ...) are hooks
+    called by the base class; implement or override them, but do not call them from outside.
     """
 
     ACCEPT_SECRET: bool = False  # if True, the BMS accepts a secret for authentication
@@ -138,9 +144,9 @@ class BaseBMS(ABC):
         """Initialize the BMS.
 
         Args:
-            ble_device (BLEDevice): the Bleak BLE device to connect to
-            config (BMSConfig | None): optional BMS configuration; defaults to `BMSConfig()` if not provided
-            logger (logging.Logger | None): logger for this BMS instance; defaults to the module logger
+            ble_device: the Bleak BLE device to connect to
+            config: optional BMS configuration; defaults to `BMSConfig()` if not provided
+            logger: logger for this BMS instance; defaults to the module logger
 
         """
         assert {"manufacturer", "model"}.issubset(self.INFO), "BMS class must define `INFO`"
@@ -282,7 +288,7 @@ class BaseBMS(ABC):
         """Return device information read from the BMS over Bluetooth LE.
 
         Args:
-            raw (bool): If `True`, return the raw values reported by the BMS
+            raw: If `True`, return the raw values reported by the BMS
                 without default information
 
         Returns:
@@ -552,6 +558,7 @@ class BaseBMS(ABC):
             self._log.debug("BMS connected (id: %#x)", id(self._client))
 
     def _wr_response(self, char: int | str) -> bool:
+        """Return True if the characteristic supports write with response."""
         char_tx: Final[BleakGATTCharacteristic | None] = self._client.services.get_characteristic(
             char
         )
@@ -592,7 +599,18 @@ class BaseBMS(ABC):
         wait_for_notify: bool = True,
         max_size: int = 0,
     ) -> None:
-        """Send data to the BMS and wait for valid reply notification."""
+        """Send data to the BMS and wait for valid reply notification.
+
+        Args:
+            data: command frame to send
+            char: characteristic to write to, defaults to `uuid_tx()`
+            wait_for_notify: if `False`, return after writing without waiting for a reply
+            max_size: maximum number of bytes per write, 0 sends the data in one chunk
+
+        Raises:
+            BMSTimeoutError: if no valid reply (`_msg_event`) arrives after all retries
+
+        """
 
         for inv_wr_mode in [False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]:
             try:
@@ -694,12 +712,13 @@ class BaseBMS(ABC):
         """Fetch the latest battery telemetry from the BMS.
 
         This calls the protocol-specific implementation in `_update()` and,
-        unless `raw` is `True`, fills in any derived or missing values expected by
+        unless `raw` is `True`, decodes `problem_code` into `problems` (if the BMS class
+        defines `_PROBLEMS`) and fills in any derived or missing values expected by
         the library.
 
         Args:
-            raw (bool): If `True`, return the raw values reported by the BMS
-                without adding derived or missing fields.
+            raw: If `True`, return the raw values reported by the BMS
+                without decoded problems and without derived or missing fields.
 
         Returns:
             BMSSample: The retrieved BMS values.

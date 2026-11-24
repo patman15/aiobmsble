@@ -110,7 +110,7 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
   hardware/internal failures. A custom text may describe a vendor-specific detail,
   but it must not contradict the selected kind or severity.
 - If available, data shall be read directly from the device. `BaseBMS._add_missing_values()` is only used to ensure consistent data across all BMS types.
-- Where possible, use the utility functions provided by `BaseBMS` (e.g. `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_check_integrity()`, `_cmd_modbus()`).
+- Where possible, use the utility functions provided by `BaseBMS` (e.g. `_decode_data()`, `_decode_cells()`, `_decode_temp()`, `_check_integrity()`, `_cmd_modbus()`).
 - Tests shall use recorded frames from a real device (stored in the plugin test module in `tests/bms/`) to allow new parsed values to be added at a later point. Recorded advertisements are stored in `aiobmsble/test_data/`.
 
 to be extended ...

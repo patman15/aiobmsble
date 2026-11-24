@@ -52,7 +52,6 @@ type BMSValue = Literal[
     CommonValue,
     "battery_charging",
     "battery_mode",
-    "power",
     "total_charge",
     "problem",
     "runtime",
@@ -117,7 +116,17 @@ class LimitDp:
 
 
 class MatcherPattern(TypedDict, total=False):
-    """Optional patterns that can match Bleak advertisement data."""
+    """Optional patterns that can match Bleak advertisement data.
+
+    All given keys must match (logical AND); omitted keys are not checked.
+
+    - `service_data_uuid`: an empty string requires that the advertisement carries no service data.
+    - `manufacturer_data_start`: only evaluated together with `manufacturer_id`.
+    - `connectable`: compared to the `connectable` attribute of the advertisement, which
+      is only provided by some Bluetooth stacks (e.g. Home Assistant); if the attribute is
+      missing, the advertisement is treated as connectable.
+    - `local_name`: case-sensitive.
+    """
 
     local_name: str  # name pattern that supports Unix shell-style wildcards
     manufacturer_data_start: list[int]  # start bytes of manufacturer data
@@ -234,15 +243,15 @@ def crc8(data: bytes | bytearray) -> int:
     return crc & 0xFF
 
 
-def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
-    """Calculate the sum of the frame bytes truncated to the specified size.
+def crc_sum(data: bytes | bytearray, size: int = 1) -> int:
+    """Calculate the sum of the data bytes truncated to the specified size.
 
     Args:
-        frame: the input data for which the sum is to be calculated
+        data: the input data for which the sum is to be calculated
         size: the size of the sum in bytes (default: 1)
 
     Returns:
         int: sum of all bytes modulo 2^(8 * size)
 
     """
-    return sum(frame) & ((1 << (8 * size)) - 1)
+    return sum(data) & ((1 << (8 * size)) - 1)

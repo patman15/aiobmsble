@@ -1,4 +1,6 @@
-"""Example script for aiobmsble package usage.
+"""Command-line interface of aiobmsble to detect and query BMSs in range.
+
+The OUI vendor check requires the `cli` extra: `pip install aiobmsble[cli]`.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -152,7 +154,7 @@ async def identify_bms_from_json(json_str: str) -> None:
 
 
 async def detect_bms() -> None:
-    """Query a Bluetooth device based on the provided arguments."""
+    """Scan for BLE devices and query each one identified as a supported BMS."""
 
     scan_result: dict[str, tuple[BLEDevice, AdvertisementData]] = await scan_devices()
     for ble_dev, advertisement in scan_result.values():
@@ -165,8 +167,7 @@ async def detect_bms() -> None:
         )
 
         for bms_cls in await identify(advertisement, ble_dev.address):
-            bms_inst: BaseBMS = bms_cls(ble_device=ble_dev)
-            logger.info("Found matching BMS: %s", bms_inst.bms_descr())
+            logger.info("Found matching BMS: %s", bms_cls.bms_descr())
 
             if not await _try_query(bms_cls, ble_dev):
                 if bms_cls.ACCEPT_SECRET:

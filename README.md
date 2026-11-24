@@ -156,6 +156,11 @@ pip3 install pip --upgrade
 pip3 install aiobmsble
 ```
 This will install the latest library release and all of its python dependencies.
+To use all features of the `aiobmsble` command-line tool, e.g. the OUI vendor check of `--json`, install the `cli` extra:
+
+```bash
+pip3 install "aiobmsble[cli]"
+```
 
 ### For Development:
 ```bash
