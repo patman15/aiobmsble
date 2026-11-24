@@ -432,7 +432,7 @@ async def test_oversized_response(patch_bleak_client) -> None:
                 b"\x00\x00\x01\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x83\x77"
             ),
             "first_bit",
-            BMSProblem(PT.CELL_OVERVOLTAGE, S.PROTECT, "Cell overvoltage"),
+            BMSProblem(PT.CELL_OV, S.PROTECT, "Cell overvoltage"),
         ),
         (
             bytearray(

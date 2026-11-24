@@ -64,8 +64,8 @@ class BMS(BaseBMS):
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
         BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x01, text="Wrong cell count"),
         BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x03, text="AcqLine Res exceed"),
-        BMSPrbDef(0xFF, PT.PACK_UNDERVOLTAGE, SV.PROTECT, value=0x07),
-        BMSPrbDef(0xFF, PT.SYSTEM_OVERTEMP, SV.PROTECT, value=0x08),
+        BMSPrbDef(0xFF, PT.PACK_UV, SV.PROTECT, value=0x07),
+        BMSPrbDef(0xFF, PT.SYSTEM_OT, SV.PROTECT, value=0x08),
         BMSPrbDef(0xFF, PT.COMM_FAILURE, SV.FAULT, value=0x09, text="Host fails"),
         BMSPrbDef(
             0xFF, PT.OTHER, SV.INFO, value=0x0A, text="Low battery voltage - balancing stopped"

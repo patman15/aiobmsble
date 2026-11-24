@@ -37,14 +37,14 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 18, 1, False),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(1 << 0, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(1 << 1, PT.DISCHARGE_OVERTEMP),
-        BMSPrbDef(1 << 2, PT.CHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 3, PT.DISCHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 4, PT.DISCHARGE_OVERCURRENT),
-        BMSPrbDef(1 << 5, PT.CHARGE_OVERCURRENT),
-        BMSPrbDef(1 << 6, PT.PACK_UNDERVOLTAGE),
-        BMSPrbDef(1 << 7, PT.PACK_OVERVOLTAGE),
+        BMSPrbDef(1 << 0, PT.CHARGE_OT),
+        BMSPrbDef(1 << 1, PT.DISCHARGE_OT),
+        BMSPrbDef(1 << 2, PT.CHARGE_UT),
+        BMSPrbDef(1 << 3, PT.DISCHARGE_UT),
+        BMSPrbDef(1 << 4, PT.DISCHARGE_OC),
+        BMSPrbDef(1 << 5, PT.CHARGE_OC),
+        BMSPrbDef(1 << 6, PT.PACK_UV),
+        BMSPrbDef(1 << 7, PT.PACK_OV),
     )
 
     def __init__(

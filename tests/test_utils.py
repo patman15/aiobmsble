@@ -424,12 +424,12 @@ def test_escape_then_etx_closes_frame() -> None:
 def test_problem_levels() -> None:
     """Check reduction of problems to the worst severity per problem type."""
     defs: Final[tuple[BMSPrbDef, ...]] = (
-        BMSPrbDef(0x1, PrbType.CHARGE_OVERCURRENT, Severity.WARN),
-        BMSPrbDef(0x2, PrbType.CHARGE_OVERCURRENT),
+        BMSPrbDef(0x1, PrbType.CHARGE_OC, Severity.WARN),
+        BMSPrbDef(0x2, PrbType.CHARGE_OC),
         BMSPrbDef(0x4, PrbType.FET_LOCKED),
     )
     assert problem_levels(decode_problems(0x7, defs)) == {
-        PrbType.CHARGE_OVERCURRENT: Severity.PROTECT,
+        PrbType.CHARGE_OC: Severity.PROTECT,
         PrbType.FET_LOCKED: Severity.INFO,
     }
     assert problem_levels([]) == {}

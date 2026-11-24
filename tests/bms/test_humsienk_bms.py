@@ -348,12 +348,12 @@ async def test_switch_states(
         (
             b"\x00\x00\x00\x00\x81\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x30\x01",
             0x1,
-            [BMSProblem(PT.CHARGE_OVERCURRENT, SV.PROTECT, "Charge overcurrent")],
+            [BMSProblem(PT.CHARGE_OC, SV.PROTECT, "Charge overcurrent")],
         ),
         (
             b"\x00\x00\x00\x00\x80\x01\x80\x00\x00\x00\x00\x00\x00\x00\x00\x30\x01",
             0x100,
-            [BMSProblem(PT.CHARGE_OVERCURRENT, SV.WARN, "Charge overcurrent")],
+            [BMSProblem(PT.CHARGE_OC, SV.WARN, "Charge overcurrent")],
         ),
     ],
     ids=["disc_highcon", "discon_low", "high", "low", "charge_ocp_warn"],

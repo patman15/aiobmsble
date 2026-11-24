@@ -246,7 +246,7 @@ async def test_missing_message(
         (
             b"\x00\x00\x00\x04\x00\x00\x00\x00",
             0x400000000,
-            [BMSProblem(PT.CHARGE_OVERCURRENT, SV.PROTECT, "Charge overcurrent")],
+            [BMSProblem(PT.CHARGE_OC, SV.PROTECT, "Charge overcurrent")],
         ),
     ],
     ids=["first_bit", "sleep_bit", "last_bit", "fet_bits", "charge_ocp"],

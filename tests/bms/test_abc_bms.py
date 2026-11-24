@@ -278,9 +278,9 @@ async def test_problem_response(
     assert result.get("problem", False)  # expect a problem report
     assert result.get("problem_code", 0) == (0x1 if problem_response[1] == "first_bit" else 0x8000)
     assert result.get("problems") == (
-        [BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage")]
+        [BMSProblem(PT.CELL_OV, SV.PROTECT, "Cell overvoltage")]
         if problem_response[1] == "first_bit"
-        else [BMSProblem(PT.PACK_OVERVOLTAGE, SV.PROTECT, "Pack overvoltage")]
+        else [BMSProblem(PT.PACK_OV, SV.PROTECT, "Pack overvoltage")]
     )
 
     await bms.disconnect()

@@ -514,7 +514,7 @@ async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_cli
         "problems": result.get("problems"),
     }
     kinds = {p.kind for p in result.get("problems", [])}
-    assert {PrbType.CELL_OVERVOLTAGE, PrbType.SHORT_CIRCUIT, PrbType.FET_FAILURE} <= kinds
+    assert {PrbType.CELL_OV, PrbType.SHORT_CIRCUIT, PrbType.FET_FAILURE} <= kinds
     assert {p.text for p in result.get("problems", []) if p.kind == PrbType.UNKNOWN} == {
         "Unknown problem bit 24",
         "Unknown problem bit 25",

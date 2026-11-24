@@ -182,21 +182,21 @@ class Severity(IntEnum):
 class PrbType(StrEnum):
     """Generic problem categories (value = stable key)."""
 
-    CELL_OVERVOLTAGE = auto()
-    CELL_UNDERVOLTAGE = auto()
-    PACK_OVERVOLTAGE = auto()
-    PACK_UNDERVOLTAGE = auto()
+    CELL_OV = auto()
+    CELL_UV = auto()
+    PACK_OV = auto()
+    PACK_UV = auto()
     CELL_IMBALANCE = auto()
-    CHARGE_OVERCURRENT = auto()
-    DISCHARGE_OVERCURRENT = auto()
+    CHARGE_OC = auto()
+    DISCHARGE_OC = auto()
     SHORT_CIRCUIT = auto()
-    CHARGE_OVERTEMP = auto()
-    CHARGE_UNDERTEMP = auto()
-    DISCHARGE_OVERTEMP = auto()
-    DISCHARGE_UNDERTEMP = auto()
-    MOSFET_OVERTEMP = auto()
-    SYSTEM_OVERTEMP = auto()
-    SYSTEM_UNDERTEMP = auto()
+    CHARGE_OT = auto()
+    CHARGE_UT = auto()
+    DISCHARGE_OT = auto()
+    DISCHARGE_UT = auto()
+    MOSFET_OT = auto()
+    SYSTEM_OT = auto()
+    SYSTEM_UT = auto()
     LOW_SOC = auto()
     FET_LOCKED = auto()
     FET_FAILURE = auto()
@@ -217,28 +217,22 @@ class PrbDefault(NamedTuple):
 
 
 PROBLEM_DEFAULTS: Final[dict[PrbType, PrbDefault]] = {
-    PrbType.CELL_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell overvoltage"),
-    PrbType.CELL_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell undervoltage"),
-    PrbType.PACK_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack overvoltage"),
-    PrbType.PACK_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack undervoltage"),
+    PrbType.CELL_OV: PrbDefault(Severity.PROTECT, "Cell overvoltage"),
+    PrbType.CELL_UV: PrbDefault(Severity.PROTECT, "Cell undervoltage"),
+    PrbType.PACK_OV: PrbDefault(Severity.PROTECT, "Pack overvoltage"),
+    PrbType.PACK_UV: PrbDefault(Severity.PROTECT, "Pack undervoltage"),
     PrbType.CELL_IMBALANCE: PrbDefault(Severity.WARN, "Cell voltage imbalance"),
-    PrbType.CHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
-    PrbType.DISCHARGE_OVERCURRENT: PrbDefault(
-        Severity.PROTECT, "Discharge overcurrent"
-    ),
+    PrbType.CHARGE_OC: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
+    PrbType.DISCHARGE_OC: PrbDefault(Severity.PROTECT, "Discharge overcurrent"),
     PrbType.SHORT_CIRCUIT: PrbDefault(Severity.PROTECT, "Short circuit"),
-    PrbType.CHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Charge overtemperature"),
-    PrbType.CHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
-    PrbType.DISCHARGE_OVERTEMP: PrbDefault(
-        Severity.PROTECT, "Discharge overtemperature"
-    ),
-    PrbType.DISCHARGE_UNDERTEMP: PrbDefault(
-        Severity.PROTECT, "Discharge undertemperature"
-    ),
-    PrbType.MOSFET_OVERTEMP: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
+    PrbType.CHARGE_OT: PrbDefault(Severity.PROTECT, "Charge overtemperature"),
+    PrbType.CHARGE_UT: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
+    PrbType.DISCHARGE_OT: PrbDefault(Severity.PROTECT, "Discharge overtemperature"),
+    PrbType.DISCHARGE_UT: PrbDefault(Severity.PROTECT, "Discharge undertemperature"),
+    PrbType.MOSFET_OT: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
     # examples for SYSTEM_*TEMP: ambient, PCB, board, battery temperature. NOT: MOSFET temperature
-    PrbType.SYSTEM_OVERTEMP: PrbDefault(Severity.PROTECT, "System overtemperature"),
-    PrbType.SYSTEM_UNDERTEMP: PrbDefault(Severity.PROTECT, "System undertemperature"),
+    PrbType.SYSTEM_OT: PrbDefault(Severity.PROTECT, "System overtemperature"),
+    PrbType.SYSTEM_UT: PrbDefault(Severity.PROTECT, "System undertemperature"),
     PrbType.LOW_SOC: PrbDefault(Severity.WARN, "Low state of charge"),
     PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
     PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET"),

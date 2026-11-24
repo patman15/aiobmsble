@@ -57,22 +57,22 @@ class BMS(BaseBMS):
     )
     _RESPS: Final[set[int]] = {field.idx for field in _FIELDS} | {0xF4}  # cell voltages
     _PROBLEMS: tuple[BMSPrbDef, ...] = (  # problem_code bit i = status flag i (0xF9 byte 2 + i)
-        BMSPrbDef(1 << 0, PT.CELL_OVERVOLTAGE),  # COV
+        BMSPrbDef(1 << 0, PT.CELL_OV),  # COV
         BMSPrbDef(1 << 1, PT.OTHER, SV.INFO, text="Fully charged"),  # FC
         BMSPrbDef(1 << 2, PT.OTHER, text="SOC overcharge"),  # SOCC
-        BMSPrbDef(1 << 3, PT.CHARGE_OVERTEMP),  # OTC
-        BMSPrbDef(1 << 4, PT.CHARGE_UNDERTEMP),  # UTC
-        BMSPrbDef(1 << 5, PT.MOSFET_OVERTEMP),  # BOTC
-        BMSPrbDef(1 << 6, PT.CELL_UNDERVOLTAGE),  # CUV
+        BMSPrbDef(1 << 3, PT.CHARGE_OT),  # OTC
+        BMSPrbDef(1 << 4, PT.CHARGE_UT),  # UTC
+        BMSPrbDef(1 << 5, PT.MOSFET_OT),  # BOTC
+        BMSPrbDef(1 << 6, PT.CELL_UV),  # CUV
         BMSPrbDef(1 << 7, PT.OTHER, SV.INFO, text="Fully discharged"),  # FD
         BMSPrbDef(1 << 8, PT.LOW_SOC),  # SOCD
-        BMSPrbDef(1 << 9, PT.DISCHARGE_OVERTEMP),  # OTD
-        BMSPrbDef(1 << 10, PT.DISCHARGE_UNDERTEMP),  # UTD
-        BMSPrbDef(1 << 11, PT.MOSFET_OVERTEMP),  # BOTD
+        BMSPrbDef(1 << 9, PT.DISCHARGE_OT),  # OTD
+        BMSPrbDef(1 << 10, PT.DISCHARGE_UT),  # UTD
+        BMSPrbDef(1 << 11, PT.MOSFET_OT),  # BOTD
         BMSPrbDef(1 << 12, PT.SHORT_CIRCUIT, text="Discharge short circuit"),  # SCD
-        BMSPrbDef(1 << 13, PT.DISCHARGE_OVERCURRENT),  # OCD
-        BMSPrbDef(1 << 14, PT.PACK_UNDERVOLTAGE),  # UVP
-        BMSPrbDef(1 << 15, PT.PACK_OVERVOLTAGE),  # OVP
+        BMSPrbDef(1 << 13, PT.DISCHARGE_OC),  # OCD
+        BMSPrbDef(1 << 14, PT.PACK_UV),  # UVP
+        BMSPrbDef(1 << 15, PT.PACK_OV),  # OVP
     )
 
     def __init__(

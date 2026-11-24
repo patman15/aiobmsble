@@ -295,8 +295,8 @@ async def test_problem_response(
         "problem_code": (0x202 if low else 0xE0E),
         "problems": (
             [
-                BMSProblem(PT.CELL_UNDERVOLTAGE, SV.PROTECT, "Cell undervoltage"),
-                BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage"),
+                BMSProblem(PT.CELL_UV, SV.PROTECT, "Cell undervoltage"),
+                BMSProblem(PT.CELL_OV, SV.PROTECT, "Cell overvoltage"),
             ]
             if low
             else [

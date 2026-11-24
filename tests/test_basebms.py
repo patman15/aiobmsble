@@ -618,7 +618,7 @@ class ProblemTestBMS(MinTestBMS):
     """BMS decoding its problem code."""
 
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(1 << 0, PrbType.CELL_OVERVOLTAGE),
+        BMSPrbDef(1 << 0, PrbType.CELL_OV),
         BMSPrbDef(1 << 2, PrbType.FET_LOCKED, Severity.INFO, text="locked by app"),
     )
 
@@ -630,7 +630,7 @@ class ProblemTestBMS(MinTestBMS):
             {"problem_code": 21},  # bits 0, 2, 4
             {
                 "problems": [
-                    BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.PROTECT, "Cell overvoltage"),
+                    BMSProblem(PrbType.CELL_OV, Severity.PROTECT, "Cell overvoltage"),
                     BMSProblem(PrbType.FET_LOCKED, Severity.INFO, "locked by app"),
                     BMSProblem(PrbType.UNKNOWN, Severity.WARN, "Unknown problem bit 4"),
                 ],
@@ -672,20 +672,20 @@ async def test_update_problems(
     ("code", "expected"),
     [
         (0x00, []),
-        (0x01, [PrbType.CELL_UNDERVOLTAGE]),
-        (0x02, [PrbType.CELL_OVERVOLTAGE]),
+        (0x01, [PrbType.CELL_UV]),
+        (0x02, [PrbType.CELL_OV]),
         (0x03, [PrbType.UNKNOWN]),  # value not defined, reported once
         (0x40, [PrbType.SHORT_CIRCUIT]),
         (0x50, [PrbType.SHORT_CIRCUIT]),  # any bit of mask
-        (0x102, [PrbType.CELL_OVERVOLTAGE, PrbType.UNKNOWN]),
+        (0x102, [PrbType.CELL_OV, PrbType.UNKNOWN]),
     ],
     ids=["none", "field_low", "field_high", "field_undefined", "bit", "any_bit", "unknown"],
 )
 def test_decode_problems(code: int, expected: list[PrbType]) -> None:
     """Check decoding of single bits, multi-bit fields, and undescribed bits."""
     defs: Final[tuple[BMSPrbDef, ...]] = (
-        BMSPrbDef(0x03, PrbType.CELL_UNDERVOLTAGE, value=0x01),
-        BMSPrbDef(0x03, PrbType.CELL_OVERVOLTAGE, value=0x02),
+        BMSPrbDef(0x03, PrbType.CELL_UV, value=0x01),
+        BMSPrbDef(0x03, PrbType.CELL_OV, value=0x02),
         BMSPrbDef(0xF0, PrbType.SHORT_CIRCUIT, Severity.FAULT),
     )
     assert [p.kind for p in decode_problems(code, defs)] == expected
@@ -700,7 +700,7 @@ def test_decode_problems_value_zero() -> None:
 def test_decode_problems_unknown_text() -> None:
     """Check that undefined field values and undescribed bits are reported distinctly."""
     defs: Final[tuple[BMSPrbDef, ...]] = (
-        BMSPrbDef(0xFF00, PrbType.CELL_OVERVOLTAGE, value=0x0200),
+        BMSPrbDef(0xFF00, PrbType.CELL_OV, value=0x0200),
         BMSPrbDef(0x0001, PrbType.SHORT_CIRCUIT),
     )
     assert decode_problems(0x1310, defs) == [
@@ -712,14 +712,14 @@ def test_decode_problems_unknown_text() -> None:
 def test_decode_problems_dedup_keeps_worst() -> None:
     """Check that problems with same kind and text are reported once with highest severity."""
     defs: Final[tuple[BMSPrbDef, ...]] = (
-        BMSPrbDef(0x01, PrbType.CELL_UNDERVOLTAGE, Severity.WARN, text="Cell undervoltage"),
-        BMSPrbDef(0x02, PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, text="Cell undervoltage"),
-        BMSPrbDef(0x04, PrbType.CELL_UNDERVOLTAGE, Severity.INFO, text="Cell undervoltage"),
-        BMSPrbDef(0x08, PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, text="Cell low"),
+        BMSPrbDef(0x01, PrbType.CELL_UV, Severity.WARN, text="Cell undervoltage"),
+        BMSPrbDef(0x02, PrbType.CELL_UV, Severity.PROTECT, text="Cell undervoltage"),
+        BMSPrbDef(0x04, PrbType.CELL_UV, Severity.INFO, text="Cell undervoltage"),
+        BMSPrbDef(0x08, PrbType.CELL_UV, Severity.PROTECT, text="Cell low"),
     )
     assert decode_problems(0x0F, defs) == [
-        BMSProblem(PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, "Cell undervoltage"),
-        BMSProblem(PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, "Cell low"),
+        BMSProblem(PrbType.CELL_UV, Severity.PROTECT, "Cell undervoltage"),
+        BMSProblem(PrbType.CELL_UV, Severity.PROTECT, "Cell low"),
     ]
 
 
@@ -743,7 +743,7 @@ def test_problem_defaults_applied() -> None:
         PrbType.AFE_FAILURE, Severity.FAULT, "Analog front-end"
     )
     assert BMSProblem(PrbType.FET_LOCKED).level == Severity.INFO
-    assert BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.WARN).text == "Cell overvoltage"
+    assert BMSProblem(PrbType.CELL_OV, Severity.WARN).text == "Cell overvoltage"
     assert BMSProblem(PrbType.OTHER, text="Wire resistance").level == Severity.WARN
 
 
@@ -782,7 +782,7 @@ async def test_op_guard_device_info_update(
         (
             {
                 "problems": [
-                    BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.PROTECT, "Cell overvoltage")
+                    BMSProblem(PrbType.CELL_OV, Severity.PROTECT, "Cell overvoltage")
                 ]
             },
             "decoded protection",

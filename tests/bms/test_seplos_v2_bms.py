@@ -338,7 +338,7 @@ async def test_invalid_response(
             0x20000000000,  # Charging overtemp protection
             [
                 BMSProblem(
-                    PrbType.CHARGE_OVERTEMP,
+                    PrbType.CHARGE_OT,
                     Severity.PROTECT,
                     "Charge overtemperature",
                 ),
@@ -349,7 +349,7 @@ async def test_invalid_response(
             + b"\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x8a\x0d",
             0x01000000000000,  # Single high voltage alarm
             [
-                BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.WARN, "Cell overvoltage"),
+                BMSProblem(PrbType.CELL_OV, Severity.WARN, "Cell overvoltage"),
             ],
         ),
     ],
