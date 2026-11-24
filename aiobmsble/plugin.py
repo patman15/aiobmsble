@@ -11,7 +11,7 @@ from typing import Any, Final, Literal, NamedTuple, TypedDict
 
 from aiobmsble import BMSProblem, Limit, PrbType, Severity
 
-__all__ = [
+__all__: list[str] = [
     "BMSDp",
     "BMSPackValue",
     "BMSPrbDef",
@@ -42,31 +42,30 @@ type CommonValue = Literal[
     "cycles",
     "delta_cell_voltage",
     "design_capacity",
+    "power",
     "temp_count",
     "temperature",
     "voltage",
 ]
 
-type BMSValue = (
-    CommonValue
-    | Literal[
-        "battery_charging",
-        "battery_mode",
-        "power",
-        "total_charge",
-        "problem",
-        "runtime",
-        "balancer",
-        "balance_current",
-        "heater_current",
-        "pack_count",
-        "problem_code",
-        "problems",
-        "chrg_mosfet",
-        "dischrg_mosfet",
-        "heater",
-    ]
-)
+type BMSValue = Literal[
+    CommonValue,
+    "battery_charging",
+    "battery_mode",
+    "power",
+    "total_charge",
+    "problem",
+    "runtime",
+    "balancer",
+    "balance_current",
+    "heater_current",
+    "pack_count",
+    "problem_code",
+    "problems",
+    "chrg_mosfet",
+    "dischrg_mosfet",
+    "heater",
+]
 
 type BMSPackValue = CommonValue
 
@@ -88,7 +87,8 @@ class BMSPrbDef(NamedTuple):
         return hit == self.value
 
 
-class BMSDp[K: (BMSValue, BMSPackValue)](NamedTuple):
+@dataclass(frozen=True, slots=True)
+class BMSDp[K: (BMSValue, BMSPackValue)]:
     """Representation of main BMS data point."""
 
     key: K

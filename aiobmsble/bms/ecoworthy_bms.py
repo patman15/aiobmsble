@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from dataclasses import replace
 import logging
 from typing import Final
 
@@ -36,11 +37,7 @@ class BMS(BaseBMS):
         # ("cycles", 0xA1, 8, 2, False,
     )
     _FIELDS_V2: Final[tuple[BMSDp[BMSValue], ...]] = tuple(
-        BMSDp(
-            *field[:-2],
-            (lambda x: x / 10) if field.key == "current" else field.fct,
-            field.idx,
-        )
+        replace(field, fct=lambda x: x / 10) if field.key == "current" else field
         for field in _FIELDS_V1
     )
     _INIT_CMDS: Final[tuple[bytes, ...]] = (
@@ -126,7 +123,7 @@ class BMS(BaseBMS):
             self._msg.clear()
             self._msg_event.clear()
 
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
 
         result: BMSSample = BMS._decode_data(
             (BMS._FIELDS_V1 if self._msg[0xA1].startswith(BMS._HEAD) else BMS._FIELDS_V2),

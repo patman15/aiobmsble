@@ -168,7 +168,7 @@ class DataTestBMS(MinTestBMS):
 class AliveTestBMS(MinTestBMS):
     """BMS exercising the periodic keep-alive task in the base class."""
 
-    ALIVE_INTERVAL: float | None = 0.0
+    _ALIVE_INTERVAL: float | None = 0.0
 
     def __init__(
         self,
@@ -274,12 +274,13 @@ class BMSBasicTests:
     bms_class: type[BaseBMS]
     config: BMSConfig = BMSConfig()
 
-    def test_bms_type(self) -> None:
+    def test_bms_descr(self) -> None:
         """Test that the BMS returns default information."""
 
         for key in ("manufacturer", "model"):
             assert str(self.bms_class.INFO.get(key, "")).strip()
-        assert len(self.bms_class.bms_type().strip())
+        assert len(self.bms_class.bms_descr().strip())
+        assert self.bms_class.bms_type().endswith("_bms")
 
     async def test_matcher_dict(self) -> None:
         """Test that the BMS returns BT matcher."""
@@ -1072,7 +1073,7 @@ async def test_init_connect_fail(
     ):
         await bms.update()
     assert isinstance(exc_info.value.__cause__, ValueError)
-    assert exc_info.value.bms_id == MinTestBMS.bms_type()
+    assert exc_info.value.bms_type == MinTestBMS.bms_type()
     assert exc_info.value.address == bms._ble_device.address
 
 
@@ -1125,7 +1126,7 @@ async def test_update_error_translation(
     with pytest.raises(expected) as exc_info:
         await bms.update()
     assert str(exc_info.value)
-    assert exc_info.value.bms_id == MinTestBMS.bms_type()
+    assert exc_info.value.bms_type == MinTestBMS.bms_type()
     assert exc_info.value.address == bms._ble_device.address
     assert bms.is_connected is keep_alive
     await bms.disconnect()
@@ -1739,15 +1740,15 @@ async def test_alive_loop_exception(
         await bms.update()
         for _ in range(10):
             await asyncio.sleep(0)
-            if "terminated with unexpectedly" in caplog.text:
+            if "terminated unexpectedly" in caplog.text:
                 break
 
-    assert "task 'BMS keep-alive' terminated with unexpectedly" in caplog.text
+    assert "task 'BMS keep-alive' terminated unexpectedly" in caplog.text
     await bms.disconnect()  # task already done -> no cancellation needed
 
 
 async def test_alive_task_disabled(patch_bleak_client: Callable[..., None]) -> None:
-    """Verify no keep-alive task is started when `ALIVE_INTERVAL` is None."""
+    """Verify no keep-alive task is started when `_ALIVE_INTERVAL` is None."""
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
 

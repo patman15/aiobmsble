@@ -184,7 +184,7 @@ class BMS(BaseBMS):
         self._prot_offset = -32 if self._sw_version < 11 else 0
         if not self._bms_ready:
             self._valid_reply = 0xC8  # BMS ready confirmation
-            await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+            await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
         self._valid_reply = 0x02  # cell information
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:

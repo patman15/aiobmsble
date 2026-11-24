@@ -55,19 +55,19 @@ class BMSError(Exception):
     """Message used if the exception is raised without one."""
 
     def __init__(
-        self, msg: str = "", *, bms_id: str | None = None, address: str | None = None
+        self, msg: str = "", *, bms_type: str | None = None, address: str | None = None
     ) -> None:
         """Initialize an aiobmsble error with optional device context.
 
         Args:
             msg: error description; `default_msg` is used if empty
-            bms_id: BMS type (manufacturer and model), set by the library if omitted
+            bms_type: BMS type (plugin module name, e.g. `dummy_bms`), set by the library if omitted
             address: Bluetooth address of the device, set by the library if omitted
 
         """
         super().__init__(msg or self.default_msg)
-        self.bms_id: str | None = bms_id
-        """BMS type (manufacturer and model) that raised the error."""
+        self.bms_type: str | None = bms_type
+        """BMS type (plugin module name, e.g. `dummy_bms`) that raised the error."""
         self.address: str | None = address
         """Bluetooth address of the device that raised the error."""
 

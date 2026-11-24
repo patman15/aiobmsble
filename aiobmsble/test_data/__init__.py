@@ -14,10 +14,14 @@ from bleak.backends.scanner import AdvertisementData
 
 from aiobmsble.utils import adv_dict_to_advdata
 
-type BmsAdvSample = tuple[AdvertisementData, str, str, list[str]]
+__all__: list[str] = ["BMSAdvSample", "bms_advertisements", "ignore_advertisements"]
+
+type BMSAdvSample = tuple[AdvertisementData, str, str, list[str]]
 
 
-def parse_adv_from_json(entry: dict[str, Any], text_key: Literal["type", "reason"]) -> BmsAdvSample:
+def _parse_adv_from_json(
+    entry: dict[str, Any], text_key: Literal["type", "reason"]
+) -> BMSAdvSample:
     """Parse a JSON string into an AdvertisementData instance."""
     assert isinstance(entry, dict)
     assert {"advertisement", text_key, "_comments"}.issubset(entry.keys())
@@ -39,22 +43,23 @@ def parse_adv_from_json(entry: dict[str, Any], text_key: Literal["type", "reason
 
 
 @lru_cache(maxsize=32)
-def bms_advertisements(bms_filter: str | None = None) -> tuple[BmsAdvSample, ...]:
+def bms_advertisements(bms_filter: str | None = None) -> tuple[BMSAdvSample, ...]:
     """Provide all available BMS advertisements from test data directory.
 
     Load *_bms.json files from the packaged test data directory.
-    If no type is given, all available advertisements (any type) will be returned.
+    If no filter is given, all available advertisements (any type) will be returned.
 
     Args:
-        bms_filter (str|None): BMS type for which the advertisements should be returned.
+        bms_filter (str|None): prefix of the JSON file name, e.g. the BMS type `dummy_bms`,
+            for which the advertisements should be returned.
 
     Returns:
-        tuple[BmsAdvSample, ...]: List of tuples containing advertisement, mac_addr, bms type,
+        tuple[BMSAdvSample, ...]: List of tuples containing advertisement, mac_addr, bms type,
         and a list of comments, i.e. tuple[AdvertisementData, str, str, list[str]]
 
     """
 
-    def generate_entries() -> Generator[BmsAdvSample, Any, None]:
+    def generate_entries() -> Generator[BMSAdvSample, Any, None]:
         for resource in resources.files(__package__).iterdir():
             if bms_filter and not resource.name.startswith(bms_filter):
                 continue
@@ -65,31 +70,31 @@ def bms_advertisements(bms_filter: str | None = None) -> tuple[BmsAdvSample, ...
                 assert isinstance(raw_data, list)
 
                 for entry in raw_data:
-                    adv, mac_addr, bms_type, comments = parse_adv_from_json(entry, "type")
+                    adv, mac_addr, bms_type, comments = _parse_adv_from_json(entry, "type")
                     assert resource.name == f"{bms_type}.json"
                     yield (adv, mac_addr, bms_type, comments)
 
     return tuple(generate_entries())
 
 
-def ignore_advertisements() -> tuple[BmsAdvSample, ...]:
+def ignore_advertisements() -> tuple[BMSAdvSample, ...]:
     """Provide a list of advertisements that shall not be identified as a valid BMS.
 
-    Load ignore.json files from the packaged test data directory.
+    Load the ignore.json file from the packaged test data directory.
 
     Returns:
-        tuple[BmsAdvSample, ...]: tuples containing advertisement, MAC address, reason why
+        tuple[BMSAdvSample, ...]: tuples containing advertisement, MAC address, reason why
         not to detect, and a list of comments
 
     """
 
-    def generate_entries() -> Generator[BmsAdvSample, Any, None]:
+    def generate_entries() -> Generator[BMSAdvSample, Any, None]:
         with resources.files(__package__).joinpath("ignore.json").open("r", encoding="UTF-8") as f:
             raw_data: Any = json.load(f)
             assert isinstance(raw_data, list)
 
             for entry in raw_data:
-                adv, mac_addr, reason, comments = parse_adv_from_json(entry, "reason")
+                adv, mac_addr, reason, comments = _parse_adv_from_json(entry, "reason")
                 yield (adv, mac_addr, reason, comments)
 
     return tuple(generate_entries())

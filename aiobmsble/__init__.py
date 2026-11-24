@@ -40,7 +40,8 @@ from aiobmsble.exceptions import (
     BMSUnsupportedError,
 )
 
-__all__ = [
+__all__: list[str] = [
+    "PROBLEM_DEFAULTS",
     "BMSAuthError",
     "BMSCommandRejectedError",
     "BMSConfig",
@@ -58,6 +59,7 @@ __all__ = [
     "BatterySample",
     "Limit",
     "PackSample",
+    "PrbDefault",
     "PrbType",
     "Severity",
     "TempSensor",
@@ -194,7 +196,7 @@ class PrbType(StrEnum):
     SENSOR_FAILURE = auto()
     COMM_FAILURE = auto()
     FUSE_BLOWN = auto()
-    OTHER = auto()  # vendor specific, requires ProblemDef.text
+    OTHER = auto()  # vendor specific, requires BMSPrbDef.text
     UNKNOWN = auto()  # bit set but not described by the plugin
 
 
@@ -276,8 +278,8 @@ class BatterySample(TypedDict, total=False):
     cell_voltages: list[float]  # [V]
     current: float  # [A] (positive: charging)
     cycles: int  # [#]
-    cycle_charge: int | float  # [Ah]
-    cycle_energy: int | float  # [Wh]
+    cycle_charge: float | int  # [Ah]
+    cycle_energy: float | int  # [Wh]
     delta_cell_voltage: float  # [V]
     design_capacity: int  # [Ah]
     power: float  # [W] (positive: charging)
@@ -308,7 +310,7 @@ class BMSSample(BatterySample, total=False):
     total_charge: int  # [Ah], charge discharged over lifetime
     pack_count: int  # [#]
     problem_code: int  # BMS specific code, 0 no problem
-    problems: list[BMSProblem]  # decoded problem_code, present if plugin defines _PROBLEMS
+    problems: list[BMSProblem]  # decoded problem_code and failed value sanity checks
 
     # BMS switches
     chrg_mosfet: bool  # True: enabled

@@ -36,7 +36,7 @@ class BMS(BaseBMS):
 
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
-    ALIVE_INTERVAL: float | None = 24.0  # seconds
+    _ALIVE_INTERVAL: float | None = 24.0  # seconds
     _GATHER_TIMEOUT: Final[float] = BLEAK_TIMEOUT
     _UUID_SLC: Final[slice] = slice(4, 8)
     _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
@@ -120,7 +120,7 @@ class BMS(BaseBMS):
 
         await self._client.start_notify(char_uuid, self._keep_alive_handler)
         event.clear()
-        await asyncio.wait_for(event.wait(), timeout=BMS.TIMEOUT)
+        await asyncio.wait_for(event.wait(), timeout=BMS._TIMEOUT)
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None

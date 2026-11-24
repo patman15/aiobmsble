@@ -104,7 +104,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
+        """Not supported, the BMS has no write characteristic."""
         raise NotImplementedError
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -140,7 +140,7 @@ class BMS(BaseBMS):
         if self._msg.keys() >= {m.value for m in BMS._Msg}:
             self._msg_event.set()
 
-        if len(self._frame) > BMS.BLE_MAX_ATTR_SIZE:
+        if len(self._frame) > BMS._BLE_MAX_ATTR_SIZE:
             self._log.debug("invalid frame")
             self._frame.clear()
 
@@ -180,7 +180,7 @@ class BMS(BaseBMS):
     async def _update(self) -> BMSSample:
         """Update battery status information."""
         try:
-            await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+            await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
             fields: tuple[BMSDp[BMSValue], ...] = (
                 BMS._FIELDS_FIXED if BMS._is_fixed_length(self._msg[BMS._Msg.prim]) else BMS._FIELDS
             )

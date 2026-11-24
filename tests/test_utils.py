@@ -12,7 +12,7 @@ from aiobmsble._streamparser import StreamParser
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSConfigError
 from aiobmsble.plugin import BMSPrbDef, MatcherPattern, decode_problems
-from aiobmsble.test_data import BmsAdvSample, bms_advertisements
+from aiobmsble.test_data import BMSAdvSample, bms_advertisements
 from aiobmsble.utils import (
     adv_dict_to_advdata,
     available_bms,
@@ -47,7 +47,7 @@ async def test_identify(plugin: ModuleType) -> None:
             "cc:cc:cc:cc:cc:cc",
         )
     else:
-        advertisements: tuple[BmsAdvSample, ...] = bms_advertisements(bms_type)
+        advertisements: tuple[BMSAdvSample, ...] = bms_advertisements(bms_type)
         assert advertisements, f"No advertisement provided for {bms_type} in test_data"
         adv, mac_addr, _type, _comments = advertisements[-1]
 
@@ -95,15 +95,18 @@ async def test_get_bms_none(bms_type: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "invalid_bms_class", [object(), object], ids=["not-a-type", "not-subclass"]
+    "invalid_bms_class",
+    [object(), object, None],
+    ids=["not-a-type", "not-subclass", "missing"],
 )
 async def test_get_bms_invalid_bms_class(
     monkeypatch: pytest.MonkeyPatch,
     invalid_bms_class: object,
 ) -> None:
-    """Test that get_bms returns None if module.BMS is not a BaseBMS subclass."""
+    """Test that get_bms returns None if module.BMS is missing or not a BaseBMS subclass."""
     test_module = ModuleType("aiobmsble.bms.invalid_bms")
-    monkeypatch.setattr(test_module, "BMS", invalid_bms_class, raising=False)
+    if invalid_bms_class is not None:
+        monkeypatch.setattr(test_module, "BMS", invalid_bms_class, raising=False)
 
     def import_module(name: str) -> ModuleType:
         assert name == "aiobmsble.bms.invalid_bms"
@@ -161,7 +164,7 @@ def test_load_bms_plugins_continue_paths(
     monkeypatch.setattr("pkgutil.iter_modules", fake_iter_modules)
     monkeypatch.setattr("importlib.import_module", fake_import)
 
-    result: set[ModuleType] = load_bms_plugins.__wrapped__()
+    result: frozenset[ModuleType] = load_bms_plugins.__wrapped__()
     assert len(result) == 1
 
     # Ensure only valid modules are present

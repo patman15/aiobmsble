@@ -104,7 +104,7 @@ class BMS(BaseBMS):
 
         self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
-        if not self._frame.startswith(BMS._HEAD) or len(self._frame) > BMS.BLE_MAX_ATTR_SIZE:
+        if not self._frame.startswith(BMS._HEAD) or len(self._frame) > BMS._BLE_MAX_ATTR_SIZE:
             self._log.debug("invalid frame")
             self._frame.clear()
             return

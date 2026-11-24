@@ -27,11 +27,11 @@ class BMS(BaseBMS):
     # _FRAME_LEN: Final[int] = 10  # length of frame, including SOF and checksum
     # _FIELDS: Final[tuple[BMSDp[BMSValue], ...] ] = () # TODO: define BMS sensor decoder definitions
     # _LIMIT_FIELDS: Final[tuple[LimitDp, ...]] = () # TODO: define BMS limits
-    # _PROBLEMS: Final[tuple[BMSPrbDef, ...]] = () # TODO: add problem code decoder definitions
+    # _PROBLEMS: tuple[BMSPrbDef, ...] = () # TODO: add problem code decoder definitions
     # _SKIP_INFO_CHARS: bool = False  # set True to skip information from BT default chars for BMSInfo()
     #
     # ACCEPT_SECRET: bool = True  # if the BMS accepts a secret for authentication
-    # ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
+    # _ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
 
     def __init__(
         self,
@@ -49,7 +49,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def uuid_services() -> tuple[str, ...]:
-        """Return list of 128-bit UUIDs of services required by BMS."""
+        """Return UUIDs of services required by BMS."""
         return (normalize_uuid_str("0000"),)  # TODO: change service UUID here!
 
     @staticmethod
@@ -78,7 +78,7 @@ class BMS(BaseBMS):
     #     return {Limit.CELL_OVP: Threshold(trip=3.65, release=3.5)}
 
     # async def _alive(self) -> None:
-    #     """Override to run periodic actions while `ALIVE_INTERVAL` is set."""
+    #     """Override to run periodic actions while `_ALIVE_INTERVAL` is set."""
     #     raise NotImplementedError
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -98,7 +98,7 @@ class BMS(BaseBMS):
         #     self._log.debug("incorrect SOF")
         #     return
 
-        # if not self._check_crc(self._frame, crc_sum, slice(None, -1), slice(-1, None)):
+        # if not self._check_integrity(self._frame, crc_sum, slice(None, -1), slice(-1, None)):
         #     return
 
         # Do an immutable copy of the assembled (data) frame and notify _await_msg()

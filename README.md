@@ -162,8 +162,9 @@ This will install the latest library release and all of its python dependencies.
 git clone https://github.com/patman15/aiobmsble.git
 cd aiobmsble
 pip3 install -e .[dev]
+pre-commit install
 ```
-This gives you the latest library code from the main branch.
+This gives you the latest library code from the main branch. `pre-commit install` enables the automatic checks on each commit.
 
 ## Troubleshooting
 In case you have problems with the library, please enable debug logging. You can also run `aiobmsble -v` from the command line in order to query all known BMS that are reachable.

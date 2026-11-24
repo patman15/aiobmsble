@@ -146,7 +146,7 @@ class Mock123SmartBleakClient(MockBleakClient):
 @pytest.fixture(autouse=True)
 def _fast_timings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Speed up ping/warm-up/cycle timings for tests."""
-    monkeypatch.setattr(BMS, "ALIVE_INTERVAL", 0.001)
+    monkeypatch.setattr(BMS, "_ALIVE_INTERVAL", 0.001)
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
@@ -159,7 +159,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     )
 
     assert await bms.update() == _RESULT_DEFS
-    await asyncio.sleep(bms.ALIVE_INTERVAL or 0)  # wait for keep-alive ping to be sent
+    await asyncio.sleep(bms._ALIVE_INTERVAL or 0)  # wait for keep-alive ping to be sent
     await bms.update()  # second query to cover already-connected path
     assert bms.is_connected is keep_alive_fixture
 

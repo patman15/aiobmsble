@@ -290,9 +290,9 @@ async def test_invalid_frame_length(
     patch_bms_timeout,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test handling of frames exceeding BLE_MAX_ATTR_SIZE in notification handler."""
+    """Test handling of frames exceeding _BLE_MAX_ATTR_SIZE in notification handler."""
     patch_bms_timeout("lithionics_bms")
-    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", b"A" * (BMS.BLE_MAX_ATTR_SIZE + 1))
+    monkeypatch.setattr(MockLithionicsBleakClient, "_RESP", b"A" * (BMS._BLE_MAX_ATTR_SIZE + 1))
     patch_bleak_client(MockLithionicsBleakClient)
 
     bms = BMS(generate_ble_device())

@@ -70,12 +70,12 @@ class BMS(BaseBMS):
 
     @staticmethod
     def uuid_rx() -> str:
-        """Return 16-bit UUID of characteristic that provides notification/read property."""
+        """Return 128-bit UUID of characteristic that provides notification/read property."""
         return "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
+        """Return 128-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:

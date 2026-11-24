@@ -62,12 +62,12 @@ class BMS(EJBMS):
 
     @staticmethod
     def uuid_rx() -> str:
-        """Return 128-bit UUID of characteristic that provides notification/read property."""
+        """Return 16-bit UUID of characteristic that provides notification/read property."""
         return "fff1"
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 128-bit UUID of characteristic that provides write property."""
+        """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:

@@ -93,12 +93,12 @@ class BMS(BaseBMS):
 
     @staticmethod
     def uuid_rx() -> str:
-        """Return 16-bit UUID of characteristic that provides notification/read property."""
+        """Return 128-bit UUID of characteristic that provides notification/read property."""
         return "00035b03-58e6-07dd-021a-08123a000301"
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
+        """Not supported, the BMS has no write characteristic."""
         raise NotImplementedError
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -131,7 +131,7 @@ class BMS(BaseBMS):
 
     async def _update(self) -> BMSSample:
         """Update battery status information."""
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
 
         result: BMSSample = self._decode_data(BMS._FIELDS, self._msg, byteorder="little", start=7)
         for msg_type in (

@@ -25,7 +25,7 @@ The package requires Python `>=3.12`. It is licensed under Apache-2.0.
 
 ## Environment and setup
 
-Use the repository's existing `.venv` for all Python commands. Activate it once at the start of the session, then run commands normally without prefixing each one with the environment path. From the repository root:
+Use the repository's existing `.venv` for all Python commands. Activate it once at the start of the session, then run commands normally without prefixing each one with the environment path. Commands in this file assume a POSIX shell. From the repository root:
 
 ```bash
 source .venv/bin/activate
@@ -105,7 +105,7 @@ The documentation workflow runs those commands on pushes to `main`; generated ou
 3. Add a real-device advertisement to `aiobmsble/test_data/<name>_bms.json`.
 4. Add `tests/bms/test_<name>_bms.py`, subclassing `BMSBasicTests` from `tests/test_basebms.py`, and add protocol-specific cases. Use `tests/bms/test_dummy.py` as a template.
 5. Add `docs/<name>_bms.md` when detailed device/protocol information is available.
-6. If plugin fields or supported data change, run `.venv/bin/python scripts/bms_data_table.py` and review `docs/available_bms_data.csv`.
+6. If plugin fields or supported data change, run `python scripts/bms_data_table.py` and review `docs/available_bms_data.csv`.
 7. Run the complete quality gate, including 100% branch coverage, before opening a pull request.
 
 For a new BMS, ensure the sample contains at least the fields required by the contribution guide: overall voltage, signed current direction, and battery fill-level information directly or through the documented capacity fields. Do not introduce persistent values or behavior that depends on storing state across runs.
@@ -148,7 +148,7 @@ The normal pytest suite is intentionally broad: it covers plugin loading/identif
 
 ## Evidence basis
 
-This guidance was cross-checked against the repository at inspection time: `README.md`, `CONTRIBUTING.md`, `pyproject.toml`, `.pre-commit-config.yaml`, `.github/pull_request_template.md`, all workflows under `.github/workflows/`, `aiobmsble/__init__.py`, `aiobmsble/basebms.py`, `aiobmsble/bms/abc_bms.py`, `aiobmsble/bms/dummy_bms.py`, `examples/minimal.py`, `scripts/bms_data_table.py`, `tests/conftest.py`, `tests/test_basebms.py`, `tests/test_fuzzing.py`, and the repository file tree. The inspected checkout was the public `main` branch at commit `5b34df6` (`Fix WS Nova heater readout (#279)`).
+This guidance was cross-checked against the repository at inspection time: `README.md`, `CONTRIBUTING.md`, `pyproject.toml`, `.pre-commit-config.yaml`, `.github/pull_request_template.md`, all workflows under `.github/workflows/`, `aiobmsble/__init__.py`, `aiobmsble/basebms.py`, `aiobmsble/bms/abc_bms.py`, `aiobmsble/bms/dummy_bms.py`, `examples/minimal.py`, `scripts/bms_data_table.py`, `tests/conftest.py`, `tests/test_basebms.py`, `tests/test_fuzzing.py`, and the repository file tree.
 
 ## BMS Plugin and Test Patterns
 
@@ -203,7 +203,7 @@ integrity handling. Current examples fall into two patterns:
   and `eleksol_bms.py` (from `jbd_bms.py`).
 - **Protocol variant** (same transport, different data map or a narrow
   behavioral tweak): additionally override the declarative field map
-  (`_FIELDS`/`FIELDS`), protocol constants, scaling, and at most a small hook
+  (`_FIELDS`), protocol constants, scaling, and at most a small hook
   such as `_notification_handler()`, `_update()`, `_fetch_device_info()`,
   or `_init_connection()`. See `pwrboozt_bms.py` (from `ej_bms.py`),
   `c4s_bms.py` (from `vatrer_bms.py`), `daren_bms.py` (from `jbd_bms.py`),
@@ -212,7 +212,7 @@ integrity handling. Current examples fall into two patterns:
 
 When writing a plugin intended to be subclassed, expose the field tuple as a
 plain (non-`Final`) class attribute so a child can replace it or patch entries
-with `BMSDp._replace()` without touching protocol code. Do not duplicate a
+with `dataclasses.replace()` without touching protocol code. Do not duplicate a
 parent's `_notification_handler()`, command builder, or integrity logic in the
 child; override only what genuinely differs.
 

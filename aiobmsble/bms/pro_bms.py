@@ -129,7 +129,7 @@ class BMS(BaseBMS):
 
         try:
             # Wait for new data packet
-            await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+            await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
         except TimeoutError:
             await self.disconnect()
             raise

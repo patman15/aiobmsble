@@ -25,7 +25,7 @@ class BMS(BaseBMS):
 
     ACCEPT_SECRET: bool = True  # requires a 4-digit PIN for authentication
 
-    ALIVE_INTERVAL = 1.0  # s, keep-alive poll rate (app uses 330 ms)
+    _ALIVE_INTERVAL = 1.0  # s, keep-alive poll rate (app uses 330 ms)
     _CR: Final[bytes] = b"\r"
     _SEP: Final[bytes] = b"_"
     _FIELDS: tuple[BMSDp[BMSValue], ...] = (
@@ -223,7 +223,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         try:
-            await asyncio.wait_for(self._msg_event.wait(), timeout=BMS.TIMEOUT)
+            await asyncio.wait_for(self._msg_event.wait(), timeout=BMS._TIMEOUT)
         except TimeoutError as exc:
             if len(self._msg):
                 raise BMSDataError from exc

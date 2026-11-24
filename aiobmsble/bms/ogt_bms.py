@@ -68,7 +68,7 @@ class BMS(BaseBMS):
         ) + (5 if (self._type == "A") else 8)
         self._log.info(
             "%s type: %c, ID: %s, key: 0x%X",
-            self.bms_type(),
+            self.bms_descr(),
             self._type,
             self.name[10:],
             self._key,

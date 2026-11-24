@@ -509,7 +509,7 @@ class MockDBBleakClient(MockBleakClient):
                 handle,
                 uuid,
                 ["notify"],
-                lambda: BMS.BLE_MAX_ATTR_SIZE,
+                lambda: BMS._BLE_MAX_ATTR_SIZE,
                 self.DBSrv,
             )
             for channel, (uuid, handle) in self._CHARACTERISTIC_DEFS.items()
@@ -871,7 +871,7 @@ class MockDBBleakClientBrokenSender(MockDBBleakClient):
         self._state = self._State.WAIT_CHB
         await self._notify("chB", bytearray(b""))
         alien_char = BleakGATTCharacteristic(
-            self, 99, "12345678", ["notify"], lambda: BMS.BLE_MAX_ATTR_SIZE, self.DBSrv
+            self, 99, "12345678", ["notify"], lambda: BMS._BLE_MAX_ATTR_SIZE, self.DBSrv
         )  # unknown UUID -> case _:
         await self._cbs["chB"](alien_char, bytearray(b"\x12"))
         await self._notify("chB", self._chb_data)  # real data continues init
@@ -880,7 +880,7 @@ class MockDBBleakClientBrokenSender(MockDBBleakClient):
 async def test_alive_loop_running(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that the keep-alive loop actually sends its keep-alive messages."""
     monkeypatch.setattr(MockDBBleakClient, "_RESP", _PROTO_DEFS)
-    monkeypatch.setattr(BMS, "ALIVE_INTERVAL", 0.0)
+    monkeypatch.setattr(BMS, "_ALIVE_INTERVAL", 0.0)
     patch_bleak_client(MockDBBleakClient)
 
     written: set[tuple[str, bytes]] = set()
@@ -967,7 +967,7 @@ async def test_keep_alive_handler_write_error(
                 99,
                 "00000004-0000-1000-8000-008025000000",
                 ["notify"],
-                lambda: BMS.BLE_MAX_ATTR_SIZE,
+                lambda: BMS._BLE_MAX_ATTR_SIZE,
                 service=BleakGATTService(object(), 98, "mock_serv_chB"),
             ),
             bytearray(b"\x12"),

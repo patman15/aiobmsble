@@ -127,7 +127,7 @@ async def test_stale_data_cleared(
 ) -> None:
     """Verify that sustained max-size random notifications never raise BufferError.
 
-    Delivers more BLE_MAX_ATTR_SIZE chunks of random (invalid) data than the frame
+    Delivers more _BLE_MAX_ATTR_SIZE chunks of random (invalid) data than the frame
     buffer can hold, to check that each plugin discards stale data instead of
     overflowing its buffer.
     """
@@ -147,9 +147,9 @@ async def test_stale_data_cleared(
     handler: Callable[..., Awaitable[None] | None] = bms._notification_handler  # type: ignore[attr-defined]
     rng = random.Random(42)
 
-    # buffer capacity is max(_MAX_MSG_LEN, BLE_MAX_ATTR_SIZE) * 2, so delivering
+    # buffer capacity is max(_MAX_MSG_LEN, _BLE_MAX_ATTR_SIZE) * 2, so delivering
     # this many chunks overflows it unless stale data is cleared
-    size = BaseBMS.BLE_MAX_ATTR_SIZE
+    size = BaseBMS._BLE_MAX_ATTR_SIZE
     chunk_count = max(BaseBMS._MAX_MSG_LEN, size) // size + 2
 
     await bms._connect()
@@ -169,9 +169,9 @@ def test_alive_interval_requires_alive_override() -> None:
     subclasses: list[tuple[type[BaseBMS], str]] = _get_bms_subclasses()
 
     for subclass, file_path in subclasses:
-        if subclass.ALIVE_INTERVAL is not None:
+        if subclass._ALIVE_INTERVAL is not None:
             assert "_alive" in subclass.__dict__, (
-                f"{subclass.__name__} sets ALIVE_INTERVAL but does not override _alive\n"
+                f"{subclass.__name__} sets _ALIVE_INTERVAL but does not override _alive\n"
                 f"File: {file_path}"
             )
 
