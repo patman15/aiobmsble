@@ -856,6 +856,8 @@ class BaseBMS(ABC):
     ) -> list[float]:
         """Return cell voltages from BMS message.
 
+        Cells whose raw value is 0 are omitted from the result, e.g. unused cell slots.
+
         Args:
             data: Raw data from BMS
             cells: Number of cells to read
@@ -897,6 +899,9 @@ class BaseBMS(ABC):
         types: tuple[TempSensor.T, ...] = (),
     ) -> list[TempSensor]:
         """Return temperature values from BMS message.
+
+        If `offset` is non-zero, sensors whose raw value is 0 are omitted from the result,
+        e.g. unconnected sensors. Without an offset, raw 0 values are kept.
 
         Args:
             data: Raw data from BMS
