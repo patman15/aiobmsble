@@ -210,7 +210,7 @@ class BMS(BaseBMS):
             if BMS._SPA_LEN not in self._msg:
                 raise BMSDataError
             payload += self._msg.pop(BMS._SPA_LEN)[BMS._HEAD_LEN : -BMS._CRC_LEN]
-        return BMS._decode_limits(bytes(payload), BMS._LIMIT_FIELDS)
+        return BMS._decode_limits(BMS._LIMIT_FIELDS, bytes(payload))
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None

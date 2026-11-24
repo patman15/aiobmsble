@@ -167,7 +167,7 @@ class BMS(BaseBMS):
             payload: bytes = self._msg.get(cmd, b"")[3:-1]
             if len(payload) != length:
                 raise BMSDataError(bms_type=self.bms_type(), address=self._ble_device.address)
-            limits |= BMS._decode_limits(payload, fields)
+            limits |= BMS._decode_limits(fields, payload)
         return limits
 
     async def _init_connection(

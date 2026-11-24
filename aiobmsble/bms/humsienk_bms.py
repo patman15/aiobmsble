@@ -151,7 +151,7 @@ class BMS(BaseBMS):
     async def _fetch_limits(self) -> BMSLimits:
         """Fetch the thresholds (0x58 configuration frame)."""
         await self._await_msg(BMS._cmd(b"\x58"))
-        return BMS._decode_limits(self._msg[0x58][3:-2], BMS._LIMIT_FIELDS, byteorder="little")
+        return BMS._decode_limits(BMS._LIMIT_FIELDS, self._msg[0x58][3:-2], byteorder="little")
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None

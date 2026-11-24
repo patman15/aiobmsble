@@ -196,9 +196,7 @@ class BaseBMS(ABC):
             ) from exc
         except _PARSE_ERRORS as exc:
             # internal parser text (e.g. 'index out of range') is kept in __cause__ only
-            raise BMSDataError(
-                bms_type=self.bms_type(), address=self._ble_device.address
-            ) from exc
+            raise BMSDataError(bms_type=self.bms_type(), address=self._ble_device.address) from exc
         finally:
             if not self._cfg.keep_alive:
                 self._log.debug("forced disconnect after BMS operation")
@@ -790,8 +788,8 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_limits(
-        data: bytes,
         fields: Iterable[LimitDp],
+        data: bytes,
         *,
         byteorder: Literal["little", "big"] = "big",
     ) -> BMSLimits:

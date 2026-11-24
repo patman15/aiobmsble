@@ -1796,7 +1796,7 @@ def test_decode_limits() -> None:
         LimitDp(Limit.PACK_OVP, "trip", -1),  # invalid position
     )
     assert BaseBMS._decode_limits(
-        b"\x41\x0e\x3a\x0e\xff\x07\xec\x05", fields, byteorder="little"
+        fields, b"\x41\x0e\x3a\x0e\xff\x07\xec\x05", byteorder="little"
     ) == {
         Limit.CELL_OVP: Threshold(trip=3.649, release=3.642),
         Limit.CHARGE_UTP: Threshold(trip=-20.0, release=-15.0),

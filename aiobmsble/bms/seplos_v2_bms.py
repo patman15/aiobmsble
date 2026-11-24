@@ -204,7 +204,7 @@ class BMS(BaseBMS):
         """Fetch the protection thresholds (0x47 parameter frame, group 0)."""
         self._exp_reply = {0x47}
         await self._await_msg(BMS._cmd(0x47, data=b"\x00"))
-        return BMS._decode_limits(self._msg.pop(0x47), BMS._LIMIT_FIELDS)
+        return BMS._decode_limits(BMS._LIMIT_FIELDS, self._msg.pop(0x47))
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None

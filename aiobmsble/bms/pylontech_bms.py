@@ -98,7 +98,7 @@ class BMS(BaseBMS):
         await self._await_msg(
             BMS._cmd_modbus(dev_id=BMS._DEV_ID, addr=BMS._LIMIT_BLOCK[0], count=BMS._LIMIT_BLOCK[1])
         )
-        return BMS._decode_limits(self._msg, BMS._LIMIT_FIELDS, byteorder="big")
+        return BMS._decode_limits(BMS._LIMIT_FIELDS, self._msg, byteorder="big")
 
     def _notification_handler(
         self,
