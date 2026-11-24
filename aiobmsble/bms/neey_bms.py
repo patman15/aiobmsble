@@ -15,7 +15,15 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSInfo,
+    BMSSample,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor,
+    TSType,
+)
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_sum
@@ -256,7 +264,7 @@ class BMS(BaseBMS):
         signed: bool = True,
         offset: float = 0,
         divider: int = 1,
-        types: tuple[TempSensor.T, ...] = (),
+        types: tuple[TSType, ...] = (),
     ) -> list[TempSensor]:
         return [
             TempSensor(round(unpack_from("<f", data, start + idx * size)[0], 2))

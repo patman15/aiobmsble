@@ -19,6 +19,7 @@ from aiobmsble import (
     Severity,
     TempSensor as TS,
     Threshold,
+    TSType,
 )
 from aiobmsble.bms.x123smart_bms import BMS
 from aiobmsble.exceptions import BMSAuthError, BMSCommandRejectedError
@@ -52,7 +53,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "battery_health": 95,
     "cell_count": 4,
     "cell_voltages": [3.5, 3.5, 3.5, 3.5],
-    "temperature": [TS(24.0, TS.T.CELL)] * 4,
+    "temperature": [TS(24.0, TSType.CELL)] * 4,
     "delta_cell_voltage": 0.0,
     "power": 14.0,
     "battery_charging": True,

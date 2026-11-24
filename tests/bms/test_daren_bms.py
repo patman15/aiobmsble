@@ -11,7 +11,7 @@ from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS, TSType
 from aiobmsble.bms.daren_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -82,12 +82,12 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "temp_count": 6,
         "battery_health": 99,
         "temperature": [
-            TS(28.6, TS.T.CELL),
-            TS(29.0, TS.T.CELL),
-            TS(28.8, TS.T.CELL),
-            TS(29.1, TS.T.CELL),
-            TS(26.0, TS.T.MOSFET),
-            TS(28.7, TS.T.AMBIENT),
+            TS(28.6, TSType.CELL),
+            TS(29.0, TSType.CELL),
+            TS(28.8, TSType.CELL),
+            TS(29.1, TSType.CELL),
+            TS(26.0, TSType.MOSFET),
+            TS(28.7, TSType.AMBIENT),
         ],
         "cell_voltages": [
             3.275,
@@ -129,12 +129,12 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "temp_count": 6,
         "battery_health": 99,
         "temperature": [
-            TS(26.7, TS.T.CELL),
-            TS(26.8, TS.T.CELL),
-            TS(27.0, TS.T.CELL),
-            TS(27.2, TS.T.CELL),
-            TS(25.6, TS.T.MOSFET),
-            TS(27.9, TS.T.AMBIENT),
+            TS(26.7, TSType.CELL),
+            TS(26.8, TSType.CELL),
+            TS(27.0, TSType.CELL),
+            TS(27.2, TSType.CELL),
+            TS(25.6, TSType.MOSFET),
+            TS(27.9, TSType.AMBIENT),
         ],
         "cell_voltages": [
             3.276,

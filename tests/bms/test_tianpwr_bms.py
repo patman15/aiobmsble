@@ -15,6 +15,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as SV,
     TempSensor as TS,
+    TSType,
 )
 from aiobmsble.bms.tianpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -52,7 +53,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.422,
         3.429,
     ],
-    "temperature": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
+    "temperature": [TS(23.0)] * 4 + [TS(23.0, TSType.AMBIENT), TS(25.0, TSType.MOSFET)],
     "delta_cell_voltage": 0.014,
     "balancer": False,
     "chrg_mosfet": True,

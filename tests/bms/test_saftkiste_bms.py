@@ -9,7 +9,7 @@ from zlib import crc32
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS, TSType
 from aiobmsble.bms.saftkiste_bms import BMS
 from aiobmsble.exceptions import BMSAuthError
 from tests.bluetooth import generate_ble_device
@@ -67,7 +67,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "balancer": False,
     "heater": False,
     "problem_code": 0,
-    "temperature": [TS(6.89, TS.T.CELL), TS(7.66, TS.T.PCB)],
+    "temperature": [TS(6.89, TSType.CELL), TS(7.66, TSType.PCB)],
 }
 
 

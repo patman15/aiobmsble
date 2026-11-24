@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TempSensor, Threshold
+from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TempSensor, Threshold, TSType
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSAuthError, BMSCommandRejectedError, BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, LimitDp, MatcherPattern
@@ -276,7 +276,7 @@ class BMS(BaseBMS):
                 raise BMSDataError
             elements: list[str] = line.decode("ascii", errors="ignore").split("_")
             cell_v.append(BMS._parse_int(elements[3]) * BMS._V_SCALE)
-            cell_t.append(TempSensor(BMS._parse_int(elements[4]) - BMS._T_OFFS, TempSensor.T.CELL))
+            cell_t.append(TempSensor(BMS._parse_int(elements[4]) - BMS._T_OFFS, TSType.CELL))
             cell_s |= BMS._parse_int(elements[5])
             if len(elements) >= 7:
                 cell_s |= BMS._parse_int(elements[6]) << 8

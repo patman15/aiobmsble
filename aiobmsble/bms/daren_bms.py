@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from typing import Final
 
-from aiobmsble import BMSInfo, TempSensor as TS
+from aiobmsble import BMSInfo, TSType
 from aiobmsble.bms.jbd_bms import BMS as JBDBMS
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, swap32
 
@@ -17,7 +17,10 @@ class BMS(JBDBMS):
     INFO: BMSInfo = {"manufacturer": "Daren", "model": "smart BMS"}
     _VALID_CMD: frozenset[int] = frozenset({0x03, 0x04, 0x05, 0x08, 0xFF})
     _MAX_TEMP_COUNT: Final[int] = 4
-    _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4 + (TS.T.MOSFET, TS.T.AMBIENT)
+    _TEMP_TYPES: tuple[TSType, ...] = (TSType.CELL,) * 4 + (
+        TSType.MOSFET,
+        TSType.AMBIENT,
+    )
     _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),

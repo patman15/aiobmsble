@@ -13,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, PackSample, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PackSample, TSType
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPackValue, BMSValue, MatcherPattern, b2str, crc_modbus
@@ -171,7 +171,7 @@ class BMS(BaseBMS):
             signed=False,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL,) * 4 + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
+            types=(TSType.CELL,) * 4 + (TSType.MOSFET, TSType.AMBIENT),
         )
         await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=8)
@@ -183,7 +183,7 @@ class BMS(BaseBMS):
             signed=False,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL_MAX, TempSensor.T.CELL_MIN),
+            types=(TSType.CELL_MAX, TSType.CELL_MIN),
         )
         await self._await_msg(BMS._cmd(BMS._Cmd.BALANCE, b"\x01\x01"))
         result["balancer"] = int.from_bytes(

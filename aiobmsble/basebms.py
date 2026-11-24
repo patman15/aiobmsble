@@ -39,6 +39,7 @@ from aiobmsble import (
     Severity,
     TempSensor,
     Threshold,
+    TSType,
     __version__,
 )
 from aiobmsble._boundedbytearr import BoundedByteArray
@@ -915,7 +916,7 @@ class BaseBMS(ABC):
         signed: bool = True,
         offset: float = 0,
         divider: int = 1,
-        types: tuple[TempSensor.T, ...] = (),
+        types: tuple[TSType, ...] = (),
     ) -> list[TempSensor]:
         """Return temperature values from BMS message.
 
@@ -941,7 +942,7 @@ class BaseBMS(ABC):
         return [
             TempSensor(
                 (value - offset) / divider,
-                types[idx] if idx < len(types) else TempSensor.T.GENERIC,
+                types[idx] if idx < len(types) else TSType.GENERIC,
             )
             for idx in range(values)
             if (len(data) >= start + idx * (size + gap) + size)

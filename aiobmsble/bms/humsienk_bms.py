@@ -20,7 +20,7 @@ from aiobmsble import (
     Limit,
     PrbType as PT,
     Severity as SV,
-    TempSensor,
+    TSType,
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, LimitDp, MatcherPattern, b2str, crc_sum
@@ -219,7 +219,7 @@ class BMS(BaseBMS):
             start=23,
             size=1,
             byteorder="little",
-            types=(TempSensor.T.CELL,) * 4 + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
+            types=(TSType.CELL,) * 4 + (TSType.MOSFET, TSType.AMBIENT),
         )
 
         # Add problem for cell disconnect bitmap

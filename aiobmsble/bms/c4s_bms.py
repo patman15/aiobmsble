@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from typing import Final
 
-from aiobmsble import BMSInfo, BMSSample, TempSensor
+from aiobmsble import BMSInfo, BMSSample, TSType
 from aiobmsble.bms.vatrer_bms import BMS as VatrerBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
@@ -59,7 +59,7 @@ class BMS(VatrerBMS):
             self._msg[BMS._REG_COUNT * 2],
             start=35,
             values=BMS._TEMPS,
-            types=(TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
+            types=(TSType.MOSFET, TSType.AMBIENT),
         )
 
         return result

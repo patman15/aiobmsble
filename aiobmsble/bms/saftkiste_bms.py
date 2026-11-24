@@ -15,7 +15,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TSType
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSAuthError, BMSConfigError, BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
@@ -147,7 +147,7 @@ class BMS(BaseBMS):
             values=2,
             byteorder="little",
             divider=100,
-            types=(TS.T.CELL, TS.T.PCB),
+            types=(TSType.CELL, TSType.PCB),
         )
 
         return result

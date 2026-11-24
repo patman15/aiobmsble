@@ -20,7 +20,7 @@ from aiobmsble import (
     Limit,
     PrbType as PT,
     Severity as SV,
-    TempSensor,
+    TSType,
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
@@ -345,8 +345,8 @@ class BMS(BaseBMS):
             signed=False,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL,) * (result.get("temp_count", 2) - 2)
-            + (TempSensor.T.AMBIENT, TempSensor.T.MOSFET),
+            types=(TSType.CELL,) * (result.get("temp_count", 2) - 2)
+            + (TSType.AMBIENT, TSType.MOSFET),
         )
 
         self._msg.clear()

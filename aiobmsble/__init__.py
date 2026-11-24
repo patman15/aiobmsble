@@ -62,6 +62,7 @@ __all__: list[str] = [
     "PrbDefault",
     "PrbType",
     "Severity",
+    "TSType",
     "TempSensor",
     "Threshold",
     "__version__",
@@ -70,6 +71,7 @@ __all__: list[str] = [
 __version__: str = "0.0.0.dev0"
 with suppress(PackageNotFoundError):
     __version__ = version("aiobmsble")
+
 
 class BMSMode(IntEnum):
     """Enumeration of BMS modes."""
@@ -80,39 +82,46 @@ class BMSMode(IntEnum):
     FLOAT = 0x02
 
 
+@unique
+class TSType(IntEnum):
+    """Enumeration of temperature sensor source types."""
+
+    GENERIC = 0x0
+    CELL = auto()
+    CELL_MAX = auto()
+    CELL_MIN = auto()
+    MOSFET = auto()
+    PCB = auto()
+    HEATER = auto()
+    BALANCER = auto()
+    AMBIENT = auto()
+
+
 @dataclass(frozen=True, slots=True)
 class TempSensor:
     """Represents a temperature sensor reading from the BMS.
 
     Instances compare equal to plain numbers by value, but to other `TempSensor`
     instances by value and type. Ordering (`<`, `max()`, ...) uses the value only.
+
+    Note: equality is not transitive. For example, `TempSensor(1, CELL) == 1` and
+    `1 == TempSensor(1, GENERIC)` are both `True`, yet
+    `TempSensor(1, CELL) != TempSensor(1, GENERIC)`. Do not rely on transitivity
+    when comparing mixed sensor types and plain numbers. Hashing uses the value only,
+    so sensors of different types with equal values may share a hash bucket.
     """
 
-    @unique
-    class T(IntEnum):
-        """Enumeration of temperature sensor source types."""
-
-        GENERIC = 0x0
-        CELL = auto()
-        CELL_MAX = auto()
-        CELL_MIN = auto()
-        MOSFET = auto()
-        PCB = auto()
-        HEATER = auto()
-        BALANCER = auto()
-        AMBIENT = auto()
-
     value: float
-    type: T = T.GENERIC
+    type: TSType = TSType.GENERIC
 
     def __eq__(self: Self, other: object) -> bool:
         """Compare against other TempSensor including type or int, float."""
 
         if isinstance(other, TempSensor):
             return (self.type, self.value) == (other.type, other.value)
-        if isinstance(other, (int, float)):
+        if isinstance(other, (int, float)) and not isinstance(other, bool):
             return self.value == other
-        return False
+        return NotImplemented
 
     def __float__(self) -> float:
         """Return the temperature value as a float."""
@@ -122,7 +131,7 @@ class TempSensor:
     def _cmp_value(other: object) -> float | None:
         if isinstance(other, TempSensor):
             return other.value
-        if isinstance(other, (int, float)):
+        if isinstance(other, (int, float)) and not isinstance(other, bool):
             return other
         return None
 
@@ -214,12 +223,18 @@ PROBLEM_DEFAULTS: Final[dict[PrbType, PrbDefault]] = {
     PrbType.PACK_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack undervoltage"),
     PrbType.CELL_IMBALANCE: PrbDefault(Severity.WARN, "Cell voltage imbalance"),
     PrbType.CHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
-    PrbType.DISCHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Discharge overcurrent"),
+    PrbType.DISCHARGE_OVERCURRENT: PrbDefault(
+        Severity.PROTECT, "Discharge overcurrent"
+    ),
     PrbType.SHORT_CIRCUIT: PrbDefault(Severity.PROTECT, "Short circuit"),
     PrbType.CHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Charge overtemperature"),
     PrbType.CHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
-    PrbType.DISCHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Discharge overtemperature"),
-    PrbType.DISCHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Discharge undertemperature"),
+    PrbType.DISCHARGE_OVERTEMP: PrbDefault(
+        Severity.PROTECT, "Discharge overtemperature"
+    ),
+    PrbType.DISCHARGE_UNDERTEMP: PrbDefault(
+        Severity.PROTECT, "Discharge undertemperature"
+    ),
     PrbType.MOSFET_OVERTEMP: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
     # examples for SYSTEM_*TEMP: ambient, PCB, board, battery temperature. NOT: MOSFET temperature
     PrbType.SYSTEM_OVERTEMP: PrbDefault(Severity.PROTECT, "System overtemperature"),
@@ -248,7 +263,9 @@ class BMSProblem:
     text: str
     """Human readable (vendor specific) description."""
 
-    def __init__(self, kind: PrbType, level: Severity | None = None, text: str = "") -> None:
+    def __init__(
+        self, kind: PrbType, level: Severity | None = None, text: str = ""
+    ) -> None:
         """Create a problem, omitted level and text default to those of the problem kind."""
         default: Final[PrbDefault] = PROBLEM_DEFAULTS[kind]
         object.__setattr__(self, "kind", kind)
@@ -384,4 +401,3 @@ class Threshold:
 
 type BMSLimits = dict[Limit, Threshold]
 """Thresholds configured in the BMS, returned by `aiobmsble.basebms.BaseBMS.limits()`."""
-

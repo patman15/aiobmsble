@@ -9,7 +9,7 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS, TSType
 from aiobmsble.bms.daly_bms import BMS
 from aiobmsble.plugin import crc_modbus
 from tests.bluetooth import generate_ble_device
@@ -94,11 +94,11 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "dischrg_mosfet": True,
         "balancer": True,
         "temperature": [
-            TS(38.0, TS.T.MOSFET),
-            TS(20.0, TS.T.GENERIC),
-            TS(21.0, TS.T.GENERIC),
-            TS(22.0, TS.T.GENERIC),
-            TS(23.0, TS.T.GENERIC),
+            TS(38.0, TSType.MOSFET),
+            TS(20.0, TSType.GENERIC),
+            TS(21.0, TSType.GENERIC),
+            TS(22.0, TSType.GENERIC),
+            TS(23.0, TSType.GENERIC),
         ],
     },
     0x81: {
@@ -113,7 +113,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
             3.235,
             3.284,
         ],
-        "temperature": [TS(215.0, TS.T.GENERIC), TS(215.0, TS.T.GENERIC)],
+        "temperature": [TS(215.0, TSType.GENERIC), TS(215.0, TSType.GENERIC)],
         "battery_charging": False,
         "delta_cell_voltage": 0.068,
         "power": -10.4,
@@ -299,7 +299,7 @@ async def test_mos_excl(
             _PROTO_DEFS[0xD2] | {MOS_INFO: mos_info},
         )
         assert await bms.update() == _RESULT_DEFS[0xD2] | {
-            "temperature": [TS(v, TS.T.MOSFET) for v in expected]
+            "temperature": [TS(v, TSType.MOSFET) for v in expected]
             + [TS(v) for v in (20.0, 21.0, 22.0, 23.0)],
         }
 

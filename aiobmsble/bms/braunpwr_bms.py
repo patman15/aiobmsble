@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TSType
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, LimitDp, MatcherPattern, b2str
@@ -247,7 +247,7 @@ class BMS(BaseBMS):
             start=4,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL,) * data.get("temp_count", 0),
+            types=(TSType.CELL,) * data.get("temp_count", 0),
         )
 
         return data

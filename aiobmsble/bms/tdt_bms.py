@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.exc import BleakCharacteristicNotFoundError
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TSType
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError, BMSTimeoutError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_modbus
@@ -258,7 +258,7 @@ class BMS(BaseBMS):
             signed=False,
             offset=2730,
             divider=10,
-            types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET) + (TempSensor.T.CELL,) * 4,
+            types=(TSType.AMBIENT, TSType.MOSFET) + (TSType.CELL,) * 4,
         )
         idx: Final[int] = result.get("cell_count", 0) + result.get("temp_count", 0)
         if len(self._msg[0x8D]) <= BMS._CELL_POS + idx + 8:

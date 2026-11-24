@@ -14,6 +14,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as SV,
     TempSensor as TS,
+    TSType,
 )
 from aiobmsble.bms.ant_bms import BMS
 from aiobmsble.plugin import crc_modbus
@@ -61,7 +62,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         2.337,
         2.335,
     ],
-    "temperature": [TS(29.0)] * 4 + [TS(30.0, TS.T.MOSFET), TS(30.0, TS.T.BALANCER)],
+    "temperature": [TS(29.0)] * 4 + [TS(30.0, TSType.MOSFET), TS(30.0, TSType.BALANCER)],
     "delta_cell_voltage": 0.148,
     "problem": False,
     "problem_code": 0,

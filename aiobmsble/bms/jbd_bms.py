@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, TSType
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSAuthError, BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_sum, swap32
@@ -32,7 +32,7 @@ class BMS(BaseBMS):
     _BASIC_INFO: Final[int] = 23  # basic info data length
     _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
     _POS_SWVER: Final[int] = 22  # position of SW version
-    _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4
+    _TEMP_TYPES: tuple[TSType, ...] = (TSType.CELL,) * 4
     _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
