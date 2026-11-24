@@ -43,7 +43,7 @@ from aiobmsble import (
 )
 from aiobmsble._boundedbytearr import BoundedByteArray
 from aiobmsble._discovery import advertisement_matches
-from aiobmsble._sample_calc import derive_missing_fields
+from aiobmsble._sample_calc import _HRS_TO_SECS, derive_missing_fields
 from aiobmsble.exceptions import (
     BMSConfigError,
     BMSConnectionError,
@@ -97,7 +97,7 @@ class BaseBMS(ABC):
     _TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
     # hard timeout for the whole connection setup (connect + GATT + notify), safety net if BlueZ hangs
     _CONNECT_TIMEOUT: Final[float] = MAX_CONNECT_ATTEMPTS * BLEAK_TIMEOUT + 1
-    _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
+    _HRS_TO_SECS: Final[int] = _HRS_TO_SECS
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
     _MAX_MSG_LEN: Final[int] = 0xFF  # maximum allowed frame length
     _MAX_RETRY: Final[int] = 3  # max number of retries for data requests
