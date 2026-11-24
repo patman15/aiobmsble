@@ -85,7 +85,7 @@ class BaseBMS(ABC):
     The connection is (re-)established automatically by each call.
 
     Calls to `update()`, `device_info()`, `limits()` and `async with` raise only
-    `aiobmsble.exceptions.BMSError` subclasses. Link recovery needs to be handled by
+    `aiobmsble.exceptions.BMSError` subclasses. Stale connections need to be handled by
     the caller. `gatt_profile()` returns the GATT services of the connected device
     for diagnostics.
     """

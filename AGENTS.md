@@ -277,7 +277,7 @@ parsing for values or framing that `BMSDp` cannot represent.
 - Use `@lru_cache` for deterministic command frames that are reused.
 - Validate command arguments with assertions or explicit checks.
 - Construct the payload first, then append the protocol checksum or CRC.
-- Use checksum helpers from `aiobmsble.basebms` when an applicable
+- Use checksum helpers from `aiobmsble.plugin` when an applicable
   implementation already exists.
 
 ### Notification handling
