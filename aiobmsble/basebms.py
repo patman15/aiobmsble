@@ -834,12 +834,12 @@ class BaseBMS(ABC):
         """
         result: PackSample = {}
         for field in fields:
+            pos: int = start + field.pos
+            end: int = pos + field.size
+            if pos < 0 or end > len(data):
+                continue  # slice out of range, skip this field
             result[field.key] = field.fct(
-                int.from_bytes(
-                    data[start + field.pos : start + field.pos + field.size],
-                    byteorder=byteorder,
-                    signed=field.signed,
-                )
+                int.from_bytes(data[pos:end], byteorder=byteorder, signed=field.signed)
             )
         return result
 

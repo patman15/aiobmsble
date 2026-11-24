@@ -28,6 +28,7 @@ from aiobmsble import (
     BMSProblem,
     BMSSample,
     Limit,
+    PackSample,
     PrbType,
     Severity,
     TempSensor,
@@ -46,6 +47,7 @@ from aiobmsble.exceptions import (
 )
 from aiobmsble.plugin import (
     BMSDp,
+    BMSPackValue,
     BMSPrbDef,
     BMSValue,
     LimitDp,
@@ -1438,6 +1440,46 @@ def test_decode_data(
 ) -> None:
     """Test the _decode_data method of BaseBMS with various input parameters."""
     result: BMSSample = BaseBMS._decode_data(fields, data, byteorder=byteorder, start=start)
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("fields", "data", "byteorder", "start", "expected"),
+    [
+        (
+            (
+                BMSDp("voltage", 0, size=2, signed=False),
+                BMSDp("current", 2, size=2, signed=True),
+                BMSDp("battery_level", -1, size=1, signed=False),
+                BMSDp("cell_count", 3, size=2, signed=False),
+            ),
+            b"\x0d\x80\xff\xec",
+            "big",
+            0,
+            {"voltage": 3456, "current": -20},
+        ),
+        (
+            (
+                BMSDp("voltage", 0, size=2, signed=False, fct=lambda value: value / 10),
+                BMSDp("current", 2, size=1, signed=True),
+            ),
+            b"\xff\x64\x00\xec",
+            "little",
+            1,
+            {"voltage": 10, "current": -20},
+        ),
+    ],
+    ids=["big_endian_and_invalid_ranges", "little_endian_with_start_and_conversion"],
+)
+def test_decode_pack(
+    fields: tuple[BMSDp[BMSPackValue], ...],
+    data: bytes,
+    byteorder: Literal["little", "big"],
+    start: int,
+    expected: PackSample,
+) -> None:
+    """Test the _decode_pack method of BaseBMS with various input parameters."""
+    result: PackSample = BaseBMS._decode_pack(fields, data, byteorder=byteorder, start=start)
     assert result == expected
 
 
