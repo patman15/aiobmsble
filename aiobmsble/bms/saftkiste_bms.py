@@ -77,6 +77,15 @@ class BMS(BaseBMS):
         """Return 128-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        await self._await_msg(BMS._cmd(0x2))
+        hw, sw = self._msg[0x2][36], self._msg[0x2][37]
+        return {
+            "hw_version": f"{hw // 10}.{hw % 10}",
+            "sw_version": f"{sw // 10}.{sw % 10}",
+        }
+
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
