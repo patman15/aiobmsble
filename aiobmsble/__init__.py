@@ -108,6 +108,8 @@ class TempSensor:
 
     Instances compare equal to plain numbers by value, but to other `TempSensor`
     instances by value and type. Ordering (`<`, `max()`, ...) uses the value only.
+    Conversion (`float()`, `int()`, `round()`) operates on the value and return
+    plain numbers, as the result no longer belongs to a single sensor.
 
     Note: equality is not transitive. For example, `TempSensor(1, CELL) == 1` and
     `1 == TempSensor(1, GENERIC)` are both `True`, yet
@@ -131,6 +133,16 @@ class TempSensor:
     def __float__(self) -> float:
         """Return the temperature value as a float."""
         return float(self.value)
+
+    def __int__(self) -> int:
+        """Return the temperature value truncated to an int."""
+        return int(self.value)
+
+    def __round__(self, ndigits: int | None = None) -> int | float:
+        """Round the temperature value, as `round()` does for numbers."""
+        if ndigits is None:
+            return round(self.value)
+        return round(self.value, ndigits)
 
     @staticmethod
     def _cmp_value(other: object) -> float | None:
