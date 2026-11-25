@@ -109,7 +109,7 @@ class TempSensor:
     Instances compare equal to plain numbers by value, but to other `TempSensor`
     instances by value and type. Ordering (`<`, `max()`, ...) uses the value only.
     Conversion (`float()`, `int()`, `round()`) operates on the value and return
-    plain numbers, as the result no longer belongs to a single sensor.
+    plain numbers
 
     Note: equality is not transitive. For example, `TempSensor(1, CELL) == 1` and
     `1 == TempSensor(1, GENERIC)` are both `True`, yet

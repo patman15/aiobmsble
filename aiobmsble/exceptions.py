@@ -84,8 +84,7 @@ class BMSConnectionError(BMSError, ConnectionError):
 class BMSTimeoutError(BMSError, TimeoutError):
     """Device connected but did not send a valid reply in time.
 
-    Raised after the internal retries are used up. Repeated timeouts also reset the
-    connection state for the next attempt.
+    Raised after the internal retries are used up.
     """
 
     default_msg = "BMS did not send a valid reply in time."

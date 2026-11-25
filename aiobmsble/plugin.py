@@ -151,7 +151,7 @@ def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
         defs: definitions mapping (fields of) the code to generic problems
 
     Returns:
-        list[BMSProblem]: decoded problems in order of first occurrence
+        List of decoded problems in order of first occurrence
 
     """
     problems: list[BMSProblem] = []
@@ -201,7 +201,7 @@ def lstr2int(string: str) -> int:
         string: string starting with the number to convert
 
     Returns:
-        int: value of the leading digits
+        value of the leading digits
 
     Raises:
         ValueError: if the string does not start with a digit
@@ -219,7 +219,7 @@ def swap32(value: int, signed: bool = False) -> int:
 
 
 def crc_modbus(data: bytes | bytearray) -> int:
-    """Calculate CRC-16-CCITT MODBUS."""
+    """Calculate CRC-16/MODBUS."""
     crc: int = 0xFFFF
     for i in data:
         crc ^= i & 0xFF
@@ -263,7 +263,7 @@ def crc_sum(data: bytes | bytearray, size: int = 1) -> int:
         size: the size of the sum in bytes (default: 1)
 
     Returns:
-        int: sum of all bytes modulo 2^(8 * size)
+        Sum of all bytes modulo 2^(8 * size)
 
     """
     return sum(data) & ((1 << (8 * size)) - 1)
