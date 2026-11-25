@@ -4,12 +4,15 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from aiobmsble import BMSInfo
 from aiobmsble.bms.ej_bms import BMS as EJBMS
 from aiobmsble.plugin import MatcherPattern
 
 
 class BMS(EJBMS):
     """E&J EJ PRO BMS implementation."""
+
+    INFO: BMSInfo = {"manufacturer": "E&J Technology", "model": "pro BMS"}
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:

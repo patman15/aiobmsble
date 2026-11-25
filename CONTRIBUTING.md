@@ -86,6 +86,7 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
   - `pyright`
   - `codespell`
 - Keep all names and comments in English.
+- Use [Google-style docstrings](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings).
 - Do not use `# pragma: no cover`.
 - Put documentation of the device / protocol into `docs/my_bms.md`.
 

@@ -1,4 +1,4 @@
-"""Base class definition for battery management systems (BMS).
+"""A bytearray class with bounded length.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/

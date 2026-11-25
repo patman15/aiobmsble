@@ -1,4 +1,4 @@
-"""Module to support JBD smart BMS.
+"""Module to support Eleksol BMS.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -7,11 +7,11 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from bleak.uuids import normalize_uuid_str
 
 from aiobmsble import BMSInfo
-from aiobmsble.bms.jbd_bms import BMS as JbdBMS
+from aiobmsble.bms.jbd_bms import BMS as JBDBMS
 from aiobmsble.plugin import MatcherPattern
 
 
-class BMS(JbdBMS):
+class BMS(JBDBMS):
     """Eleksol battery BMS class implementation."""
 
     INFO: BMSInfo = {"manufacturer": "Jiabaida", "model": "Eleksol BMS"}
