@@ -46,7 +46,7 @@ overriding only the register field map and the query/parsing method.
 | reg6 | `cycles` | count |
 | reg7 | `battery_health` (SOH) | % |
 | reg13 | `delta_cell_voltage` | mV, ÷1000 |
-| reg16 | MOS_T temperature | °C |
+| reg16 | FET_T temperature | °C |
 | reg17 | ENV_T temperature | °C |
 | reg21 | `cell_count` | count (4 on the reference unit) |
 | reg22–25 | cell voltages | mV |
@@ -57,7 +57,7 @@ ASCII `"EQ.V01.0.04"` — the firmware version string.
 ## Temperature duplication
 
 The E-BMS app displays four temperature readings, but the device only has
-**two** physical sensors. Registers 16/17 (`MOS_T`/`ENV_T`) reappear a
+**two** physical sensors. Registers 16/17 (`FET_T`/`ENV_T`) reappear a
 second time at registers 52–54 and 57–58 under different app labels
 (`TCell1`/`TCell2`), mirroring the same physical values. Only the first
 copy (reg16/17) is used by this implementation.

@@ -314,7 +314,7 @@ async def test_edge_cases(
     await bms.disconnect()
 
 
-async def test_mos_temp_ffff_invalid(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+async def test_fet_temp_ffff_invalid(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that MOSFET temperature of 0xFFFF is treated as invalid."""
 
     # Frame with 1 temp sensor at 25.0°C and invalid MOSFET temp

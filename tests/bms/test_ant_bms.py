@@ -350,7 +350,7 @@ async def test_problem_response(
     ],
     ids=["charger_connected", "charge_manually_closed", "unknown_charge_state"],
 )
-async def test_mosfet_states(
+async def test_fet_states(
     monkeypatch: pytest.MonkeyPatch,
     patch_bms_timeout,
     patch_bleak_client,

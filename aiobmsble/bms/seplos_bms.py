@@ -152,8 +152,8 @@ class BMS(BaseBMS):
         LimitDp(Limit.DISCHARGE_OTP, "release", 114, scale=0.1, offset=273.1),  # 0x1339
         LimitDp(Limit.DISCHARGE_UTP, "trip", 124, scale=0.1, offset=273.1),  # 0x133E
         LimitDp(Limit.DISCHARGE_UTP, "release", 122, scale=0.1, offset=273.1),  # 0x133D
-        LimitDp(Limit.MOS_OTP, "trip", 148, scale=0.1, offset=273.1),  # 0x134A
-        LimitDp(Limit.MOS_OTP, "release", 146, scale=0.1, offset=273.1),  # 0x1349
+        LimitDp(Limit.FET_OTP, "trip", 148, scale=0.1, offset=273.1),  # 0x134A
+        LimitDp(Limit.FET_OTP, "release", 146, scale=0.1, offset=273.1),  # 0x1349
     )
     _CMDS: Final = frozenset({field[2] for field in _QUERY.values()})
     _PCMDS: Final = frozenset({field[2] for field in _PQUERY.values()})

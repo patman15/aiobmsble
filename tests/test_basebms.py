@@ -1840,7 +1840,7 @@ def test_decode_limits() -> None:
         LimitDp(Limit.CHARGE_UTP, "trip", 6, size=1, signed=True),
         LimitDp(Limit.CHARGE_UTP, "release", 7, size=1, offset=20.0),
         LimitDp(Limit.CHARGE_OTP, "release", 7, size=1, offset=-1.0),
-        LimitDp(Limit.MOS_OTP, "trip", 8),  # beyond end of frame
+        LimitDp(Limit.FET_OTP, "trip", 8),  # beyond end of frame
         LimitDp(Limit.PACK_OVP, "trip", -1),  # invalid position
     )
     assert BaseBMS._decode_limits(

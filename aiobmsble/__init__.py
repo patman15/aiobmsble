@@ -200,7 +200,8 @@ class PrbType(StrEnum):
     CHARGE_UT = auto()
     DISCHARGE_OT = auto()
     DISCHARGE_UT = auto()
-    MOSFET_OT = auto()
+    FET_OT = auto()
+    FET_UT = auto()
     SYSTEM_OT = auto()
     SYSTEM_UT = auto()
     LOW_SOC = auto()
@@ -236,7 +237,8 @@ PROBLEM_DEFAULTS: Final[Mapping[PrbType, PrbDefault]] = MappingProxyType(
         PrbType.CHARGE_UT: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
         PrbType.DISCHARGE_OT: PrbDefault(Severity.PROTECT, "Discharge overtemperature"),
         PrbType.DISCHARGE_UT: PrbDefault(Severity.PROTECT, "Discharge undertemperature"),
-        PrbType.MOSFET_OT: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
+        PrbType.FET_OT: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
+        PrbType.FET_UT: PrbDefault(Severity.PROTECT, "MOSFET undertemperature"),
         # examples for SYSTEM_*: ambient, PCB, board, battery temperature. NOT: MOSFET temperature
         PrbType.SYSTEM_OT: PrbDefault(Severity.PROTECT, "System overtemperature"),
         PrbType.SYSTEM_UT: PrbDefault(Severity.PROTECT, "System undertemperature"),
@@ -380,7 +382,8 @@ class Limit(StrEnum):
     CHARGE_UTP = auto()
     DISCHARGE_OTP = auto()
     DISCHARGE_UTP = auto()
-    MOS_OTP = auto()
+    FET_OTP = auto()
+    FET_UTP = auto()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

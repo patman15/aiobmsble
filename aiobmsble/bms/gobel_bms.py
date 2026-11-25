@@ -56,7 +56,7 @@ class BMS(BaseBMS):
 
     _CELLV_START: Final[int] = 35
     _TEMP_START: Final[int] = 97
-    _TEMP_MOS_OFFSET: Final[int] = 117
+    _TEMP_FET_OFFSET: Final[int] = 117
 
     def __init__(
         self,
@@ -194,14 +194,14 @@ class BMS(BaseBMS):
         )
 
         # Append MOSFET temperature if valid (0xFFFF indicates no sensor)
-        mos_temp: list[TempSensor] = BMS._decode_temp(
+        fet_temp: list[TempSensor] = BMS._decode_temp(
             self._msg,
-            start=BMS._TEMP_MOS_OFFSET,
+            start=BMS._TEMP_FET_OFFSET,
             signed=True,
             divider=10,
             types=(TSKind.MOSFET,),
         )
-        if mos_temp[0] != -0.1:
-            result["temperature"].append(mos_temp[0])
+        if fet_temp[0] != -0.1:
+            result["temperature"].append(fet_temp[0])
 
         return result
