@@ -1,0 +1,17 @@
+[
+  {
+    "advertisement": {
+      "local_name": "BT-12100MAY758013",
+      "platform_data": ["EC:F6:4C:00:00:00"],
+      "tx_power": 0,
+      "manufacturer_data": {
+        "0": "0000000000000000000000000000000000",
+        "380": "e9000000010003"
+      }
+    },
+    "type": "sentorise_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/847)"
+    ]
+  }
+]
