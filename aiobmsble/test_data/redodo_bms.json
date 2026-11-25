@@ -178,5 +178,19 @@
       "ECO-WORTHY 12.8V 100Ah",
       "MAC correct"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "LT-12100BG-A04368",
+      "platform_data": ["C8:47:80:00:00:00"],
+      "manufacturer_data": { "22618": "c84780000000" },
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"],
+      "rssi": -77
+    },
+    "type": "redodo_bms",
+    "_comments": [
+      "source log (https://github.com/patman15/BMS_BLE-HA/issues/858)",
+      "LiTime 12V 100Ah"
+    ]
   }
 ]

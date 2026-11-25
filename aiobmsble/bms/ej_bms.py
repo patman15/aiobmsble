@@ -94,7 +94,7 @@ class BMS(BaseBMS):
             ]
             + [  # LiTime
                 MatcherPattern(  # LiTime based on serial #
-                    local_name="LT-12???BG-A0[0-6]*",
+                    local_name="LT-12???BG-A0[012356]*",
                     manufacturer_id=m_id,
                     connectable=True,
                 )
