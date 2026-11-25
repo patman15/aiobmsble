@@ -192,6 +192,20 @@ async def test_invalid_secret(
     await bms.disconnect()
 
 
+async def test_device_info(patch_bleak_client) -> None:
+    """Test that the hardware/software version is reported."""
+
+    patch_bleak_client(MockSaftkisteBleakClient)
+
+    bms = BMS(generate_ble_device(), BMSConfig(secret="123456"))
+
+    assert await bms.device_info() == MockBleakClient.default_info | {
+        "hw_version": "0.4",
+        "sw_version": "1.4",
+    }
+    await bms.disconnect()
+
+
 async def test_missing_secret(patch_bleak_client, caplog: pytest.LogCaptureFixture) -> None:
     """Test that a missing secret only logs a warning but continues."""
 

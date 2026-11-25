@@ -77,6 +77,15 @@ class BMS(BaseBMS):
         """Return 128-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
+    async def _fetch_device_info(self) -> BMSInfo:
+        """Fetch the device information via BLE."""
+        await self._await_msg(BMS._cmd(0x2))
+        hw, sw = self._msg[0x2][36], self._msg[0x2][37]
+        return {
+            "hw_version": f"{hw // 10}.{hw % 10}",
+            "sw_version": f"{sw // 10}.{sw % 10}",
+        }
+
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
@@ -103,7 +112,9 @@ class BMS(BaseBMS):
             self._log.warning("no password provided")
         await self._await_msg(BMS._cmd(0x43) + b"\x01\x01\xe7\x80\x69\x96")
 
-    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
+    def _notification_handler(
+        self, sender: BleakGATTCharacteristic, data: bytearray
+    ) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -137,7 +148,9 @@ class BMS(BaseBMS):
         if not {0x2, 0x3}.issubset(self._msg.keys()):
             raise BMSDataError
 
-        result: BMSSample = self._decode_data(BMS._FIELDS, self._msg, byteorder="little")
+        result: BMSSample = self._decode_data(
+            BMS._FIELDS, self._msg, byteorder="little"
+        )
         result["cell_voltages"] = BMS._decode_cells(
             self._msg[0x2], cells=BMS._MAX_CELLS, start=17, byteorder="little"
         )
