@@ -204,6 +204,7 @@ def main() -> None:
     )
     parser.add_argument("-l", "--logfile", type=str, help="Path to the log file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
     args: argparse.Namespace = parser.parse_args()
     setup_logging(args)
