@@ -20,7 +20,7 @@ from aiobmsble import (
     Limit,
     PrbType as PT,
     Severity as SV,
-    TSType,
+    TSKind,
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, LimitDp, MatcherPattern, b2str, crc_sum
@@ -195,13 +195,14 @@ class BMS(BaseBMS):
         self,
         data: bytes,
         char: int | str | None = None,
-        wait_for_notify: bool = True,
+        *,
+        await_notify: bool = True,
         max_size: int = 0,
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
         self._valid_reply = data[1]  # expected reply type
-        await super()._await_msg(data, char, wait_for_notify, max_size)
+        await super()._await_msg(data, char, await_notify=await_notify, max_size=max_size)
 
     async def _update(self) -> BMSSample:
         """Update battery status information."""
@@ -219,7 +220,7 @@ class BMS(BaseBMS):
             start=23,
             size=1,
             byteorder="little",
-            types=(TSType.CELL,) * 4 + (TSType.MOSFET, TSType.AMBIENT),
+            types=(TSKind.CELL,) * 4 + (TSKind.MOSFET, TSKind.AMBIENT),
         )
 
         # Add problem for cell disconnect bitmap

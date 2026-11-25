@@ -13,7 +13,7 @@ from bleak.backends.device import BLEDevice
 from bleak.exc import BleakCharacteristicNotFoundError
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TSType
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError, BMSTimeoutError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_modbus
@@ -147,7 +147,7 @@ class BMS(BaseBMS):
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
         try:
-            await self._await_msg(data=b"HiLink", char=BMS._UUID_CFG, wait_for_notify=False)
+            await self._await_msg(data=b"HiLink", char=BMS._UUID_CFG, await_notify=False)
             if (ret := int.from_bytes(await self._client.read_gatt_char(BMS._UUID_CFG))) != 0x1:
                 self._log.debug("error unlocking BMS: %X", ret)
         except BleakCharacteristicNotFoundError:
@@ -258,7 +258,7 @@ class BMS(BaseBMS):
             signed=False,
             offset=2730,
             divider=10,
-            types=(TSType.AMBIENT, TSType.MOSFET) + (TSType.CELL,) * 4,
+            types=(TSKind.AMBIENT, TSKind.MOSFET) + (TSKind.CELL,) * 4,
         )
         idx: Final[int] = result.get("cell_count", 0) + result.get("temp_count", 0)
         if len(self._msg[0x8D]) <= BMS._CELL_POS + idx + 8:

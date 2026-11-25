@@ -140,11 +140,11 @@ class MinTestBMS(BaseBMS):
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
-        # do not set event to make tests fail if wait_for_notify is not set
+        # do not set event to make tests fail if await_notify is not set
 
     async def _update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", await_notify=False)  # do not wait
         return {"problem_code": 21}
 
 
@@ -157,7 +157,7 @@ class DataTestBMS(MinTestBMS):
 
     async def _update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", await_notify=False)  # do not wait
         return {
             "voltage": 13,
             "current": 1.7,
@@ -210,7 +210,7 @@ class OpGuardTestBMS(MinTestBMS):
         self._op_active = True
         try:
             await asyncio.sleep(0)
-            await self._await_msg(b"mock_info", wait_for_notify=False)
+            await self._await_msg(b"mock_info", await_notify=False)
             return {"model_id": "mock_model_id"}
         finally:
             self._op_active = False
@@ -222,7 +222,7 @@ class OpGuardTestBMS(MinTestBMS):
         self._op_active = True
         try:
             await asyncio.sleep(0)
-            await self._await_msg(b"mock_update", wait_for_notify=False)
+            await self._await_msg(b"mock_update", await_notify=False)
             return {"problem_code": 21}
         finally:
             self._op_active = False
@@ -234,7 +234,7 @@ class OpGuardTestBMS(MinTestBMS):
         self._op_active = True
         try:
             await asyncio.sleep(0)
-            await self._await_msg(b"mock_limits", wait_for_notify=False)
+            await self._await_msg(b"mock_limits", await_notify=False)
             return {Limit.CELL_OVP: Threshold(trip=3.65)}
         finally:
             self._op_active = False
@@ -679,7 +679,15 @@ async def test_update_problems(
         (0x50, [PrbType.SHORT_CIRCUIT]),  # any bit of mask
         (0x102, [PrbType.CELL_OV, PrbType.UNKNOWN]),
     ],
-    ids=["none", "field_low", "field_high", "field_undefined", "bit", "any_bit", "unknown"],
+    ids=[
+        "none",
+        "field_low",
+        "field_high",
+        "field_undefined",
+        "bit",
+        "any_bit",
+        "unknown",
+    ],
 )
 def test_decode_problems(code: int, expected: list[PrbType]) -> None:
     """Check decoding of single bits, multi-bit fields, and undescribed bits."""
@@ -834,7 +842,14 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
             ],
         ),
     ],
-    ids=["cell_voltage", "voltage", "delta_voltage", "cycle_charge", "battery_level", "info_kept"],
+    ids=[
+        "cell_voltage",
+        "voltage",
+        "delta_voltage",
+        "cycle_charge",
+        "battery_level",
+        "info_kept",
+    ],
 )
 def test_check_problems(sample: BMSSample, expected: list[BMSProblem]) -> None:
     """Check that failing sanity checks are added to the decoded problems."""

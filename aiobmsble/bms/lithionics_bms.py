@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from collections.abc import Iterable
 from enum import IntEnum, auto
 import logging
 from typing import Final, Literal
@@ -200,7 +201,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSDp[BMSValue], ...],
+        fields: Iterable[BMSDp[BMSValue]],
         data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",

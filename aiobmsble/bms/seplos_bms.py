@@ -21,7 +21,7 @@ from aiobmsble import (
     PackSample,
     PrbType as PT,
     Severity as SV,
-    TSType,
+    TSKind,
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
@@ -320,7 +320,7 @@ class BMS(BaseBMS):
                 signed=False,
                 offset=2731,
                 divider=10,
-                types=(TSType.CELL,) * 4,
+                types=(TSKind.CELL,) * 4,
             ) + BMS._decode_temp(
                 self._msg[pack << 8 | BMS._PIB_LEN],
                 values=2,
@@ -328,7 +328,7 @@ class BMS(BaseBMS):
                 signed=False,
                 offset=2731,
                 divider=10,
-                types=(TSType.AMBIENT, TSType.MOSFET),
+                types=(TSKind.AMBIENT, TSKind.MOSFET),
             )
 
             data.setdefault("packs", []).append(pack_sample)

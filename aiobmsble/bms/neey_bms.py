@@ -22,7 +22,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as SV,
     TempSensor,
-    TSType,
+    TSKind,
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
@@ -264,7 +264,7 @@ class BMS(BaseBMS):
         signed: bool = True,
         offset: float = 0,
         divider: int = 1,
-        types: tuple[TSType, ...] = (),
+        types: tuple[TSKind, ...] = (),
     ) -> list[TempSensor]:
         return [
             TempSensor(round(unpack_from("<f", data, start + idx * size)[0], 2))

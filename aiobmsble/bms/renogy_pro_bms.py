@@ -104,9 +104,12 @@ class BMS(RenogyBMS):
         self,
         data: bytes,
         char: int | str | None = None,
-        wait_for_notify: bool = True,
+        *,
+        await_notify: bool = True,
         max_size: int = 0,
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
-        await super()._await_msg(data, self._char_write_handle, wait_for_notify, max_size)
+        await super()._await_msg(
+            data, self._char_write_handle, await_notify=await_notify, max_size=max_size
+        )

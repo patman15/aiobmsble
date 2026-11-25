@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TSType
+from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, LimitDp, MatcherPattern, b2str
@@ -44,7 +44,7 @@ class BMS(BaseBMS):
     )
     _INFO_CMDS: Final = frozenset({0x0A, 0x0B})  # reported model, serial number
     # protection limit blocks: (command, payload length, threshold fields)
-    _LIMIT_FRAMES: Final[tuple[tuple[int, int, tuple[LimitDp, ...]], ...]] = (
+    _LIMIT_FIELDS: Final[tuple[tuple[int, int, tuple[LimitDp, ...]], ...]] = (
         (
             0x05,  # cell/pack over-/undervoltage: 12 words, cell [mV], pack [10 mV], delay [ms]
             24,
@@ -161,7 +161,7 @@ class BMS(BaseBMS):
         """Fetch the protection thresholds; each block is optional."""
         limits: BMSLimits = {}
         self._msg.clear()
-        for cmd, length, fields in BMS._LIMIT_FRAMES:
+        for cmd, length, fields in BMS._LIMIT_FIELDS:
             self._exp_reply = (cmd,)
             await self._await_msg(BMS._cmd(cmd))
             payload: bytes = self._msg.get(cmd, b"")[3:-1]
@@ -188,7 +188,7 @@ class BMS(BaseBMS):
                 *BMS._CMDS,
                 *BMS._INIT_CMDS,
                 *BMS._INFO_CMDS,
-                *(c for c, _, _ in BMS._LIMIT_FRAMES),
+                *(c for c, _, _ in BMS._LIMIT_FIELDS),
             }
             and len(self._frame) >= BMS._MIN_LEN + self._frame[2]
         ):
@@ -247,7 +247,7 @@ class BMS(BaseBMS):
             start=4,
             offset=2731,
             divider=10,
-            types=(TSType.CELL,) * data.get("temp_count", 0),
+            types=(TSKind.CELL,) * data.get("temp_count", 0),
         )
 
         return data

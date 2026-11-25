@@ -107,11 +107,11 @@ class BMS(BaseBMS):
 
     async def _alive(self) -> None:
         """Continuously poll the module so it keeps streaming."""
-        await self._await_msg(b"APP+NET", wait_for_notify=False)
+        await self._await_msg(b"APP+NET", await_notify=False)
         await self._await_msg(
             self._ka_resp.to_bytes(1),
             BMS._NotifyChars.ch_b_tx,
-            False,
+            await_notify=False,
         )
         self._ka_resp ^= 0x20
 
@@ -137,7 +137,7 @@ class BMS(BaseBMS):
         try:
             await self._await_msg(
                 b"APP+AEN" + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
-                wait_for_notify=True,
+                await_notify=True,
             )
         except TimeoutError as exc:
             if self._disconnect_event.is_set():
@@ -145,7 +145,7 @@ class BMS(BaseBMS):
             raise
 
         self._exp_reply = b"MST+NET="
-        await self._await_msg(b"APP+NET", wait_for_notify=True)
+        await self._await_msg(b"APP+NET", await_notify=True)
         self._msg_event.clear()
 
     async def _keep_alive_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -159,12 +159,12 @@ class BMS(BaseBMS):
             match sender.uuid:
                 case BMS._NotifyChars.ch_b_rx:
                     await self._await_msg(
-                        self._ka_resp.to_bytes(1), BMS._NotifyChars.ch_b_tx, False
+                        self._ka_resp.to_bytes(1), BMS._NotifyChars.ch_b_tx, await_notify=False
                     )
                     self._ka_resp ^= 0x20
                     self._ch_b_event.set()
                 case BMS._NotifyChars.ch_c_rx:
-                    await self._await_msg(bytes(data), BMS._NotifyChars.ch_c_tx, False)
+                    await self._await_msg(bytes(data), BMS._NotifyChars.ch_c_tx, await_notify=False)
                     self._ch_c_event.set()
                 case _:
                     self._log.debug("unknown notification sender")

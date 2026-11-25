@@ -10,7 +10,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor, TSType
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_modbus
 
@@ -199,7 +199,7 @@ class BMS(BaseBMS):
             start=BMS._TEMP_MOS_OFFSET,
             signed=True,
             divider=10,
-            types=(TSType.MOSFET,),
+            types=(TSKind.MOSFET,),
         )
         if mos_temp[0] != -0.1:
             result["temperature"].append(mos_temp[0])

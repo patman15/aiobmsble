@@ -16,7 +16,7 @@ from aiobmsble import (
     PrbType,
     TempSensor as TS,
     Threshold,
-    TSType,
+    TSKind,
 )
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -69,8 +69,8 @@ _RESULT_DEFS: BMSSample = {
                 3.272,
             ],
             temperature=(
-                [TS(v, TSType.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
-                + [TS(28.1, TSType.AMBIENT), TS(26.6, TSType.MOSFET)]
+                [TS(v, TSKind.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
+                + [TS(28.1, TSKind.AMBIENT), TS(26.6, TSKind.MOSFET)]
             ),
             cell_count=16,
             delta_cell_voltage=0.002,
@@ -104,8 +104,8 @@ _RESULT_DEFS: BMSSample = {
                 3.529,
             ],
             temperature=(
-                [TS(v, TSType.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
-                + [TS(28.1, TSType.AMBIENT), TS(26.6, TSType.MOSFET)]
+                [TS(v, TSKind.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
+                + [TS(28.1, TSKind.AMBIENT), TS(26.6, TSKind.MOSFET)]
             ),
             delta_cell_voltage=0.003,
             cell_count=16,

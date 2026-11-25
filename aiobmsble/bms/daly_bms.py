@@ -15,7 +15,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor, TSType
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError, BMSTimeoutError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_modbus
@@ -223,7 +223,7 @@ class BMS(BaseBMS):
                                 byteorder="big",
                             )
                             - 40,
-                            TSType.MOSFET,
+                            TSKind.MOSFET,
                         )
                     ]
                     self._mos_avail = True

@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from collections.abc import Iterable
 import logging
 from typing import Final, Literal
 
@@ -12,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TempSensor, Threshold, TSType
+from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TempSensor, Threshold, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSAuthError, BMSCommandRejectedError, BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, LimitDp, MatcherPattern
@@ -149,7 +150,7 @@ class BMS(BaseBMS):
 
     async def _alive(self) -> None:
         """Send the keep-alive ping while connected."""
-        await self._await_msg(BMS._PING, wait_for_notify=False)
+        await self._await_msg(BMS._PING, await_notify=False)
 
     async def _cmd_expect_ok(self, cmd: bytes) -> None:
         """Send a command and wait for an 'OK' reply, raise otherwise."""
@@ -175,7 +176,7 @@ class BMS(BaseBMS):
 
         # enable live data streaming (fails if not authorized) and ping once
         await self._cmd_expect_ok(b"E!")
-        await self._await_msg(BMS._PING, wait_for_notify=False)
+        await self._await_msg(BMS._PING, await_notify=False)
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle notifications: split CR-terminated ASCII lines."""
@@ -241,7 +242,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSDp[BMSValue], ...],
+        fields: Iterable[BMSDp[BMSValue]],
         data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",
@@ -276,7 +277,7 @@ class BMS(BaseBMS):
                 raise BMSDataError
             elements: list[str] = line.decode("ascii", errors="ignore").split("_")
             cell_v.append(BMS._parse_int(elements[3]) * BMS._V_SCALE)
-            cell_t.append(TempSensor(BMS._parse_int(elements[4]) - BMS._T_OFFS, TSType.CELL))
+            cell_t.append(TempSensor(BMS._parse_int(elements[4]) - BMS._T_OFFS, TSKind.CELL))
             cell_s |= BMS._parse_int(elements[5])
             if len(elements) >= 7:
                 cell_s |= BMS._parse_int(elements[6]) << 8

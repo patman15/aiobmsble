@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TSType
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str
@@ -192,7 +192,7 @@ class BMS(BaseBMS):
             divider=10,
         )
 
-        for idx, sensor_t in ((9, TSType.AMBIENT), (11, TSType.MOSFET)):
+        for idx, sensor_t in ((9, TSKind.AMBIENT), (11, TSKind.MOSFET)):
             result["temperature"] += BMS._decode_temp(
                 self._msg[0x83], start=idx, divider=10, types=(sensor_t,)
             )

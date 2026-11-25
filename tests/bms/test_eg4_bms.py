@@ -15,7 +15,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as SV,
     TempSensor as TS,
-    TSType,
+    TSKind,
 )
 from aiobmsble.bms.eg4_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -41,8 +41,8 @@ _RESULT_DEFS: Final[BMSSample] = {
     "problem_code": 0,
     "problem": False,
     "problems": [],
-    "temperature": [TS(17.0, TSType.PCB)]
-    + [TS(v, TSType.CELL) for v in (17.0, -56.0, 0.0, 0.0, 0.0, 0.0)],
+    "temperature": [TS(17.0, TSKind.PCB)]
+    + [TS(v, TSKind.CELL) for v in (17.0, -56.0, 0.0, 0.0, 0.0, 0.0)],
 }
 
 

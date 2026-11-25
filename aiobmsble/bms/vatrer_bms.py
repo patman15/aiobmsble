@@ -10,7 +10,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TSType
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, crc_modbus
@@ -119,7 +119,7 @@ class BMS(BaseBMS):
             self._msg[0x24],
             values=result.get("temp_count", 0) + 2,
             start=5,
-            types=(TSType.GENERIC,) * (result.get("temp_count", 0) + 1) + (TSType.MOSFET,),
+            types=(TSKind.GENERIC,) * (result.get("temp_count", 0) + 1) + (TSKind.MOSFET,),
         )
 
         return result

@@ -1,4 +1,4 @@
-"""Command-line interface of aiobmsble to detect and query BMSs in range.
+"""Reference script for 'aiobmsble' to detect and query BMSs in range.
 
 The OUI vendor check requires the `cli` extra: `pip install aiobmsble[cli]`.
 
@@ -33,10 +33,6 @@ from aiobmsble.utils import adv_dict_to_advdata, identify
 
 _MIN_RSSI: Final[int] = -75
 
-logging.basicConfig(
-    format="%(levelname)s: %(message)s",
-    level=logging.INFO,
-)
 logger: logging.Logger = logging.getLogger(__package__)
 
 
@@ -179,6 +175,10 @@ async def detect_bms() -> None:
 
 def setup_logging(args: argparse.Namespace) -> None:
     """Configure logging based on command line arguments."""
+    logging.basicConfig(
+        format="%(levelname)s: %(message)s",
+        level=logging.INFO,
+    )
     loglevel: Final[int] = logging.DEBUG if args.verbose else logging.INFO
 
     if args.logfile:

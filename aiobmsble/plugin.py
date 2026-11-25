@@ -7,7 +7,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from itertools import takewhile
-from typing import Any, Final, Literal, NamedTuple, TypedDict
+from typing import Any, Final, Literal, TypedDict
 
 from aiobmsble import BMSProblem, Limit, PrbType, Severity
 
@@ -69,7 +69,8 @@ type BMSValue = Literal[
 type BMSPackValue = CommonValue
 
 
-class BMSPrbDef(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class BMSPrbDef:
     """Map (a field of) a BMS problem code to a generic problem."""
 
     mask: int  # bit(s) of problem_code to evaluate
@@ -194,7 +195,18 @@ def b2str(b: bytes | bytearray) -> str:
 
 
 def lstr2int(string: str) -> int:
-    """Convert the beginning of a string to an integer, till first non-digit is found."""
+    """Convert the beginning of a string to an integer, till first non-digit is found.
+
+    Args:
+        string: string starting with the number to convert
+
+    Returns:
+        int: value of the leading digits
+
+    Raises:
+        ValueError: if the string does not start with a digit
+
+    """
     return int("".join(takewhile(str.isdigit, string)))
 
 

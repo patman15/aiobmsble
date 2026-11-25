@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from functools import cache
 import importlib
 import pkgutil
@@ -45,7 +45,7 @@ def _platform_data(pdata: Sequence[Any]) -> tuple[Any, ...]:
     return tuple(pdata)
 
 
-def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
+def adv_dict_to_advdata(adv_dict: Mapping[str, Any]) -> AdvertisementData:
     """Generate an AdvertisementData instance from a JSON dictionary.
 
     Args:
@@ -70,7 +70,7 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
     }
 
     try:
-        val_dict: dict[str, Any] = adv_dict.copy()
+        val_dict: dict[str, Any] = dict(adv_dict)
         if "manufacturer_data" in adv_dict:
             val_dict["manufacturer_data"] = {
                 int(k): bytes.fromhex(v) if isinstance(v, str) else v

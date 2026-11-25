@@ -21,7 +21,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as SV,
     TempSensor,
-    TSType,
+    TSKind,
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSUnsupportedError
@@ -249,30 +249,30 @@ class BMS(BaseBMS):
 
         return bytes(frame) + crc_sum(frame).to_bytes(1)
 
-    def _temp_pos(self) -> list[tuple[int, int, TSType]]:
+    def _temp_pos(self) -> list[tuple[int, int, TSKind]]:
         sensors_v11: Final = [
-            (0, 144, TSType.MOSFET),
-            (1, 162, TSType.GENERIC),
-            (2, 164, TSType.GENERIC),
-            (3, 254, TSType.MOSFET),
+            (0, 144, TSKind.MOSFET),
+            (1, 162, TSKind.GENERIC),
+            (2, 164, TSKind.GENERIC),
+            (3, 254, TSKind.MOSFET),
         ]
         if self._sw_version >= 14:
             return [
                 *sensors_v11,
-                (4, 256, TSType.GENERIC),
-                (5, 258, TSType.GENERIC),
+                (4, 256, TSKind.GENERIC),
+                (5, 258, TSKind.GENERIC),
             ]
         if self._sw_version >= 11:
             return sensors_v11
         return [
-            (0, 130, TSType.GENERIC),
-            (1, 132, TSType.GENERIC),
-            (2, 134, TSType.MOSFET),
+            (0, 130, TSKind.GENERIC),
+            (1, 132, TSKind.GENERIC),
+            (2, 134, TSKind.MOSFET),
         ]
 
     @staticmethod
     def _temp_count(
-        data: bytes, temp_pos: list[tuple[int, int, TSType]], mask: int
+        data: bytes, temp_pos: list[tuple[int, int, TSKind]], mask: int
     ) -> list[TempSensor]:
         return [
             TempSensor(value / 10, T)

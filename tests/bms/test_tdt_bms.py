@@ -10,7 +10,7 @@ from bleak.exc import BleakCharacteristicNotFoundError, BleakDeviceNotFoundError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS, TSType
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS, TSKind
 from aiobmsble.bms.tdt_bms import BMS
 from aiobmsble.exceptions import BMSConnectionError
 from aiobmsble.plugin import crc_modbus
@@ -125,10 +125,10 @@ _RESULT_DEFS: dict[str, BMSSample] = {
         "battery_charging": False,
         "cell_voltages": [3.297, 3.295, 3.297, 3.292],
         "temperature": [
-            TS(23.3, TSType.AMBIENT),
-            TS(24.1, TSType.MOSFET),
-            TS(22.7, TSType.CELL),
-            TS(22.6, TSType.CELL),
+            TS(23.3, TSKind.AMBIENT),
+            TS(24.1, TSKind.MOSFET),
+            TS(22.7, TSKind.CELL),
+            TS(22.6, TSKind.CELL),
         ],
         "delta_cell_voltage": 0.005,
         "chrg_mosfet": True,
@@ -166,8 +166,8 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.295,
             3.294,
         ],
-        "temperature": [TS(18.0, TSType.AMBIENT), TS(19.7, TSType.MOSFET)]
-        + [TS(v, TSType.CELL) for v in (18.0, 18.0, 18.0, 18.8)],
+        "temperature": [TS(18.0, TSKind.AMBIENT), TS(19.7, TSKind.MOSFET)]
+        + [TS(v, TSKind.CELL) for v in (18.0, 18.0, 18.0, 18.8)],
         "delta_cell_voltage": 0.012,
         "runtime": 62589,
         "chrg_mosfet": True,
@@ -196,8 +196,8 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.255,
             3.256,
         ],
-        "temperature": [TS(25.5, TSType.AMBIENT), TS(25.2, TSType.MOSFET)]
-        + [TS(v, TSType.CELL) for v in (27.0, 26.0, 28.0, 27.3)],
+        "temperature": [TS(25.5, TSKind.AMBIENT), TS(25.2, TSKind.MOSFET)]
+        + [TS(v, TSKind.CELL) for v in (27.0, 26.0, 28.0, 27.3)],
         "voltage": 52.16,
         "current": -16.2,
         "cycle_charge": 64.5,
@@ -236,12 +236,12 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.311,
         ],
         "temperature": [
-            TS(27.0, TSType.AMBIENT),
-            TS(29.0, TSType.MOSFET),
-            TS(26.0, TSType.CELL),
-            TS(26.0, TSType.CELL),
-            TS(26.0, TSType.CELL),
-            TS(26.0, TSType.CELL),
+            TS(27.0, TSKind.AMBIENT),
+            TS(29.0, TSKind.MOSFET),
+            TS(26.0, TSKind.CELL),
+            TS(26.0, TSKind.CELL),
+            TS(26.0, TSKind.CELL),
+            TS(26.0, TSKind.CELL),
         ],
         "voltage": 53.03,
         "current": 5,
@@ -280,12 +280,12 @@ _RESULT_DEFS: dict[str, BMSSample] = {
             3.317,
         ],
         "temperature": [
-            TS(32.0, TSType.AMBIENT),
-            TS(34.0, TSType.MOSFET),
-            TS(29.0, TSType.CELL),
-            TS(29.0, TSType.CELL),
-            TS(29.0, TSType.CELL),
-            TS(29.0, TSType.CELL),
+            TS(32.0, TSKind.AMBIENT),
+            TS(34.0, TSKind.MOSFET),
+            TS(29.0, TSKind.CELL),
+            TS(29.0, TSKind.CELL),
+            TS(29.0, TSKind.CELL),
+            TS(29.0, TSKind.CELL),
         ],
         "voltage": 53.06,
         "current": 0.0,

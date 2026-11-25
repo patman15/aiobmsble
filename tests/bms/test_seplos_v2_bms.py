@@ -17,7 +17,7 @@ from aiobmsble import (
     Severity,
     TempSensor as TS,
     Threshold,
-    TSType,
+    TSKind,
 )
 from aiobmsble.bms.seplos_v2_bms import BMS
 from aiobmsble.plugin import crc_xmodem, decode_problems
@@ -58,8 +58,8 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.4,
         3.399,
     ],
-    "temperature": [TS(v, TSType.CELL) for v in (23.2, 23.1, 22.9, 23.4)]
-    + [TS(29.3, TSType.AMBIENT), TS(24.5, TSType.MOSFET)],
+    "temperature": [TS(v, TSKind.CELL) for v in (23.2, 23.1, 22.9, 23.4)]
+    + [TS(29.3, TSKind.AMBIENT), TS(24.5, TSKind.MOSFET)],
     "delta_cell_voltage": 0.022,
     "pack_count": 1,
     "balancer": 2,

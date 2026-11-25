@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TSType
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_modbus
 
@@ -128,12 +128,12 @@ class BMS(BaseBMS):
             start=3 + 59 * 2,
             values=result.get("temp_count", 0),
             divider=10,
-            types=(TSType.CELL, TSType.CELL),
+            types=(TSKind.CELL, TSKind.CELL),
         ) + BMS._decode_temp(
             self._msg,
             start=3 + 23 * 2,
             values=2,
             divider=10,
-            types=(TSType.MOSFET, TSType.AMBIENT),
+            types=(TSKind.MOSFET, TSKind.AMBIENT),
         )
         return result

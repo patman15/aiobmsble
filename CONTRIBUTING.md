@@ -28,7 +28,7 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
     - `_update()` — sends command(s) to the BMS, parses the response, and returns a `BMSSample`.
  5. Make sure that the `BMSSample` returned by `_update()` contains at minimum the values required in [How to qualify as a BMS](#how-to-qualify-as-a-bms).
  6. Add recorded BLE advertisement from a real device to `aiobmsble/test_data/my_bms.json`.
- 7. Add a test file at `tests/bms/test_my_bms.py`. Subclass `BMSBasicTests` (from `tests/test_basebms.py`) and add BMS-specific tests. Use `tests/bms/test_dummy.py` as a template.
+ 7. Add a test file at `tests/bms/test_my_bms.py`. Subclass `BMSBasicTests` (from `tests/test_basebms.py`) and add BMS-specific tests. Use `tests/bms/test_dummy_bms.py` as a template.
     -  Use recorded frames from a real device to mimic exact device behaviour, do **not** artificially generate device frames.
  8. Add a documentation file at `docs/my_bms.md` describing the device and the protocol, if detailed information is available.
  9. Run linting and tests locally and confirm 100% branch coverage:
@@ -50,6 +50,8 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
 A template [example](aiobmsble/bms/dummy_bms.py) for adding a new BMS type is available. To make it work, fill in the `TODO` items: set the UUIDs of the service, the characteristic providing notifications, and the characteristic for sending commands. While the device must be in Bluetooth range, actual communication does not matter — the fixed values in the code will always be returned.
 
 The template also shows optional overrides as comments:
+- `_FIELDS` — `BMSDp` tuple describing the scalar values of a frame, decoded by `BaseBMS._decode_data()`.
+- `_LIMIT_FIELDS` — `LimitDp` tuple describing the protection thresholds of a frame, decoded by `BaseBMS._decode_limits()` in `_fetch_limits()`.
 - `_raw_values()` — return a set of `BMSValue` keys that should **not** be auto-calculated by `BaseBMS._add_missing_values()`, e.g. `runtime`.
 - `ACCEPT_SECRET` — set to `True` if the BMS requires a password/secret for authentication.
 - `_PROBLEMS` — problem code decoder definitions (`BMSPrbDef` tuple); empty means problem decoding is not supported.
@@ -95,6 +97,7 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
 - Frame parsing shall validate each frame according to the protocol specification (e.g. CRC, length, allowed message types). Invalid frames shall be discarded.
 - All plugin classes shall inherit from `BaseBMS`—directly, or via an existing plugin's `BMS` class when reusing that protocol (see [Deriving from an existing plugin](#deriving-from-an-existing-plugin))—and use its helper methods before overriding or replacing behaviour.
 - Prefer declarative field decoding: describe scalar values with [`BMSDp`](aiobmsble/plugin.py) entries in a `_FIELDS: tuple[BMSDp[BMSValue], ...]` class attribute and decode them via `BaseBMS._decode_data()` before writing manual parsing. Use per-variant `_FIELDS_*` tuples when the protocol has more than one frame layout.
+- Describe protection thresholds the same way: `LimitDp` entries in a `_LIMIT_FIELDS: tuple[LimitDp, ...]` class attribute, decoded via `BaseBMS._decode_limits()` in `_fetch_limits()`. If the thresholds are spread over several replies, group the `LimitDp` tuples per reply (see `_LIMIT_FRAMES` in `braunpwr_bms.py`).
 - When a protocol reports `problem_code`, add `_PROBLEMS: tuple[BMSPrbDef, ...]` to map
   protocol fields/bits to stable `PrbType` kinds. By convention, define `_PRB_MASK` in the
   plugin for bits that belong to the problem code and apply it in the `problem_code` field

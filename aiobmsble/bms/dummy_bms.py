@@ -65,7 +65,7 @@ class BMS(BaseBMS):
     async def _fetch_device_info(self) -> BMSInfo:
         """Fetch the device information via BLE."""
         return BMSInfo(
-            manufacturer="Dummy manufacturer", model="Dummy BMS"
+            manufacturer="Dummy Manufacturer", model="dummy model"
         )  # TODO: implement query code or remove function to query service 0x180A
 
     # @staticmethod

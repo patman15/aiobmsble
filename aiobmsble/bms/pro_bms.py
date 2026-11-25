@@ -101,7 +101,7 @@ class BMS(BaseBMS):
         # Send initialization command and await response
         await self._await_msg(BMS._HEAD + BMS._CMD_INIT)
         for cmd in (BMS._CMD_HWID, BMS._CMD_DATA_STREAM, BMS._CMD_TRIGGER_DATA):
-            await self._await_msg(BMS._HEAD + cmd, wait_for_notify=False)
+            await self._await_msg(BMS._HEAD + cmd, await_notify=False)
 
         self._valid_reply = BMS._RT_DATA
 

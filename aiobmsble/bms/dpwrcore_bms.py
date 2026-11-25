@@ -117,7 +117,7 @@ class BMS(BaseBMS):
                 Cmd.UNLOCK,
                 bytes([(pwd >> 8) & 0xFF, pwd & 0xFF]),
             ),
-            wait_for_notify=False,
+            await_notify=False,
         )
 
     async def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -141,7 +141,7 @@ class BMS(BaseBMS):
         self._log.debug("(%s): %s", "start" if page == 1 else "cnt.", data)
 
         try:
-            await self._await_msg(bytes([data[0] | 0x80]) + data[1:], wait_for_notify=False)
+            await self._await_msg(bytes([data[0] | 0x80]) + data[1:], await_notify=False)
         except (BMSError, BleakError) as exc:
             self._log.debug("acknowledge frame send failed (%s)", type(exc).__name__)
 

@@ -39,7 +39,7 @@ from aiobmsble import (
     Severity,
     TempSensor,
     Threshold,
-    TSType,
+    TSKind,
     __version__,
 )
 from aiobmsble._boundedbytearr import BoundedByteArray
@@ -297,8 +297,8 @@ class BaseBMS(ABC):
             name, serial number, and software or hardware version.
 
         Raises:
-            aiobmsble.exceptions.BMSError: if the information cannot be read,
-                see `aiobmsble.exceptions` for the subclasses.
+            BMSError: if the information cannot be read, see `aiobmsble.exceptions`
+            for the subclasses.
 
         """
         dev_info: BMSInfo = BMSInfo() if raw else self.INFO.copy()
@@ -336,8 +336,8 @@ class BaseBMS(ABC):
             not provide any. See `BMSLimits`.
 
         Raises:
-            aiobmsble.exceptions.BMSError: if the thresholds cannot be read,
-                see `aiobmsble.exceptions` for the subclasses.
+            BMSError: if the thresholds cannot be read, see `aiobmsble.exceptions`
+            for the subclasses.
 
         """
         async with (
@@ -597,7 +597,8 @@ class BaseBMS(ABC):
         self,
         data: bytes,
         char: int | str | None = None,
-        wait_for_notify: bool = True,
+        *,
+        await_notify: bool = True,
         max_size: int = 0,
     ) -> None:
         """Send data to the BMS and wait for valid reply notification.
@@ -605,7 +606,7 @@ class BaseBMS(ABC):
         Args:
             data: command frame to send
             char: characteristic to write to, defaults to `uuid_tx()`
-            wait_for_notify: if `False`, return after writing without waiting for a reply
+            await_notify: if `False`, return after writing without waiting for a reply
             max_size: maximum number of bytes per write, 0 sends the data in one chunk
 
         Raises:
@@ -620,7 +621,7 @@ class BaseBMS(ABC):
                     await self._send_msg(
                         data, max_size, char or self.uuid_tx(), attempt, inv_wr_mode
                     )
-                    if not wait_for_notify:
+                    if not await_notify:
                         return  # write without wait for response selected
                     try:
                         await asyncio.wait_for(
@@ -690,7 +691,7 @@ class BaseBMS(ABC):
         Never raises; failures are logged. Safe to call when not connected.
 
         Args:
-            reset (bool): if true, the write mode is reset to default and all connections are
+            reset: if true, the write mode is reset to default and all connections are
                 closed to ensure a clean state for the next connection. This should be used in
                 case of stale connections. (Default: False)
 
@@ -725,8 +726,8 @@ class BaseBMS(ABC):
             BMSSample: The retrieved BMS values.
 
         Raises:
-            aiobmsble.exceptions.BMSError: if no valid data could be retrieved,
-                see `aiobmsble.exceptions` for the subclasses.
+            BMSError: if no valid data could be retrieved, see `aiobmsble.exceptions`
+            for the subclasses.
 
         """
         async with (
@@ -748,10 +749,10 @@ class BaseBMS(ABC):
         """Assemble a MODBUS command.
 
         Args:
-            dev_id (int): 8-bit slave device id (default: 0x0)
-            fct (int): 8-bit function code (default: 0x3, read registers)
-            addr (int): 16-bit start address (default: 0x0)
-            count (int): 16-bit number of elements (default: 1)
+            dev_id: 8-bit slave device id (default: 0x0)
+            fct: 8-bit function code (default: 0x3, read registers)
+            addr: 16-bit start address (default: 0x0)
+            count: 16-bit number of elements (default: 1)
 
         Returns:
             bytes: assembled MODBUS command bytes
@@ -770,7 +771,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSDp[BMSValue], ...],
+        fields: Iterable[BMSDp[BMSValue]],
         data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",
@@ -812,15 +813,28 @@ class BaseBMS(ABC):
         data: bytes,
         *,
         byteorder: Literal["little", "big"] = "big",
+        start: int = 0,
     ) -> BMSLimits:
-        """Decode thresholds from a raw frame using a field table."""
+        """Decode thresholds from a raw frame using a field table.
+
+        Args:
+            fields: threshold definitions (position, size, signedness, scaling)
+            data: raw frame containing the thresholds
+            byteorder: byte order of the values ("big"/"little" endian)
+            start: offset added to the position of each threshold
+
+        Returns:
+            BMSLimits: the decoded thresholds by limit, only limits with a trip point
+
+        """
         values: defaultdict[Limit, dict[str, float]] = defaultdict(dict)
 
         for field in fields:
-            if field.pos < 0 or field.pos + field.size > len(data):
+            pos: int = start + field.pos
+            if pos < 0 or pos + field.size > len(data):
                 continue  # field not present in this (shorter) frame
             raw: int = int.from_bytes(
-                data[field.pos : field.pos + field.size],
+                data[pos : pos + field.size],
                 byteorder=byteorder,
                 signed=field.signed,
             )
@@ -834,7 +848,7 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_pack(
-        fields: tuple[BMSDp[BMSPackValue], ...],
+        fields: Iterable[BMSDp[BMSPackValue]],
         data: bytes,
         *,
         byteorder: Literal["little", "big"] = "big",
@@ -916,7 +930,7 @@ class BaseBMS(ABC):
         signed: bool = True,
         offset: float = 0,
         divider: int = 1,
-        types: tuple[TSType, ...] = (),
+        types: tuple[TSKind, ...] = (),
     ) -> list[TempSensor]:
         """Return temperature values from BMS message.
 
@@ -942,7 +956,7 @@ class BaseBMS(ABC):
         return [
             TempSensor(
                 (value - offset) / divider,
-                types[idx] if idx < len(types) else TSType.GENERIC,
+                types[idx] if idx < len(types) else TSKind.GENERIC,
             )
             for idx in range(values)
             if (len(data) >= start + idx * (size + gap) + size)

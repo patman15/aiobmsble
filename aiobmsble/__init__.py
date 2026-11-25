@@ -25,10 +25,12 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
+from types import MappingProxyType
 from typing import Final, NamedTuple, Self, TypedDict
 
 from aiobmsble.exceptions import (
@@ -64,7 +66,7 @@ __all__: list[str] = [
     "PrbDefault",
     "PrbType",
     "Severity",
-    "TSType",
+    "TSKind",
     "TempSensor",
     "Threshold",
     "__version__",
@@ -75,6 +77,7 @@ with suppress(PackageNotFoundError):
     __version__ = version("aiobmsble")
 
 
+@unique
 class BMSMode(IntEnum):
     """Enumeration of BMS modes."""
 
@@ -85,7 +88,7 @@ class BMSMode(IntEnum):
 
 
 @unique
-class TSType(IntEnum):
+class TSKind(IntEnum):
     """Enumeration of temperature sensor source types."""
 
     GENERIC = 0x0
@@ -114,13 +117,13 @@ class TempSensor:
     """
 
     value: float
-    type: TSType = TSType.GENERIC
+    kind: TSKind = TSKind.GENERIC
 
     def __eq__(self: Self, other: object) -> bool:
         """Compare against other TempSensor including type or int, float."""
 
         if isinstance(other, TempSensor):
-            return (self.type, self.value) == (other.type, other.value)
+            return (self.kind, self.value) == (other.kind, other.value)
         if isinstance(other, (int, float)) and not isinstance(other, bool):
             return self.value == other
         return NotImplemented
@@ -167,9 +170,10 @@ class TempSensor:
 
     def __repr__(self) -> str:
         """Return the string representation of the sensor value/type."""
-        return f"{self.__class__.__name__}({self.value!r}, {self.type!r})"
+        return f"{self.__class__.__name__}({self.value!r}, {self.kind!r})"
 
 
+@unique
 class Severity(IntEnum):
     """Problem severity, ordered so that max() yields the worst level."""
 
@@ -218,34 +222,37 @@ class PrbDefault(NamedTuple):
     text: str
 
 
-PROBLEM_DEFAULTS: Final[dict[PrbType, PrbDefault]] = {
-    PrbType.CELL_OV: PrbDefault(Severity.PROTECT, "Cell overvoltage"),
-    PrbType.CELL_UV: PrbDefault(Severity.PROTECT, "Cell undervoltage"),
-    PrbType.PACK_OV: PrbDefault(Severity.PROTECT, "Pack overvoltage"),
-    PrbType.PACK_UV: PrbDefault(Severity.PROTECT, "Pack undervoltage"),
-    PrbType.CELL_IMBALANCE: PrbDefault(Severity.WARN, "Cell voltage imbalance"),
-    PrbType.CHARGE_OC: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
-    PrbType.DISCHARGE_OC: PrbDefault(Severity.PROTECT, "Discharge overcurrent"),
-    PrbType.SHORT_CIRCUIT: PrbDefault(Severity.PROTECT, "Short circuit"),
-    PrbType.CHARGE_OT: PrbDefault(Severity.PROTECT, "Charge overtemperature"),
-    PrbType.CHARGE_UT: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
-    PrbType.DISCHARGE_OT: PrbDefault(Severity.PROTECT, "Discharge overtemperature"),
-    PrbType.DISCHARGE_UT: PrbDefault(Severity.PROTECT, "Discharge undertemperature"),
-    PrbType.MOSFET_OT: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
-    # examples for SYSTEM_*TEMP: ambient, PCB, board, battery temperature. NOT: MOSFET temperature
-    PrbType.SYSTEM_OT: PrbDefault(Severity.PROTECT, "System overtemperature"),
-    PrbType.SYSTEM_UT: PrbDefault(Severity.PROTECT, "System undertemperature"),
-    PrbType.LOW_SOC: PrbDefault(Severity.WARN, "Low state of charge"),
-    PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
-    PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET"),
-    PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end"),
-    PrbType.CELL_FAILURE: PrbDefault(Severity.FAULT, "Cell"),
-    PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor"),
-    PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication"),
-    PrbType.FUSE_BLOWN: PrbDefault(Severity.FAULT, "Fuse blown"),
-    PrbType.OTHER: PrbDefault(Severity.WARN, "Other problem"),
-    PrbType.UNKNOWN: PrbDefault(Severity.WARN, "Unknown problem"),
-}
+PROBLEM_DEFAULTS: Final[Mapping[PrbType, PrbDefault]] = MappingProxyType(
+    {
+        PrbType.CELL_OV: PrbDefault(Severity.PROTECT, "Cell overvoltage"),
+        PrbType.CELL_UV: PrbDefault(Severity.PROTECT, "Cell undervoltage"),
+        PrbType.PACK_OV: PrbDefault(Severity.PROTECT, "Pack overvoltage"),
+        PrbType.PACK_UV: PrbDefault(Severity.PROTECT, "Pack undervoltage"),
+        PrbType.CELL_IMBALANCE: PrbDefault(Severity.WARN, "Cell voltage imbalance"),
+        PrbType.CHARGE_OC: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
+        PrbType.DISCHARGE_OC: PrbDefault(Severity.PROTECT, "Discharge overcurrent"),
+        PrbType.SHORT_CIRCUIT: PrbDefault(Severity.PROTECT, "Short circuit"),
+        PrbType.CHARGE_OT: PrbDefault(Severity.PROTECT, "Charge overtemperature"),
+        PrbType.CHARGE_UT: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
+        PrbType.DISCHARGE_OT: PrbDefault(Severity.PROTECT, "Discharge overtemperature"),
+        PrbType.DISCHARGE_UT: PrbDefault(Severity.PROTECT, "Discharge undertemperature"),
+        PrbType.MOSFET_OT: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
+        # examples for SYSTEM_*: ambient, PCB, board, battery temperature. NOT: MOSFET temperature
+        PrbType.SYSTEM_OT: PrbDefault(Severity.PROTECT, "System overtemperature"),
+        PrbType.SYSTEM_UT: PrbDefault(Severity.PROTECT, "System undertemperature"),
+        PrbType.LOW_SOC: PrbDefault(Severity.WARN, "Low state of charge"),
+        PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
+        PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET"),
+        PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end"),
+        PrbType.CELL_FAILURE: PrbDefault(Severity.FAULT, "Cell"),
+        PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor"),
+        PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication"),
+        PrbType.FUSE_BLOWN: PrbDefault(Severity.FAULT, "Fuse blown"),
+        PrbType.OTHER: PrbDefault(Severity.WARN, "Other problem"),
+        PrbType.UNKNOWN: PrbDefault(Severity.WARN, "Unknown problem"),
+    }
+)
+"""Default severity and description per problem type (read-only)."""
 
 
 @dataclass(frozen=True, slots=True, init=False)

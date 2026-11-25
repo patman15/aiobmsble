@@ -78,7 +78,7 @@ def bms_advertisements(bms_filter: str | None = None) -> tuple[BMSAdvSample, ...
 
 
 def ignore_advertisements() -> tuple[BMSAdvSample, ...]:
-    """Provide a list of advertisements that shall not be identified as a valid BMS.
+    """Provide a tuple of advertisements that shall not be identified as a valid BMS.
 
     Load the ignore.json file from the packaged test data directory.
 

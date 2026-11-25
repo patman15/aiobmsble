@@ -7,7 +7,7 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, TempSensor as TS, TSType
+from aiobmsble import BMSConfig, BMSSample, TempSensor as TS, TSKind
 from aiobmsble.bms.saihang_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -23,10 +23,10 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycles": 2,
     "temp_count": 4,
     "temperature": [
-        TS(15.3, TSType.CELL),
-        TS(15.6, TSType.CELL),
-        TS(17.2, TSType.MOSFET),
-        TS(25.0, TSType.AMBIENT),
+        TS(15.3, TSKind.CELL),
+        TS(15.6, TSKind.CELL),
+        TS(17.2, TSKind.MOSFET),
+        TS(25.0, TSKind.AMBIENT),
     ],
     "cell_voltages": [
         3.497,

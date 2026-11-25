@@ -19,7 +19,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as S,
     TempSensor as TS,
-    TSType,
+    TSKind,
 )
 from aiobmsble.bms.jbd_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -42,7 +42,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "runtime": 6246,
     "cell_count": 4,
     "cell_voltages": [3.43, 3.425, 3.432, 3.417],
-    "temperature": [TS(t, TSType.CELL) for t in (22.4, 22.3, 21.7)],
+    "temperature": [TS(t, TSKind.CELL) for t in (22.4, 22.3, 21.7)],
     "delta_cell_voltage": 0.015,
     "problem": False,
     "problem_code": 0,
@@ -67,7 +67,7 @@ _RESULT_UNIT_BASE: Final[BMSSample] = {
     "runtime": 292903,
     "cell_count": 4,
     "cell_voltages": [3.43, 3.425, 3.432, 3.417],
-    "temperature": [TS(t, TSType.CELL) for t in (19.9, 18.1, 18.2)],
+    "temperature": [TS(t, TSKind.CELL) for t in (19.9, 18.1, 18.2)],
     "delta_cell_voltage": 0.015,
     "problem": False,
     "problem_code": 0,

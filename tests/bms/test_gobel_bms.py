@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS, TSType
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS, TSKind
 from aiobmsble.bms.gobel_bms import BMS
 from aiobmsble.plugin import crc_modbus
 from tests.bluetooth import generate_ble_device
@@ -60,7 +60,7 @@ _RESULT_MAIN_DATA: Final[BMSSample] = {
     "problem": False,
     "problem_code": 0,
     "temp_count": 1,
-    "temperature": [TS(20.9), TS(21.1, TSType.MOSFET)],
+    "temperature": [TS(20.9), TS(21.1, TSKind.MOSFET)],
     "voltage": 13.31,
 }
 

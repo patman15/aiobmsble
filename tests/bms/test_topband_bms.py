@@ -15,7 +15,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity,
     TempSensor as TS,
-    TSType,
+    TSKind,
 )
 from aiobmsble.bms.topband_bms import BMS
 from aiobmsble.plugin import decode_problems
@@ -92,7 +92,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_level": 99,
         "cycle_charge": 9.0,
         "cycles": 1,
-        "temperature": [TS(24.05, TSType.GENERIC)],
+        "temperature": [TS(24.05, TSKind.GENERIC)],
         "problem_code": 0,
         "cell_voltages": [3.323, 3.328, 3.33, 3.334],
         "battery_charging": False,

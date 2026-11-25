@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TSType
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_modbus
 
@@ -158,7 +158,7 @@ class BMS(BaseBMS):
                     len(self._cfg.secret),
                     self._cfg.secret.encode("ASCII"),
                 ),
-                wait_for_notify=False,
+                await_notify=False,
             )
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -229,13 +229,14 @@ class BMS(BaseBMS):
         self,
         data: bytes,
         char: int | str | None = None,
-        wait_for_notify: bool = True,
+        *,
+        await_notify: bool = True,
         max_size: int = 0,
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
         self._valid_reply = data[2] | 0x10  # expected reply type
-        await super()._await_msg(data, char, wait_for_notify, max_size)
+        await super()._await_msg(data, char, await_notify=await_notify, max_size=max_size)
 
     async def _update(self) -> BMSSample:
         """Update battery status information."""
@@ -256,7 +257,7 @@ class BMS(BaseBMS):
             values=result["temp_count"] + 2,  # + MOSFET, balancer temperature
             start=BMS._CELL_POS + result["cell_count"] * 2,
             byteorder="little",
-            types=(TSType.GENERIC,) * result["temp_count"] + (TSType.MOSFET, TSType.BALANCER),
+            types=(TSKind.GENERIC,) * result["temp_count"] + (TSKind.MOSFET, TSKind.BALANCER),
         )
         result.update(
             BMS._decode_data(
