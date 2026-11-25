@@ -115,8 +115,8 @@ async def test_bms_retry_with_secret(
 ) -> None:
     """Verify that a failed query will be retried when a BMS accepts a secret.
 
-    The first call to ``_update`` simulates a timeout while no secret is
-    supplied. ``detect_bms`` should catch the error, prompt for a secret via
+    The first call to `_update` simulates a timeout while no secret is
+    supplied. `detect_bms` should catch the error, prompt for a secret via
     :func:`getpass.getpass`, and attempt the query again with the provided
     value.  The second attempt returns a valid sample which is logged.
     """

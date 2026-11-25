@@ -57,7 +57,7 @@ class BMS(BaseBMS):
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
         BMSPrbDef(1 << 0, PT.OTHER, text="Wire resistance"),
-        BMSPrbDef(1 << 1, PT.MOSFET_OT),
+        BMSPrbDef(1 << 1, PT.FET_OT),
         BMSPrbDef(1 << 2, PT.OTHER, text="Cell count is not equal to settings"),
         BMSPrbDef(1 << 4, PT.OTHER, SV.INFO, text="Battery is fully charged"),
         BMSPrbDef(1 << 5, PT.PACK_OV),

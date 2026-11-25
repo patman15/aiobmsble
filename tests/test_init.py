@@ -64,6 +64,15 @@ def test_TempSensor() -> None:
     assert repr(TS(25, TSKind.PCB)) == "TempSensor(25, <TSKind.PCB: 5>)"
 
 
+def test_TempSensor_conversion() -> None:
+    """Test int() and round() operate on the value of TS."""
+    assert int(TS(21.6, TSKind.CELL)) == 21
+    assert int(TS(-2.7)) == -2
+    assert round(TS(21.6)) == 22
+    assert round(TS(2.5)) == 2
+    assert round(TS(21.66), 1) == 21.7
+
+
 def test_TempSensor_ordering() -> None:
     """Test ordering of TS by value with TS, int and float."""
     assert TS(1.0, TSKind.CELL) < TS(2.0)

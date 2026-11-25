@@ -112,9 +112,7 @@ class BMS(BaseBMS):
             self._log.warning("no password provided")
         await self._await_msg(BMS._cmd(0x43) + b"\x01\x01\xe7\x80\x69\x96")
 
-    def _notification_handler(
-        self, sender: BleakGATTCharacteristic, data: bytearray
-    ) -> None:
+    def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
 
@@ -148,9 +146,7 @@ class BMS(BaseBMS):
         if not {0x2, 0x3}.issubset(self._msg.keys()):
             raise BMSDataError
 
-        result: BMSSample = self._decode_data(
-            BMS._FIELDS, self._msg, byteorder="little"
-        )
+        result: BMSSample = self._decode_data(BMS._FIELDS, self._msg, byteorder="little")
         result["cell_voltages"] = BMS._decode_cells(
             self._msg[0x2], cells=BMS._MAX_CELLS, start=17, byteorder="little"
         )

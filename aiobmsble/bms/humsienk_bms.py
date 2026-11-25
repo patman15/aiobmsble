@@ -78,8 +78,8 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 26, PT.DISCHARGE_UT, SV.WARN),
         BMSPrbDef(1 << 27, PT.CELL_UV, SV.WARN),
         BMSPrbDef(1 << 28, PT.PACK_UV, SV.WARN),
-        BMSPrbDef(1 << 29, PT.MOSFET_OT, SV.WARN),
-        BMSPrbDef(1 << 30, PT.MOSFET_OT),
+        BMSPrbDef(1 << 29, PT.FET_OT, SV.WARN),
+        BMSPrbDef(1 << 30, PT.FET_OT),
         BMSPrbDef(1 << 31, PT.OTHER, SV.INFO, text="Pre-discharge MOSFET on"),
     )
     # offsets within the 0x58 configuration payload, temperatures in deciKelvin

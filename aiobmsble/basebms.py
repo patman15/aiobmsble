@@ -361,7 +361,7 @@ class BaseBMS(ABC):
         See _add_missing_values() function for the required input to actually do so.
 
         Returns:
-            frozenset[BMSValue]: set of BMS values that shall not be calculated
+            Set of BMS values that shall not be calculated
 
         """
         return frozenset()
@@ -688,7 +688,7 @@ class BaseBMS(ABC):
     async def disconnect(self, *, reset: bool = False) -> None:
         """Disconnect the BMS, includes stopping notifications.
 
-        Never raises; failures are logged. Safe to call when not connected.
+        Safe to call when not connected.
 
         Args:
             reset: if true, the write mode is reset to default and all connections are
@@ -723,7 +723,7 @@ class BaseBMS(ABC):
                 without decoded problems and without derived or missing fields.
 
         Returns:
-            BMSSample: The retrieved BMS values.
+            The retrieved BMS values.
 
         Raises:
             BMSError: if no valid data could be retrieved, see `aiobmsble.exceptions`
@@ -755,7 +755,7 @@ class BaseBMS(ABC):
             count: 16-bit number of elements (default: 1)
 
         Returns:
-            bytes: assembled MODBUS command bytes
+            Assembled MODBUS command bytes
 
         """
         assert dev_id >= 0x00
@@ -788,7 +788,7 @@ class BaseBMS(ABC):
             start: offset added to the position of each data point
 
         Returns:
-            BMSSample: the decoded values by data point key
+            The decoded values by data point key
 
         """
         result: BMSSample = {}
@@ -824,7 +824,7 @@ class BaseBMS(ABC):
             start: offset added to the position of each threshold
 
         Returns:
-            BMSLimits: the decoded thresholds by limit, only limits with a trip point
+            The decoded thresholds by limit, only limits with a trip point
 
         """
         values: defaultdict[Limit, dict[str, float]] = defaultdict(dict)
@@ -863,7 +863,7 @@ class BaseBMS(ABC):
             start: offset added to the position of each data point
 
         Returns:
-            PackSample: the decoded values by data point key
+            The decoded values by data point key
 
         """
         result: PackSample = {}
@@ -902,7 +902,7 @@ class BaseBMS(ABC):
             divider: Value to divide raw value by, defaults to 1000 (mv to V)
 
         Returns:
-            list[float]: List of cell voltages in volts
+            List of cell voltages in volts
 
         """
         return [
@@ -950,7 +950,7 @@ class BaseBMS(ABC):
             types: Tuple of sensor types in parsing sequence, defaults to "GENERIC"
 
         Returns:
-            list[TempSensor]: List of temperature values
+            List of temperature sensor values
 
         """
         return [
@@ -991,7 +991,7 @@ class BaseBMS(ABC):
             byteorder: Byte order for reading expected DIC
 
         Returns:
-            bool: True if data integrity code (DIC) is valid, False otherwise
+            `True` if data integrity code (DIC) is valid, `False` otherwise
         """
         calc_dic: Final[int] = integrity_func(data[dic_data_slice])
         exp_dic: Final[int] = (

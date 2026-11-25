@@ -361,7 +361,7 @@ async def test_limits(patch_bleak_client) -> None:
         Limit.CHARGE_UTP: Threshold(trip=-10.0, release=0.0),
         Limit.DISCHARGE_OTP: Threshold(trip=60.0, release=55.0),
         Limit.DISCHARGE_UTP: Threshold(trip=-15.0, release=0.0),
-        Limit.MOS_OTP: Threshold(trip=110.0, release=85.0),
+        Limit.FET_OTP: Threshold(trip=110.0, release=85.0),
     }
     assert not bms.is_connected
 

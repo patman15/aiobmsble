@@ -62,13 +62,13 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 2, PT.OTHER, text="SOC overcharge"),  # SOCC
         BMSPrbDef(1 << 3, PT.CHARGE_OT),  # OTC
         BMSPrbDef(1 << 4, PT.CHARGE_UT),  # UTC
-        BMSPrbDef(1 << 5, PT.MOSFET_OT),  # BOTC
+        BMSPrbDef(1 << 5, PT.FET_OT),  # BOTC
         BMSPrbDef(1 << 6, PT.CELL_UV),  # CUV
         BMSPrbDef(1 << 7, PT.OTHER, SV.INFO, text="Fully discharged"),  # FD
         BMSPrbDef(1 << 8, PT.LOW_SOC),  # SOCD
         BMSPrbDef(1 << 9, PT.DISCHARGE_OT),  # OTD
         BMSPrbDef(1 << 10, PT.DISCHARGE_UT),  # UTD
-        BMSPrbDef(1 << 11, PT.MOSFET_OT),  # BOTD
+        BMSPrbDef(1 << 11, PT.FET_OT),  # BOTD
         BMSPrbDef(1 << 12, PT.SHORT_CIRCUIT, text="Discharge short circuit"),  # SCD
         BMSPrbDef(1 << 13, PT.DISCHARGE_OC),  # OCD
         BMSPrbDef(1 << 14, PT.PACK_UV),  # UVP

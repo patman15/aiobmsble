@@ -58,10 +58,10 @@ aiobmsble --json '{"local_name": "dummy"}'
 returns the BMS type using the JSON advertisement data, e.g. from [Home Assistant Bluetooth Advertisement Monitor](https://www.home-assistant.io/integrations/bluetooth/#advertisement-monitor).
 
 ### From your Python code
-To include the library in your own code, see the [quick start](/docs/quickstart.md) and the [API documentation](https://patman15.github.io/aiobmsble/).
+To include the library in your own code, see the [quick start](https://patman15.github.io/aiobmsble/aiobmsble.html#quick-start) and the [API documentation](https://patman15.github.io/aiobmsble/).
 
 ### From a Script
-See the [minimal example](/examples/minimal.py) in the [examples](/examples) folder. It scans for a device by name and prints its sensor data.
+See the [minimal example](https://github.com/patman15/aiobmsble/blob/main/examples/minimal.py) in the `/examples` folder. It scans for a device by name and prints its sensor data.
 
 ### Exceptions
 Public operations raise exceptions derived from `BMSError`. `retryable` distinguishes

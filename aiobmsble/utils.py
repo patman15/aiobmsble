@@ -53,10 +53,10 @@ def adv_dict_to_advdata(adv_dict: Mapping[str, Any]) -> AdvertisementData:
             (hex strings or bytes), `service_data`, `service_uuids`.
 
     Returns:
-        AdvertisementData: advertisement usable with `identify()`.
+        Advertisement usable with `identify()`.
 
     Raises:
-        aiobmsble.exceptions.BMSConfigError: if the dictionary is malformed.
+        BMSConfigError if the dictionary is malformed.
 
     """
     advertisement_data_defaults: Final[dict[str, Any]] = {
@@ -103,7 +103,7 @@ def load_bms_plugins() -> frozenset[ModuleType]:
     it in an executor.
 
     Returns:
-        frozenset[ModuleType]: A frozenset of imported BMS plugin modules.
+        A frozenset of imported BMS plugin modules.
 
     Raises:
         ImportError: If a module cannot be imported.
@@ -134,7 +134,7 @@ async def get_bms(bms_type: str) -> type[BaseBMS] | None:
         bms_type: BMS type, i.e. the plugin module name, e.g. `dummy_bms`
 
     Returns:
-        type[BaseBMS] | None: the BMS class if found, None otherwise.
+        The BMS class if found, None otherwise.
 
     """
     if not bms_type.endswith(_MODULE_POSTFIX):
@@ -175,7 +175,7 @@ async def identify(adv: AdvertisementData, address: str) -> list[type[BaseBMS]]:
         address: Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
     Returns:
-        list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwise.
+        A list of matching BMS class(es) if found, an empty list otherwise.
 
     """
     loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
@@ -193,7 +193,7 @@ def problem_levels(problems: Iterable[BMSProblem]) -> dict[PrbType, Severity]:
         problems: decoded problems, e.g. `BMSSample["problems"]`
 
     Returns:
-        dict[PrbType, Severity]: worst level of each reported problem type
+        Worst level of each reported problem type
 
     """
     levels: dict[PrbType, Severity] = {}

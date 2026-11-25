@@ -109,7 +109,7 @@ class BMS(BaseBMS):
         super().__init__(ble_device, config, logger)
         self._proto: Proto = Proto.D2
         self._msg: bytes = b""
-        self._mos_avail: bool | None = None
+        self._fet_avail: bool | None = None
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
@@ -169,7 +169,7 @@ class BMS(BaseBMS):
                 )
                 self._log.debug("detected protocol: 0x%X", self._proto)
                 if BMS._PROTOS[self._proto].mos is None:
-                    self._mos_avail = False
+                    self._fet_avail = False
                 break
             except TimeoutError:
                 ...  # try next protocol
@@ -205,16 +205,16 @@ class BMS(BaseBMS):
         """Update battery status information."""
         result: BMSSample = {}
         proto_def = BMS._PROTOS[self._proto]
-        if self._mos_avail in (True, None) and proto_def.mos is not None:
+        if self._fet_avail in (True, None) and proto_def.mos is not None:
             try:
                 # request MOS temperature (possible: response, stuck response, no response)
                 await self._await_msg(BMS._cmd_modbus(self._proto, *proto_def.mos))
 
-                if self._mos_avail is None and self._msg[
+                if self._fet_avail is None and self._msg[
                     BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2
                 ] in (b"\x00\x00", b"\xff\xff"):
                     self._log.debug("MOS temperature invalid, deactivating")
-                    self._mos_avail = False
+                    self._fet_avail = False
                 else:
                     result["temperature"] = [
                         TempSensor(
@@ -226,10 +226,10 @@ class BMS(BaseBMS):
                             TSKind.MOSFET,
                         )
                     ]
-                    self._mos_avail = True
+                    self._fet_avail = True
             except TimeoutError:
                 self._log.debug("MOS temperature read failed, deactivating")
-                self._mos_avail = False
+                self._fet_avail = False
 
         rt_msgs: dict[int, bytes] = {}
         for cmd in proto_def.cmds:

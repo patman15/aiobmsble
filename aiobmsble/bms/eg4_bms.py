@@ -45,7 +45,7 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 36, PT.CHARGE_OC, SV.WARN),
         BMSPrbDef(1 << 37, PT.DISCHARGE_OC, SV.WARN),
         BMSPrbDef(1 << 38, PT.SYSTEM_OT, SV.WARN),
-        BMSPrbDef(1 << 39, PT.MOSFET_OT, SV.WARN),
+        BMSPrbDef(1 << 39, PT.FET_OT, SV.WARN),
         BMSPrbDef(1 << 40, PT.CHARGE_OT, SV.WARN),
         BMSPrbDef(1 << 41, PT.DISCHARGE_OT, SV.WARN),
         BMSPrbDef(1 << 42, PT.CHARGE_UT, SV.WARN),
@@ -59,7 +59,7 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 20, PT.CHARGE_OC),
         BMSPrbDef(1 << 21, PT.DISCHARGE_OC),
         BMSPrbDef(1 << 22, PT.SYSTEM_OT),
-        BMSPrbDef(1 << 23, PT.MOSFET_OT),
+        BMSPrbDef(1 << 23, PT.FET_OT),
         BMSPrbDef(1 << 24, PT.CHARGE_OT),
         BMSPrbDef(1 << 25, PT.DISCHARGE_OT),
         BMSPrbDef(1 << 26, PT.CHARGE_UT),
@@ -106,7 +106,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> tuple[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return (normalize_uuid_str("1000"),)
 
