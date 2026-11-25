@@ -54,7 +54,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {"service_uuid": BMS.uuid_services()[0], "connectable": True},
             {  # Creabest
@@ -133,7 +133,7 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd.to_bytes(1)))
             if cmd not in self._msg:
                 raise BMSDataError
-            cells: list[float] = BMS._cell_voltages(
+            cells: list[float] = BMS._decode_cells(
                 self._msg[cmd], cells=5, start=4, byteorder="little"
             )
             voltages.extend(cells)

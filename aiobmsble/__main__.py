@@ -1,4 +1,6 @@
-"""Example script for aiobmsble package usage.
+"""Reference script for 'aiobmsble' to detect and query BMSs in range.
+
+The OUI vendor check requires the `cli` extra: `pip install aiobmsble[cli]`.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -17,17 +19,20 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.exc import BleakError
 
-from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, __version__
+from aiobmsble import (
+    BMSConfig,
+    BMSConfigError,
+    BMSError,
+    BMSInfo,
+    BMSLimits,
+    BMSSample,
+    __version__,
+)
 from aiobmsble.basebms import BaseBMS
-from aiobmsble.exceptions import BMSConfigError, BMSError
 from aiobmsble.utils import adv_dict_to_advdata, identify
 
 _MIN_RSSI: Final[int] = -75
 
-logging.basicConfig(
-    format="%(levelname)s: %(message)s",
-    level=logging.INFO,
-)
 logger: logging.Logger = logging.getLogger(__package__)
 
 
@@ -138,14 +143,14 @@ async def identify_bms_from_json(json_str: str) -> None:
     # Identify BMS
     if bms_classes := await identify(adv_data, adv_dict.get("address", "")):
         for bms_class in bms_classes:
-            logger.info("Detected BMS type: %s", bms_class.bms_type())
+            logger.info("Detected BMS: %s", bms_class.bms_descr())
         return
 
     logger.info("No matching BMS type found for the given advertisement data")
 
 
 async def detect_bms() -> None:
-    """Query a Bluetooth device based on the provided arguments."""
+    """Scan for BLE devices and query each one identified as a supported BMS."""
 
     scan_result: dict[str, tuple[BLEDevice, AdvertisementData]] = await scan_devices()
     for ble_dev, advertisement in scan_result.values():
@@ -158,8 +163,7 @@ async def detect_bms() -> None:
         )
 
         for bms_cls in await identify(advertisement, ble_dev.address):
-            bms_inst: BaseBMS = bms_cls(ble_device=ble_dev)
-            logger.info("Found matching BMS type: %s", bms_inst.bms_type())
+            logger.info("Found matching BMS: %s", bms_cls.bms_descr())
 
             if not await _try_query(bms_cls, ble_dev):
                 if bms_cls.ACCEPT_SECRET:
@@ -171,6 +175,10 @@ async def detect_bms() -> None:
 
 def setup_logging(args: argparse.Namespace) -> None:
     """Configure logging based on command line arguments."""
+    logging.basicConfig(
+        format="%(levelname)s: %(message)s",
+        level=logging.INFO,
+    )
     loglevel: Final[int] = logging.DEBUG if args.verbose else logging.INFO
 
     if args.logfile:
@@ -196,6 +204,7 @@ def main() -> None:
     )
     parser.add_argument("-l", "--logfile", type=str, help="Path to the log file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
     args: argparse.Namespace = parser.parse_args()
     setup_logging(args)

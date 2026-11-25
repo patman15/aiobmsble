@@ -18,6 +18,7 @@ from aiobmsble import (
     Severity as SV,
     TempSensor as TS,
     Threshold,
+    TSKind,
 )
 from aiobmsble.bms.humsienk_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -107,8 +108,8 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "cycle_energy": 833.23,
         "runtime": 198657,
         "delta_cell_voltage": 0.011,
-        "temperature": [TS(v, TS.T.CELL) for v in (35.0, 26.0, 26.0, 26.0)]
-        + [TS(44.0, TS.T.MOSFET), TS(26.0, TS.T.AMBIENT)],
+        "temperature": [TS(v, TSKind.CELL) for v in (35.0, 26.0, 26.0, 26.0)]
+        + [TS(44.0, TSKind.MOSFET), TS(26.0, TSKind.AMBIENT)],
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
         "heater": False,
@@ -131,8 +132,8 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "power": 23.29,
         "cycle_energy": 8487.712,
         "delta_cell_voltage": 0.018,
-        "temperature": [TS(v, TS.T.CELL) for v in (17.0, 26.0, 26.0, 26.0)]
-        + [TS(18.0, TS.T.MOSFET), TS(26.0, TS.T.AMBIENT)],
+        "temperature": [TS(v, TSKind.CELL) for v in (17.0, 26.0, 26.0, 26.0)]
+        + [TS(18.0, TSKind.MOSFET), TS(26.0, TSKind.AMBIENT)],
         "chrg_mosfet": True,
         "dischrg_mosfet": True,
         "heater": False,
@@ -347,12 +348,12 @@ async def test_switch_states(
         (
             b"\x00\x00\x00\x00\x81\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x30\x01",
             0x1,
-            [BMSProblem(PT.CHARGE_OVERCURRENT, SV.PROTECT, "Charge overcurrent")],
+            [BMSProblem(PT.CHARGE_OC, SV.PROTECT, "Charge overcurrent")],
         ),
         (
             b"\x00\x00\x00\x00\x80\x01\x80\x00\x00\x00\x00\x00\x00\x00\x00\x30\x01",
             0x100,
-            [BMSProblem(PT.CHARGE_OVERCURRENT, SV.WARN, "Charge overcurrent")],
+            [BMSProblem(PT.CHARGE_OC, SV.WARN, "Charge overcurrent")],
         ),
     ],
     ids=["disc_highcon", "discon_low", "high", "low", "charge_ocp_warn"],

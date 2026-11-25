@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str
@@ -56,8 +56,8 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 5, PT.OTHER, SV.FAULT, text="LED"),
         BMSPrbDef(1 << 6, PT.OTHER, SV.FAULT, text="Buzzer"),
         BMSPrbDef(1 << 7, PT.LOW_SOC),
-        BMSPrbDef(1 << 8, PT.MOSFET_OVERTEMP),
-        BMSPrbDef(1 << 9, PT.MOSFET_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 8, PT.FET_OT),
+        BMSPrbDef(1 << 9, PT.FET_OT, SV.WARN),
         BMSPrbDef(1 << 10, PT.OTHER, SV.FAULT, text="Current limiter board"),
         BMSPrbDef(1 << 11, PT.SENSOR_FAILURE, text="Sampling"),
         BMSPrbDef(1 << 12, PT.CELL_FAILURE),
@@ -65,39 +65,39 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 14, PT.FET_FAILURE, text="Charge MOSFET"),
         BMSPrbDef(1 << 15, PT.FET_FAILURE, text="Discharge MOSFET"),
         # temperature protections (bits 16-23) and warnings (bits 24-31), same order
-        BMSPrbDef(1 << 16, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(1 << 17, PT.CHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 18, PT.DISCHARGE_OVERTEMP),
-        BMSPrbDef(1 << 19, PT.DISCHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 20, PT.SYSTEM_OVERTEMP),
-        BMSPrbDef(1 << 21, PT.SYSTEM_UNDERTEMP),
-        BMSPrbDef(1 << 22, PT.MOSFET_OVERTEMP),
-        BMSPrbDef(1 << 23, PT.OTHER, SV.PROTECT, text="MOSFET undertemperature"),
-        BMSPrbDef(1 << 24, PT.CHARGE_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 25, PT.CHARGE_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 26, PT.DISCHARGE_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 27, PT.DISCHARGE_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 28, PT.SYSTEM_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 29, PT.SYSTEM_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 30, PT.MOSFET_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 31, PT.OTHER, SV.WARN, text="MOSFET undertemperature"),
+        BMSPrbDef(1 << 16, PT.CHARGE_OT),
+        BMSPrbDef(1 << 17, PT.CHARGE_UT),
+        BMSPrbDef(1 << 18, PT.DISCHARGE_OT),
+        BMSPrbDef(1 << 19, PT.DISCHARGE_UT),
+        BMSPrbDef(1 << 20, PT.SYSTEM_OT),
+        BMSPrbDef(1 << 21, PT.SYSTEM_UT),
+        BMSPrbDef(1 << 22, PT.FET_OT),
+        BMSPrbDef(1 << 23, PT.FET_UT),
+        BMSPrbDef(1 << 24, PT.CHARGE_OT, SV.WARN),
+        BMSPrbDef(1 << 25, PT.CHARGE_UT, SV.WARN),
+        BMSPrbDef(1 << 26, PT.DISCHARGE_OT, SV.WARN),
+        BMSPrbDef(1 << 27, PT.DISCHARGE_UT, SV.WARN),
+        BMSPrbDef(1 << 28, PT.SYSTEM_OT, SV.WARN),
+        BMSPrbDef(1 << 29, PT.SYSTEM_UT, SV.WARN),
+        BMSPrbDef(1 << 30, PT.FET_OT, SV.WARN),
+        BMSPrbDef(1 << 31, PT.FET_UT, SV.WARN),
         # current status (bits 32-47), bits 32 and 33 are FET state (not a problem)
-        BMSPrbDef(1 << 34, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 34, PT.CHARGE_OC),
         BMSPrbDef(1 << 35, PT.SHORT_CIRCUIT),
-        BMSPrbDef(1 << 36, PT.DISCHARGE_OVERCURRENT, SV.PROTECT, text="Discharge overcurrent 1"),
-        BMSPrbDef(1 << 37, PT.DISCHARGE_OVERCURRENT, SV.PROTECT, text="Discharge overcurrent 2"),
-        BMSPrbDef(1 << 38, PT.CHARGE_OVERCURRENT, SV.WARN, text="Charge current"),
-        BMSPrbDef(1 << 39, PT.DISCHARGE_OVERCURRENT, SV.WARN, text="Discharge current"),
+        BMSPrbDef(1 << 36, PT.DISCHARGE_OC, SV.PROTECT, text="Discharge overcurrent 1"),
+        BMSPrbDef(1 << 37, PT.DISCHARGE_OC, SV.PROTECT, text="Discharge overcurrent 2"),
+        BMSPrbDef(1 << 38, PT.CHARGE_OC, SV.WARN, text="Charge current"),
+        BMSPrbDef(1 << 39, PT.DISCHARGE_OC, SV.WARN, text="Discharge current"),
         BMSPrbDef(1 << 46, PT.FET_LOCKED, SV.PROTECT, text="Anti-theft lock"),
         # voltage status (bits 48-63), bit 63 is sleep (not a problem)
-        BMSPrbDef(1 << 48, PT.CELL_OVERVOLTAGE),
-        BMSPrbDef(1 << 49, PT.CELL_UNDERVOLTAGE),
-        BMSPrbDef(1 << 50, PT.PACK_OVERVOLTAGE),
-        BMSPrbDef(1 << 51, PT.PACK_UNDERVOLTAGE),
-        BMSPrbDef(1 << 52, PT.CELL_OVERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 53, PT.CELL_UNDERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 54, PT.PACK_OVERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 55, PT.PACK_UNDERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 48, PT.CELL_OV),
+        BMSPrbDef(1 << 49, PT.CELL_UV),
+        BMSPrbDef(1 << 50, PT.PACK_OV),
+        BMSPrbDef(1 << 51, PT.PACK_UV),
+        BMSPrbDef(1 << 52, PT.CELL_OV, SV.WARN),
+        BMSPrbDef(1 << 53, PT.CELL_UV, SV.WARN),
+        BMSPrbDef(1 << 54, PT.PACK_OV, SV.WARN),
+        BMSPrbDef(1 << 55, PT.PACK_UV, SV.WARN),
         BMSPrbDef(1 << 56, PT.CELL_IMBALANCE, SV.WARN),
     )
     _CMDS: Final = frozenset(field.idx for field in _FIELDS) | set({0x87})
@@ -114,7 +114,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [{"local_name": "TP_*", "connectable": True}]
 
     @staticmethod
@@ -181,19 +181,19 @@ class BMS(BaseBMS):
 
         for cmd in range(0x88, 0x89 + min(result.get("cell_count", 0), BMS._MAX_CELLS) // 8):
             await self._await_msg(BMS._cmd(cmd))
-            result["cell_voltages"] = result.setdefault("cell_voltages", []) + BMS._cell_voltages(
+            result["cell_voltages"] = result.setdefault("cell_voltages", []) + BMS._decode_cells(
                 self._msg.get(cmd, b""), cells=8, start=3
             )
 
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg[0x87],
             values=min(BMS._MAX_TEMP, result.get("temp_count", 0)),
             start=3,
             divider=10,
         )
 
-        for idx, sensor_t in ((9, TempSensor.T.AMBIENT), (11, TempSensor.T.MOSFET)):
-            result["temperature"] += BMS._temperature(
+        for idx, sensor_t in ((9, TSKind.AMBIENT), (11, TSKind.MOSFET)):
+            result["temperature"] += BMS._decode_temp(
                 self._msg[0x83], start=idx, divider=10, types=(sensor_t,)
             )
 

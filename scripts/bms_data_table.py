@@ -49,7 +49,7 @@ def file_has_field(path: Path, field: str) -> bool:
             fields: Final[Any | None] = getattr(cls, "_FIELDS", None)
             if fields is not None:
                 for item in fields:
-                    # NamedTuple BMSDp has attribute `key`
+                    # BMSDp has attribute `key`
                     if getattr(item, "key", None) == field:
                         return True
                     # Some modules use tuple/list with the key as first element
@@ -90,7 +90,7 @@ def main() -> None:
 
     for f in bms_files:
         manufacturer, model = get_bms_info(f)
-        bms_type: str = (
+        bms_descr: str = (
             f"{manufacturer} ({model})"
             if manufacturer and model
             else f.name.removesuffix("_bms.py")
@@ -116,7 +116,7 @@ def main() -> None:
                 ("." if fld == field else mk) for fld, mk in zip(fields, marks, strict=True)
             )
 
-        rows.append([bms_type, *marks])
+        rows.append([bms_descr, *marks])
 
     rows_sorted: Final = sorted(rows, key=lambda row: (row[0], row[1][1:-1]))
 

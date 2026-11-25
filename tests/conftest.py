@@ -204,11 +204,11 @@ def bms_data_fixture(request: pytest.FixtureRequest) -> BMSSample:
 def patch_bms_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Callable[[str | None, float], None]:
-    """Fixture to patch BMS.TIMEOUT for different BMS classes."""
+    """Fixture to patch BMS._TIMEOUT for different BMS classes."""
 
     def _patch_timeout(bms_class: str | None = None, timeout: float = 1e-3) -> None:
         patch_class: str = (
-            f"bms.{bms_class}.BMS.TIMEOUT" if bms_class else "basebms.BaseBMS._RETRY_TIMEOUT"
+            f"bms.{bms_class}.BMS._TIMEOUT" if bms_class else "basebms.BaseBMS._RETRY_TIMEOUT"
         )
         monkeypatch.setattr(f"aiobmsble.{patch_class}", timeout)
 

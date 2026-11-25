@@ -21,6 +21,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as SV,
     TempSensor as TS,
+    TSKind,
 )
 from aiobmsble.bms.jikong_bms import BMS
 from aiobmsble.plugin import crc_sum, lstr2int
@@ -265,7 +266,7 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "heater_current": 0.0,
         "power": 123.369,
         "battery_charging": True,
-        "temperature": [TS(18.1), TS(18.6), TS(22.8, TS.T.MOSFET)],
+        "temperature": [TS(18.1), TS(18.6), TS(22.8, TSKind.MOSFET)],
         "temp_count": 7,
         "problem": False,
         "problem_code": 0,
@@ -291,10 +292,10 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "problem_code": 0,
         "problems": [],
         "temperature": [
-            TS(31.0, TS.T.MOSFET),
+            TS(31.0, TSKind.MOSFET),
             TS(28.4),
             TS(29.2),
-            TS(31.0, TS.T.MOSFET),
+            TS(31.0, TSKind.MOSFET),
         ],
         "cell_voltages": [3.315, 3.315, 3.315, 3.312, 3.313, 3.312, 3.313, 3.313],
         "cycle_energy": 3776.578,
@@ -323,10 +324,10 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "temp_count": 255,
         "problem_code": 0,
         "temperature": [
-            TS(12.9, TS.T.MOSFET),
+            TS(12.9, TSKind.MOSFET),
             TS(13.4),
             TS(12.8),
-            TS(20.5, TS.T.MOSFET),
+            TS(20.5, TSKind.MOSFET),
             TS(19.5),
             TS(19.1),
         ],
@@ -374,10 +375,10 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "temp_count": 255,
         "problem_code": 0,
         "temperature": [
-            TS(12.9, TS.T.MOSFET),
+            TS(12.9, TSKind.MOSFET),
             TS(13.4),
             TS(12.8),
-            TS(20.5, TS.T.MOSFET),
+            TS(20.5, TSKind.MOSFET),
             TS(19.5),
             TS(19.1),
         ],
@@ -428,10 +429,10 @@ _RESULT_DEFS: Final[dict[str, BMSSample]] = {
         "delta_cell_voltage": 0.005,
         "battery_mode": BMSMode.BULK,
         "temperature": [
-            TS(26.2, TS.T.MOSFET),
+            TS(26.2, TSKind.MOSFET),
             TS(23.3),
             TS(23.6),
-            TS(26.2, TS.T.MOSFET),
+            TS(26.2, TSKind.MOSFET),
             TS(24.5),
             TS(24.0),
         ],
@@ -916,7 +917,7 @@ async def test_non_stale_data(
         (
             bytearray(b"\x00\x80"),
             "last_bit",
-            BMSProblem(PT.DISCHARGE_OVERTEMP, SV.PROTECT, "Discharge overtemperature"),
+            BMSProblem(PT.DISCHARGE_OT, SV.PROTECT, "Discharge overtemperature"),
         ),
     ],
     ids=lambda param: param[1],
@@ -966,7 +967,7 @@ async def test_problem_response(
 @pytest.mark.parametrize(
     ("bit", "expected"),
     [
-        (27, BMSProblem(PT.DISCHARGE_UNDERTEMP, SV.PROTECT, "Discharge undertemperature")),
+        (27, BMSProblem(PT.DISCHARGE_UT, SV.PROTECT, "Discharge undertemperature")),
         (31, BMSProblem(PT.UNKNOWN, SV.WARN, "Unknown problem bit 31")),
     ],
     ids=("known_high_bit", "unknown_high_bit"),

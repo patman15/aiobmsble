@@ -39,11 +39,12 @@ from aiobmsble import (
     Severity,
     TempSensor,
     Threshold,
+    TSKind,
     __version__,
 )
 from aiobmsble._boundedbytearr import BoundedByteArray
 from aiobmsble._discovery import advertisement_matches
-from aiobmsble._sample_calc import derive_missing_fields
+from aiobmsble._sample_calc import _HRS_TO_SECS, derive_missing_fields
 from aiobmsble.exceptions import (
     BMSConfigError,
     BMSConnectionError,
@@ -64,6 +65,8 @@ from aiobmsble.plugin import (
     decode_problems,
 )
 
+__all__: list[str] = ["BaseBMS"]
+
 # errors caused by malformed or incomplete BMS data (UnicodeDecodeError is a ValueError)
 _PARSE_ERRORS: Final = (BufferError, LookupError, OverflowError, ValueError, struct.error)
 
@@ -83,28 +86,32 @@ class BaseBMS(ABC):
     The connection is (re-)established automatically by each call.
 
     Calls to `update()`, `device_info()`, `limits()` and `async with` raise only
-    `aiobmsble.exceptions.BMSError` subclasses. Link recovery needs to be handled by
+    `aiobmsble.exceptions.BMSError` subclasses. Stale connections need to be handled by
     the caller. `gatt_profile()` returns the GATT services of the connected device
     for diagnostics.
+
+    Naming convention for plugin authors: public static methods (`matcher_dict_list()`,
+    `uuid_services()`, `uuid_rx()`, `uuid_tx()`) and the class attributes `INFO` and
+    `ACCEPT_SECRET` describe the device type and are usable without an instance. Underscore
+    methods (`_update()`, `_notification_handler()`, `_fetch_device_info()`, ...) are hooks
+    called by the base class; implement or override them, but do not call them from outside.
     """
 
     ACCEPT_SECRET: bool = False  # if True, the BMS accepts a secret for authentication
-    ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
-    BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value
     INFO: BMSInfo  # static BMS info (available before connect)
-    TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    _ALIVE_INTERVAL: float | None = None  # keep-alive period in seconds; None disables
+    _BLE_MAX_ATTR_SIZE: Final[int] = 512  # max size of BLE attribute value
+    _TIMEOUT: Final[float] = BLEAK_TIMEOUT / 4  # default timeout for BMS operations
+    # hard timeout for the whole connection setup (connect + GATT + notify), safety net if BlueZ hangs
     _CONNECT_TIMEOUT: Final[float] = MAX_CONNECT_ATTEMPTS * BLEAK_TIMEOUT + 1
-    _HRS_TO_SECS: Final[int] = 60 * 60  # seconds in an hour
+    _HRS_TO_SECS: Final[int] = _HRS_TO_SECS
     _MAX_CELL_VOLT: Final[float] = 5.906  # max cell potential
-    _MAX_MSG_LEN: int = 0xFF  # maximum allowed frame length
+    _MAX_MSG_LEN: Final[int] = 0xFF  # maximum allowed frame length
     _MAX_RETRY: Final[int] = 3  # max number of retries for data requests
     _MAX_TIMEOUT_FACTOR: Final[int] = 8  # limit timeout increase to 8x
     _PROBLEMS: tuple[BMSPrbDef, ...] = ()  # decoding of problem_code, empty: not supported
-    # calculate time between retries to complete all retries (2 modes) in TIMEOUT seconds
-    _RETRY_TIMEOUT: Final[float] = TIMEOUT / (2**_MAX_RETRY - 1)
-    # Hard timeout for the entire connection setup (connect + GATT + notify).
-    # Acts as a safety net when BlueZ hangs and bleak_retry_connector's
-    # internal timeouts fail to fire.  Not ``Final`` so subclasses can tune.
+    # calculate time between retries to complete all retries (2 modes) in _TIMEOUT seconds
+    _RETRY_TIMEOUT: Final[float] = _TIMEOUT / (2**_MAX_RETRY - 1)
     _SKIP_INFO_CHARS: bool = False  # set True to skip information from _INFO_CHARS for BMSInfo()
     type _InfoCharType = Literal[
         "model", "serial_number", "fw_version", "sw_version", "hw_version", "manufacturer"
@@ -137,24 +144,17 @@ class BaseBMS(ABC):
     ) -> None:
         """Initialize the BMS.
 
-        Note:
-            Subclasses must define a `_notification_handler` method (normal or async) to handle
-            notifications from the `uuid_rx()` characteristic.
-
         Args:
-            ble_device (BLEDevice): the Bleak BLE device to connect to
-            config (BMSConfig | None): optional BMS configuration; defaults to `BMSConfig()` if not provided
-            logger (logging.Logger | None): logger for this BMS instance; defaults to the module logger
+            ble_device: the Bleak BLE device to connect to
+            config: optional BMS configuration; defaults to `BMSConfig()` if not provided
+            logger: logger for this BMS instance; defaults to the module logger
 
         """
-        assert getattr(self, "_notification_handler", None) is not None, (
-            "BMS class must define `_notification_handler` method"
-        )
         assert {"manufacturer", "model"}.issubset(self.INFO), "BMS class must define `INFO`"
         self._ble_device: Final[BLEDevice] = ble_device
         self._cfg: Final[BMSConfig] = config or BMSConfig()
         self.name: Final[str] = (self._ble_device.name or "undefined").rstrip()
-        """BLE device name of this instance, see `bms_type()` for the BMS type."""
+        """BLE device name of this instance, see `bms_descr()` for manufacturer and model."""
         self._inv_wr_mode: bool | None = None  # invert write mode (WNR <-> W)
         self._log: Final[BaseBMS._PrefixAdapter] = BaseBMS._PrefixAdapter(
             logger or logging.getLogger(self.__class__.__module__),
@@ -164,7 +164,7 @@ class BaseBMS(ABC):
         self._log.debug(
             "%s: initializing %s, BT address: %s",
             __version__,
-            self.bms_type(),
+            self.bms_descr(),
             ble_device.address,
         )
         self._client: BleakClient = BleakClient(
@@ -173,7 +173,7 @@ class BaseBMS(ABC):
             services=[*self.uuid_services(), "180a"],
         )
         self._frame: BoundedByteArray = BoundedByteArray(
-            max(BaseBMS._MAX_MSG_LEN, BaseBMS.BLE_MAX_ATTR_SIZE) * 2
+            max(BaseBMS._MAX_MSG_LEN, BaseBMS._BLE_MAX_ATTR_SIZE) * 2
         )
         self._msg_event: Final[asyncio.Event] = asyncio.Event()
         self._connect_lock: Final[asyncio.Lock] = asyncio.Lock()
@@ -186,24 +186,24 @@ class BaseBMS(ABC):
         try:
             yield
         except BMSError as exc:
-            exc.bms_id = exc.bms_id or self.bms_type()
+            exc.bms_type = exc.bms_type or self.bms_type()
             exc.address = exc.address or self._ble_device.address
             raise
         except BleakCharacteristicNotFoundError as exc:
             raise BMSUnsupportedError(
-                str(exc), bms_id=self.bms_type(), address=self._ble_device.address
+                str(exc), bms_type=self.bms_type(), address=self._ble_device.address
             ) from exc
         except TimeoutError as exc:
             raise BMSTimeoutError(
-                str(exc), bms_id=self.bms_type(), address=self._ble_device.address
+                str(exc), bms_type=self.bms_type(), address=self._ble_device.address
             ) from exc
-        except (BleakError, EOFError, BleakDeviceNotFoundError, ConnectionError) as exc:
+        except (BleakError, EOFError, ConnectionError) as exc:
             raise BMSConnectionError(
-                str(exc), bms_id=self.bms_type(), address=self._ble_device.address
+                str(exc), bms_type=self.bms_type(), address=self._ble_device.address
             ) from exc
         except _PARSE_ERRORS as exc:
             # internal parser text (e.g. 'index out of range') is kept in __cause__ only
-            raise BMSDataError(bms_id=self.bms_type(), address=self._ble_device.address) from exc
+            raise BMSDataError(bms_type=self.bms_type(), address=self._ble_device.address) from exc
         finally:
             if not self._cfg.keep_alive:
                 self._log.debug("forced disconnect after BMS operation")
@@ -215,7 +215,7 @@ class BaseBMS(ABC):
         if not self._cfg.keep_alive:
             raise BMSConfigError(
                 "usage of context manager requires `BMSConfig(keep_alive=True)`.",
-                bms_id=self.bms_type(),
+                bms_type=self.bms_type(),
                 address=self._ble_device.address,
             )
         async with self._translate_errors():
@@ -259,9 +259,15 @@ class BaseBMS(ABC):
 
     @final
     @classmethod
-    def bms_type(cls) -> str:
+    def bms_descr(cls) -> str:
         """Return manufacturer and model of the BMS type."""
         return f"{cls.INFO.get('manufacturer', 'unknown')} {cls.INFO.get('model', 'unknown')}"
+
+    @final
+    @classmethod
+    def bms_type(cls) -> str:
+        """Return the BMS type (plugin module name), e.g. dummy_bms."""
+        return cls.module().rpartition(".")[2]
 
     @staticmethod
     @abstractmethod
@@ -283,7 +289,7 @@ class BaseBMS(ABC):
         """Return device information read from the BMS over Bluetooth LE.
 
         Args:
-            raw (bool): If `True`, return the raw values reported by the BMS
+            raw: If `True`, return the raw values reported by the BMS
                 without default information
 
         Returns:
@@ -291,8 +297,8 @@ class BaseBMS(ABC):
             name, serial number, and software or hardware version.
 
         Raises:
-            aiobmsble.exceptions.BMSError: if the information cannot be read,
-                see `aiobmsble.exceptions` for the subclasses.
+            BMSError: if the information cannot be read, see `aiobmsble.exceptions`
+            for the subclasses.
 
         """
         dev_info: BMSInfo = BMSInfo() if raw else self.INFO.copy()
@@ -330,8 +336,8 @@ class BaseBMS(ABC):
             not provide any. See `BMSLimits`.
 
         Raises:
-            aiobmsble.exceptions.BMSError: if the thresholds cannot be read,
-                see `aiobmsble.exceptions` for the subclasses.
+            BMSError: if the thresholds cannot be read, see `aiobmsble.exceptions`
+            for the subclasses.
 
         """
         async with (
@@ -355,7 +361,7 @@ class BaseBMS(ABC):
         See _add_missing_values() function for the required input to actually do so.
 
         Returns:
-            frozenset[BMSValue]: set of BMS values that shall not be calculated
+            Set of BMS values that shall not be calculated
 
         """
         return frozenset()
@@ -429,7 +435,7 @@ class BaseBMS(ABC):
         self._log.debug("disconnected from BMS (id: %#x)", id(client))
 
     async def _alive(self) -> None:
-        """Override to run periodic actions while `ALIVE_INTERVAL` is set."""
+        """Override to run periodic actions while `_ALIVE_INTERVAL` is set."""
         raise NotImplementedError
 
     @final
@@ -448,7 +454,7 @@ class BaseBMS(ABC):
             return
 
         self._log.error(
-            "task '%s' terminated with unexpectedly",
+            "task '%s' terminated unexpectedly",
             task.get_name(),
             exc_info=task.exception(),
         )
@@ -456,18 +462,26 @@ class BaseBMS(ABC):
     @final
     def _start_alive_task(self) -> None:
         """Start the periodic keep-alive task if enabled and not already running."""
-        if self.ALIVE_INTERVAL is None or self.ALIVE_INTERVAL < 0:
+        if self._ALIVE_INTERVAL is None or self._ALIVE_INTERVAL < 0:
             return
 
         if self._alive_task is None or self._alive_task.done():
             self._alive_task = asyncio.create_task(
-                self._alive_loop(self.ALIVE_INTERVAL), name="BMS keep-alive"
+                self._alive_loop(self._ALIVE_INTERVAL), name="BMS keep-alive"
             )
             self._alive_task.add_done_callback(self._log_alive_loop_exc)
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
     ) -> None:
+        """Reset stale frame data and start notifications on the RX characteristic.
+
+        Override to add protocol specific setup, e.g. authentication, and call `super()` first.
+
+        Args:
+            char_notify: characteristic to subscribe to, defaults to `uuid_rx()`
+
+        """
         # reset any stale data from BMS
         self._frame.clear()
         self._msg_event.clear()
@@ -479,6 +493,16 @@ class BaseBMS(ABC):
     def _notification_handler(
         self, sender: BleakGATTCharacteristic, data: bytearray
     ) -> Awaitable[None] | None:
+        """Handle a notification of the RX characteristic (implemented by the plugin).
+
+        Assemble and validate frames in `self._frame`. Then store a complete valid frame
+        for `_update()` in `self._msg` and set `self._msg_event`. Do not decode values here.
+
+        Args:
+            sender: the characteristic that sent the notification
+            data: received fragment, a frame may span several notifications
+
+        """
         raise NotImplementedError
 
     @final
@@ -535,6 +559,7 @@ class BaseBMS(ABC):
             self._log.debug("BMS connected (id: %#x)", id(self._client))
 
     def _wr_response(self, char: int | str) -> bool:
+        """Return True if the characteristic supports write with response."""
         char_tx: Final[BleakGATTCharacteristic | None] = self._client.services.get_characteristic(
             char
         )
@@ -572,10 +597,22 @@ class BaseBMS(ABC):
         self,
         data: bytes,
         char: int | str | None = None,
-        wait_for_notify: bool = True,
+        *,
+        await_notify: bool = True,
         max_size: int = 0,
     ) -> None:
-        """Send data to the BMS and wait for valid reply notification."""
+        """Send data to the BMS and wait for valid reply notification.
+
+        Args:
+            data: command frame to send
+            char: characteristic to write to, defaults to `uuid_tx()`
+            await_notify: if `False`, return after writing without waiting for a reply
+            max_size: maximum number of bytes per write, 0 sends the data in one chunk
+
+        Raises:
+            BMSTimeoutError: if no valid reply (`_msg_event`) arrives after all retries
+
+        """
 
         for inv_wr_mode in [False, True] if self._inv_wr_mode is None else [self._inv_wr_mode]:
             try:
@@ -584,7 +621,7 @@ class BaseBMS(ABC):
                     await self._send_msg(
                         data, max_size, char or self.uuid_tx(), attempt, inv_wr_mode
                     )
-                    if not wait_for_notify:
+                    if not await_notify:
                         return  # write without wait for response selected
                     try:
                         await asyncio.wait_for(
@@ -604,7 +641,7 @@ class BaseBMS(ABC):
                 # try next write mode, without reconnecting, as recursion might occur
         raise BMSTimeoutError(
             "BMS did not send a valid reply after retries.",
-            bms_id=self.bms_type(),
+            bms_type=self.bms_type(),
             address=self._ble_device.address,
         )
 
@@ -651,10 +688,10 @@ class BaseBMS(ABC):
     async def disconnect(self, *, reset: bool = False) -> None:
         """Disconnect the BMS, includes stopping notifications.
 
-        Never raises; failures are logged. Safe to call when not connected.
+        Safe to call when not connected.
 
         Args:
-            reset (bool): if true, the write mode is reset to default and all connections are
+            reset: if true, the write mode is reset to default and all connections are
                 closed to ensure a clean state for the next connection. This should be used in
                 case of stale connections. (Default: False)
 
@@ -677,19 +714,20 @@ class BaseBMS(ABC):
         """Fetch the latest battery telemetry from the BMS.
 
         This calls the protocol-specific implementation in `_update()` and,
-        unless `raw` is `True`, fills in any derived or missing values expected by
+        unless `raw` is `True`, decodes `problem_code` into `problems` (if the BMS class
+        defines `_PROBLEMS`) and fills in any derived or missing values expected by
         the library.
 
         Args:
-            raw (bool): If `True`, return the raw values reported by the BMS
-                without adding derived or missing fields.
+            raw: If `True`, return the raw values reported by the BMS
+                without decoded problems and without derived or missing fields.
 
         Returns:
-            BMSSample: The retrieved BMS values.
+            The retrieved BMS values.
 
         Raises:
-            aiobmsble.exceptions.BMSError: if no valid data could be retrieved,
-                see `aiobmsble.exceptions` for the subclasses.
+            BMSError: if no valid data could be retrieved, see `aiobmsble.exceptions`
+            for the subclasses.
 
         """
         async with (
@@ -711,13 +749,13 @@ class BaseBMS(ABC):
         """Assemble a MODBUS command.
 
         Args:
-            dev_id (int): 8-bit slave device id (default: 0x0)
-            fct (int): 8-bit function code (default: 0x3, read registers)
-            addr (int): 16-bit start address (default: 0x0)
-            count (int): 16-bit number of elements (default: 1)
+            dev_id: 8-bit slave device id (default: 0x0)
+            fct: 8-bit function code (default: 0x3, read registers)
+            addr: 16-bit start address (default: 0x0)
+            count: 16-bit number of elements (default: 1)
 
         Returns:
-            bytes: assembled MODBUS command bytes
+            Assembled MODBUS command bytes
 
         """
         assert dev_id >= 0x00
@@ -733,12 +771,26 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSDp[BMSValue], ...],
+        fields: Iterable[BMSDp[BMSValue]],
         data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",
         start: int = 0,
     ) -> BMSSample:
+        """Decode scalar values from a raw frame using a `BMSDp` field table.
+
+        Fields outside of the frame, or whose message index is missing in `data`, are skipped.
+
+        Args:
+            fields: data point definitions (position, size, signedness, conversion)
+            data: raw frame, or frames keyed by the message index of the data points
+            byteorder: byte order of the values ("big"/"little" endian)
+            start: offset added to the position of each data point
+
+        Returns:
+            The decoded values by data point key
+
+        """
         result: BMSSample = {}
         for field in fields:
             if isinstance(data, dict) and field.idx not in data:
@@ -757,19 +809,32 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_limits(
-        data: bytes,
         fields: Iterable[LimitDp],
+        data: bytes,
         *,
         byteorder: Literal["little", "big"] = "big",
+        start: int = 0,
     ) -> BMSLimits:
-        """Decode thresholds from a raw frame using a field table."""
+        """Decode thresholds from a raw frame using a field table.
+
+        Args:
+            fields: threshold definitions (position, size, signedness, scaling)
+            data: raw frame containing the thresholds
+            byteorder: byte order of the values ("big"/"little" endian)
+            start: offset added to the position of each threshold
+
+        Returns:
+            The decoded thresholds by limit, only limits with a trip point
+
+        """
         values: defaultdict[Limit, dict[str, float]] = defaultdict(dict)
 
         for field in fields:
-            if field.pos < 0 or field.pos + field.size > len(data):
+            pos: int = start + field.pos
+            if pos < 0 or pos + field.size > len(data):
                 continue  # field not present in this (shorter) frame
             raw: int = int.from_bytes(
-                data[field.pos : field.pos + field.size],
+                data[pos : pos + field.size],
                 byteorder=byteorder,
                 signed=field.signed,
             )
@@ -783,25 +848,37 @@ class BaseBMS(ABC):
 
     @staticmethod
     def _decode_pack(
-        fields: tuple[BMSDp[BMSPackValue], ...],
+        fields: Iterable[BMSDp[BMSPackValue]],
         data: bytes,
         *,
         byteorder: Literal["little", "big"] = "big",
         start: int = 0,
     ) -> PackSample:
+        """Decode scalar values of a battery pack from a raw frame using a `BMSDp` field table.
+
+        Args:
+            fields: data point definitions (position, size, signedness, conversion)
+            data: raw frame of the pack
+            byteorder: byte order of the values ("big"/"little" endian)
+            start: offset added to the position of each data point
+
+        Returns:
+            The decoded values by data point key
+
+        """
         result: PackSample = {}
         for field in fields:
+            pos: int = start + field.pos
+            end: int = pos + field.size
+            if pos < 0 or end > len(data):
+                continue  # slice out of range, skip this field
             result[field.key] = field.fct(
-                int.from_bytes(
-                    data[start + field.pos : start + field.pos + field.size],
-                    byteorder=byteorder,
-                    signed=field.signed,
-                )
+                int.from_bytes(data[pos:end], byteorder=byteorder, signed=field.signed)
             )
         return result
 
     @staticmethod
-    def _cell_voltages(
+    def _decode_cells(
         data: bytes,
         *,
         cells: int,
@@ -813,6 +890,8 @@ class BaseBMS(ABC):
     ) -> list[float]:
         """Return cell voltages from BMS message.
 
+        Cells whose raw value is 0 are omitted from the result, e.g. unused cell slots.
+
         Args:
             data: Raw data from BMS
             cells: Number of cells to read
@@ -823,7 +902,7 @@ class BaseBMS(ABC):
             divider: Value to divide raw value by, defaults to 1000 (mv to V)
 
         Returns:
-            list[float]: List of cell voltages in volts
+            List of cell voltages in volts
 
         """
         return [
@@ -840,7 +919,7 @@ class BaseBMS(ABC):
         ]
 
     @staticmethod
-    def _temperature(
+    def _decode_temp(
         data: bytes,
         *,
         start: int,
@@ -851,9 +930,12 @@ class BaseBMS(ABC):
         signed: bool = True,
         offset: float = 0,
         divider: int = 1,
-        types: tuple[TempSensor.T, ...] = (),
+        types: tuple[TSKind, ...] = (),
     ) -> list[TempSensor]:
         """Return temperature values from BMS message.
+
+        If `offset` is non-zero, sensors whose raw value is 0 are omitted from the result,
+        e.g. unconnected sensors. Without an offset, raw 0 values are kept.
 
         Args:
             data: Raw data from BMS
@@ -868,13 +950,13 @@ class BaseBMS(ABC):
             types: Tuple of sensor types in parsing sequence, defaults to "GENERIC"
 
         Returns:
-            list[TempSensor]: List of temperature values
+            List of temperature sensor values
 
         """
         return [
             TempSensor(
                 (value - offset) / divider,
-                types[idx] if idx < len(types) else TempSensor.T.GENERIC,
+                types[idx] if idx < len(types) else TSKind.GENERIC,
             )
             for idx in range(values)
             if (len(data) >= start + idx * (size + gap) + size)
@@ -909,7 +991,7 @@ class BaseBMS(ABC):
             byteorder: Byte order for reading expected DIC
 
         Returns:
-            bool: True if data integrity code (DIC) is valid, False otherwise
+            `True` if data integrity code (DIC) is valid, `False` otherwise
         """
         calc_dic: Final[int] = integrity_func(data[dic_data_slice])
         exp_dic: Final[int] = (

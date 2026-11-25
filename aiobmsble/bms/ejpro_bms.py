@@ -4,6 +4,7 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from aiobmsble import BMSInfo
 from aiobmsble.bms.ej_bms import BMS as EJBMS
 from aiobmsble.plugin import MatcherPattern
 
@@ -11,9 +12,11 @@ from aiobmsble.plugin import MatcherPattern
 class BMS(EJBMS):
     """E&J EJ PRO BMS implementation."""
 
+    INFO: BMSInfo = {"manufacturer": "E&J Technology", "model": "pro BMS"}
+
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         # manufacturer_data_start=[0x11, 0x12, 0x13, 0x14, 0x15, 0x16],
         return [MatcherPattern(local_name="EJ*", manufacturer_id=21320, connectable=True)]
 

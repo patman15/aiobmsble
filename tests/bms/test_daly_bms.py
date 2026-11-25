@@ -9,14 +9,14 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS, TSKind
 from aiobmsble.bms.daly_bms import BMS
 from aiobmsble.plugin import crc_modbus
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
 from tests.test_basebms import BMSBasicTests
 
-MOS_INFO: Final[bytes] = b"\xd2\x03\x00\x3e\x00\x09\xf7\xa3"
+FET_INFO: Final[bytes] = b"\xd2\x03\x00\x3e\x00\x09\xf7\xa3"
 
 _PROTO_DEFS: Final[dict[int, dict[bytes, bytes]]] = {
     0xD2: {
@@ -31,7 +31,7 @@ _PROTO_DEFS: Final[dict[int, dict[bytes, bytes]]] = {
         ),  # 'voltage': 14.0, 'current': 3.0, 'battery_level': 90.0, 'cycles': 57,
         # 'cycle_charge': 345.6, 'numTemp': 4, 'temperature': 21.5, 'cycle_energy': 4838.400000000001,
         # 'power': 42.0, 'battery_charging': True, 'runtime': none!, 'delta_cell_voltage': 0.321
-        MOS_INFO: (
+        FET_INFO: (
             b"\xd2\x03\x12\x00\x00\x00\x00\x75\x30\x00\x00\x00\x4e\xff\xff\xff\xff\xff\xff\xff"
             b"\xff\x0b\x4e"
         ),
@@ -94,11 +94,11 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "dischrg_mosfet": True,
         "balancer": True,
         "temperature": [
-            TS(38.0, TS.T.MOSFET),
-            TS(20.0, TS.T.GENERIC),
-            TS(21.0, TS.T.GENERIC),
-            TS(22.0, TS.T.GENERIC),
-            TS(23.0, TS.T.GENERIC),
+            TS(38.0, TSKind.MOSFET),
+            TS(20.0, TSKind.GENERIC),
+            TS(21.0, TSKind.GENERIC),
+            TS(22.0, TSKind.GENERIC),
+            TS(23.0, TSKind.GENERIC),
         ],
     },
     0x81: {
@@ -113,7 +113,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
             3.235,
             3.284,
         ],
-        "temperature": [TS(215.0, TS.T.GENERIC), TS(215.0, TS.T.GENERIC)],
+        "temperature": [TS(215.0, TSKind.GENERIC), TS(215.0, TSKind.GENERIC)],
         "battery_charging": False,
         "delta_cell_voltage": 0.068,
         "power": -10.4,
@@ -160,7 +160,7 @@ class MockDalyBleakClient(MockBleakClient):
     """Emulate a Daly BMS BleakClient."""
 
     _FCT_READ: Final[int] = 0x03
-    MOS_AVAIL: bool = True
+    FET_AVAIL: bool = True
     RESP: Final[dict[bytes, bytes]] = _PROTO_DEFS[0xD2]
 
     def _response(
@@ -172,7 +172,7 @@ class MockDalyBleakClient(MockBleakClient):
             and bytes(data)[0] == next(iter(MockDalyBleakClient.RESP))[0]  # 1st resp
             and bytes(data)[1] == MockDalyBleakClient._FCT_READ
         ):
-            if bytes(data) == MOS_INFO and not self.MOS_AVAIL:
+            if bytes(data) == FET_INFO and not self.FET_AVAIL:
                 raise TimeoutError
             return bytearray(MockDalyBleakClient.RESP.get(bytes(data), b""))
 
@@ -241,7 +241,7 @@ async def test_update_nomos(
 ) -> None:
     """Test Daly BMS data update."""
 
-    monkeypatch.setattr(MockDalyBleakClient, "MOS_AVAIL", False)
+    monkeypatch.setattr(MockDalyBleakClient, "FET_AVAIL", False)
 
     patch_bleak_client(MockDalyBleakClient)
 
@@ -279,7 +279,7 @@ async def test_device_info(
         ((b"\x00\x00", ()), (b"\x00\x30", ())),
     ],
 )
-async def test_mos_excl(
+async def test_fet_excl(
     monkeypatch: pytest.MonkeyPatch,
     patch_bleak_client,
     test_seq: tuple[tuple[bytearray, tuple[float, ...]], ...],
@@ -290,16 +290,16 @@ async def test_mos_excl(
     bms = BMS(generate_ble_device("cc:cc:cc:cc:cc:cc", "MockBLEdevice"))
 
     for response, expected in test_seq:
-        mos_info: bytearray = bytearray(MockDalyBleakClient.RESP[MOS_INFO])
-        mos_info[BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2] = response
-        mos_info[-2:] = crc_modbus(mos_info[:-2]).to_bytes(2, byteorder="little")
+        fet_info: bytearray = bytearray(MockDalyBleakClient.RESP[FET_INFO])
+        fet_info[BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2] = response
+        fet_info[-2:] = crc_modbus(fet_info[:-2]).to_bytes(2, byteorder="little")
         monkeypatch.setattr(
             MockDalyBleakClient,
             "RESP",
-            _PROTO_DEFS[0xD2] | {MOS_INFO: mos_info},
+            _PROTO_DEFS[0xD2] | {FET_INFO: fet_info},
         )
         assert await bms.update() == _RESULT_DEFS[0xD2] | {
-            "temperature": [TS(v, TS.T.MOSFET) for v in expected]
+            "temperature": [TS(v, TSKind.MOSFET) for v in expected]
             + [TS(v) for v in (20.0, 21.0, 22.0, 23.0)],
         }
 

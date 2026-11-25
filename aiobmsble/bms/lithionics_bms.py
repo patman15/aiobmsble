@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from collections.abc import Iterable
 from enum import IntEnum, auto
 import logging
 from typing import Final, Literal
@@ -82,7 +83,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             MatcherPattern(
                 local_name="Li[0-9]-*",
@@ -104,7 +105,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
+        """Not supported, the BMS has no write characteristic."""
         raise NotImplementedError
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -140,7 +141,7 @@ class BMS(BaseBMS):
         if self._msg.keys() >= {m.value for m in BMS._Msg}:
             self._msg_event.set()
 
-        if len(self._frame) > BMS.BLE_MAX_ATTR_SIZE:
+        if len(self._frame) > BMS._BLE_MAX_ATTR_SIZE:
             self._log.debug("invalid frame")
             self._frame.clear()
 
@@ -180,7 +181,7 @@ class BMS(BaseBMS):
     async def _update(self) -> BMSSample:
         """Update battery status information."""
         try:
-            await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+            await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
             fields: tuple[BMSDp[BMSValue], ...] = (
                 BMS._FIELDS_FIXED if BMS._is_fixed_length(self._msg[BMS._Msg.prim]) else BMS._FIELDS
             )
@@ -200,7 +201,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def _decode_data(
-        fields: tuple[BMSDp[BMSValue], ...],
+        fields: Iterable[BMSDp[BMSValue]],
         data: bytes | dict[int, bytes],
         *,
         byteorder: Literal["little", "big"] = "big",

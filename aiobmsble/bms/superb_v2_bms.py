@@ -45,7 +45,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             MatcherPattern(
                 local_name="Epsilon*",
@@ -62,12 +62,12 @@ class BMS(BaseBMS):
 
     @staticmethod
     def uuid_rx() -> str:
-        """Return 16-bit UUID of characteristic that provides notification/read property."""
+        """Return 128-bit UUID of characteristic that provides notification/read property."""
         return "cf9ccdfa-eee9-43ce-87a5-82b54af5324e"
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
+        """Return 128-bit UUID of characteristic that provides write property."""
         return "cf9ccdfa-eee9-43ce-87a5-82b54af5324e"
 
     @staticmethod

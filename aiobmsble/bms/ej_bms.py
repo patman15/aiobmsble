@@ -54,16 +54,16 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 66, 2, False, lambda x: x // 10, Cmd.RT),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (  # bits 0, 1, 12-15 are masked by _PRB_MASK
-        BMSPrbDef(1 << 2, PT.PACK_OVERVOLTAGE),
-        BMSPrbDef(1 << 3, PT.PACK_UNDERVOLTAGE),
-        BMSPrbDef(1 << 4, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 2, PT.PACK_OV),
+        BMSPrbDef(1 << 3, PT.PACK_UV),
+        BMSPrbDef(1 << 4, PT.CHARGE_OC),
         BMSPrbDef(1 << 5, PT.SHORT_CIRCUIT),
-        BMSPrbDef(1 << 6, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 1"),
-        BMSPrbDef(1 << 7, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 2"),
-        BMSPrbDef(1 << 8, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(1 << 9, PT.CHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 10, PT.DISCHARGE_OVERTEMP),
-        BMSPrbDef(1 << 11, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 6, PT.DISCHARGE_OC, text="Discharge overcurrent 1"),
+        BMSPrbDef(1 << 7, PT.DISCHARGE_OC, text="Discharge overcurrent 2"),
+        BMSPrbDef(1 << 8, PT.CHARGE_OT),
+        BMSPrbDef(1 << 9, PT.CHARGE_UT),
+        BMSPrbDef(1 << 10, PT.DISCHARGE_OT),
+        BMSPrbDef(1 << 11, PT.DISCHARGE_UT),
     )
 
     def __init__(
@@ -78,7 +78,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return (
             [  # Lithtech Energy (2x), Volthium
                 MatcherPattern(local_name=pattern, connectable=True)
@@ -211,7 +211,7 @@ class BMS(BaseBMS):
             return {}
 
         result: BMSSample = self._decode_data(BMS._FIELDS, raw_data) | BMSSample(
-            cell_voltages=BMS._cell_voltages(
+            cell_voltages=BMS._decode_cells(
                 raw_data[BMS.Cmd.RT], cells=BMS._MAX_CELLS, start=BMS._CELL_POS
             )
         )

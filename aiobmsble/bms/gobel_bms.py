@@ -10,7 +10,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_modbus
 
@@ -56,7 +56,7 @@ class BMS(BaseBMS):
 
     _CELLV_START: Final[int] = 35
     _TEMP_START: Final[int] = 97
-    _TEMP_MOS_OFFSET: Final[int] = 117
+    _TEMP_FET_OFFSET: Final[int] = 117
 
     def __init__(
         self,
@@ -70,7 +70,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {"local_name": "BMS-[0-9A-F]*", "connectable": True},
             {
@@ -179,13 +179,13 @@ class BMS(BaseBMS):
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="big", start=3)
 
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg,
             cells=min(result.get("cell_count", 0), BMS._MAX_CELLS),
             start=BMS._CELLV_START,
         )
 
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=min(result.get("temp_count", 0), BMS._MAX_TEMP),
             start=BMS._TEMP_START,
@@ -194,14 +194,14 @@ class BMS(BaseBMS):
         )
 
         # Append MOSFET temperature if valid (0xFFFF indicates no sensor)
-        mos_temp: list[TempSensor] = BMS._temperature(
+        fet_temp: list[TempSensor] = BMS._decode_temp(
             self._msg,
-            start=BMS._TEMP_MOS_OFFSET,
+            start=BMS._TEMP_FET_OFFSET,
             signed=True,
             divider=10,
-            types=(TempSensor.T.MOSFET,),
+            types=(TSKind.MOSFET,),
         )
-        if mos_temp[0] != -0.1:
-            result["temperature"].append(mos_temp[0])
+        if fet_temp[0] != -0.1:
+            result["temperature"].append(fet_temp[0])
 
         return result

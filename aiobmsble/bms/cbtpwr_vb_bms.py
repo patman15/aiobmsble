@@ -54,7 +54,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {  # Creabest
                 "local_name": "VB?????????",
@@ -95,7 +95,7 @@ class BMS(BaseBMS):
         self._frame.extend(data)
         self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
-        if len(self._frame) < min(self._exp_len + BMS._MIN_LEN, BMS.BLE_MAX_ATTR_SIZE):
+        if len(self._frame) < min(self._exp_len + BMS._MIN_LEN, BMS._BLE_MAX_ATTR_SIZE):
             return
 
         if not self._frame.endswith(BMS._TAIL):
@@ -150,10 +150,10 @@ class BMS(BaseBMS):
         if len(self._msg) < field_data_start + BMS._FIELDS_END:
             raise BMSDataError
         result["temp_count"] = temp_count
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg, cells=result.get("cell_count", 0), start=BMS._CELL_POS + 1
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=result.get("temp_count", 0),
             start=temp_pos + 1,

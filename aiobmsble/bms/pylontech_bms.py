@@ -98,7 +98,7 @@ class BMS(BaseBMS):
         await self._await_msg(
             BMS._cmd_modbus(dev_id=BMS._DEV_ID, addr=BMS._LIMIT_BLOCK[0], count=BMS._LIMIT_BLOCK[1])
         )
-        return BMS._decode_limits(self._msg, BMS._LIMIT_FIELDS, byteorder="big")
+        return BMS._decode_limits(BMS._LIMIT_FIELDS, self._msg, byteorder="big")
 
     def _notification_handler(
         self,
@@ -137,7 +137,7 @@ class BMS(BaseBMS):
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=3)
         # Modbus exposes only min/max cell aggregates (0x1018, 0x1019), not per-cell values.
-        result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=2, start=7)
-        result["temperature"] = BMS._temperature(self._msg, values=2, start=11, divider=10)
+        result["cell_voltages"] = BMS._decode_cells(self._msg, cells=2, start=7)
+        result["temperature"] = BMS._decode_temp(self._msg, values=2, start=11, divider=10)
 
         return result

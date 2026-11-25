@@ -15,7 +15,9 @@ are safety relevant, e.g. prevent battery damage, overheating, or fire.
   and the connection configuration `BMSConfig`.
 - `aiobmsble.basebms`: `aiobmsble.basebms.BaseBMS`, the interface all BMS classes implement.
 - `aiobmsble.exceptions`: errors raised by BMS operations, also exported here.
-- `aiobmsble.utils`: discovery helpers to find the BMS class for a device.
+- `aiobmsble.utils`: helpers to find the BMS class for a device (`available_bms()`,
+  `load_bms_plugins()`), convert advertisement dictionaries (`adv_dict_to_advdata()`),
+  and summarize problems (`problem_levels()`).
 - `aiobmsble.test_data`: recorded advertisements for integration tests.
 - `aiobmsble.plugin`: types for plugin authors.
 
@@ -23,10 +25,12 @@ Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
 """
 
+from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import IntEnum, StrEnum, auto, unique
 from importlib.metadata import PackageNotFoundError, version
+from types import MappingProxyType
 from typing import Final, NamedTuple, Self, TypedDict
 
 from aiobmsble.exceptions import (
@@ -40,7 +44,8 @@ from aiobmsble.exceptions import (
     BMSUnsupportedError,
 )
 
-__all__ = [
+__all__: list[str] = [
+    "PROBLEM_DEFAULTS",
     "BMSAuthError",
     "BMSCommandRejectedError",
     "BMSConfig",
@@ -58,8 +63,10 @@ __all__ = [
     "BatterySample",
     "Limit",
     "PackSample",
+    "PrbDefault",
     "PrbType",
     "Severity",
+    "TSKind",
     "TempSensor",
     "Threshold",
     "__version__",
@@ -69,6 +76,8 @@ __version__: str = "0.0.0.dev0"
 with suppress(PackageNotFoundError):
     __version__ = version("aiobmsble")
 
+
+@unique
 class BMSMode(IntEnum):
     """Enumeration of BMS modes."""
 
@@ -78,49 +87,68 @@ class BMSMode(IntEnum):
     FLOAT = 0x02
 
 
+@unique
+class TSKind(IntEnum):
+    """Enumeration of temperature sensor source types."""
+
+    GENERIC = 0x0
+    CELL = auto()
+    CELL_MAX = auto()
+    CELL_MIN = auto()
+    MOSFET = auto()
+    PCB = auto()
+    HEATER = auto()
+    BALANCER = auto()
+    AMBIENT = auto()
+
+
 @dataclass(frozen=True, slots=True)
 class TempSensor:
     """Represents a temperature sensor reading from the BMS.
 
     Instances compare equal to plain numbers by value, but to other `TempSensor`
     instances by value and type. Ordering (`<`, `max()`, ...) uses the value only.
+    Conversion (`float()`, `int()`, `round()`) operates on the value and return
+    plain numbers
+
+    Note: equality is not transitive. For example, `TempSensor(1, CELL) == 1` and
+    `1 == TempSensor(1, GENERIC)` are both `True`, yet
+    `TempSensor(1, CELL) != TempSensor(1, GENERIC)`. Do not rely on transitivity
+    when comparing mixed sensor types and plain numbers. Hashing uses the value only,
+    so sensors of different types with equal values may share a hash bucket.
     """
 
-    @unique
-    class T(IntEnum):
-        """Enumeration of temperature sensor source types."""
-
-        GENERIC = 0x0
-        CELL = auto()
-        CELL_MAX = auto()
-        CELL_MIN = auto()
-        MOSFET = auto()
-        PCB = auto()
-        HEATER = auto()
-        BALANCER = auto()
-        AMBIENT = auto()
-
     value: float
-    type: T = T.GENERIC
+    kind: TSKind = TSKind.GENERIC
 
     def __eq__(self: Self, other: object) -> bool:
         """Compare against other TempSensor including type or int, float."""
 
         if isinstance(other, TempSensor):
-            return (self.type, self.value) == (other.type, other.value)
-        if isinstance(other, (int, float)):
+            return (self.kind, self.value) == (other.kind, other.value)
+        if isinstance(other, (int, float)) and not isinstance(other, bool):
             return self.value == other
-        return False
+        return NotImplemented
 
     def __float__(self) -> float:
         """Return the temperature value as a float."""
         return float(self.value)
 
+    def __int__(self) -> int:
+        """Return the temperature value truncated to an int."""
+        return int(self.value)
+
+    def __round__(self, ndigits: int | None = None) -> int | float:
+        """Round the temperature value, as `round()` does for numbers."""
+        if ndigits is None:
+            return round(self.value)
+        return round(self.value, ndigits)
+
     @staticmethod
     def _cmp_value(other: object) -> float | None:
         if isinstance(other, TempSensor):
             return other.value
-        if isinstance(other, (int, float)):
+        if isinstance(other, (int, float)) and not isinstance(other, bool):
             return other
         return None
 
@@ -154,9 +182,10 @@ class TempSensor:
 
     def __repr__(self) -> str:
         """Return the string representation of the sensor value/type."""
-        return f"{self.__class__.__name__}({self.value!r}, {self.type!r})"
+        return f"{self.__class__.__name__}({self.value!r}, {self.kind!r})"
 
 
+@unique
 class Severity(IntEnum):
     """Problem severity, ordered so that max() yields the worst level."""
 
@@ -171,21 +200,22 @@ class Severity(IntEnum):
 class PrbType(StrEnum):
     """Generic problem categories (value = stable key)."""
 
-    CELL_OVERVOLTAGE = auto()
-    CELL_UNDERVOLTAGE = auto()
-    PACK_OVERVOLTAGE = auto()
-    PACK_UNDERVOLTAGE = auto()
+    CELL_OV = auto()
+    CELL_UV = auto()
+    PACK_OV = auto()
+    PACK_UV = auto()
     CELL_IMBALANCE = auto()
-    CHARGE_OVERCURRENT = auto()
-    DISCHARGE_OVERCURRENT = auto()
+    CHARGE_OC = auto()
+    DISCHARGE_OC = auto()
     SHORT_CIRCUIT = auto()
-    CHARGE_OVERTEMP = auto()
-    CHARGE_UNDERTEMP = auto()
-    DISCHARGE_OVERTEMP = auto()
-    DISCHARGE_UNDERTEMP = auto()
-    MOSFET_OVERTEMP = auto()
-    SYSTEM_OVERTEMP = auto()
-    SYSTEM_UNDERTEMP = auto()
+    CHARGE_OT = auto()
+    CHARGE_UT = auto()
+    DISCHARGE_OT = auto()
+    DISCHARGE_UT = auto()
+    FET_OT = auto()
+    FET_UT = auto()
+    SYSTEM_OT = auto()
+    SYSTEM_UT = auto()
     LOW_SOC = auto()
     FET_LOCKED = auto()
     FET_FAILURE = auto()
@@ -194,7 +224,7 @@ class PrbType(StrEnum):
     SENSOR_FAILURE = auto()
     COMM_FAILURE = auto()
     FUSE_BLOWN = auto()
-    OTHER = auto()  # vendor specific, requires ProblemDef.text
+    OTHER = auto()  # vendor specific, requires BMSPrbDef.text
     UNKNOWN = auto()  # bit set but not described by the plugin
 
 
@@ -205,34 +235,38 @@ class PrbDefault(NamedTuple):
     text: str
 
 
-PROBLEM_DEFAULTS: Final[dict[PrbType, PrbDefault]] = {
-    PrbType.CELL_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell overvoltage"),
-    PrbType.CELL_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Cell undervoltage"),
-    PrbType.PACK_OVERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack overvoltage"),
-    PrbType.PACK_UNDERVOLTAGE: PrbDefault(Severity.PROTECT, "Pack undervoltage"),
-    PrbType.CELL_IMBALANCE: PrbDefault(Severity.WARN, "Cell voltage imbalance"),
-    PrbType.CHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
-    PrbType.DISCHARGE_OVERCURRENT: PrbDefault(Severity.PROTECT, "Discharge overcurrent"),
-    PrbType.SHORT_CIRCUIT: PrbDefault(Severity.PROTECT, "Short circuit"),
-    PrbType.CHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Charge overtemperature"),
-    PrbType.CHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
-    PrbType.DISCHARGE_OVERTEMP: PrbDefault(Severity.PROTECT, "Discharge overtemperature"),
-    PrbType.DISCHARGE_UNDERTEMP: PrbDefault(Severity.PROTECT, "Discharge undertemperature"),
-    PrbType.MOSFET_OVERTEMP: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
-    # examples for SYSTEM_*TEMP: ambient, PCB, board, battery temperature. NOT: MOSFET temperature
-    PrbType.SYSTEM_OVERTEMP: PrbDefault(Severity.PROTECT, "System overtemperature"),
-    PrbType.SYSTEM_UNDERTEMP: PrbDefault(Severity.PROTECT, "System undertemperature"),
-    PrbType.LOW_SOC: PrbDefault(Severity.WARN, "Low state of charge"),
-    PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
-    PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET"),
-    PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end"),
-    PrbType.CELL_FAILURE: PrbDefault(Severity.FAULT, "Cell"),
-    PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor"),
-    PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication"),
-    PrbType.FUSE_BLOWN: PrbDefault(Severity.FAULT, "Fuse blown"),
-    PrbType.OTHER: PrbDefault(Severity.WARN, "Other problem"),
-    PrbType.UNKNOWN: PrbDefault(Severity.WARN, "Unknown problem"),
-}
+PROBLEM_DEFAULTS: Final[Mapping[PrbType, PrbDefault]] = MappingProxyType(
+    {
+        PrbType.CELL_OV: PrbDefault(Severity.PROTECT, "Cell overvoltage"),
+        PrbType.CELL_UV: PrbDefault(Severity.PROTECT, "Cell undervoltage"),
+        PrbType.PACK_OV: PrbDefault(Severity.PROTECT, "Pack overvoltage"),
+        PrbType.PACK_UV: PrbDefault(Severity.PROTECT, "Pack undervoltage"),
+        PrbType.CELL_IMBALANCE: PrbDefault(Severity.WARN, "Cell voltage imbalance"),
+        PrbType.CHARGE_OC: PrbDefault(Severity.PROTECT, "Charge overcurrent"),
+        PrbType.DISCHARGE_OC: PrbDefault(Severity.PROTECT, "Discharge overcurrent"),
+        PrbType.SHORT_CIRCUIT: PrbDefault(Severity.PROTECT, "Short circuit"),
+        PrbType.CHARGE_OT: PrbDefault(Severity.PROTECT, "Charge overtemperature"),
+        PrbType.CHARGE_UT: PrbDefault(Severity.PROTECT, "Charge undertemperature"),
+        PrbType.DISCHARGE_OT: PrbDefault(Severity.PROTECT, "Discharge overtemperature"),
+        PrbType.DISCHARGE_UT: PrbDefault(Severity.PROTECT, "Discharge undertemperature"),
+        PrbType.FET_OT: PrbDefault(Severity.PROTECT, "MOSFET overtemperature"),
+        PrbType.FET_UT: PrbDefault(Severity.PROTECT, "MOSFET undertemperature"),
+        # examples for SYSTEM_*: ambient, PCB, board, battery temperature. NOT: MOSFET temperature
+        PrbType.SYSTEM_OT: PrbDefault(Severity.PROTECT, "System overtemperature"),
+        PrbType.SYSTEM_UT: PrbDefault(Severity.PROTECT, "System undertemperature"),
+        PrbType.LOW_SOC: PrbDefault(Severity.WARN, "Low state of charge"),
+        PrbType.FET_LOCKED: PrbDefault(Severity.INFO, "MOSFET locked"),
+        PrbType.FET_FAILURE: PrbDefault(Severity.FAULT, "MOSFET"),
+        PrbType.AFE_FAILURE: PrbDefault(Severity.FAULT, "Analog front-end"),
+        PrbType.CELL_FAILURE: PrbDefault(Severity.FAULT, "Cell"),
+        PrbType.SENSOR_FAILURE: PrbDefault(Severity.FAULT, "Sensor"),
+        PrbType.COMM_FAILURE: PrbDefault(Severity.FAULT, "Internal communication"),
+        PrbType.FUSE_BLOWN: PrbDefault(Severity.FAULT, "Fuse blown"),
+        PrbType.OTHER: PrbDefault(Severity.WARN, "Other problem"),
+        PrbType.UNKNOWN: PrbDefault(Severity.WARN, "Unknown problem"),
+    }
+)
+"""Default severity and description per problem type (read-only)."""
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -276,8 +310,8 @@ class BatterySample(TypedDict, total=False):
     cell_voltages: list[float]  # [V]
     current: float  # [A] (positive: charging)
     cycles: int  # [#]
-    cycle_charge: int | float  # [Ah]
-    cycle_energy: int | float  # [Wh]
+    cycle_charge: float | int  # [Ah]
+    cycle_energy: float | int  # [Wh]
     delta_cell_voltage: float  # [V]
     design_capacity: int  # [Ah]
     power: float  # [W] (positive: charging)
@@ -308,7 +342,7 @@ class BMSSample(BatterySample, total=False):
     total_charge: int  # [Ah], charge discharged over lifetime
     pack_count: int  # [#]
     problem_code: int  # BMS specific code, 0 no problem
-    problems: list[BMSProblem]  # decoded problem_code, present if plugin defines _PROBLEMS
+    problems: list[BMSProblem]  # decoded problem_code and failed value sanity checks
 
     # BMS switches
     chrg_mosfet: bool  # True: enabled
@@ -360,7 +394,8 @@ class Limit(StrEnum):
     CHARGE_UTP = auto()
     DISCHARGE_OTP = auto()
     DISCHARGE_UTP = auto()
-    MOS_OTP = auto()
+    FET_OTP = auto()
+    FET_UTP = auto()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -382,4 +417,3 @@ class Threshold:
 
 type BMSLimits = dict[Limit, Threshold]
 """Thresholds configured in the BMS, returned by `aiobmsble.basebms.BaseBMS.limits()`."""
-

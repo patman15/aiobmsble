@@ -19,6 +19,7 @@ from aiobmsble import (
     Severity,
     TempSensor as TS,
     Threshold,
+    TSKind,
 )
 from aiobmsble.bms.x123smart_bms import BMS
 from aiobmsble.exceptions import BMSAuthError, BMSCommandRejectedError
@@ -52,7 +53,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "battery_health": 95,
     "cell_count": 4,
     "cell_voltages": [3.5, 3.5, 3.5, 3.5],
-    "temperature": [TS(24.0, TS.T.CELL)] * 4,
+    "temperature": [TS(24.0, TSKind.CELL)] * 4,
     "delta_cell_voltage": 0.0,
     "power": 14.0,
     "battery_charging": True,
@@ -146,7 +147,7 @@ class Mock123SmartBleakClient(MockBleakClient):
 @pytest.fixture(autouse=True)
 def _fast_timings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Speed up ping/warm-up/cycle timings for tests."""
-    monkeypatch.setattr(BMS, "ALIVE_INTERVAL", 0.001)
+    monkeypatch.setattr(BMS, "_ALIVE_INTERVAL", 0.001)
 
 
 async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
@@ -159,7 +160,7 @@ async def test_update(patch_bleak_client, keep_alive_fixture: bool) -> None:
     )
 
     assert await bms.update() == _RESULT_DEFS
-    await asyncio.sleep(bms.ALIVE_INTERVAL or 0)  # wait for keep-alive ping to be sent
+    await asyncio.sleep(bms._ALIVE_INTERVAL or 0)  # wait for keep-alive ping to be sent
     await bms.update()  # second query to cover already-connected path
     assert bms.is_connected is keep_alive_fixture
 

@@ -8,7 +8,16 @@ from bleak.exc import BleakError
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSSample, Limit, PackSample, PrbType, TempSensor as TS, Threshold
+from aiobmsble import (
+    BMSConfig,
+    BMSSample,
+    Limit,
+    PackSample,
+    PrbType,
+    TempSensor as TS,
+    Threshold,
+    TSKind,
+)
 from aiobmsble.bms.seplos_bms import BMS
 from tests.bluetooth import generate_ble_device
 from tests.conftest import MockBleakClient
@@ -60,8 +69,8 @@ _RESULT_DEFS: BMSSample = {
                 3.272,
             ],
             temperature=(
-                [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
-                + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
+                [TS(v, TSKind.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
+                + [TS(28.1, TSKind.AMBIENT), TS(26.6, TSKind.MOSFET)]
             ),
             cell_count=16,
             delta_cell_voltage=0.002,
@@ -95,8 +104,8 @@ _RESULT_DEFS: BMSSample = {
                 3.529,
             ],
             temperature=(
-                [TS(v, TS.T.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
-                + [TS(28.1, TS.T.AMBIENT), TS(26.6, TS.T.MOSFET)]
+                [TS(v, TSKind.CELL) for v in (25.0, 23.8, 23.9, 24.9)]
+                + [TS(28.1, TSKind.AMBIENT), TS(26.6, TSKind.MOSFET)]
             ),
             delta_cell_voltage=0.003,
             cell_count=16,
@@ -352,7 +361,7 @@ async def test_limits(patch_bleak_client) -> None:
         Limit.CHARGE_UTP: Threshold(trip=-10.0, release=0.0),
         Limit.DISCHARGE_OTP: Threshold(trip=60.0, release=55.0),
         Limit.DISCHARGE_UTP: Threshold(trip=-15.0, release=0.0),
-        Limit.MOS_OTP: Threshold(trip=110.0, release=85.0),
+        Limit.FET_OTP: Threshold(trip=110.0, release=85.0),
     }
     assert not bms.is_connected
 
@@ -505,7 +514,7 @@ async def test_problem_response(monkeypatch: pytest.MonkeyPatch, patch_bleak_cli
         "problems": result.get("problems"),
     }
     kinds = {p.kind for p in result.get("problems", [])}
-    assert {PrbType.CELL_OVERVOLTAGE, PrbType.SHORT_CIRCUIT, PrbType.FET_FAILURE} <= kinds
+    assert {PrbType.CELL_OV, PrbType.SHORT_CIRCUIT, PrbType.FET_FAILURE} <= kinds
     assert {p.text for p in result.get("problems", []) if p.kind == PrbType.UNKNOWN} == {
         "Unknown problem bit 24",
         "Unknown problem bit 25",

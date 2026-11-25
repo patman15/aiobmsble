@@ -15,7 +15,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSAuthError, BMSConfigError, BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
@@ -53,7 +53,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "manufacturer_id": 4660,
@@ -69,19 +69,13 @@ class BMS(BaseBMS):
 
     @staticmethod
     def uuid_rx() -> str:
-        """Return 16-bit UUID of characteristic that provides notification/read property."""
+        """Return 128-bit UUID of characteristic that provides notification/read property."""
         return "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
+        """Return 128-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
-
-    # async def _fetch_device_info(self) -> BMSInfo:
-    #     """Fetch the device information via BLE."""
-    #     return BMSInfo(
-    #         default_manufacturer="Dummy manufacturer", default_model="Dummy BMS"
-    #     )  # TODO: implement query code or remove function to query service 0x180A
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -144,16 +138,16 @@ class BMS(BaseBMS):
             raise BMSDataError
 
         result: BMSSample = self._decode_data(BMS._FIELDS, self._msg, byteorder="little")
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg[0x2], cells=BMS._MAX_CELLS, start=17, byteorder="little"
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg[0x2],
             start=27,
             values=2,
             byteorder="little",
             divider=100,
-            types=(TS.T.CELL, TS.T.PCB),
+            types=(TSKind.CELL, TSKind.PCB),
         )
 
         return result

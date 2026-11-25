@@ -8,7 +8,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.uuids import normalize_uuid_str
 import pytest
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor as TS, TSKind
 from aiobmsble.bms.gobel_bms import BMS
 from aiobmsble.plugin import crc_modbus
 from tests.bluetooth import generate_ble_device
@@ -60,7 +60,7 @@ _RESULT_MAIN_DATA: Final[BMSSample] = {
     "problem": False,
     "problem_code": 0,
     "temp_count": 1,
-    "temperature": [TS(20.9), TS(21.1, TS.T.MOSFET)],
+    "temperature": [TS(20.9), TS(21.1, TSKind.MOSFET)],
     "voltage": 13.31,
 }
 
@@ -314,7 +314,7 @@ async def test_edge_cases(
     await bms.disconnect()
 
 
-async def test_mos_temp_ffff_invalid(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
+async def test_fet_temp_ffff_invalid(monkeypatch: pytest.MonkeyPatch, patch_bleak_client) -> None:
     """Test that MOSFET temperature of 0xFFFF is treated as invalid."""
 
     # Frame with 1 temp sensor at 25.0°C and invalid MOSFET temp

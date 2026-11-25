@@ -6,6 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 import asyncio
 from contextlib import suppress
+from dataclasses import replace
 import logging
 from typing import Literal
 
@@ -22,11 +23,12 @@ class BMS(TopbandBMS):
     """PowerXtreme BMS implementation."""
 
     INFO: BMSInfo = {"manufacturer": "PowerXtreme", "model": "smart BMS"}
-    FIELDS: tuple[BMSDp[BMSValue], ...] = tuple(
-        f._replace(fct=lambda x: x / 10) if f.key == "current" else f for f in TopbandBMS.FIELDS
+    _FIELDS: tuple[BMSDp[BMSValue], ...] = tuple(
+        replace(f, fct=lambda x: x / 10) if f.key == "current" else f
+        for f in TopbandBMS._FIELDS  # noqa: SLF001 - patch parent field map
     )
 
-    ALIVE_INTERVAL = 3.0  # seconds
+    _ALIVE_INTERVAL = 3.0  # seconds
     _ctrl_proto: bytes = b""  # parse control protocol
 
     def __init__(
@@ -41,7 +43,7 @@ class BMS(TopbandBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "service_uuid": BMS.uuid_services()[0],
@@ -116,13 +118,13 @@ class BMS(TopbandBMS):
     async def _update(self) -> BMSSample:
         """Update battery status information."""
 
-        await self._await_msg(b"<B:ST>", wait_for_notify=False)
-        await self._await_msg(b"<H:ST>", wait_for_notify=False)
+        await self._await_msg(b"<B:ST>", await_notify=False)
+        await self._await_msg(b"<H:ST>", await_notify=False)
 
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
 
-        return self._decode_data(BMS.FIELDS, self._msg, byteorder="little") | {
-            "cell_voltages": BMS._cell_voltages(
+        return self._decode_data(BMS._FIELDS, self._msg, byteorder="little") | {
+            "cell_voltages": BMS._decode_cells(
                 self._msg, cells=BMS._MAX_CELLS, start=22, byteorder="little"
             )
         }

@@ -16,6 +16,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as SV,
     TempSensor as TS,
+    TSKind,
 )
 from aiobmsble.bms.abc_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -31,7 +32,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "cycles": 7,
     "cell_count": 8,
     "cell_voltages": [3.442, 3.496, 3.375, 3.464, 3.457, 3.429, 3.359, 3.42],
-    "temperature": [TS(20, TS.T.GENERIC)],
+    "temperature": [TS(20, TSKind.GENERIC)],
     "delta_cell_voltage": 0.137,
     "design_capacity": 100,
     "cycle_energy": 2922.047,
@@ -277,9 +278,9 @@ async def test_problem_response(
     assert result.get("problem", False)  # expect a problem report
     assert result.get("problem_code", 0) == (0x1 if problem_response[1] == "first_bit" else 0x8000)
     assert result.get("problems") == (
-        [BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage")]
+        [BMSProblem(PT.CELL_OV, SV.PROTECT, "Cell overvoltage")]
         if problem_response[1] == "first_bit"
-        else [BMSProblem(PT.PACK_OVERVOLTAGE, SV.PROTECT, "Pack overvoltage")]
+        else [BMSProblem(PT.PACK_OV, SV.PROTECT, "Pack overvoltage")]
     )
 
     await bms.disconnect()

@@ -50,7 +50,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {  # patterns required to exclude "BT-ROCC2440"
                 "local_name": pattern,
@@ -125,10 +125,10 @@ class BMS(BaseBMS):
         await self._await_msg(b"\x00\x00\x04\x01\x13\x55\xaa\x17")
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="little")
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg, cells=BMS._MAX_CELLS, start=16, byteorder="little"
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg, values=BMS._MAX_TEMP, start=52, byteorder="little"
         )
         # Increase the sensor count when higher-index sensors report nonzero values

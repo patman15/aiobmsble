@@ -26,9 +26,9 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
     - `uuid_tx()` — 16/32/128-bit UUID of the characteristic used to send commands.
     - `_notification_handler()` — callback invoked when a BLE notification arrives; validates the frame and sets `self._msg_event` when a complete, valid frame is available.
     - `_update()` — sends command(s) to the BMS, parses the response, and returns a `BMSSample`.
- 5. Make sure that the `BMSSample` returned by `_update()` contains at minimum the keys listed before the *detailed information* comment in the [`BMSSample`](aiobmsble/__init__.py) class.
+ 5. Make sure that the `BMSSample` returned by `_update()` contains at minimum the values required in [How to qualify as a BMS](#how-to-qualify-as-a-bms).
  6. Add recorded BLE advertisement from a real device to `aiobmsble/test_data/my_bms.json`.
- 7. Add a test file at `tests/bms/test_my_bms.py`. Subclass `BMSBasicTests` (from `tests/test_basebms.py`) and add BMS-specific tests. Use `tests/bms/test_dummy.py` as a template.
+ 7. Add a test file at `tests/bms/test_my_bms.py`. Subclass `BMSBasicTests` (from `tests/test_basebms.py`) and add BMS-specific tests. Use `tests/bms/test_dummy_bms.py` as a template.
     -  Use recorded frames from a real device to mimic exact device behaviour, do **not** artificially generate device frames.
  8. Add a documentation file at `docs/my_bms.md` describing the device and the protocol, if detailed information is available.
  9. Run linting and tests locally and confirm 100% branch coverage:
@@ -36,8 +36,8 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
     ruff check .
     mypy .
     mypy aiobmsble --strict
-    codespell .
-    pyright .
+    codespell
+    pyright
     pytest
     ```
 10. Commit the changes and open a pull request to the main repository.
@@ -50,19 +50,26 @@ Run `pre-commit install` after that to enable automatic checks on each commit.
 A template [example](aiobmsble/bms/dummy_bms.py) for adding a new BMS type is available. To make it work, fill in the `TODO` items: set the UUIDs of the service, the characteristic providing notifications, and the characteristic for sending commands. While the device must be in Bluetooth range, actual communication does not matter — the fixed values in the code will always be returned.
 
 The template also shows optional overrides as comments:
+- `_FIELDS` — `BMSDp` tuple describing the scalar values of a frame, decoded by `BaseBMS._decode_data()`.
+- `_LIMIT_FIELDS` — `LimitDp` tuple describing the protection thresholds of a frame, decoded by `BaseBMS._decode_limits()` in `_fetch_limits()`.
 - `_raw_values()` — return a set of `BMSValue` keys that should **not** be auto-calculated by `BaseBMS._add_missing_values()`, e.g. `runtime`.
 - `ACCEPT_SECRET` — set to `True` if the BMS requires a password/secret for authentication.
-- `_fetch_device_info()` — override to query device information from the BMS directly instead of reading BLE standard service `0x180A`.
+- `_PROBLEMS` — problem code decoder definitions (`BMSPrbDef` tuple); empty means problem decoding is not supported.
+- `_SKIP_INFO_CHARS` — set to `True` to skip reading the BT default characteristics for `BMSInfo()` (service `0x180A`).
+- `_ALIVE_INTERVAL` — keep-alive period in seconds; `None` disables it.
+- `_alive()` — periodic actions, called while `_ALIVE_INTERVAL` is set.
 - `_fetch_limits()` — override to query the protection thresholds (trip/recovery points) of the BMS, returned by `limits()` as `BMSLimits`.
+- `_fetch_device_info()`, override to query device information from the BMS directly. Set `_SKIP_INFO_CHARS` to skip merge with standard service information queried before.
+
 
 ### Deriving from an existing plugin
 
 When the target device speaks a protocol that an existing plugin already implements, derive from that plugin's `BMS` class (which itself derives from `BaseBMS`) rather than from `BaseBMS` directly. The criterion is reuse of the parent's *wire protocol*: framing, notification assembly, command construction, checksum/CRC, and connection flow. Derive directly from `BaseBMS` only when introducing genuinely new framing, notification handling, command building, or integrity handling. There are two common patterns:
 
 - **OEM rebrand / twin** (identical protocol and field layout): override only device identity and BLE addressing, i.e. `INFO`, `matcher_dict_list()`, and `uuid_services()`/`uuid_rx()`/`uuid_tx()`. See `ag_bms.py` (from `ej_bms.py`) and `eleksol_bms.py` (from `jbd_bms.py`).
-- **Protocol variant** (same transport, different data map or a narrow behavioural tweak): additionally override the declarative field map (`_FIELDS`/`FIELDS`), protocol constants, scaling, and at most a small hook such as `_notification_handler()`, `_update()`, `_fetch_device_info()`, or `_init_connection()`. See `pwrboozt_bms.py` (from `ej_bms.py`), `c4s_bms.py` (from `vatrer_bms.py`), `daren_bms.py` (from `jbd_bms.py`), `pwrxtreme_bms.py` (from `topband_bms.py`), and `renogy_pro_bms.py` (from `renogy_bms.py`).
+- **Protocol variant** (same transport, different data map or a narrow behavioural tweak): additionally override the declarative field map (`_FIELDS`), protocol constants, scaling, and at most a small hook such as `_notification_handler()`, `_update()`, `_fetch_device_info()`, or `_init_connection()`. See `pwrboozt_bms.py` (from `ej_bms.py`), `c4s_bms.py` (from `vatrer_bms.py`), `daren_bms.py` (from `jbd_bms.py`), `pwrxtreme_bms.py` (from `topband_bms.py`), and `renogy_pro_bms.py` (from `renogy_bms.py`).
 
-Do not duplicate a parent's notification handler, command builder, or integrity logic in the child; override only what genuinely differs. When writing a plugin intended to be subclassed, expose the field tuple as a plain (non-`Final`) class attribute so a child can replace it or patch entries with `BMSDp._replace()` without touching protocol code.
+Do not duplicate a parent's notification handler, command builder, or integrity logic in the child; override only what genuinely differs. When writing a plugin intended to be subclassed, expose the field tuple as a plain (non-`Final`) class attribute so a child can replace it or patch entries with `dataclasses.replace()` without touching protocol code.
 
 ### Any contributions you make will be under the Apache-2.0 License
 
@@ -76,9 +83,10 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
   - `ruff check .`
   - `mypy .`
   - `mypy aiobmsble --strict`
-  - `pyright .`
-  - `codespell .`
+  - `pyright`
+  - `codespell`
 - Keep all names and comments in English.
+- Use [Google-style docstrings](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings).
 - Do not use `# pragma: no cover`.
 - Put documentation of the device / protocol into `docs/my_bms.md`.
 
@@ -90,6 +98,7 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
 - Frame parsing shall validate each frame according to the protocol specification (e.g. CRC, length, allowed message types). Invalid frames shall be discarded.
 - All plugin classes shall inherit from `BaseBMS`—directly, or via an existing plugin's `BMS` class when reusing that protocol (see [Deriving from an existing plugin](#deriving-from-an-existing-plugin))—and use its helper methods before overriding or replacing behaviour.
 - Prefer declarative field decoding: describe scalar values with [`BMSDp`](aiobmsble/plugin.py) entries in a `_FIELDS: tuple[BMSDp[BMSValue], ...]` class attribute and decode them via `BaseBMS._decode_data()` before writing manual parsing. Use per-variant `_FIELDS_*` tuples when the protocol has more than one frame layout.
+- Describe protection thresholds the same way: `LimitDp` entries in a `_LIMIT_FIELDS: tuple[LimitDp, ...]` class attribute, decoded via `BaseBMS._decode_limits()` in `_fetch_limits()`. If the thresholds are spread over several replies, group the `LimitDp` tuples per reply (see `_LIMIT_FRAMES` in `braunpwr_bms.py`).
 - When a protocol reports `problem_code`, add `_PROBLEMS: tuple[BMSPrbDef, ...]` to map
   protocol fields/bits to stable `PrbType` kinds. By convention, define `_PRB_MASK` in the
   plugin for bits that belong to the problem code and apply it in the `problem_code` field
@@ -105,7 +114,7 @@ Guidelines closely follow [Home Assistant core integration](https://developers.h
   hardware/internal failures. A custom text may describe a vendor-specific detail,
   but it must not contradict the selected kind or severity.
 - If available, data shall be read directly from the device. `BaseBMS._add_missing_values()` is only used to ensure consistent data across all BMS types.
-- Where possible, use the utility functions provided by `BaseBMS` (e.g. `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_check_integrity()`, `_cmd_modbus()`).
+- Where possible, use the utility functions provided by `BaseBMS` (e.g. `_decode_data()`, `_decode_cells()`, `_decode_temp()`, `_check_integrity()`, `_cmd_modbus()`).
 - Tests shall use recorded frames from a real device (stored in the plugin test module in `tests/bms/`) to allow new parsed values to be added at a later point. Recorded advertisements are stored in `aiobmsble/test_data/`.
 
 to be extended ...

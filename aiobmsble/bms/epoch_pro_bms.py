@@ -66,7 +66,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "service_uuid": BMS.uuid_services()[0],
@@ -156,10 +156,10 @@ class BMS(BaseBMS):
             pack_sample: PackSample = BMS._decode_pack(
                 BMS._PFIELDS, pack_response, start=BMS._HEAD_LEN
             )
-            pack_sample["cell_voltages"] = BMS._cell_voltages(
+            pack_sample["cell_voltages"] = BMS._decode_cells(
                 pack_response, cells=pack_response[BMS._CELLNUM_POS], start=BMS._CELL_POS
             )
-            pack_sample["temperature"] = BMS._temperature(  # 4x cell temperature + 4 reserved
+            pack_sample["temperature"] = BMS._decode_temp(  # 4x cell temperature + 4 reserved
                 pack_response, values=pack_response[BMS._TEMPNUM_POS], start=BMS._TEMP_POS
             )
             result.setdefault("packs", []).append(pack_sample)

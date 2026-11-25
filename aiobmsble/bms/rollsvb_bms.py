@@ -47,7 +47,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": "RD????????????",
@@ -102,10 +102,10 @@ class BMS(BaseBMS):
             msgs[addr] = self._msg
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, msgs, start=BMS._HEAD_LEN)
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             msgs[0x00], cells=BMS._MAX_CELLS, start=BMS._HEAD_LEN
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             msgs[0x20], values=BMS._MAX_TEMPS, start=BMS._HEAD_LEN, offset=40
         )
 

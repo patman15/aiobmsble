@@ -20,7 +20,7 @@ from aiobmsble import (
     Limit,
     PrbType as PT,
     Severity as SV,
-    TempSensor,
+    TSKind,
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
@@ -54,49 +54,49 @@ class BMS(BaseBMS):
         BMSPrbDef(1 << 62, PT.FET_FAILURE, text="Discharge switch"),
         BMSPrbDef(1 << 63, PT.FET_FAILURE, text="Current limit switch"),
         # alarm event 2: cell and pack voltage
-        BMSPrbDef(1 << 48, PT.CELL_OVERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 49, PT.CELL_OVERVOLTAGE),
-        BMSPrbDef(1 << 50, PT.CELL_UNDERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 51, PT.CELL_UNDERVOLTAGE),
-        BMSPrbDef(1 << 52, PT.PACK_OVERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 53, PT.PACK_OVERVOLTAGE),
-        BMSPrbDef(1 << 54, PT.PACK_UNDERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 55, PT.PACK_UNDERVOLTAGE),
+        BMSPrbDef(1 << 48, PT.CELL_OV, SV.WARN),
+        BMSPrbDef(1 << 49, PT.CELL_OV),
+        BMSPrbDef(1 << 50, PT.CELL_UV, SV.WARN),
+        BMSPrbDef(1 << 51, PT.CELL_UV),
+        BMSPrbDef(1 << 52, PT.PACK_OV, SV.WARN),
+        BMSPrbDef(1 << 53, PT.PACK_OV),
+        BMSPrbDef(1 << 54, PT.PACK_UV, SV.WARN),
+        BMSPrbDef(1 << 55, PT.PACK_UV),
         # alarm event 3: cell temperature
-        BMSPrbDef(1 << 40, PT.CHARGE_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 41, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(1 << 42, PT.CHARGE_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 43, PT.CHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 44, PT.DISCHARGE_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 45, PT.DISCHARGE_OVERTEMP),
-        BMSPrbDef(1 << 46, PT.DISCHARGE_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 47, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 40, PT.CHARGE_OT, SV.WARN),
+        BMSPrbDef(1 << 41, PT.CHARGE_OT),
+        BMSPrbDef(1 << 42, PT.CHARGE_UT, SV.WARN),
+        BMSPrbDef(1 << 43, PT.CHARGE_UT),
+        BMSPrbDef(1 << 44, PT.DISCHARGE_OT, SV.WARN),
+        BMSPrbDef(1 << 45, PT.DISCHARGE_OT),
+        BMSPrbDef(1 << 46, PT.DISCHARGE_UT, SV.WARN),
+        BMSPrbDef(1 << 47, PT.DISCHARGE_UT),
         # alarm event 4: ambient and power temperature
-        BMSPrbDef(1 << 32, PT.SYSTEM_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 33, PT.SYSTEM_OVERTEMP),
-        BMSPrbDef(1 << 34, PT.SYSTEM_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 35, PT.SYSTEM_UNDERTEMP),
-        BMSPrbDef(1 << 36, PT.MOSFET_OVERTEMP),
-        BMSPrbDef(1 << 37, PT.MOSFET_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 32, PT.SYSTEM_OT, SV.WARN),
+        BMSPrbDef(1 << 33, PT.SYSTEM_OT),
+        BMSPrbDef(1 << 34, PT.SYSTEM_UT, SV.WARN),
+        BMSPrbDef(1 << 35, PT.SYSTEM_UT),
+        BMSPrbDef(1 << 36, PT.FET_OT),
+        BMSPrbDef(1 << 37, PT.FET_OT, SV.WARN),
         BMSPrbDef(1 << 38, PT.OTHER, SV.INFO, text="Battery core low temperature heating"),
         BMSPrbDef(1 << 39, PT.OTHER, SV.PROTECT, text="Secondary trip"),
         # alarm event 5: current
-        BMSPrbDef(1 << 24, PT.CHARGE_OVERCURRENT, SV.WARN),
-        BMSPrbDef(1 << 25, PT.CHARGE_OVERCURRENT),
-        BMSPrbDef(1 << 26, PT.DISCHARGE_OVERCURRENT, SV.WARN),
-        BMSPrbDef(1 << 27, PT.DISCHARGE_OVERCURRENT),
-        BMSPrbDef(1 << 28, PT.DISCHARGE_OVERCURRENT, text="Transient overcurrent"),
+        BMSPrbDef(1 << 24, PT.CHARGE_OC, SV.WARN),
+        BMSPrbDef(1 << 25, PT.CHARGE_OC),
+        BMSPrbDef(1 << 26, PT.DISCHARGE_OC, SV.WARN),
+        BMSPrbDef(1 << 27, PT.DISCHARGE_OC),
+        BMSPrbDef(1 << 28, PT.DISCHARGE_OC, text="Transient overcurrent"),
         BMSPrbDef(1 << 29, PT.SHORT_CIRCUIT, text="Output short circuit"),
         BMSPrbDef(1 << 30, PT.FET_LOCKED, SV.PROTECT, text="Transient overcurrent lockout"),
         BMSPrbDef(1 << 31, PT.FET_LOCKED, SV.PROTECT, text="Output short circuit lockout"),
         # alarm event 6: charge voltage, capacity and output
-        BMSPrbDef(1 << 16, PT.PACK_OVERVOLTAGE, SV.PROTECT, text="Charging over voltage"),
+        BMSPrbDef(1 << 16, PT.PACK_OV, SV.PROTECT, text="Charging over voltage"),
         BMSPrbDef(1 << 17, PT.OTHER, SV.INFO, text="Waiting for intermittent power replenishment"),
         BMSPrbDef(1 << 18, PT.LOW_SOC, SV.WARN),
         BMSPrbDef(1 << 19, PT.LOW_SOC, SV.PROTECT),
         BMSPrbDef(
             1 << 20,
-            PT.CELL_UNDERVOLTAGE,
+            PT.CELL_UV,
             SV.PROTECT,
             text="Battery cell low voltage charging prohibited",
         ),
@@ -140,8 +140,8 @@ class BMS(BaseBMS):
         LimitDp(Limit.DISCHARGE_OTP, "release", 75, scale=0.1, offset=273.1),
         LimitDp(Limit.DISCHARGE_UTP, "trip", 77, scale=0.1, offset=273.1),
         LimitDp(Limit.DISCHARGE_UTP, "release", 79, scale=0.1, offset=273.1),
-        LimitDp(Limit.MOS_OTP, "trip", 105, scale=0.1, offset=273.1),
-        LimitDp(Limit.MOS_OTP, "release", 107, scale=0.1, offset=273.1),
+        LimitDp(Limit.FET_OTP, "trip", 105, scale=0.1, offset=273.1),
+        LimitDp(Limit.FET_OTP, "release", 107, scale=0.1, offset=273.1),
         LimitDp(Limit.CHARGE_OCP, "trip", 117, scale=0.01),
         LimitDp(Limit.DISCHARGE_OCP, "trip", 119, scale=-0.01, signed=True),
         LimitDp(Limit.CHARGE_OCP, "delay", 136, size=1),
@@ -164,7 +164,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": "BP[0-2][0-9]*",
@@ -204,7 +204,7 @@ class BMS(BaseBMS):
         """Fetch the protection thresholds (0x47 parameter frame, group 0)."""
         self._exp_reply = {0x47}
         await self._await_msg(BMS._cmd(0x47, data=b"\x00"))
-        return BMS._decode_limits(self._msg.pop(0x47), BMS._LIMIT_FIELDS)
+        return BMS._decode_limits(BMS._LIMIT_FIELDS, self._msg.pop(0x47))
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -333,20 +333,20 @@ class BMS(BaseBMS):
             & BMS._PRB_MASK
         )
 
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg[0x61],
             cells=self._msg[0x61][BMS._CELL_POS],
             start=10,
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg[0x61],
             values=result.get("temp_count", 0),
             start=BMS._CELL_POS + result.get("cell_count", 0) * 2 + 2,
             signed=False,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL,) * (result.get("temp_count", 2) - 2)
-            + (TempSensor.T.AMBIENT, TempSensor.T.MOSFET),
+            types=(TSKind.CELL,) * (result.get("temp_count", 2) - 2)
+            + (TSKind.AMBIENT, TSKind.MOSFET),
         )
 
         self._msg.clear()

@@ -13,7 +13,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, PackSample, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PackSample, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPackValue, BMSValue, MatcherPattern, b2str, crc_modbus
@@ -74,7 +74,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [{"local_name": "PC-????", "connectable": True}]
 
     @staticmethod
@@ -144,13 +144,14 @@ class BMS(BaseBMS):
         self,
         data: bytes,
         char: int | str | None = None,
-        wait_for_notify: bool = True,
+        *,
+        await_notify: bool = True,
         max_size: int = 0,
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
         self._valid_reply = data[BMS._FRM_TYPE]  # expected reply type
-        await super()._await_msg(data, char, wait_for_notify, max_size)
+        await super()._await_msg(data, char, await_notify=await_notify, max_size=max_size)
 
     async def _update(self) -> BMSSample:
         """Update battery status information."""
@@ -160,10 +161,10 @@ class BMS(BaseBMS):
         if len(self._msg) < BMS._CELL_POS:
             raise BMSDataError
         pack["cell_count"] = self._msg[BMS._CELL_POS - 1]
-        pack["cell_voltages"] = BMS._cell_voltages(
+        pack["cell_voltages"] = BMS._decode_cells(
             self._msg, cells=pack["cell_count"], start=BMS._CELL_POS, gap=2
         )
-        pack["temperature"] = BMS._temperature(
+        pack["temperature"] = BMS._decode_temp(
             self._msg,
             values=6,
             start=14,
@@ -171,11 +172,11 @@ class BMS(BaseBMS):
             signed=False,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL,) * 4 + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
+            types=(TSKind.CELL,) * 4 + (TSKind.MOSFET, TSKind.AMBIENT),
         )
         await self._await_msg(BMS._cmd(BMS._Cmd.SYS_INFO))
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=8)
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=2,
             start=BMS._SYS_TEMP_POS,
@@ -183,7 +184,7 @@ class BMS(BaseBMS):
             signed=False,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL_MAX, TempSensor.T.CELL_MIN),
+            types=(TSKind.CELL_MAX, TSKind.CELL_MIN),
         )
         await self._await_msg(BMS._cmd(BMS._Cmd.BALANCE, b"\x01\x01"))
         result["balancer"] = int.from_bytes(

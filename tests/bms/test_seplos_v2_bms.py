@@ -17,6 +17,7 @@ from aiobmsble import (
     Severity,
     TempSensor as TS,
     Threshold,
+    TSKind,
 )
 from aiobmsble.bms.seplos_v2_bms import BMS
 from aiobmsble.plugin import crc_xmodem, decode_problems
@@ -57,8 +58,8 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.4,
         3.399,
     ],
-    "temperature": [TS(v, TS.T.CELL) for v in (23.2, 23.1, 22.9, 23.4)]
-    + [TS(29.3, TS.T.AMBIENT), TS(24.5, TS.T.MOSFET)],
+    "temperature": [TS(v, TSKind.CELL) for v in (23.2, 23.1, 22.9, 23.4)]
+    + [TS(29.3, TSKind.AMBIENT), TS(24.5, TSKind.MOSFET)],
     "delta_cell_voltage": 0.022,
     "pack_count": 1,
     "balancer": 2,
@@ -195,7 +196,7 @@ async def test_limits(patch_bleak_client) -> None:
         Limit.CHARGE_UTP: Threshold(trip=-10.0, release=0.0),
         Limit.DISCHARGE_OTP: Threshold(trip=55.0, release=50.0),
         Limit.DISCHARGE_UTP: Threshold(trip=-15.0, release=0.0),
-        Limit.MOS_OTP: Threshold(trip=100.0, release=85.0),
+        Limit.FET_OTP: Threshold(trip=100.0, release=85.0),
     }
     assert not bms.is_connected
 
@@ -337,7 +338,7 @@ async def test_invalid_response(
             0x20000000000,  # Charging overtemp protection
             [
                 BMSProblem(
-                    PrbType.CHARGE_OVERTEMP,
+                    PrbType.CHARGE_OT,
                     Severity.PROTECT,
                     "Charge overtemperature",
                 ),
@@ -348,7 +349,7 @@ async def test_invalid_response(
             + b"\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x8a\x0d",
             0x01000000000000,  # Single high voltage alarm
             [
-                BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.WARN, "Cell overvoltage"),
+                BMSProblem(PrbType.CELL_OV, Severity.WARN, "Cell overvoltage"),
             ],
         ),
     ],

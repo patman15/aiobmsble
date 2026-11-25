@@ -67,7 +67,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             MatcherPattern(
                 local_name="Pro BMS",
@@ -101,7 +101,7 @@ class BMS(BaseBMS):
         # Send initialization command and await response
         await self._await_msg(BMS._HEAD + BMS._CMD_INIT)
         for cmd in (BMS._CMD_HWID, BMS._CMD_DATA_STREAM, BMS._CMD_TRIGGER_DATA):
-            await self._await_msg(BMS._HEAD + cmd, wait_for_notify=False)
+            await self._await_msg(BMS._HEAD + cmd, await_notify=False)
 
         self._valid_reply = BMS._RT_DATA
 
@@ -129,7 +129,7 @@ class BMS(BaseBMS):
 
         try:
             # Wait for new data packet
-            await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+            await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
         except TimeoutError:
             await self.disconnect()
             raise

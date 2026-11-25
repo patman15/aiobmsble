@@ -15,7 +15,15 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TempSensor
+from aiobmsble import (
+    BMSConfig,
+    BMSInfo,
+    BMSSample,
+    PrbType as PT,
+    Severity as SV,
+    TempSensor,
+    TSKind,
+)
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_sum
@@ -56,8 +64,8 @@ class BMS(BaseBMS):
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
         BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x01, text="Wrong cell count"),
         BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x03, text="AcqLine Res exceed"),
-        BMSPrbDef(0xFF, PT.PACK_UNDERVOLTAGE, SV.PROTECT, value=0x07),
-        BMSPrbDef(0xFF, PT.SYSTEM_OVERTEMP, SV.PROTECT, value=0x08),
+        BMSPrbDef(0xFF, PT.PACK_UV, SV.PROTECT, value=0x07),
+        BMSPrbDef(0xFF, PT.SYSTEM_OT, SV.PROTECT, value=0x08),
         BMSPrbDef(0xFF, PT.COMM_FAILURE, SV.FAULT, value=0x09, text="Host fails"),
         BMSPrbDef(
             0xFF, PT.OTHER, SV.INFO, value=0x0A, text="Low battery voltage - balancing stopped"
@@ -88,7 +96,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": pattern,
@@ -211,12 +219,12 @@ class BMS(BaseBMS):
                 (BMS._FIELDS if self._proto == "v2" else BMS._FIELDS_v1), self._msg
             )
             data["temperature"] = (
-                BMS._temperature(self._msg, values=4, start=226)
+                BMS._decode_temp(self._msg, values=4, start=226)
                 if self._proto == "v2"
-                else BMS._temperature(self._msg, values=2, start=221)
+                else BMS._decode_temp(self._msg, values=2, start=221)
             )
 
-            data["cell_voltages"] = BMS._cell_voltages(
+            data["cell_voltages"] = BMS._decode_cells(
                 self._msg, cells=24, start=9, byteorder="little", size=4
             )
         except StructError as exc:
@@ -227,7 +235,7 @@ class BMS(BaseBMS):
         return data
 
     @staticmethod
-    def _cell_voltages(
+    def _decode_cells(
         data: bytes,
         *,
         cells: int,
@@ -245,7 +253,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def _temperature(
+    def _decode_temp(
         data: bytes,
         *,
         start: int,
@@ -256,7 +264,7 @@ class BMS(BaseBMS):
         signed: bool = True,
         offset: float = 0,
         divider: int = 1,
-        types: tuple[TempSensor.T, ...] = (),
+        types: tuple[TSKind, ...] = (),
     ) -> list[TempSensor]:
         return [
             TempSensor(round(unpack_from("<f", data, start + idx * size)[0], 2))

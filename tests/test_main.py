@@ -65,7 +65,7 @@ async def test_detect_bms(
     patch_bleak_client()
     with caplog.at_level(INFO):
         await main_mod.detect_bms()
-    assert "Found matching BMS type: Dummy Manufacturer dummy model" in caplog.text
+    assert "Found matching BMS: Dummy Manufacturer dummy model" in caplog.text
     assert (
         "BMS data: {'battery_level': 73,\n\t'current': 1.5,\n\t'voltage': 12.0,\n"
         "\t'battery_charging': True,\n\t'power': 18.0,\n\t'problem': False}\n" in caplog.text
@@ -104,7 +104,7 @@ async def test_bms_fail(
     patch_bleak_client()
     with caplog.at_level(INFO):
         await main_mod.detect_bms()
-    assert "Found matching BMS type: Dummy Manufacturer dummy model" in caplog.text
+    assert "Found matching BMS: Dummy Manufacturer dummy model" in caplog.text
     assert "Failed to query BMS: BMSTimeoutError" in caplog.text
 
 
@@ -115,8 +115,8 @@ async def test_bms_retry_with_secret(
 ) -> None:
     """Verify that a failed query will be retried when a BMS accepts a secret.
 
-    The first call to ``_update`` simulates a timeout while no secret is
-    supplied. ``detect_bms`` should catch the error, prompt for a secret via
+    The first call to `_update` simulates a timeout while no secret is
+    supplied. `detect_bms` should catch the error, prompt for a secret via
     :func:`getpass.getpass`, and attempt the query again with the provided
     value.  The second attempt returns a valid sample which is logged.
     """
@@ -231,7 +231,7 @@ async def test_identify_bms_from_json_match(
 
     class FakeBMSClass:
         @staticmethod
-        def bms_type() -> Literal["SimpleBMS"]:
+        def bms_descr() -> Literal["SimpleBMS"]:
             return "SimpleBMS"
 
     async def fake_identify(adv, addr) -> list[type[FakeBMSClass]]:
@@ -242,7 +242,7 @@ async def test_identify_bms_from_json_match(
     await main_mod.identify_bms_from_json(
         '{"name":"dummy","address":"AA:BB:CC:DD:EE:FF", "source":"B8:27:EB:00:00:00"}'
     )
-    assert "Detected BMS type: SimpleBMS" in caplog.text
+    assert "Detected BMS: SimpleBMS" in caplog.text
     assert "not actively connectable" in caplog.text
     assert "Advertisement RSSI -127 dBm" in caplog.text
     assert "Raspberry Pi device" in caplog.text
@@ -255,7 +255,7 @@ async def test_adv_no_issue_logging(
 
     class FakeBMSClass:
         @staticmethod
-        def bms_type() -> Literal["SimpleBMS"]:
+        def bms_descr() -> Literal["SimpleBMS"]:
             return "SimpleBMS"
 
     async def fake_identify(adv, addr) -> list[type[FakeBMSClass]]:

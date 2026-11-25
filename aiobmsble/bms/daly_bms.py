@@ -15,7 +15,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError, BMSTimeoutError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, b2str, crc_modbus
@@ -109,11 +109,11 @@ class BMS(BaseBMS):
         super().__init__(ble_device, config, logger)
         self._proto: Proto = Proto.D2
         self._msg: bytes = b""
-        self._mos_avail: bool | None = None
+        self._fet_avail: bool | None = None
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             MatcherPattern(
                 local_name="DL-*",
@@ -169,7 +169,7 @@ class BMS(BaseBMS):
                 )
                 self._log.debug("detected protocol: 0x%X", self._proto)
                 if BMS._PROTOS[self._proto].mos is None:
-                    self._mos_avail = False
+                    self._fet_avail = False
                 break
             except TimeoutError:
                 ...  # try next protocol
@@ -205,16 +205,16 @@ class BMS(BaseBMS):
         """Update battery status information."""
         result: BMSSample = {}
         proto_def = BMS._PROTOS[self._proto]
-        if self._mos_avail in (True, None) and proto_def.mos is not None:
+        if self._fet_avail in (True, None) and proto_def.mos is not None:
             try:
                 # request MOS temperature (possible: response, stuck response, no response)
                 await self._await_msg(BMS._cmd_modbus(self._proto, *proto_def.mos))
 
-                if self._mos_avail is None and self._msg[
+                if self._fet_avail is None and self._msg[
                     BMS._MOSTEMP_POS : BMS._MOSTEMP_POS + 2
                 ] in (b"\x00\x00", b"\xff\xff"):
                     self._log.debug("MOS temperature invalid, deactivating")
-                    self._mos_avail = False
+                    self._fet_avail = False
                 else:
                     result["temperature"] = [
                         TempSensor(
@@ -223,13 +223,13 @@ class BMS(BaseBMS):
                                 byteorder="big",
                             )
                             - 40,
-                            TempSensor.T.MOSFET,
+                            TSKind.MOSFET,
                         )
                     ]
-                    self._mos_avail = True
+                    self._fet_avail = True
             except TimeoutError:
                 self._log.debug("MOS temperature read failed, deactivating")
-                self._mos_avail = False
+                self._fet_avail = False
 
         rt_msgs: dict[int, bytes] = {}
         for cmd in proto_def.cmds:
@@ -247,7 +247,7 @@ class BMS(BaseBMS):
         rt1_msg: Final[bytes] = next(iter(rt_msgs.values()))
         # add temperature sensors
         result.setdefault("temperature", []).extend(
-            BMS._temperature(
+            BMS._decode_temp(
                 rt1_msg,
                 values=result.get("temp_count", 0),
                 start=proto_def.max_cells * 2 + BMS._HEAD_LEN,
@@ -256,7 +256,7 @@ class BMS(BaseBMS):
         )
 
         # get cell voltages
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             rt1_msg, cells=result.get("cell_count", 0), start=BMS._HEAD_LEN
         )
 

@@ -21,7 +21,7 @@ class BMS(RenogyBMS):
 
     INFO: BMSInfo = {"manufacturer": "Renogy", "model": "BT battery pro"}
     _HEAD: bytes = b"\xff\x03"  # SOP, read fct (x03)
-    FIELDS: tuple[BMSDp[BMSValue], ...] = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),
         BMSDp("current", 3, 2, True, lambda x: x / 10),
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
@@ -43,7 +43,7 @@ class BMS(RenogyBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": pattern,
@@ -104,9 +104,12 @@ class BMS(RenogyBMS):
         self,
         data: bytes,
         char: int | str | None = None,
-        wait_for_notify: bool = True,
+        *,
+        await_notify: bool = True,
         max_size: int = 0,
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
-        await super()._await_msg(data, self._char_write_handle, wait_for_notify, max_size)
+        await super()._await_msg(
+            data, self._char_write_handle, await_notify=await_notify, max_size=max_size
+        )

@@ -5,6 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
+from dataclasses import replace
 import logging
 from typing import Final
 
@@ -36,11 +37,7 @@ class BMS(BaseBMS):
         # ("cycles", 0xA1, 8, 2, False,
     )
     _FIELDS_V2: Final[tuple[BMSDp[BMSValue], ...]] = tuple(
-        BMSDp(
-            *field[:-2],
-            (lambda x: x / 10) if field.key == "current" else field.fct,
-            field.idx,
-        )
+        replace(field, fct=lambda x: x / 10) if field.key == "current" else field
         for field in _FIELDS_V1
     )
     _INIT_CMDS: Final[tuple[bytes, ...]] = (
@@ -65,7 +62,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [MatcherPattern(local_name="ECO-WORTHY 02_*", connectable=True)] + [
             MatcherPattern(
                 local_name=pattern,
@@ -126,19 +123,19 @@ class BMS(BaseBMS):
             self._msg.clear()
             self._msg_event.clear()
 
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
 
         result: BMSSample = BMS._decode_data(
             (BMS._FIELDS_V1 if self._msg[0xA1].startswith(BMS._HEAD) else BMS._FIELDS_V2),
             self._msg,
         )
 
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg[0xA2],
             cells=result.get("cell_count", 0),
             start=BMS._CELL_POS + 2,
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg[0xA2],
             values=result.get("temp_count", 0),
             start=BMS._TEMP_POS + 2,

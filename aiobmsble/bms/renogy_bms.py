@@ -27,7 +27,7 @@ class BMS(BaseBMS):
     _CELL_POS: Final[int] = 3
     _MIN_LEN: Final[int] = 5
     _PRB_MASK: Final[int] = ~((0xE << 16) | (0xFF << 8))
-    FIELDS: tuple[BMSDp[BMSValue], ...] = (
+    _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 5, 2, False, lambda x: x / 10),
         BMSDp("current", 3, 2, True, lambda x: x / 100),
         BMSDp("design_capacity", 11, 4, False, lambda x: x // 1000),
@@ -36,26 +36,26 @@ class BMS(BaseBMS):
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
         BMSPrbDef(1 << 16, PT.SHORT_CIRCUIT),
-        BMSPrbDef(1 << 20, PT.CHARGE_OVERCURRENT, text="Charge overcurrent 2"),
-        BMSPrbDef(1 << 21, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 2"),
-        BMSPrbDef(1 << 22, PT.PACK_OVERVOLTAGE),
-        BMSPrbDef(1 << 23, PT.CELL_UNDERVOLTAGE),
-        BMSPrbDef(1 << 24, PT.CELL_OVERVOLTAGE),
-        BMSPrbDef(1 << 25, PT.CHARGE_OVERCURRENT, text="Charge overcurrent 1"),
-        BMSPrbDef(1 << 26, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 1"),
-        BMSPrbDef(1 << 27, PT.DISCHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 28, PT.DISCHARGE_OVERTEMP),
-        BMSPrbDef(1 << 29, PT.CHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 30, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(1 << 31, PT.PACK_UNDERVOLTAGE),
-        BMSPrbDef(1 << 0, PT.CELL_UNDERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 1, PT.CELL_OVERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 2, PT.PACK_UNDERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 3, PT.PACK_OVERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 4, PT.CHARGE_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 5, PT.CHARGE_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 6, PT.DISCHARGE_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 7, PT.DISCHARGE_OVERTEMP, SV.WARN),
+        BMSPrbDef(1 << 20, PT.CHARGE_OC, text="Charge overcurrent 2"),
+        BMSPrbDef(1 << 21, PT.DISCHARGE_OC, text="Discharge overcurrent 2"),
+        BMSPrbDef(1 << 22, PT.PACK_OV),
+        BMSPrbDef(1 << 23, PT.CELL_UV),
+        BMSPrbDef(1 << 24, PT.CELL_OV),
+        BMSPrbDef(1 << 25, PT.CHARGE_OC, text="Charge overcurrent 1"),
+        BMSPrbDef(1 << 26, PT.DISCHARGE_OC, text="Discharge overcurrent 1"),
+        BMSPrbDef(1 << 27, PT.DISCHARGE_UT),
+        BMSPrbDef(1 << 28, PT.DISCHARGE_OT),
+        BMSPrbDef(1 << 29, PT.CHARGE_UT),
+        BMSPrbDef(1 << 30, PT.CHARGE_OT),
+        BMSPrbDef(1 << 31, PT.PACK_UV),
+        BMSPrbDef(1 << 0, PT.CELL_UV, SV.WARN),
+        BMSPrbDef(1 << 1, PT.CELL_OV, SV.WARN),
+        BMSPrbDef(1 << 2, PT.PACK_UV, SV.WARN),
+        BMSPrbDef(1 << 3, PT.PACK_OV, SV.WARN),
+        BMSPrbDef(1 << 4, PT.CHARGE_UT, SV.WARN),
+        BMSPrbDef(1 << 5, PT.CHARGE_OT, SV.WARN),
+        BMSPrbDef(1 << 6, PT.DISCHARGE_UT, SV.WARN),
+        BMSPrbDef(1 << 7, PT.DISCHARGE_OT, SV.WARN),
     )
 
     def __init__(
@@ -70,7 +70,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": "BT-TH-*",
@@ -135,11 +135,11 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x13B2, count=0x7))
-        result: BMSSample = BMS._decode_data(type(self).FIELDS, self._msg)
+        result: BMSSample = BMS._decode_data(self._FIELDS, self._msg)
 
         await self._await_msg(self._cmd_modbus(dev_id=0x30, addr=0x1388, count=0x22))
         result["cell_count"] = BMS._read_int16(self._msg, BMS._CELL_POS)
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg,
             cells=min(16, result.get("cell_count", 0)),
             start=BMS._CELL_POS + 2,
@@ -148,7 +148,7 @@ class BMS(BaseBMS):
         )
 
         result["temp_count"] = BMS._read_int16(self._msg, BMS._TEMP_POS)
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=min(16, result.get("temp_count", 0)),
             start=BMS._TEMP_POS + 2,

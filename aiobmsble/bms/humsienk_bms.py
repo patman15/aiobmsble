@@ -20,7 +20,7 @@ from aiobmsble import (
     Limit,
     PrbType as PT,
     Severity as SV,
-    TempSensor,
+    TSKind,
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, LimitDp, MatcherPattern, b2str, crc_sum
@@ -52,34 +52,34 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 7, 4, False, lambda x: x & BMS._PRB_MASK, 0x20),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(1 << 0, PT.CHARGE_OVERCURRENT),
-        BMSPrbDef(1 << 1, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(1 << 2, PT.CHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 3, PT.CELL_OVERVOLTAGE),
-        BMSPrbDef(1 << 4, PT.PACK_OVERVOLTAGE),
+        BMSPrbDef(1 << 0, PT.CHARGE_OC),
+        BMSPrbDef(1 << 1, PT.CHARGE_OT),
+        BMSPrbDef(1 << 2, PT.CHARGE_UT),
+        BMSPrbDef(1 << 3, PT.CELL_OV),
+        BMSPrbDef(1 << 4, PT.PACK_OV),
         BMSPrbDef(1 << 5, PT.AFE_FAILURE),
         BMSPrbDef(1 << 6, PT.OTHER, SV.INFO, text="Charging stopped"),
-        BMSPrbDef(1 << 8, PT.CHARGE_OVERCURRENT, SV.WARN),
-        BMSPrbDef(1 << 9, PT.CHARGE_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 10, PT.CHARGE_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 11, PT.CELL_OVERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 12, PT.PACK_OVERVOLTAGE, SV.WARN),
+        BMSPrbDef(1 << 8, PT.CHARGE_OC, SV.WARN),
+        BMSPrbDef(1 << 9, PT.CHARGE_OT, SV.WARN),
+        BMSPrbDef(1 << 10, PT.CHARGE_UT, SV.WARN),
+        BMSPrbDef(1 << 11, PT.CELL_OV, SV.WARN),
+        BMSPrbDef(1 << 12, PT.PACK_OV, SV.WARN),
         BMSPrbDef(1 << 13, PT.CELL_IMBALANCE, SV.WARN),
         BMSPrbDef(1 << 14, PT.CELL_IMBALANCE, SV.PROTECT),
-        BMSPrbDef(1 << 16, PT.DISCHARGE_OVERCURRENT),
-        BMSPrbDef(1 << 17, PT.DISCHARGE_OVERTEMP),
-        BMSPrbDef(1 << 18, PT.DISCHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 19, PT.CELL_UNDERVOLTAGE),
+        BMSPrbDef(1 << 16, PT.DISCHARGE_OC),
+        BMSPrbDef(1 << 17, PT.DISCHARGE_OT),
+        BMSPrbDef(1 << 18, PT.DISCHARGE_UT),
+        BMSPrbDef(1 << 19, PT.CELL_UV),
         BMSPrbDef(1 << 20, PT.SHORT_CIRCUIT),
-        BMSPrbDef(1 << 21, PT.PACK_UNDERVOLTAGE),
+        BMSPrbDef(1 << 21, PT.PACK_UV),
         BMSPrbDef(1 << 22, PT.OTHER, SV.INFO, text="Discharging stopped"),
-        BMSPrbDef(1 << 24, PT.DISCHARGE_OVERCURRENT, SV.WARN),
-        BMSPrbDef(1 << 25, PT.DISCHARGE_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 26, PT.DISCHARGE_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 27, PT.CELL_UNDERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 28, PT.PACK_UNDERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 29, PT.MOSFET_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 30, PT.MOSFET_OVERTEMP),
+        BMSPrbDef(1 << 24, PT.DISCHARGE_OC, SV.WARN),
+        BMSPrbDef(1 << 25, PT.DISCHARGE_OT, SV.WARN),
+        BMSPrbDef(1 << 26, PT.DISCHARGE_UT, SV.WARN),
+        BMSPrbDef(1 << 27, PT.CELL_UV, SV.WARN),
+        BMSPrbDef(1 << 28, PT.PACK_UV, SV.WARN),
+        BMSPrbDef(1 << 29, PT.FET_OT, SV.WARN),
+        BMSPrbDef(1 << 30, PT.FET_OT),
         BMSPrbDef(1 << 31, PT.OTHER, SV.INFO, text="Pre-discharge MOSFET on"),
     )
     # offsets within the 0x58 configuration payload, temperatures in deciKelvin
@@ -114,7 +114,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": pattern,
@@ -151,7 +151,7 @@ class BMS(BaseBMS):
     async def _fetch_limits(self) -> BMSLimits:
         """Fetch the thresholds (0x58 configuration frame)."""
         await self._await_msg(BMS._cmd(b"\x58"))
-        return BMS._decode_limits(self._msg[0x58][3:-2], BMS._LIMIT_FIELDS, byteorder="little")
+        return BMS._decode_limits(BMS._LIMIT_FIELDS, self._msg[0x58][3:-2], byteorder="little")
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -195,13 +195,14 @@ class BMS(BaseBMS):
         self,
         data: bytes,
         char: int | str | None = None,
-        wait_for_notify: bool = True,
+        *,
+        await_notify: bool = True,
         max_size: int = 0,
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
         self._valid_reply = data[1]  # expected reply type
-        await super()._await_msg(data, char, wait_for_notify, max_size)
+        await super()._await_msg(data, char, await_notify=await_notify, max_size=max_size)
 
     async def _update(self) -> BMSSample:
         """Update battery status information."""
@@ -210,16 +211,16 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd))
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, data=self._msg, byteorder="little")
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg[0x22], cells=24, start=3, byteorder="little"
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg[0x21],
             values=6,
             start=23,
             size=1,
             byteorder="little",
-            types=(TempSensor.T.CELL,) * 4 + (TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
+            types=(TSKind.CELL,) * 4 + (TSKind.MOSFET, TSKind.AMBIENT),
         )
 
         # Add problem for cell disconnect bitmap

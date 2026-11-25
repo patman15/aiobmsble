@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, crc_modbus
 
@@ -38,32 +38,32 @@ class BMS(BaseBMS):
     )
     # problem_code contains registers 26 (warning), 27 (protection), and 28 (error code).
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(1 << 32, PT.PACK_OVERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 33, PT.CELL_OVERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 34, PT.PACK_UNDERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 35, PT.CELL_UNDERVOLTAGE, SV.WARN),
-        BMSPrbDef(1 << 36, PT.CHARGE_OVERCURRENT, SV.WARN),
-        BMSPrbDef(1 << 37, PT.DISCHARGE_OVERCURRENT, SV.WARN),
-        BMSPrbDef(1 << 38, PT.SYSTEM_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 39, PT.MOSFET_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 40, PT.CHARGE_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 41, PT.DISCHARGE_OVERTEMP, SV.WARN),
-        BMSPrbDef(1 << 42, PT.CHARGE_UNDERTEMP, SV.WARN),
-        BMSPrbDef(1 << 43, PT.DISCHARGE_UNDERTEMP, SV.WARN),
+        BMSPrbDef(1 << 32, PT.PACK_OV, SV.WARN),
+        BMSPrbDef(1 << 33, PT.CELL_OV, SV.WARN),
+        BMSPrbDef(1 << 34, PT.PACK_UV, SV.WARN),
+        BMSPrbDef(1 << 35, PT.CELL_UV, SV.WARN),
+        BMSPrbDef(1 << 36, PT.CHARGE_OC, SV.WARN),
+        BMSPrbDef(1 << 37, PT.DISCHARGE_OC, SV.WARN),
+        BMSPrbDef(1 << 38, PT.SYSTEM_OT, SV.WARN),
+        BMSPrbDef(1 << 39, PT.FET_OT, SV.WARN),
+        BMSPrbDef(1 << 40, PT.CHARGE_OT, SV.WARN),
+        BMSPrbDef(1 << 41, PT.DISCHARGE_OT, SV.WARN),
+        BMSPrbDef(1 << 42, PT.CHARGE_UT, SV.WARN),
+        BMSPrbDef(1 << 43, PT.DISCHARGE_UT, SV.WARN),
         BMSPrbDef(1 << 44, PT.LOW_SOC, SV.WARN),
         BMSPrbDef(1 << 45, PT.OTHER, SV.WARN, text="Float stopped"),
-        BMSPrbDef(1 << 16, PT.PACK_OVERVOLTAGE),
-        BMSPrbDef(1 << 17, PT.CELL_OVERVOLTAGE),
-        BMSPrbDef(1 << 18, PT.PACK_UNDERVOLTAGE),
-        BMSPrbDef(1 << 19, PT.CELL_UNDERVOLTAGE),
-        BMSPrbDef(1 << 20, PT.CHARGE_OVERCURRENT),
-        BMSPrbDef(1 << 21, PT.DISCHARGE_OVERCURRENT),
-        BMSPrbDef(1 << 22, PT.SYSTEM_OVERTEMP),
-        BMSPrbDef(1 << 23, PT.MOSFET_OVERTEMP),
-        BMSPrbDef(1 << 24, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(1 << 25, PT.DISCHARGE_OVERTEMP),
-        BMSPrbDef(1 << 26, PT.CHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 27, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 16, PT.PACK_OV),
+        BMSPrbDef(1 << 17, PT.CELL_OV),
+        BMSPrbDef(1 << 18, PT.PACK_UV),
+        BMSPrbDef(1 << 19, PT.CELL_UV),
+        BMSPrbDef(1 << 20, PT.CHARGE_OC),
+        BMSPrbDef(1 << 21, PT.DISCHARGE_OC),
+        BMSPrbDef(1 << 22, PT.SYSTEM_OT),
+        BMSPrbDef(1 << 23, PT.FET_OT),
+        BMSPrbDef(1 << 24, PT.CHARGE_OT),
+        BMSPrbDef(1 << 25, PT.DISCHARGE_OT),
+        BMSPrbDef(1 << 26, PT.CHARGE_UT),
+        BMSPrbDef(1 << 27, PT.DISCHARGE_UT),
         BMSPrbDef(1 << 28, PT.LOW_SOC, SV.PROTECT),
         BMSPrbDef(1 << 29, PT.SHORT_CIRCUIT),
         BMSPrbDef(1 << 0, PT.OTHER, SV.FAULT, text="Voltage"),
@@ -90,7 +90,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "service_uuid": BMS.uuid_services()[0],
@@ -106,7 +106,7 @@ class BMS(BaseBMS):
         ]
 
     @staticmethod
-    def uuid_services() -> tuple[str]:
+    def uuid_services() -> tuple[str, ...]:
         """Return list of 128-bit UUIDs of services required by BMS."""
         return (normalize_uuid_str("1000"),)
 
@@ -159,16 +159,16 @@ class BMS(BaseBMS):
             if not result.get(field):
                 del result[field]
 
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg, cells=min(result.get("cell_count", 0), BMS._MAX_CELLS), start=7
         )
-        result["temperature"] = BMS._temperature(
-            self._msg, values=1, start=39, types=(TempSensor.T.PCB,)
-        ) + BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
+            self._msg, values=1, start=39, types=(TSKind.PCB,)
+        ) + BMS._decode_temp(
             self._msg,
             values=BMS._MAX_TEMP,
             start=69,
             size=1,
-            types=(TempSensor.T.CELL,) * BMS._MAX_TEMP,
+            types=(TSKind.CELL,) * BMS._MAX_TEMP,
         )
         return result

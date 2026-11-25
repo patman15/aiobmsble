@@ -8,7 +8,15 @@ from uuid import UUID
 from bleak.backends.characteristic import BleakGATTCharacteristic
 import pytest
 
-from aiobmsble import BMSConfig, BMSProblem, BMSSample, PrbType as PT, Severity, TempSensor as TS
+from aiobmsble import (
+    BMSConfig,
+    BMSProblem,
+    BMSSample,
+    PrbType as PT,
+    Severity,
+    TempSensor as TS,
+    TSKind,
+)
 from aiobmsble.bms.topband_bms import BMS
 from aiobmsble.plugin import decode_problems
 from tests.bluetooth import generate_ble_device
@@ -84,7 +92,7 @@ _RESULT_DEFS: Final[dict[int, BMSSample]] = {
         "battery_level": 99,
         "cycle_charge": 9.0,
         "cycles": 1,
-        "temperature": [TS(24.05, TS.T.GENERIC)],
+        "temperature": [TS(24.05, TSKind.GENERIC)],
         "problem_code": 0,
         "cell_voltages": [3.323, 3.328, 3.33, 3.334],
         "battery_charging": False,
@@ -480,7 +488,7 @@ async def test_problem_response(
         "problem_code": (1 if problem_response[1] == "first_bit" else 128),
         "problems": [
             BMSProblem(
-                PT.CHARGE_OVERTEMP if problem_response[1] == "first_bit" else PT.PACK_OVERVOLTAGE,
+                PT.CHARGE_OT if problem_response[1] == "first_bit" else PT.PACK_OV,
                 Severity.PROTECT,
                 "Charge overtemperature"
                 if problem_response[1] == "first_bit"
@@ -495,14 +503,14 @@ async def test_problem_response(
 @pytest.mark.parametrize(
     ("bit", "kind", "text"),
     [
-        (0, PT.CHARGE_OVERTEMP, "Charge overtemperature"),
-        (1, PT.DISCHARGE_OVERTEMP, "Discharge overtemperature"),
-        (2, PT.CHARGE_UNDERTEMP, "Charge undertemperature"),
-        (3, PT.DISCHARGE_UNDERTEMP, "Discharge undertemperature"),
-        (4, PT.DISCHARGE_OVERCURRENT, "Discharge overcurrent"),
-        (5, PT.CHARGE_OVERCURRENT, "Charge overcurrent"),
-        (6, PT.PACK_UNDERVOLTAGE, "Pack undervoltage"),
-        (7, PT.PACK_OVERVOLTAGE, "Pack overvoltage"),
+        (0, PT.CHARGE_OT, "Charge overtemperature"),
+        (1, PT.DISCHARGE_OT, "Discharge overtemperature"),
+        (2, PT.CHARGE_UT, "Charge undertemperature"),
+        (3, PT.DISCHARGE_UT, "Discharge undertemperature"),
+        (4, PT.DISCHARGE_OC, "Discharge overcurrent"),
+        (5, PT.CHARGE_OC, "Charge overcurrent"),
+        (6, PT.PACK_UV, "Pack undervoltage"),
+        (7, PT.PACK_OV, "Pack overvoltage"),
     ],
 )
 def test_problem_flag_definitions(bit: int, kind: PT, text: str) -> None:

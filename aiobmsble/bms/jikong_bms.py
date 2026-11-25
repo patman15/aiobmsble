@@ -21,6 +21,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as SV,
     TempSensor,
+    TSKind,
 )
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSUnsupportedError
@@ -56,32 +57,32 @@ class BMS(BaseBMS):
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
         BMSPrbDef(1 << 0, PT.OTHER, text="Wire resistance"),
-        BMSPrbDef(1 << 1, PT.MOSFET_OVERTEMP),
+        BMSPrbDef(1 << 1, PT.FET_OT),
         BMSPrbDef(1 << 2, PT.OTHER, text="Cell count is not equal to settings"),
         BMSPrbDef(1 << 4, PT.OTHER, SV.INFO, text="Battery is fully charged"),
-        BMSPrbDef(1 << 5, PT.PACK_OVERVOLTAGE),
-        BMSPrbDef(1 << 6, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 5, PT.PACK_OV),
+        BMSPrbDef(1 << 6, PT.CHARGE_OC),
         BMSPrbDef(1 << 7, PT.SHORT_CIRCUIT, text="Charge short circuit"),
-        BMSPrbDef(1 << 8, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(1 << 9, PT.CHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 8, PT.CHARGE_OT),
+        BMSPrbDef(1 << 9, PT.CHARGE_UT),
         BMSPrbDef(1 << 10, PT.COMM_FAILURE),
-        BMSPrbDef(1 << 11, PT.CELL_UNDERVOLTAGE),
-        BMSPrbDef(1 << 12, PT.PACK_UNDERVOLTAGE),
-        BMSPrbDef(1 << 13, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 11, PT.CELL_UV),
+        BMSPrbDef(1 << 12, PT.PACK_UV),
+        BMSPrbDef(1 << 13, PT.DISCHARGE_OC),
         BMSPrbDef(1 << 14, PT.SHORT_CIRCUIT, text="Discharge short circuit"),
-        BMSPrbDef(1 << 15, PT.DISCHARGE_OVERTEMP),
+        BMSPrbDef(1 << 15, PT.DISCHARGE_OT),
         BMSPrbDef(1 << 16, PT.FET_FAILURE, text="Charging MOSFET"),
         BMSPrbDef(1 << 17, PT.FET_FAILURE, text="Discharging MOSFET"),
         BMSPrbDef(1 << 18, PT.OTHER, text="GPS disconnected"),
         BMSPrbDef(1 << 19, PT.OTHER, SV.INFO, text="Modify password in time"),
         BMSPrbDef(1 << 20, PT.OTHER, text="Discharge on failed"),
-        BMSPrbDef(1 << 21, PT.SYSTEM_OVERTEMP, text="Battery overtemperature"),
+        BMSPrbDef(1 << 21, PT.SYSTEM_OT, text="Battery overtemperature"),
         BMSPrbDef(1 << 22, PT.SENSOR_FAILURE, text="Temperature sensor"),
         BMSPrbDef(1 << 23, PT.OTHER, text="PL module anomaly"),
         BMSPrbDef(1 << 24, PT.OTHER, SV.FAULT, text="SCP release failed"),
-        BMSPrbDef(1 << 25, PT.DISCHARGE_OVERCURRENT, text="Discharge OCP II"),
-        BMSPrbDef(1 << 26, PT.DISCHARGE_OVERCURRENT, text="Discharge OCP III"),
-        BMSPrbDef(1 << 27, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 25, PT.DISCHARGE_OC, text="Discharge OCP II"),
+        BMSPrbDef(1 << 26, PT.DISCHARGE_OC, text="Discharge OCP III"),
+        BMSPrbDef(1 << 27, PT.DISCHARGE_UT),
         BMSPrbDef(1 << 28, PT.FET_LOCKED, SV.PROTECT, text="GPS remote lock"),
     )  # JK02 error bit definitions; undocumented bits remain UNKNOWN
 
@@ -102,7 +103,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             MatcherPattern(
                 {
@@ -184,7 +185,7 @@ class BMS(BaseBMS):
         self._prot_offset = -32 if self._sw_version < 11 else 0
         if not self._bms_ready:
             self._valid_reply = 0xC8  # BMS ready confirmation
-            await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+            await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
         self._valid_reply = 0x02  # cell information
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -248,30 +249,30 @@ class BMS(BaseBMS):
 
         return bytes(frame) + crc_sum(frame).to_bytes(1)
 
-    def _temp_pos(self) -> list[tuple[int, int, TempSensor.T]]:
+    def _temp_pos(self) -> list[tuple[int, int, TSKind]]:
         sensors_v11: Final = [
-            (0, 144, TempSensor.T.MOSFET),
-            (1, 162, TempSensor.T.GENERIC),
-            (2, 164, TempSensor.T.GENERIC),
-            (3, 254, TempSensor.T.MOSFET),
+            (0, 144, TSKind.MOSFET),
+            (1, 162, TSKind.GENERIC),
+            (2, 164, TSKind.GENERIC),
+            (3, 254, TSKind.MOSFET),
         ]
         if self._sw_version >= 14:
             return [
                 *sensors_v11,
-                (4, 256, TempSensor.T.GENERIC),
-                (5, 258, TempSensor.T.GENERIC),
+                (4, 256, TSKind.GENERIC),
+                (5, 258, TSKind.GENERIC),
             ]
         if self._sw_version >= 11:
             return sensors_v11
         return [
-            (0, 130, TempSensor.T.GENERIC),
-            (1, 132, TempSensor.T.GENERIC),
-            (2, 134, TempSensor.T.MOSFET),
+            (0, 130, TSKind.GENERIC),
+            (1, 132, TSKind.GENERIC),
+            (2, 134, TSKind.MOSFET),
         ]
 
     @staticmethod
     def _temp_count(
-        data: bytes, temp_pos: list[tuple[int, int, TempSensor.T]], mask: int
+        data: bytes, temp_pos: list[tuple[int, int, TSKind]], mask: int
     ) -> list[TempSensor]:
         return [
             TempSensor(value / 10, T)
@@ -319,7 +320,7 @@ class BMS(BaseBMS):
             else data.get("problem_code", 0)
         )
 
-        data["cell_voltages"] = BMS._cell_voltages(
+        data["cell_voltages"] = BMS._decode_cells(
             self._msg,
             cells=data.get("cell_count", 0),
             start=6,

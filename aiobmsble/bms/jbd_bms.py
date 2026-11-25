@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, TempSensor as TS
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSAuthError, BMSDataError
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_sum, swap32
@@ -32,7 +32,7 @@ class BMS(BaseBMS):
     _BASIC_INFO: Final[int] = 23  # basic info data length
     _MAX_CELL_COUNT: Final[int] = 32  # maximum number of cells supported
     _POS_SWVER: Final[int] = 22  # position of SW version
-    _TEMP_TYPES: tuple[TS.T, ...] = (TS.T.CELL,) * 4
+    _TEMP_TYPES: tuple[TSKind, ...] = (TSKind.CELL,) * 4
     _FIELDS: tuple[BMSDp[BMSValue], ...] = (
         BMSDp("voltage", 4, 2, False, lambda x: x / 100),
         BMSDp("current", 6, 2, True, lambda x: x / 100),
@@ -53,16 +53,16 @@ class BMS(BaseBMS):
         BMSDp("design_capacity", 10, 2, False, lambda x: x // 10),
     )  # overrides for BMS reporting 100 mA / 100 mAh units
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(1 << 0, PT.CELL_OVERVOLTAGE),
-        BMSPrbDef(1 << 1, PT.CELL_UNDERVOLTAGE),
-        BMSPrbDef(1 << 2, PT.PACK_OVERVOLTAGE),
-        BMSPrbDef(1 << 3, PT.PACK_UNDERVOLTAGE),
-        BMSPrbDef(1 << 4, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(1 << 5, PT.CHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 6, PT.DISCHARGE_OVERTEMP),
-        BMSPrbDef(1 << 7, PT.DISCHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 8, PT.CHARGE_OVERCURRENT),
-        BMSPrbDef(1 << 9, PT.DISCHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 0, PT.CELL_OV),
+        BMSPrbDef(1 << 1, PT.CELL_UV),
+        BMSPrbDef(1 << 2, PT.PACK_OV),
+        BMSPrbDef(1 << 3, PT.PACK_UV),
+        BMSPrbDef(1 << 4, PT.CHARGE_OT),
+        BMSPrbDef(1 << 5, PT.CHARGE_UT),
+        BMSPrbDef(1 << 6, PT.DISCHARGE_OT),
+        BMSPrbDef(1 << 7, PT.DISCHARGE_UT),
+        BMSPrbDef(1 << 8, PT.CHARGE_OC),
+        BMSPrbDef(1 << 9, PT.DISCHARGE_OC),
         BMSPrbDef(1 << 10, PT.SHORT_CIRCUIT),
         BMSPrbDef(1 << 11, PT.AFE_FAILURE),
         BMSPrbDef(1 << 12, PT.FET_LOCKED, text="MOSFET software lock"),
@@ -85,7 +85,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             MatcherPattern(
                 local_name=pattern,
@@ -276,7 +276,7 @@ class BMS(BaseBMS):
         if int.from_bytes(self._msg[ctrl : ctrl + 1]) & 0x80:
             result |= BMS._decode_data(self._FIELDS_D10, self._msg)
 
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=result.get("temp_count", 0),
             start=27,
@@ -287,7 +287,7 @@ class BMS(BaseBMS):
         )
 
         await self._await_cmd_resp(0x04)
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg, cells=result.get("cell_count", 0), start=4, byteorder="big"
         )
 

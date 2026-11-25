@@ -28,6 +28,7 @@ from aiobmsble import (
     BMSProblem,
     BMSSample,
     Limit,
+    PackSample,
     PrbType,
     Severity,
     TempSensor,
@@ -46,6 +47,7 @@ from aiobmsble.exceptions import (
 )
 from aiobmsble.plugin import (
     BMSDp,
+    BMSPackValue,
     BMSPrbDef,
     BMSValue,
     LimitDp,
@@ -117,7 +119,7 @@ class MinTestBMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [{"local_name": "Test", "connectable": True}]
 
     @staticmethod
@@ -138,11 +140,11 @@ class MinTestBMS(BaseBMS):
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
         """Handle the RX characteristics notify event (new data arrives)."""
         self._log.debug("RX BLE data: %s", data)
-        # do not set event to make tests fail if wait_for_notify is not set
+        # do not set event to make tests fail if await_notify is not set
 
     async def _update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", await_notify=False)  # do not wait
         return {"problem_code": 21}
 
 
@@ -155,7 +157,7 @@ class DataTestBMS(MinTestBMS):
 
     async def _update(self) -> BMSSample:
         """Update battery status information."""
-        await self._await_msg(b"mock_command", wait_for_notify=False)  # do not wait
+        await self._await_msg(b"mock_command", await_notify=False)  # do not wait
         return {
             "voltage": 13,
             "current": 1.7,
@@ -168,7 +170,7 @@ class DataTestBMS(MinTestBMS):
 class AliveTestBMS(MinTestBMS):
     """BMS exercising the periodic keep-alive task in the base class."""
 
-    ALIVE_INTERVAL: float | None = 0.0
+    _ALIVE_INTERVAL: float | None = 0.0
 
     def __init__(
         self,
@@ -208,7 +210,7 @@ class OpGuardTestBMS(MinTestBMS):
         self._op_active = True
         try:
             await asyncio.sleep(0)
-            await self._await_msg(b"mock_info", wait_for_notify=False)
+            await self._await_msg(b"mock_info", await_notify=False)
             return {"model_id": "mock_model_id"}
         finally:
             self._op_active = False
@@ -220,7 +222,7 @@ class OpGuardTestBMS(MinTestBMS):
         self._op_active = True
         try:
             await asyncio.sleep(0)
-            await self._await_msg(b"mock_update", wait_for_notify=False)
+            await self._await_msg(b"mock_update", await_notify=False)
             return {"problem_code": 21}
         finally:
             self._op_active = False
@@ -232,7 +234,7 @@ class OpGuardTestBMS(MinTestBMS):
         self._op_active = True
         try:
             await asyncio.sleep(0)
-            await self._await_msg(b"mock_limits", wait_for_notify=False)
+            await self._await_msg(b"mock_limits", await_notify=False)
             return {Limit.CELL_OVP: Threshold(trip=3.65)}
         finally:
             self._op_active = False
@@ -274,12 +276,13 @@ class BMSBasicTests:
     bms_class: type[BaseBMS]
     config: BMSConfig = BMSConfig()
 
-    def test_bms_type(self) -> None:
+    def test_bms_descr(self) -> None:
         """Test that the BMS returns default information."""
 
         for key in ("manufacturer", "model"):
             assert str(self.bms_class.INFO.get(key, "")).strip()
-        assert len(self.bms_class.bms_type().strip())
+        assert len(self.bms_class.bms_descr().strip())
+        assert self.bms_class.bms_type().endswith("_bms")
 
     async def test_matcher_dict(self) -> None:
         """Test that the BMS returns BT matcher."""
@@ -615,7 +618,7 @@ class ProblemTestBMS(MinTestBMS):
     """BMS decoding its problem code."""
 
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(1 << 0, PrbType.CELL_OVERVOLTAGE),
+        BMSPrbDef(1 << 0, PrbType.CELL_OV),
         BMSPrbDef(1 << 2, PrbType.FET_LOCKED, Severity.INFO, text="locked by app"),
     )
 
@@ -627,7 +630,7 @@ class ProblemTestBMS(MinTestBMS):
             {"problem_code": 21},  # bits 0, 2, 4
             {
                 "problems": [
-                    BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.PROTECT, "Cell overvoltage"),
+                    BMSProblem(PrbType.CELL_OV, Severity.PROTECT, "Cell overvoltage"),
                     BMSProblem(PrbType.FET_LOCKED, Severity.INFO, "locked by app"),
                     BMSProblem(PrbType.UNKNOWN, Severity.WARN, "Unknown problem bit 4"),
                 ],
@@ -669,20 +672,28 @@ async def test_update_problems(
     ("code", "expected"),
     [
         (0x00, []),
-        (0x01, [PrbType.CELL_UNDERVOLTAGE]),
-        (0x02, [PrbType.CELL_OVERVOLTAGE]),
+        (0x01, [PrbType.CELL_UV]),
+        (0x02, [PrbType.CELL_OV]),
         (0x03, [PrbType.UNKNOWN]),  # value not defined, reported once
         (0x40, [PrbType.SHORT_CIRCUIT]),
         (0x50, [PrbType.SHORT_CIRCUIT]),  # any bit of mask
-        (0x102, [PrbType.CELL_OVERVOLTAGE, PrbType.UNKNOWN]),
+        (0x102, [PrbType.CELL_OV, PrbType.UNKNOWN]),
     ],
-    ids=["none", "field_low", "field_high", "field_undefined", "bit", "any_bit", "unknown"],
+    ids=[
+        "none",
+        "field_low",
+        "field_high",
+        "field_undefined",
+        "bit",
+        "any_bit",
+        "unknown",
+    ],
 )
 def test_decode_problems(code: int, expected: list[PrbType]) -> None:
     """Check decoding of single bits, multi-bit fields, and undescribed bits."""
     defs: Final[tuple[BMSPrbDef, ...]] = (
-        BMSPrbDef(0x03, PrbType.CELL_UNDERVOLTAGE, value=0x01),
-        BMSPrbDef(0x03, PrbType.CELL_OVERVOLTAGE, value=0x02),
+        BMSPrbDef(0x03, PrbType.CELL_UV, value=0x01),
+        BMSPrbDef(0x03, PrbType.CELL_OV, value=0x02),
         BMSPrbDef(0xF0, PrbType.SHORT_CIRCUIT, Severity.FAULT),
     )
     assert [p.kind for p in decode_problems(code, defs)] == expected
@@ -697,7 +708,7 @@ def test_decode_problems_value_zero() -> None:
 def test_decode_problems_unknown_text() -> None:
     """Check that undefined field values and undescribed bits are reported distinctly."""
     defs: Final[tuple[BMSPrbDef, ...]] = (
-        BMSPrbDef(0xFF00, PrbType.CELL_OVERVOLTAGE, value=0x0200),
+        BMSPrbDef(0xFF00, PrbType.CELL_OV, value=0x0200),
         BMSPrbDef(0x0001, PrbType.SHORT_CIRCUIT),
     )
     assert decode_problems(0x1310, defs) == [
@@ -709,14 +720,14 @@ def test_decode_problems_unknown_text() -> None:
 def test_decode_problems_dedup_keeps_worst() -> None:
     """Check that problems with same kind and text are reported once with highest severity."""
     defs: Final[tuple[BMSPrbDef, ...]] = (
-        BMSPrbDef(0x01, PrbType.CELL_UNDERVOLTAGE, Severity.WARN, text="Cell undervoltage"),
-        BMSPrbDef(0x02, PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, text="Cell undervoltage"),
-        BMSPrbDef(0x04, PrbType.CELL_UNDERVOLTAGE, Severity.INFO, text="Cell undervoltage"),
-        BMSPrbDef(0x08, PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, text="Cell low"),
+        BMSPrbDef(0x01, PrbType.CELL_UV, Severity.WARN, text="Cell undervoltage"),
+        BMSPrbDef(0x02, PrbType.CELL_UV, Severity.PROTECT, text="Cell undervoltage"),
+        BMSPrbDef(0x04, PrbType.CELL_UV, Severity.INFO, text="Cell undervoltage"),
+        BMSPrbDef(0x08, PrbType.CELL_UV, Severity.PROTECT, text="Cell low"),
     )
     assert decode_problems(0x0F, defs) == [
-        BMSProblem(PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, "Cell undervoltage"),
-        BMSProblem(PrbType.CELL_UNDERVOLTAGE, Severity.PROTECT, "Cell low"),
+        BMSProblem(PrbType.CELL_UV, Severity.PROTECT, "Cell undervoltage"),
+        BMSProblem(PrbType.CELL_UV, Severity.PROTECT, "Cell low"),
     ]
 
 
@@ -740,7 +751,7 @@ def test_problem_defaults_applied() -> None:
         PrbType.AFE_FAILURE, Severity.FAULT, "Analog front-end"
     )
     assert BMSProblem(PrbType.FET_LOCKED).level == Severity.INFO
-    assert BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.WARN).text == "Cell overvoltage"
+    assert BMSProblem(PrbType.CELL_OV, Severity.WARN).text == "Cell overvoltage"
     assert BMSProblem(PrbType.OTHER, text="Wire resistance").level == Severity.WARN
 
 
@@ -777,11 +788,7 @@ async def test_op_guard_device_info_update(
             "decoded warning",
         ),
         (
-            {
-                "problems": [
-                    BMSProblem(PrbType.CELL_OVERVOLTAGE, Severity.PROTECT, "Cell overvoltage")
-                ]
-            },
+            {"problems": [BMSProblem(PrbType.CELL_OV, Severity.PROTECT, "Cell overvoltage")]},
             "decoded protection",
         ),
         (
@@ -835,7 +842,14 @@ def test_problems(problem_sample: tuple[BMSSample, str]) -> None:
             ],
         ),
     ],
-    ids=["cell_voltage", "voltage", "delta_voltage", "cycle_charge", "battery_level", "info_kept"],
+    ids=[
+        "cell_voltage",
+        "voltage",
+        "delta_voltage",
+        "cycle_charge",
+        "battery_level",
+        "info_kept",
+    ],
 )
 def test_check_problems(sample: BMSSample, expected: list[BMSProblem]) -> None:
     """Check that failing sanity checks are added to the decoded problems."""
@@ -1072,7 +1086,7 @@ async def test_init_connect_fail(
     ):
         await bms.update()
     assert isinstance(exc_info.value.__cause__, ValueError)
-    assert exc_info.value.bms_id == MinTestBMS.bms_type()
+    assert exc_info.value.bms_type == MinTestBMS.bms_type()
     assert exc_info.value.address == bms._ble_device.address
 
 
@@ -1125,7 +1139,7 @@ async def test_update_error_translation(
     with pytest.raises(expected) as exc_info:
         await bms.update()
     assert str(exc_info.value)
-    assert exc_info.value.bms_id == MinTestBMS.bms_type()
+    assert exc_info.value.bms_type == MinTestBMS.bms_type()
     assert exc_info.value.address == bms._ble_device.address
     assert bms.is_connected is keep_alive
     await bms.disconnect()
@@ -1270,7 +1284,7 @@ def test_crc_calculations() -> None:
         "divider_one_raw_values",
     ],
 )
-def test_cell_voltages(
+def test_decode_cells(
     data: bytes,
     cells: int,
     start: int,
@@ -1279,8 +1293,8 @@ def test_cell_voltages(
     divider: int,
     expected: list[float],
 ) -> None:
-    """Test the _cell_voltages method of BaseBMS with various input parameters."""
-    result: list[float] = BaseBMS._cell_voltages(
+    """Test the _decode_cells method of BaseBMS with various input parameters."""
+    result: list[float] = BaseBMS._decode_cells(
         data,
         cells=cells,
         start=start,
@@ -1348,7 +1362,7 @@ def test_cell_voltages(
         "div-1",
     ],
 )
-def test_temperature(
+def test_decode_temp(
     data: bytes,
     values: int,
     start: int,
@@ -1359,8 +1373,8 @@ def test_temperature(
     divider: int,
     expected: tuple[float, ...],
 ) -> None:
-    """Test the _temperature method of BaseBMS with various input parameters."""
-    result: list[TempSensor] = BaseBMS._temperature(
+    """Test the _decode_temp method of BaseBMS with various input parameters."""
+    result: list[TempSensor] = BaseBMS._decode_temp(
         data,
         values=values,
         start=start,
@@ -1376,8 +1390,7 @@ def test_temperature(
 @pytest.mark.parametrize(
     ("fields", "data", "byteorder", "start", "expected"),
     [
-        # Test with big endian and multiple data points
-        (
+        (  # Test with big endian and multiple data points
             (
                 BMSDp("voltage", 0, size=2, signed=False),
                 BMSDp("current", 2, size=2, signed=True),
@@ -1387,32 +1400,28 @@ def test_temperature(
             0,
             {"voltage": 3456.0, "current": -20},
         ),
-        # Test with dict data, little endian
-        (
+        (  # Test with dict data, little endian
             (BMSDp("voltage", 0, size=2, signed=False, fct=lambda x: x / 10, idx=1),),
             {1: b"\x64\x00"},
             "little",
             0,
             {"voltage": 10},
         ),
-        # Test with missing dict data
-        (
+        (  # Test with missing dict data
             (BMSDp("voltage", 0, size=2, signed=False, idx=2),),
             {1: b"\x64\x00"},
             "little",
             0,
             {},
         ),
-        # Test with start
-        (
+        (  # Test with start
             (BMSDp("battery_level", 1, size=1, signed=False),),
             b"\x00\x7d",
             "big",
             0,
             {"battery_level": 125},
         ),
-        # Test with start shifting the slice
-        (
+        (  # Test with start shifting the slice
             (BMSDp("voltage", 0, size=2, signed=False),),
             b"\x00\x00\x12\x34",
             "big",
@@ -1437,6 +1446,46 @@ def test_decode_data(
 ) -> None:
     """Test the _decode_data method of BaseBMS with various input parameters."""
     result: BMSSample = BaseBMS._decode_data(fields, data, byteorder=byteorder, start=start)
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("fields", "data", "byteorder", "start", "expected"),
+    [
+        (
+            (
+                BMSDp("voltage", 0, size=2, signed=False),
+                BMSDp("current", 2, size=2, signed=True),
+                BMSDp("battery_level", -1, size=1, signed=False),
+                BMSDp("cell_count", 3, size=2, signed=False),
+            ),
+            b"\x0d\x80\xff\xec",
+            "big",
+            0,
+            {"voltage": 3456, "current": -20},
+        ),
+        (
+            (
+                BMSDp("voltage", 0, size=2, signed=False, fct=lambda value: value / 10),
+                BMSDp("current", 2, size=1, signed=True),
+            ),
+            b"\xff\x64\x00\xec",
+            "little",
+            1,
+            {"voltage": 10, "current": -20},
+        ),
+    ],
+    ids=["big_endian_and_invalid_ranges", "little_endian_with_start_and_conversion"],
+)
+def test_decode_pack(
+    fields: tuple[BMSDp[BMSPackValue], ...],
+    data: bytes,
+    byteorder: Literal["little", "big"],
+    start: int,
+    expected: PackSample,
+) -> None:
+    """Test the _decode_pack method of BaseBMS with various input parameters."""
+    result: PackSample = BaseBMS._decode_pack(fields, data, byteorder=byteorder, start=start)
     assert result == expected
 
 
@@ -1739,15 +1788,15 @@ async def test_alive_loop_exception(
         await bms.update()
         for _ in range(10):
             await asyncio.sleep(0)
-            if "terminated with unexpectedly" in caplog.text:
+            if "terminated unexpectedly" in caplog.text:
                 break
 
-    assert "task 'BMS keep-alive' terminated with unexpectedly" in caplog.text
+    assert "task 'BMS keep-alive' terminated unexpectedly" in caplog.text
     await bms.disconnect()  # task already done -> no cancellation needed
 
 
 async def test_alive_task_disabled(patch_bleak_client: Callable[..., None]) -> None:
-    """Verify no keep-alive task is started when `ALIVE_INTERVAL` is None."""
+    """Verify no keep-alive task is started when `_ALIVE_INTERVAL` is None."""
     patch_bleak_client()
     bms: MinTestBMS = MinTestBMS(generate_ble_device(), BMSConfig(keep_alive=True))
 
@@ -1791,11 +1840,11 @@ def test_decode_limits() -> None:
         LimitDp(Limit.CHARGE_UTP, "trip", 6, size=1, signed=True),
         LimitDp(Limit.CHARGE_UTP, "release", 7, size=1, offset=20.0),
         LimitDp(Limit.CHARGE_OTP, "release", 7, size=1, offset=-1.0),
-        LimitDp(Limit.MOS_OTP, "trip", 8),  # beyond end of frame
+        LimitDp(Limit.FET_OTP, "trip", 8),  # beyond end of frame
         LimitDp(Limit.PACK_OVP, "trip", -1),  # invalid position
     )
     assert BaseBMS._decode_limits(
-        b"\x41\x0e\x3a\x0e\xff\x07\xec\x05", fields, byteorder="little"
+        fields, b"\x41\x0e\x3a\x0e\xff\x07\xec\x05", byteorder="little"
     ) == {
         Limit.CELL_OVP: Threshold(trip=3.649, release=3.642),
         Limit.CHARGE_UTP: Threshold(trip=-20.0, release=-15.0),

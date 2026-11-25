@@ -65,26 +65,26 @@ class BMS(BaseBMS):
     )
     # problem_code: charge MOSFET status (bits 8-15) | discharge MOSFET status.
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(0xFF, PT.CELL_UNDERVOLTAGE, value=0x02),
-        BMSPrbDef(0xFF, PT.DISCHARGE_OVERCURRENT, value=0x03),
-        BMSPrbDef(0xFF, PT.PACK_UNDERVOLTAGE, value=0x05),
-        BMSPrbDef(0xFF, PT.DISCHARGE_OVERTEMP, value=0x06),
-        BMSPrbDef(0xFF, PT.MOSFET_OVERTEMP, value=0x07),
+        BMSPrbDef(0xFF, PT.CELL_UV, value=0x02),
+        BMSPrbDef(0xFF, PT.DISCHARGE_OC, value=0x03),
+        BMSPrbDef(0xFF, PT.PACK_UV, value=0x05),
+        BMSPrbDef(0xFF, PT.DISCHARGE_OT, value=0x06),
+        BMSPrbDef(0xFF, PT.FET_OT, value=0x07),
         BMSPrbDef(0xFF, PT.OTHER, SV.PROTECT, value=0x08, text="Discharge current"),
         BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x09, text="Balancing wire loose"),
-        BMSPrbDef(0xFF, PT.SYSTEM_OVERTEMP, value=0x0A, text="Board overheated"),
+        BMSPrbDef(0xFF, PT.SYSTEM_OT, value=0x0A, text="Board overheated"),
         BMSPrbDef(0xFF, PT.SHORT_CIRCUIT, value=0x0C),
         BMSPrbDef(0xFF, PT.FET_FAILURE, value=0x0D, text="Discharge MOSFET"),
         BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x0E, text="Start exception"),
         BMSPrbDef(0xFF, PT.FET_LOCKED, value=0x0F, text="Discharge MOSFET manually closed"),
-        BMSPrbDef(0xFF00, PT.CELL_OVERVOLTAGE, value=0x0200),
-        BMSPrbDef(0xFF00, PT.CHARGE_OVERCURRENT, value=0x0300),
-        BMSPrbDef(0xFF00, PT.PACK_OVERVOLTAGE, value=0x0500),
-        BMSPrbDef(0xFF00, PT.CHARGE_OVERTEMP, value=0x0600),
-        BMSPrbDef(0xFF00, PT.MOSFET_OVERTEMP, value=0x0700),
+        BMSPrbDef(0xFF00, PT.CELL_OV, value=0x0200),
+        BMSPrbDef(0xFF00, PT.CHARGE_OC, value=0x0300),
+        BMSPrbDef(0xFF00, PT.PACK_OV, value=0x0500),
+        BMSPrbDef(0xFF00, PT.CHARGE_OT, value=0x0600),
+        BMSPrbDef(0xFF00, PT.FET_OT, value=0x0700),
         BMSPrbDef(0xFF00, PT.OTHER, SV.PROTECT, value=0x0800, text="Charge current"),
         BMSPrbDef(0xFF00, PT.OTHER, SV.FAULT, value=0x0900, text="Balancing wire loose"),
-        BMSPrbDef(0xFF00, PT.SYSTEM_OVERTEMP, value=0x0A00, text="Board overheated"),
+        BMSPrbDef(0xFF00, PT.SYSTEM_OT, value=0x0A00, text="Board overheated"),
         BMSPrbDef(0xFF00, PT.FET_FAILURE, value=0x0D00, text="Discharge MOSFET"),
         BMSPrbDef(0xFF00, PT.FET_LOCKED, value=0x0F00, text="Charge MOSFET manually closed"),
     )
@@ -101,7 +101,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": pattern,
@@ -178,7 +178,7 @@ class BMS(BaseBMS):
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, byteorder="big")
 
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg,
             cells=result.get("cell_count", 0),
             start=6,
@@ -199,7 +199,7 @@ class BMS(BaseBMS):
                 )  # leads to `cycles` not available when level == 0
 
         # ANT-BMS carries 6 slots for temp sensors but only 4 looks like being connected by default
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg, values=4, start=91, size=2, byteorder="big", signed=True
         )
 

@@ -31,21 +31,21 @@ class BMS(EJBMS):
         BMSDp("heater", 104, 4, False, bool),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(1 << 4, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 4, PT.CHARGE_OC),
         BMSPrbDef(1 << 5, PT.SHORT_CIRCUIT),
-        BMSPrbDef(1 << 6, PT.DISCHARGE_OVERCURRENT),
-        BMSPrbDef(1 << 7, PT.DISCHARGE_OVERCURRENT),
-        BMSPrbDef(1 << 2, PT.CELL_OVERVOLTAGE),
-        BMSPrbDef(1 << 8, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(1 << 9, PT.CHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 3, PT.CELL_UNDERVOLTAGE),
-        BMSPrbDef(1 << 10, PT.DISCHARGE_OVERTEMP),
-        BMSPrbDef(1 << 11, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 6, PT.DISCHARGE_OC),
+        BMSPrbDef(1 << 7, PT.DISCHARGE_OC),
+        BMSPrbDef(1 << 2, PT.CELL_OV),
+        BMSPrbDef(1 << 8, PT.CHARGE_OT),
+        BMSPrbDef(1 << 9, PT.CHARGE_UT),
+        BMSPrbDef(1 << 3, PT.CELL_UV),
+        BMSPrbDef(1 << 10, PT.DISCHARGE_OT),
+        BMSPrbDef(1 << 11, PT.DISCHARGE_UT),
     )
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": "BT-Battery*",
@@ -62,12 +62,12 @@ class BMS(EJBMS):
 
     @staticmethod
     def uuid_rx() -> str:
-        """Return 128-bit UUID of characteristic that provides notification/read property."""
+        """Return 16-bit UUID of characteristic that provides notification/read property."""
         return "fff1"
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 128-bit UUID of characteristic that provides write property."""
+        """Return 16-bit UUID of characteristic that provides write property."""
         return "fff2"
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -134,10 +134,10 @@ class BMS(EJBMS):
         await self._await_msg(b":015150000EFE~")
 
         return self._decode_data(BMS._FIELDS, self._msg) | {
-            "cell_voltages": BMS._cell_voltages(
+            "cell_voltages": BMS._decode_cells(
                 self._msg, cells=BMS._MAX_CELLS, start=BMS._CELL_POS
             ),
-            "temperature": BMS._temperature(
+            "temperature": BMS._decode_temp(
                 self._msg, start=48, values=4, size=1, signed=False, offset=40
             ),
         }

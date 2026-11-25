@@ -331,7 +331,7 @@ async def test_problem_response(
     assert result.get("problem", False)  # we expect a problem
     assert result.get("problem_code", 0) == (0x4 if problem_response[1] == "first_bit" else 0x800)
     assert [problem.kind for problem in result.get("problems", [])] == [
-        PT.PACK_OVERVOLTAGE if problem_response[1] == "first_bit" else PT.DISCHARGE_UNDERTEMP
+        PT.PACK_OV if problem_response[1] == "first_bit" else PT.DISCHARGE_UT
     ]
 
     await bms.disconnect()
@@ -340,8 +340,8 @@ async def test_problem_response(
 @pytest.mark.parametrize(
     ("code", "expected"),
     [
-        (0x0014, [PT.PACK_OVERVOLTAGE, PT.CHARGE_OVERCURRENT]),
-        (0x0A00, [PT.CHARGE_UNDERTEMP, PT.DISCHARGE_UNDERTEMP]),
+        (0x0014, [PT.PACK_OV, PT.CHARGE_OC]),
+        (0x0A00, [PT.CHARGE_UT, PT.DISCHARGE_UT]),
         (0x0FFC, [definition.kind for definition in BMS._PROBLEMS]),
     ],
     ids=["voltage_and_current", "low_temperature", "all"],

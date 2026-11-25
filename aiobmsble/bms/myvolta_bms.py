@@ -77,7 +77,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": "VPS-*",
@@ -93,12 +93,12 @@ class BMS(BaseBMS):
 
     @staticmethod
     def uuid_rx() -> str:
-        """Return 16-bit UUID of characteristic that provides notification/read property."""
+        """Return 128-bit UUID of characteristic that provides notification/read property."""
         return "00035b03-58e6-07dd-021a-08123a000301"
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
+        """Not supported, the BMS has no write characteristic."""
         raise NotImplementedError
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -131,7 +131,7 @@ class BMS(BaseBMS):
 
     async def _update(self) -> BMSSample:
         """Update battery status information."""
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
 
         result: BMSSample = self._decode_data(BMS._FIELDS, self._msg, byteorder="little", start=7)
         for msg_type in (
@@ -141,7 +141,7 @@ class BMS(BaseBMS):
             MsgT.CELL_VOLTAGES4,
         ):
             result.setdefault("cell_voltages", []).extend(
-                self._cell_voltages(
+                self._decode_cells(
                     self._msg[msg_type],
                     cells=4,
                     start=7,
@@ -158,7 +158,7 @@ class BMS(BaseBMS):
             # MsgT.TEMPS6, MsgT.TEMPS7, MsgT.TEMPS8,
         ):
             result.setdefault("temperature", []).extend(
-                self._temperature(
+                self._decode_temp(
                     self._msg[msg_type],
                     values=4,
                     start=7,

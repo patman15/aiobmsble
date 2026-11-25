@@ -13,6 +13,14 @@ The package requires Python `>=3.12`. It is licensed under Apache-2.0.
 - `aiobmsble/__init__.py` — user-facing types and data models, including `BMSSample`, `BMSInfo`, and `BMSConfig`. `BaseBMS` is not re-exported; import it from `aiobmsble.basebms`.
 - `aiobmsble/plugin.py` — plugin-author API: `BMSDp`, `LimitDp`, `BMSPrbDef`, `MatcherPattern`, `BMSValue`, and the CRC/decoding helpers.
 - `aiobmsble/basebms.py` — `BaseBMS`, BLE connection/operation behavior, common decoding, integrity helpers, and derived-value support.
+- `aiobmsble/exceptions.py` — public `BMSError` hierarchy raised by `BaseBMS` operations (also re-exported from `aiobmsble`).
+- `aiobmsble/utils.py` — public helpers to find BMS classes (`identify()`, `get_bms()`, `available_bms()`, `load_bms_plugins()`), convert advertisement dictionaries (`adv_dict_to_advdata()`), and summarize problems (`problem_levels()`).
+- `aiobmsble/__main__.py` — the `aiobmsble` command-line interface.
+- Private helpers (not public API, may change without notice):
+  - `aiobmsble/_boundedbytearr.py` — `BoundedByteArray`, the size-limited frame buffer behind `BaseBMS._frame`.
+  - `aiobmsble/_discovery.py` — evaluation of `MatcherPattern`s against advertisements.
+  - `aiobmsble/_sample_calc.py` — derivation of missing `BMSSample` fields used by `BaseBMS._add_missing_values()`.
+  - `aiobmsble/_streamparser.py` — `StreamParser` for DLE/STX/ETX-framed byte streams, usable by plugins.
 - `aiobmsble/bms/` — one plugin module per supported BMS protocol; modules generally expose a `BMS` subclass.
 - `aiobmsble/test_data/` — recorded BLE advertisements in JSON, packaged as data by `pyproject.toml`.
 - `tests/` — pytest suite; `tests/bms/` contains per-plugin tests, `tests/test_basebms.py` covers shared behavior, and `tests/test_fuzzing.py` exercises notification handlers with Hypothesis.
@@ -25,7 +33,7 @@ The package requires Python `>=3.12`. It is licensed under Apache-2.0.
 
 ## Environment and setup
 
-Use the repository's existing `.venv` for all Python commands. Activate it once at the start of the session, then run commands normally without prefixing each one with the environment path. From the repository root:
+Use the repository's existing `.venv` for all Python commands. Activate it once at the start of the session, then run commands normally without prefixing each one with the environment path. Commands in this file assume a POSIX shell. From the repository root:
 
 ```bash
 source .venv/bin/activate
@@ -53,8 +61,8 @@ python -m pytest
 ruff check .
 mypy .
 mypy aiobmsble --strict
-codespell .
-pyright .
+codespell
+pyright
 ```
 
 `pytest` is configured in `pyproject.toml` to discover `tests/`, run in parallel (`-n auto`), collect branch coverage for `aiobmsble` and `examples`, print missing lines, and fail below 100% branch coverage. The CI workflow runs the commands above (using `python3 -m ruff check .` for Ruff) across its supported Python-version matrix.
@@ -82,7 +90,7 @@ To regenerate the data table and API documentation as the documentation workflow
 
 ```bash
 python scripts/bms_data_table.py
-pdoc -d google aiobmsble aiobmsble.basebms aiobmsble.exceptions aiobmsble.utils aiobmsble.plugin aiobmsble.test_data -o docs
+pdoc -d google aiobmsble aiobmsble.basebms aiobmsble.exceptions aiobmsble.utils aiobmsble.plugin aiobmsble.test_data aiobmsble.bms -o docs
 ```
 
 The documentation workflow runs those commands on pushes to `main`; generated output should be reviewed rather than hand-editing generated API pages.
@@ -94,7 +102,7 @@ The documentation workflow runs those commands on pushes to `main`; generated ou
 - Matchers must be unique across plugins so BLE auto-detection is reliable. A matcher can use the `MatcherPattern` fields defined in `aiobmsble/plugin.py`.
 - Store returned telemetry in the `BMSSample` `TypedDict`, not a dataclass. Include the required common fields available from the device and use `BaseBMS._add_missing_values()`/the existing calculation helpers for consistent derived values.
 - Validate incoming frames according to the protocol (for example, start marker, length, allowed message type, and checksum/CRC). Discard invalid frames; only signal completion when a valid complete response is available.
-- Prefer `BaseBMS` helpers such as `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_check_integrity()`, and `_cmd_modbus()` before duplicating behavior.
+- Prefer `BaseBMS` helpers such as `_decode_data()`, `_decode_cells()`, `_decode_temp()`, `_check_integrity()`, and `_cmd_modbus()` before duplicating behavior.
 - Use recorded frames/advertisements from real devices in tests; do not fabricate protocol frames. Keep names and comments in English, use Google-style docstrings, and do not add `# pragma: no cover` (the contribution guide explicitly prohibits it).
 - Follow the Ruff configuration in `pyproject.toml`, including its import sorting, complexity, docstring, async, logging, and typing rules. Tests have a per-file exception for Ruff `SLF`; protected-access is also ignored by the configured pylint plugin for `tests/**`.
 
@@ -103,9 +111,9 @@ The documentation workflow runs those commands on pushes to `main`; generated ou
 1. Create a branch for the change and add the plugin under `aiobmsble/bms/`.
 2. Start from `aiobmsble/bms/dummy_bms.py` and implement the required class members and protocol parsing.
 3. Add a real-device advertisement to `aiobmsble/test_data/<name>_bms.json`.
-4. Add `tests/bms/test_<name>_bms.py`, subclassing `BMSBasicTests` from `tests/test_basebms.py`, and add protocol-specific cases. Use `tests/bms/test_dummy.py` as a template.
+4. Add `tests/bms/test_<name>_bms.py`, subclassing `BMSBasicTests` from `tests/test_basebms.py`, and add protocol-specific cases. Use `tests/bms/test_dummy_bms.py` as a template.
 5. Add `docs/<name>_bms.md` when detailed device/protocol information is available.
-6. If plugin fields or supported data change, run `.venv/bin/python scripts/bms_data_table.py` and review `docs/available_bms_data.csv`.
+6. If plugin fields or supported data change, run `python scripts/bms_data_table.py` and review `docs/available_bms_data.csv`.
 7. Run the complete quality gate, including 100% branch coverage, before opening a pull request.
 
 For a new BMS, ensure the sample contains at least the fields required by the contribution guide: overall voltage, signed current direction, and battery fill-level information directly or through the documented capacity fields. Do not introduce persistent values or behavior that depends on storing state across runs.
@@ -117,8 +125,8 @@ A pull request is expected to satisfy the repository PR checklist:
 - no commented-out code;
 - `ruff check .` passes;
 - `mypy .` passes (CI additionally runs `mypy aiobmsble --strict`);
-- `codespell .` passes;
-- `pyright .` passes;
+- `codespell` passes;
+- `pyright` passes;
 - `pytest` passes with 100% branch coverage;
 - new code has focused tests using recorded device data;
 - for a new BMS, the `BMSSample` is populated with available data, frames are validated, and a recorded BLE advertisement is included.
@@ -148,7 +156,7 @@ The normal pytest suite is intentionally broad: it covers plugin loading/identif
 
 ## Evidence basis
 
-This guidance was cross-checked against the repository at inspection time: `README.md`, `CONTRIBUTING.md`, `pyproject.toml`, `.pre-commit-config.yaml`, `.github/pull_request_template.md`, all workflows under `.github/workflows/`, `aiobmsble/__init__.py`, `aiobmsble/basebms.py`, `aiobmsble/bms/abc_bms.py`, `aiobmsble/bms/dummy_bms.py`, `examples/minimal.py`, `scripts/bms_data_table.py`, `tests/conftest.py`, `tests/test_basebms.py`, `tests/test_fuzzing.py`, and the repository file tree. The inspected checkout was the public `main` branch at commit `5b34df6` (`Fix WS Nova heater readout (#279)`).
+This guidance was cross-checked against the repository at inspection time: `README.md`, `CONTRIBUTING.md`, `pyproject.toml`, `.pre-commit-config.yaml`, `.github/pull_request_template.md`, all workflows under `.github/workflows/`, `aiobmsble/__init__.py`, `aiobmsble/basebms.py`, `aiobmsble/bms/abc_bms.py`, `aiobmsble/bms/dummy_bms.py`, `examples/minimal.py`, `scripts/bms_data_table.py`, `tests/conftest.py`, `tests/test_basebms.py`, `tests/test_fuzzing.py`, and the repository file tree.
 
 ## BMS Plugin and Test Patterns
 
@@ -173,6 +181,10 @@ A typical plugin contains:
    containing the `BMSDp` entries used for declarative field decoding. Define
    multiple `_FIELDS_*` variants, or an equivalent per-variant structure (see
    `daly_bms.py`), when the protocol has more than one frame layout.
+   If the plugin reports protection thresholds, define them likewise in a
+   `_LIMIT_FIELDS: tuple[LimitDp, ...]` class variable and decode them with
+   `_decode_limits()` in `_fetch_limits()`; group the tuples per reply when
+   thresholds span several replies (see e.g., `braunpwr_bms.py`).
 6. Bluetooth discovery and GATT metadata methods:
    - `matcher_dict_list()`
    - `uuid_services()`
@@ -203,7 +215,7 @@ integrity handling. Current examples fall into two patterns:
   and `eleksol_bms.py` (from `jbd_bms.py`).
 - **Protocol variant** (same transport, different data map or a narrow
   behavioral tweak): additionally override the declarative field map
-  (`_FIELDS`/`FIELDS`), protocol constants, scaling, and at most a small hook
+  (`_FIELDS`), protocol constants, scaling, and at most a small hook
   such as `_notification_handler()`, `_update()`, `_fetch_device_info()`,
   or `_init_connection()`. See `pwrboozt_bms.py` (from `ej_bms.py`),
   `c4s_bms.py` (from `vatrer_bms.py`), `daren_bms.py` (from `jbd_bms.py`),
@@ -212,7 +224,7 @@ integrity handling. Current examples fall into two patterns:
 
 When writing a plugin intended to be subclassed, expose the field tuple as a
 plain (non-`Final`) class attribute so a child can replace it or patch entries
-with `BMSDp._replace()` without touching protocol code. Do not duplicate a
+with `dataclasses.replace()` without touching protocol code. Do not duplicate a
 parent's `_notification_handler()`, command builder, or integrity logic in the
 child; override only what genuinely differs.
 
@@ -277,7 +289,7 @@ parsing for values or framing that `BMSDp` cannot represent.
 - Use `@lru_cache` for deterministic command frames that are reused.
 - Validate command arguments with assertions or explicit checks.
 - Construct the payload first, then append the protocol checksum or CRC.
-- Use checksum helpers from `aiobmsble.basebms` when an applicable
+- Use checksum helpers from `aiobmsble.plugin` when an applicable
   implementation already exists.
 
 ### Notification handling
@@ -328,7 +340,7 @@ message/pack identifier when several replies contribute to one update), and
   only inspects `self._msg` after it returns.
 - All field decoding happens afterwards, inside `_update()` (or a small
   helper it calls): read `self._msg`/`self._msg[key]` and convert it via
-  `_decode_data()`, `_cell_voltages()`, `_temperature()`, `_decode_pack()`, or
+  `_decode_data()`, `_decode_cells()`, `_decode_temp()`, `_decode_pack()`, or
   protocol-specific parsing.
 
 This keeps the handler synchronous and side-effect-free beyond frame
@@ -516,7 +528,8 @@ Before finishing a plugin, confirm:
 - [ ] UUID methods return the correct characteristics.
 - [ ] Fixed protocol values use named constants.
 - [ ] Declarative fields are defined in a `_FIELDS` (or per-variant
-      `_FIELDS_*`) tuple of `BMSDp` entries.
+      `_FIELDS_*`) tuple of `BMSDp` entries; protection thresholds, if
+      supported, in a `_LIMIT_FIELDS` tuple of `LimitDp` entries.
 - [ ] Existing base-class helpers are reused.
 - [ ] Fragmented notifications are handled safely.
 - [ ] Invalid frames cannot set the message-complete event.

@@ -43,16 +43,16 @@ class BMS(BaseBMS):
         BMSDp("problem_code", 0, 2, False, lambda x: x & BMS._PRB_MASK),
     )
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(1 << 2, PT.PACK_OVERVOLTAGE),
-        BMSPrbDef(1 << 3, PT.PACK_UNDERVOLTAGE),
-        BMSPrbDef(1 << 4, PT.CHARGE_OVERCURRENT),
+        BMSPrbDef(1 << 2, PT.PACK_OV),
+        BMSPrbDef(1 << 3, PT.PACK_UV),
+        BMSPrbDef(1 << 4, PT.CHARGE_OC),
         BMSPrbDef(1 << 5, PT.SHORT_CIRCUIT),
-        BMSPrbDef(1 << 6, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 1"),
-        BMSPrbDef(1 << 7, PT.DISCHARGE_OVERCURRENT, text="Discharge overcurrent 2"),
-        BMSPrbDef(1 << 8, PT.CHARGE_OVERTEMP),
-        BMSPrbDef(1 << 9, PT.CHARGE_UNDERTEMP),
-        BMSPrbDef(1 << 10, PT.DISCHARGE_OVERTEMP),
-        BMSPrbDef(1 << 11, PT.DISCHARGE_UNDERTEMP),
+        BMSPrbDef(1 << 6, PT.DISCHARGE_OC, text="Discharge overcurrent 1"),
+        BMSPrbDef(1 << 7, PT.DISCHARGE_OC, text="Discharge overcurrent 2"),
+        BMSPrbDef(1 << 8, PT.CHARGE_OT),
+        BMSPrbDef(1 << 9, PT.CHARGE_UT),
+        BMSPrbDef(1 << 10, PT.DISCHARGE_OT),
+        BMSPrbDef(1 << 11, PT.DISCHARGE_UT),
     )
 
     def __init__(
@@ -67,7 +67,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             MatcherPattern(oui=pattern, service_uuid=BMS.uuid_services()[0], connectable=True)
             for pattern in ("60:6E:41", "10:23:81")
@@ -104,7 +104,7 @@ class BMS(BaseBMS):
 
         self._log.debug("RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data)
 
-        if not self._frame.startswith(BMS._HEAD) or len(self._frame) > BMS.BLE_MAX_ATTR_SIZE:
+        if not self._frame.startswith(BMS._HEAD) or len(self._frame) > BMS._BLE_MAX_ATTR_SIZE:
             self._log.debug("invalid frame")
             self._frame.clear()
             return
@@ -146,8 +146,8 @@ class BMS(BaseBMS):
             await self._await_msg(self._cmd(b"\x30\x31\x35\x31\x35\x30\x30\x30\x30\x45\x46\x45"))
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=44)
-        result["cell_voltages"] = BMS._cell_voltages(self._msg, cells=16, start=12)
-        result["temperature"] = BMS._temperature(
+        result["cell_voltages"] = BMS._decode_cells(self._msg, cells=16, start=12)
+        result["temperature"] = BMS._decode_temp(
             self._msg, values=4, start=48, size=1, signed=False, offset=40
         )
         self._msg_event.clear()

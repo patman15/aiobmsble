@@ -1,4 +1,4 @@
-"""Base class definition for battery management systems (BMS).
+"""A bytearray class with bounded length.
 
 Project: aiobmsble, https://pypi.org/p/aiobmsble/
 License: Apache-2.0, http://www.apache.org/licenses/
@@ -12,17 +12,17 @@ class BoundedByteArray:
     """A mutable byte array whose length cannot exceed a fixed limit.
 
     Mutating operations are atomic: if an operation fails or would cause the
-    array to exceed ``maxlen``, the original contents remain unchanged.
+    array to exceed `maxlen`, the original contents remain unchanged.
 
     Args:
         maxlen: Maximum number of bytes the instance may contain.
         initial: Initial bytes or an iterable producing integers from 0 to 255.
 
     Raises:
-        ValueError: If ``maxlen`` is negative.
-        BufferError: If the initial content is longer than ``maxlen``.
+        ValueError: If `maxlen` is negative.
+        BufferError: If the initial content is longer than `maxlen`.
         TypeError: If the initial content cannot initialize a bytearray.
-        ValueError: If an integer in ``initial`` is outside the range 0 to 255.
+        ValueError: If an integer in `initial` is outside the range 0 to 255.
     """
 
     type BytesLike = bytes | bytearray | memoryview
@@ -44,9 +44,9 @@ class BoundedByteArray:
             initial: Initial byte content.
 
         Raises:
-            ValueError: If ``maxlen`` is negative or an initial integer is
+            ValueError: If `maxlen` is negative or an initial integer is
                 outside the byte range.
-            BufferError: If the initial content exceeds ``maxlen``.
+            BufferError: If the initial content exceeds `maxlen`.
             TypeError: If an argument has an invalid type.
         """
         if maxlen < 0:
@@ -84,8 +84,8 @@ class BoundedByteArray:
             values: Bytes or integers from 0 to 255 to append.
 
         Raises:
-            BufferError: If the resulting content would exceed ``maxlen``.
-            TypeError: If ``values`` contains an invalid value or has an
+            BufferError: If the resulting content would exceed `maxlen`.
+            TypeError: If `values` contains an invalid value or has an
                 unsupported type.
             ValueError: If an integer is outside the range 0 to 255.
         """
@@ -98,9 +98,9 @@ class BoundedByteArray:
             value: Integer from 0 to 255.
 
         Raises:
-            BufferError: If the resulting content would exceed ``maxlen``.
-            TypeError: If ``value`` is not an integer.
-            ValueError: If ``value`` is outside the range 0 to 255.
+            BufferError: If the resulting content would exceed `maxlen`.
+            TypeError: If `value` is not an integer.
+            ValueError: If `value` is outside the range 0 to 255.
         """
         self._mutate(lambda data: data.append(value))
 
@@ -112,9 +112,9 @@ class BoundedByteArray:
             value: Integer from 0 to 255.
 
         Raises:
-            BufferError: If the resulting content would exceed ``maxlen``.
+            BufferError: If the resulting content would exceed `maxlen`.
             TypeError: If an argument has an invalid type.
-            ValueError: If ``value`` is outside the range 0 to 255.
+            ValueError: If `value` is outside the range 0 to 255.
         """
         self._mutate(lambda data: data.insert(index, value))
 
@@ -132,7 +132,7 @@ class BoundedByteArray:
             end: Optional exclusive ending index for the comparison.
 
         Returns:
-            ``True`` if the selected content starts with a supplied prefix.
+            `True` if the selected content starts with a supplied prefix.
         """
         if end is None:
             return self._data.startswith(prefix, start)
@@ -153,7 +153,7 @@ class BoundedByteArray:
             end: Optional exclusive ending index for the comparison.
 
         Returns:
-            ``True`` if the selected content ends with a supplied suffix.
+            `True` if the selected content ends with a supplied suffix.
         """
         if end is None:
             return self._data.endswith(suffix, start)
@@ -174,7 +174,7 @@ class BoundedByteArray:
             end: Optional exclusive ending index for the search.
 
         Returns:
-            The lowest matching index, or ``-1`` if no match is found.
+            The lowest matching index, or `-1` if no match is found.
         """
         if end is None:
             return self._data.find(sub, start)
@@ -197,10 +197,10 @@ class BoundedByteArray:
 
         Returns:
             A new instance with the replacements applied and the same
-            ``maxlen`` value.
+            `maxlen` value.
 
         Raises:
-            BufferError: If the resulting content would exceed ``maxlen``.
+            BufferError: If the resulting content would exceed `maxlen`.
         """
         return self._new(self._data.replace(old, new, count))
 
@@ -223,7 +223,7 @@ class BoundedByteArray:
             chars: Bytes to remove. If omitted, ASCII whitespace is removed.
 
         Returns:
-            A new stripped instance with the same ``maxlen`` value.
+            A new stripped instance with the same `maxlen` value.
         """
         return self._new(self._data.strip(chars))
 
@@ -235,7 +235,7 @@ class BoundedByteArray:
                 is removed.
 
         Returns:
-            A new right-stripped instance with the same ``maxlen`` value.
+            A new right-stripped instance with the same `maxlen` value.
         """
         return self._new(self._data.rstrip(chars))
 
@@ -248,14 +248,14 @@ class BoundedByteArray:
 
         Args:
             encoding: Text encoding used to decode the bytes.
-            errors: Error-handling strategy, such as ``"strict"``,
-                ``"ignore"``, or ``"replace"``.
+            errors: Error-handling strategy, such as `"strict"`,
+                `"ignore"`, or `"replace"`.
 
         Returns:
             The decoded string.
 
         Raises:
-            LookupError: If ``encoding`` or ``errors`` is unknown.
+            LookupError: If `encoding` or `errors` is unknown.
             UnicodeDecodeError: If decoding fails with strict error handling.
         """
         return self._data.decode(encoding, errors)
@@ -290,7 +290,7 @@ class BoundedByteArray:
             key: Integer index or slice.
 
         Returns:
-            An integer for a single index or a ``bytearray`` for a slice.
+            An integer for a single index or a `bytearray` for a slice.
         """
         return self._data[key]
 
@@ -302,7 +302,7 @@ class BoundedByteArray:
 
         Raises:
             IndexError: If an integer index is out of range.
-            TypeError: If ``key`` is neither an integer nor a slice.
+            TypeError: If `key` is neither an integer nor a slice.
         """
         del self._data[key]
 
@@ -320,7 +320,7 @@ class BoundedByteArray:
             This instance after appending the values.
 
         Raises:
-            BufferError: If the resulting content would exceed ``maxlen``.
+            BufferError: If the resulting content would exceed `maxlen`.
         """
         self.extend(values)
         return self

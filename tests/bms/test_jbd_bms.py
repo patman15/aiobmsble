@@ -19,6 +19,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as S,
     TempSensor as TS,
+    TSKind,
 )
 from aiobmsble.bms.jbd_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -41,7 +42,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "runtime": 6246,
     "cell_count": 4,
     "cell_voltages": [3.43, 3.425, 3.432, 3.417],
-    "temperature": [TS(t, TS.T.CELL) for t in (22.4, 22.3, 21.7)],
+    "temperature": [TS(t, TSKind.CELL) for t in (22.4, 22.3, 21.7)],
     "delta_cell_voltage": 0.015,
     "problem": False,
     "problem_code": 0,
@@ -66,7 +67,7 @@ _RESULT_UNIT_BASE: Final[BMSSample] = {
     "runtime": 292903,
     "cell_count": 4,
     "cell_voltages": [3.43, 3.425, 3.432, 3.417],
-    "temperature": [TS(t, TS.T.CELL) for t in (19.9, 18.1, 18.2)],
+    "temperature": [TS(t, TSKind.CELL) for t in (19.9, 18.1, 18.2)],
     "delta_cell_voltage": 0.015,
     "problem": False,
     "problem_code": 0,
@@ -431,7 +432,7 @@ async def test_oversized_response(patch_bleak_client) -> None:
                 b"\x00\x00\x01\x80\x64\x03\x04\x03\x0b\x8b\x0b\x8a\x0b\x84\xf8\x83\x77"
             ),
             "first_bit",
-            BMSProblem(PT.CELL_OVERVOLTAGE, S.PROTECT, "Cell overvoltage"),
+            BMSProblem(PT.CELL_OV, S.PROTECT, "Cell overvoltage"),
         ),
         (
             bytearray(

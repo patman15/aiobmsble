@@ -15,6 +15,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as SV,
     TempSensor as TS,
+    TSKind,
 )
 from aiobmsble.bms.tianpwr_bms import BMS
 from tests.bluetooth import generate_ble_device
@@ -52,7 +53,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         3.422,
         3.429,
     ],
-    "temperature": [TS(23.0)] * 4 + [TS(23.0, TS.T.AMBIENT), TS(25.0, TS.T.MOSFET)],
+    "temperature": [TS(23.0)] * 4 + [TS(23.0, TSKind.AMBIENT), TS(25.0, TSKind.MOSFET)],
     "delta_cell_voltage": 0.014,
     "balancer": False,
     "chrg_mosfet": True,
@@ -245,7 +246,7 @@ async def test_missing_message(
         (
             b"\x00\x00\x00\x04\x00\x00\x00\x00",
             0x400000000,
-            [BMSProblem(PT.CHARGE_OVERCURRENT, SV.PROTECT, "Charge overcurrent")],
+            [BMSProblem(PT.CHARGE_OC, SV.PROTECT, "Charge overcurrent")],
         ),
     ],
     ids=["first_bit", "sleep_bit", "last_bit", "fet_bits", "charge_ocp"],

@@ -57,7 +57,7 @@ _RESULT_DEFS: Final[BMSSample] = {
     "temperature": [TS(26), TS(29), TS(-5), TS(21)],
     "problem": True,
     "problem_code": 512,
-    "problems": [BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage")],
+    "problems": [BMSProblem(PT.CELL_OV, SV.PROTECT, "Cell overvoltage")],
     "balancer": False,
     "chrg_mosfet": False,
     "dischrg_mosfet": True,
@@ -225,7 +225,7 @@ async def test_update_empty_battery(monkeypatch, patch_bms_timeout, patch_bleak_
     _expected: BMSSample = _RESULT_DEFS.copy() | {
         "battery_level": 0.0,
         "problems": [
-            BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage"),
+            BMSProblem(PT.CELL_OV, SV.PROTECT, "Cell overvoltage"),
             BMSProblem(PT.SENSOR_FAILURE, SV.WARN, "Battery level"),
         ],
     }

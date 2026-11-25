@@ -14,6 +14,7 @@ from aiobmsble import (
     PrbType as PT,
     Severity as SV,
     TempSensor as TS,
+    TSKind,
 )
 from aiobmsble.bms.ant_bms import BMS
 from aiobmsble.plugin import crc_modbus
@@ -61,7 +62,7 @@ _RESULT_DEFS: Final[BMSSample] = {
         2.337,
         2.335,
     ],
-    "temperature": [TS(29.0)] * 4 + [TS(30.0, TS.T.MOSFET), TS(30.0, TS.T.BALANCER)],
+    "temperature": [TS(29.0)] * 4 + [TS(30.0, TSKind.MOSFET), TS(30.0, TSKind.BALANCER)],
     "delta_cell_voltage": 0.148,
     "problem": False,
     "problem_code": 0,
@@ -294,8 +295,8 @@ async def test_problem_response(
         "problem_code": (0x202 if low else 0xE0E),
         "problems": (
             [
-                BMSProblem(PT.CELL_UNDERVOLTAGE, SV.PROTECT, "Cell undervoltage"),
-                BMSProblem(PT.CELL_OVERVOLTAGE, SV.PROTECT, "Cell overvoltage"),
+                BMSProblem(PT.CELL_UV, SV.PROTECT, "Cell undervoltage"),
+                BMSProblem(PT.CELL_OV, SV.PROTECT, "Cell overvoltage"),
             ]
             if low
             else [
@@ -349,7 +350,7 @@ async def test_problem_response(
     ],
     ids=["charger_connected", "charge_manually_closed", "unknown_charge_state"],
 )
-async def test_mosfet_states(
+async def test_fet_states(
     monkeypatch: pytest.MonkeyPatch,
     patch_bms_timeout,
     patch_bleak_client,

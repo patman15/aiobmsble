@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, PrbType as PT, Severity as SV, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.plugin import BMSDp, BMSPrbDef, BMSValue, MatcherPattern, b2str, crc_modbus
 
@@ -59,38 +59,38 @@ class BMS(BaseBMS):
     # problem_code: chMosState (bits 8-15) | disMosState (bits 0-7), states 0/1 are no problem,
     # charge MOS state 0x04 (battery full) is not a problem
     _PROBLEMS: tuple[BMSPrbDef, ...] = (
-        BMSPrbDef(0xFF, PT.CELL_UNDERVOLTAGE, value=0x02),
-        BMSPrbDef(0xFF, PT.DISCHARGE_OVERCURRENT, value=0x03),
-        BMSPrbDef(0xFF, PT.DISCHARGE_OVERCURRENT, value=0x04, text="Discharge overcurrent (2)"),
-        BMSPrbDef(0xFF, PT.PACK_UNDERVOLTAGE, value=0x05),
-        BMSPrbDef(0xFF, PT.DISCHARGE_OVERTEMP, value=0x06),
-        BMSPrbDef(0xFF, PT.MOSFET_OVERTEMP, value=0x07),
+        BMSPrbDef(0xFF, PT.CELL_UV, value=0x02),
+        BMSPrbDef(0xFF, PT.DISCHARGE_OC, value=0x03),
+        BMSPrbDef(0xFF, PT.DISCHARGE_OC, value=0x04, text="Discharge overcurrent (2)"),
+        BMSPrbDef(0xFF, PT.PACK_UV, value=0x05),
+        BMSPrbDef(0xFF, PT.DISCHARGE_OT, value=0x06),
+        BMSPrbDef(0xFF, PT.FET_OT, value=0x07),
         BMSPrbDef(0xFF, PT.OTHER, SV.PROTECT, value=0x08, text="Abnormal discharge current"),
         BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x09, text="Balancing wire loose"),
-        BMSPrbDef(0xFF, PT.SYSTEM_OVERTEMP, value=0x0A, text="Board overheated"),
+        BMSPrbDef(0xFF, PT.SYSTEM_OT, value=0x0A, text="Board overheated"),
         BMSPrbDef(0xFF, PT.OTHER, SV.INFO, value=0x0B, text="Charger connected"),
         BMSPrbDef(0xFF, PT.SHORT_CIRCUIT, value=0x0C),
         BMSPrbDef(0xFF, PT.FET_FAILURE, value=0x0D, text="Discharge MOSFET"),
         BMSPrbDef(0xFF, PT.FET_FAILURE, value=0x0E, text="Discharge MOSFET failed to open"),
         BMSPrbDef(0xFF, PT.FET_LOCKED, value=0x0F, text="Discharge MOSFET manually closed"),
-        BMSPrbDef(0xFF, PT.PACK_UNDERVOLTAGE, value=0x10, text="Undervoltage (2)"),
-        BMSPrbDef(0xFF, PT.DISCHARGE_UNDERTEMP, value=0x11),
+        BMSPrbDef(0xFF, PT.PACK_UV, value=0x10, text="Undervoltage (2)"),
+        BMSPrbDef(0xFF, PT.DISCHARGE_UT, value=0x11),
         BMSPrbDef(0xFF, PT.CELL_IMBALANCE, SV.PROTECT, value=0x12),
         BMSPrbDef(0xFF, PT.OTHER, SV.FAULT, value=0x13, text="Discharge self-test"),
-        BMSPrbDef(0xFF00, PT.CELL_OVERVOLTAGE, value=0x0200),
-        BMSPrbDef(0xFF00, PT.CHARGE_OVERCURRENT, value=0x0300),
-        BMSPrbDef(0xFF00, PT.PACK_OVERVOLTAGE, value=0x0500),
-        BMSPrbDef(0xFF00, PT.CHARGE_OVERTEMP, value=0x0600),
-        BMSPrbDef(0xFF00, PT.MOSFET_OVERTEMP, value=0x0700),
+        BMSPrbDef(0xFF00, PT.CELL_OV, value=0x0200),
+        BMSPrbDef(0xFF00, PT.CHARGE_OC, value=0x0300),
+        BMSPrbDef(0xFF00, PT.PACK_OV, value=0x0500),
+        BMSPrbDef(0xFF00, PT.CHARGE_OT, value=0x0600),
+        BMSPrbDef(0xFF00, PT.FET_OT, value=0x0700),
         BMSPrbDef(0xFF00, PT.OTHER, SV.PROTECT, value=0x0800, text="Charge current"),
         BMSPrbDef(0xFF00, PT.OTHER, SV.FAULT, value=0x0900, text="Balancing wire loose"),
-        BMSPrbDef(0xFF00, PT.SYSTEM_OVERTEMP, value=0x0A00, text="Board overheated"),
+        BMSPrbDef(0xFF00, PT.SYSTEM_OT, value=0x0A00, text="Board overheated"),
         BMSPrbDef(0xFF00, PT.FET_FAILURE, value=0x0B00, text="Charge MOSFET failed to open"),
         BMSPrbDef(0xFF00, PT.FET_FAILURE, value=0x0C00, text="Discharge MOSFET"),
         BMSPrbDef(0xFF00, PT.OTHER, SV.INFO, value=0x0D00, text="Waiting"),
         BMSPrbDef(0xFF00, PT.FET_LOCKED, value=0x0E00, text="Charge MOSFET manually closed"),
-        BMSPrbDef(0xFF00, PT.CELL_OVERVOLTAGE, value=0x0F00, text="Level-2 overvoltage"),
-        BMSPrbDef(0xFF00, PT.CHARGE_UNDERTEMP, value=0x1000),
+        BMSPrbDef(0xFF00, PT.CELL_OV, value=0x0F00, text="Level-2 overvoltage"),
+        BMSPrbDef(0xFF00, PT.CHARGE_UT, value=0x1000),
         BMSPrbDef(0xFF00, PT.CELL_IMBALANCE, SV.PROTECT, value=0x1100),
         BMSPrbDef(0xFF00, PT.OTHER, SV.FAULT, value=0x1200, text="Charge self-test"),
     )
@@ -110,7 +110,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": pattern,
@@ -158,7 +158,7 @@ class BMS(BaseBMS):
                     len(self._cfg.secret),
                     self._cfg.secret.encode("ASCII"),
                 ),
-                wait_for_notify=False,
+                await_notify=False,
             )
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -229,13 +229,14 @@ class BMS(BaseBMS):
         self,
         data: bytes,
         char: int | str | None = None,
-        wait_for_notify: bool = True,
+        *,
+        await_notify: bool = True,
         max_size: int = 0,
     ) -> None:
         """Send data to the BMS and wait for valid reply notification."""
 
         self._valid_reply = data[2] | 0x10  # expected reply type
-        await super()._await_msg(data, char, wait_for_notify, max_size)
+        await super()._await_msg(data, char, await_notify=await_notify, max_size=max_size)
 
     async def _update(self) -> BMSSample:
         """Update battery status information."""
@@ -244,20 +245,19 @@ class BMS(BaseBMS):
         result: BMSSample = {}
         result["battery_charging"] = self._msg[7] == 0x2
         result["cell_count"] = min(self._msg[BMS._CELL_COUNT], BMS._MAX_CELLS)
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg,
             cells=result["cell_count"],
             start=BMS._CELL_POS,
             byteorder="little",
         )
         result["temp_count"] = min(self._msg[BMS._TEMP_POS], BMS._MAX_TEMPS)
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=result["temp_count"] + 2,  # + MOSFET, balancer temperature
             start=BMS._CELL_POS + result["cell_count"] * 2,
             byteorder="little",
-            types=(TempSensor.T.GENERIC,) * result["temp_count"]
-            + (TempSensor.T.MOSFET, TempSensor.T.BALANCER),
+            types=(TSKind.GENERIC,) * result["temp_count"] + (TSKind.MOSFET, TSKind.BALANCER),
         )
         result.update(
             BMS._decode_data(

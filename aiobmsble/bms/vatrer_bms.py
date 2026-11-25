@@ -10,7 +10,7 @@ from typing import Final
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, crc_modbus
@@ -54,7 +54,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {  # name is likely YYMMDDVVVAAAAxx (date, V, Ah)
                 "local_name": "[2-9]???[0-3]?512??00??",
@@ -70,12 +70,12 @@ class BMS(BaseBMS):
 
     @staticmethod
     def uuid_rx() -> str:
-        """Return 16-bit UUID of characteristic that provides notification/read property."""
+        """Return 128-bit UUID of characteristic that provides notification/read property."""
         return "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
+        """Return 128-bit UUID of characteristic that provides write property."""
         return "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -112,15 +112,14 @@ class BMS(BaseBMS):
             raise BMSDataError
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg[0x3E], cells=result.get("cell_count", 0), start=5
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg[0x24],
             values=result.get("temp_count", 0) + 2,
             start=5,
-            types=(TempSensor.T.GENERIC,) * (result.get("temp_count", 0) + 1)
-            + (TempSensor.T.MOSFET,),
+            types=(TSKind.GENERIC,) * (result.get("temp_count", 0) + 1) + (TSKind.MOSFET,),
         )
 
         return result

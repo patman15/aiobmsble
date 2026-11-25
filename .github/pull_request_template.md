@@ -7,8 +7,8 @@
 <!--
   Put an `x` in the boxes that apply. You can also fill these out after
   creating the PR. If you're unsure about any of them, don't hesitate to ask.
-  This is simply a reminder of what I'm are going to look for before merging 
-  your code. Please see the CONTRIBUTING.md for more information.
+  This is simply a reminder of what I'm going to look for before merging 
+  your code. Please see the [CONTRIBUTING.md][contribution-guide] for more information.
 -->
 
 ### [Code Requirements][coding-guide]

@@ -11,7 +11,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSSample, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSSample, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern, crc_modbus
 
@@ -52,7 +52,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": pattern,
@@ -106,23 +106,23 @@ class BMS(BaseBMS):
         await self._await_msg(BMS._HEAD + BMS._cmd_modbus(count=0x48))
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg, cells=result.get("cell_count", 0), start=45
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg,
             values=result.get("temp_count", 0),
             start=87,
             offset=2730,
             divider=10,
-            types=(TempSensor.T.CELL,) * result.get("temp_count", 0),
-        ) + BMS._temperature(
+            types=(TSKind.CELL,) * result.get("temp_count", 0),
+        ) + BMS._decode_temp(
             self._msg,
             values=2,
             start=107,
             offset=2730,
             divider=10,
-            types=(TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
+            types=(TSKind.MOSFET, TSKind.AMBIENT),
         )
         result["temp_count"] = len(result["temperature"])
 

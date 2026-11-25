@@ -127,7 +127,7 @@ async def test_stale_data_cleared(
 ) -> None:
     """Verify that sustained max-size random notifications never raise BufferError.
 
-    Delivers more BLE_MAX_ATTR_SIZE chunks of random (invalid) data than the frame
+    Delivers more _BLE_MAX_ATTR_SIZE chunks of random (invalid) data than the frame
     buffer can hold, to check that each plugin discards stale data instead of
     overflowing its buffer.
     """
@@ -147,9 +147,9 @@ async def test_stale_data_cleared(
     handler: Callable[..., Awaitable[None] | None] = bms._notification_handler  # type: ignore[attr-defined]
     rng = random.Random(42)
 
-    # buffer capacity is max(_MAX_MSG_LEN, BLE_MAX_ATTR_SIZE) * 2, so delivering
+    # buffer capacity is max(_MAX_MSG_LEN, _BLE_MAX_ATTR_SIZE) * 2, so delivering
     # this many chunks overflows it unless stale data is cleared
-    size = BaseBMS.BLE_MAX_ATTR_SIZE
+    size = BaseBMS._BLE_MAX_ATTR_SIZE
     chunk_count = max(BaseBMS._MAX_MSG_LEN, size) // size + 2
 
     await bms._connect()
@@ -169,9 +169,9 @@ def test_alive_interval_requires_alive_override() -> None:
     subclasses: list[tuple[type[BaseBMS], str]] = _get_bms_subclasses()
 
     for subclass, file_path in subclasses:
-        if subclass.ALIVE_INTERVAL is not None:
+        if subclass._ALIVE_INTERVAL is not None:
             assert "_alive" in subclass.__dict__, (
-                f"{subclass.__name__} sets ALIVE_INTERVAL but does not override _alive\n"
+                f"{subclass.__name__} sets _ALIVE_INTERVAL but does not override _alive\n"
                 f"File: {file_path}"
             )
 
@@ -223,3 +223,29 @@ def test_no_pragma_no_cover() -> None:
                     pragma_no_cover_files.append((file_path.name, line_num))
 
     assert not pragma_no_cover_files, f"Found pragma no cover in: {pragma_no_cover_files}"
+
+
+def test_module_naming() -> None:
+    """Check that each BMS plugin has a test module named tests/bms/test_<name>_bms.py."""
+    tests_dir: Final[Path] = Path(__file__).parent / "bms"
+    missing: list[str] = [
+        plugin.__name__
+        for plugin in load_bms_plugins()
+        if not (tests_dir / f"test_{plugin.__name__.rsplit('.', 1)[-1]}.py").is_file()
+    ]
+    assert not missing, f"Missing test module for plugins: {missing}"
+
+
+def test_docs_naming() -> None:
+    """Check that each BMS doc page is named docs/<name>_bms.md after its plugin module."""
+    docs_dir: Final[Path] = Path(__file__).parent.parent / "docs"
+    extra_docs: Final[tuple[str, ...]] = ("quickstart.md",)
+    plugin_names: Final[set[str]] = {
+        plugin.__name__.rsplit(".", 1)[-1] for plugin in load_bms_plugins()
+    }
+    misnamed: list[str] = [
+        doc.name
+        for doc in sorted(docs_dir.glob("*.md"))
+        if doc.name not in extra_docs and doc.stem not in plugin_names
+    ]
+    assert not misnamed, f"Doc pages not named docs/<plugin_module>.md: {misnamed}"

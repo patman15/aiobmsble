@@ -36,7 +36,7 @@ class BMS(BaseBMS):
 
     _HEAD: Final[bytes] = b"\x23\x85"
     _FRAME_LEN: Final[int] = 8
-    ALIVE_INTERVAL: float | None = 24.0  # seconds
+    _ALIVE_INTERVAL: float | None = 24.0  # seconds
     _GATHER_TIMEOUT: Final[float] = BLEAK_TIMEOUT
     _UUID_SLC: Final[slice] = slice(4, 8)
     _FIELDS: Final[tuple[BMSDp[BMSValue], ...]] = (
@@ -81,7 +81,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "manufacturer_id": 2117,
@@ -107,11 +107,11 @@ class BMS(BaseBMS):
 
     async def _alive(self) -> None:
         """Continuously poll the module so it keeps streaming."""
-        await self._await_msg(b"APP+NET", wait_for_notify=False)
+        await self._await_msg(b"APP+NET", await_notify=False)
         await self._await_msg(
             self._ka_resp.to_bytes(1),
             BMS._NotifyChars.ch_b_tx,
-            False,
+            await_notify=False,
         )
         self._ka_resp ^= 0x20
 
@@ -120,7 +120,7 @@ class BMS(BaseBMS):
 
         await self._client.start_notify(char_uuid, self._keep_alive_handler)
         event.clear()
-        await asyncio.wait_for(event.wait(), timeout=BMS.TIMEOUT)
+        await asyncio.wait_for(event.wait(), timeout=BMS._TIMEOUT)
 
     async def _init_connection(
         self, char_notify: BleakGATTCharacteristic | int | str | None = None
@@ -137,7 +137,7 @@ class BMS(BaseBMS):
         try:
             await self._await_msg(
                 b"APP+AEN" + (f"={self._cfg.secret}".encode("ASCII") if self._cfg.secret else b""),
-                wait_for_notify=True,
+                await_notify=True,
             )
         except TimeoutError as exc:
             if self._disconnect_event.is_set():
@@ -145,7 +145,7 @@ class BMS(BaseBMS):
             raise
 
         self._exp_reply = b"MST+NET="
-        await self._await_msg(b"APP+NET", wait_for_notify=True)
+        await self._await_msg(b"APP+NET", await_notify=True)
         self._msg_event.clear()
 
     async def _keep_alive_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -159,12 +159,12 @@ class BMS(BaseBMS):
             match sender.uuid:
                 case BMS._NotifyChars.ch_b_rx:
                     await self._await_msg(
-                        self._ka_resp.to_bytes(1), BMS._NotifyChars.ch_b_tx, False
+                        self._ka_resp.to_bytes(1), BMS._NotifyChars.ch_b_tx, await_notify=False
                     )
                     self._ka_resp ^= 0x20
                     self._ch_b_event.set()
                 case BMS._NotifyChars.ch_c_rx:
-                    await self._await_msg(bytes(data), BMS._NotifyChars.ch_c_tx, False)
+                    await self._await_msg(bytes(data), BMS._NotifyChars.ch_c_tx, await_notify=False)
                     self._ch_c_event.set()
                 case _:
                     self._log.debug("unknown notification sender")
@@ -217,7 +217,7 @@ class BMS(BaseBMS):
         """Return cell voltages from status message."""
         voltages: list[float] = []
         for i in range(int(cells // 2)):
-            voltages.extend(BMS._cell_voltages(data[0x56 + i], cells=2, start=4))
+            voltages.extend(BMS._decode_cells(data[0x56 + i], cells=2, start=4))
         return voltages
 
     async def _update(self) -> BMSSample:

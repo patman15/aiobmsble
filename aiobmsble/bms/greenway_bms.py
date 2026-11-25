@@ -82,7 +82,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "oui": "C4:A9:B8",
@@ -212,7 +212,7 @@ class BMS(BaseBMS):
         )
         for msg_type in (MsgT.CELL_VOLTAGES1, MsgT.CELL_VOLTAGES2):
             result.setdefault("cell_voltages", []).extend(
-                self._cell_voltages(
+                self._decode_cells(
                     self._msg[msg_type],
                     cells=16,
                     start=BMS._LEN_POS + 1,
@@ -222,7 +222,7 @@ class BMS(BaseBMS):
             )
 
         result.setdefault("temperature", []).extend(
-            self._temperature(
+            self._decode_temp(
                 self._msg[MsgT.TEMP],
                 values=7,
                 start=BMS._LEN_POS + 1,

@@ -6,7 +6,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 
 from typing import Final
 
-from aiobmsble import BMSInfo, BMSSample, TempSensor
+from aiobmsble import BMSInfo, BMSSample, TSKind
 from aiobmsble.bms.vatrer_bms import BMS as VatrerBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, MatcherPattern
@@ -16,7 +16,7 @@ class BMS(VatrerBMS):
     """C4S100-family generic Modbus-over-BLE Smart BMS (derived from VatrerBMS)."""
 
     INFO: BMSInfo = {"manufacturer": "Generic", "model": "C4S100 Smart BMS (RC6621A)"}
-    _TEMPS: Final[int] = 2  # 2 physical temp sensors (MOS_T, ENV_T), see docs
+    _TEMPS: Final[int] = 2  # 2 physical temp sensors (FET_T, ENV_T), see docs
     _REG_COUNT: Final[int] = 0x46  # 70 holding registers polled in one request
 
     # BMSDp(key, pos, size, signed, fct, idx); pos/idx documented in docs/c4s_bms.md
@@ -34,7 +34,7 @@ class BMS(VatrerBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             {
                 "local_name": "C4S100IE?????",
@@ -52,14 +52,14 @@ class BMS(VatrerBMS):
             raise BMSDataError
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg[BMS._REG_COUNT * 2])
-        result["cell_voltages"] = BMS._cell_voltages(
+        result["cell_voltages"] = BMS._decode_cells(
             self._msg[BMS._REG_COUNT * 2], cells=result.get("cell_count", 0), start=47
         )
-        result["temperature"] = BMS._temperature(
+        result["temperature"] = BMS._decode_temp(
             self._msg[BMS._REG_COUNT * 2],
             start=35,
             values=BMS._TEMPS,
-            types=(TempSensor.T.MOSFET, TempSensor.T.AMBIENT),
+            types=(TSKind.MOSFET, TSKind.AMBIENT),
         )
 
         return result

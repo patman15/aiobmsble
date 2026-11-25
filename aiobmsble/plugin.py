@@ -7,11 +7,11 @@ License: Apache-2.0, http://www.apache.org/licenses/
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from itertools import takewhile
-from typing import Any, Final, Literal, NamedTuple, TypedDict
+from typing import Any, Final, Literal, TypedDict
 
 from aiobmsble import BMSProblem, Limit, PrbType, Severity
 
-__all__ = [
+__all__: list[str] = [
     "BMSDp",
     "BMSPackValue",
     "BMSPrbDef",
@@ -42,36 +42,35 @@ type CommonValue = Literal[
     "cycles",
     "delta_cell_voltage",
     "design_capacity",
+    "power",
     "temp_count",
     "temperature",
     "voltage",
 ]
 
-type BMSValue = (
-    CommonValue
-    | Literal[
-        "battery_charging",
-        "battery_mode",
-        "power",
-        "total_charge",
-        "problem",
-        "runtime",
-        "balancer",
-        "balance_current",
-        "heater_current",
-        "pack_count",
-        "problem_code",
-        "problems",
-        "chrg_mosfet",
-        "dischrg_mosfet",
-        "heater",
-    ]
-)
+type BMSValue = Literal[
+    CommonValue,
+    "battery_charging",
+    "battery_mode",
+    "total_charge",
+    "problem",
+    "runtime",
+    "balancer",
+    "balance_current",
+    "heater_current",
+    "pack_count",
+    "problem_code",
+    "problems",
+    "chrg_mosfet",
+    "dischrg_mosfet",
+    "heater",
+]
 
 type BMSPackValue = CommonValue
 
 
-class BMSPrbDef(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class BMSPrbDef:
     """Map (a field of) a BMS problem code to a generic problem."""
 
     mask: int  # bit(s) of problem_code to evaluate
@@ -88,7 +87,8 @@ class BMSPrbDef(NamedTuple):
         return hit == self.value
 
 
-class BMSDp[K: (BMSValue, BMSPackValue)](NamedTuple):
+@dataclass(frozen=True, slots=True)
+class BMSDp[K: (BMSValue, BMSPackValue)]:
     """Representation of main BMS data point."""
 
     key: K
@@ -117,7 +117,17 @@ class LimitDp:
 
 
 class MatcherPattern(TypedDict, total=False):
-    """Optional patterns that can match Bleak advertisement data."""
+    """Optional patterns that can match Bleak advertisement data.
+
+    All given keys must match (logical AND); omitted keys are not checked.
+
+    - `service_data_uuid`: an empty string requires that the advertisement carries no service data.
+    - `manufacturer_data_start`: only evaluated together with `manufacturer_id`.
+    - `connectable`: compared to the `connectable` attribute of the advertisement, which
+      is only provided by some Bluetooth stacks (e.g. Home Assistant); if the attribute is
+      missing, the advertisement is treated as connectable.
+    - `local_name`: case-sensitive.
+    """
 
     local_name: str  # name pattern that supports Unix shell-style wildcards
     manufacturer_data_start: list[int]  # start bytes of manufacturer data
@@ -141,7 +151,7 @@ def decode_problems(code: int, defs: Iterable[BMSPrbDef]) -> list[BMSProblem]:
         defs: definitions mapping (fields of) the code to generic problems
 
     Returns:
-        list[BMSProblem]: decoded problems in order of first occurrence
+        List of decoded problems in order of first occurrence
 
     """
     problems: list[BMSProblem] = []
@@ -185,7 +195,18 @@ def b2str(b: bytes | bytearray) -> str:
 
 
 def lstr2int(string: str) -> int:
-    """Convert the beginning of a string to an integer, till first non-digit is found."""
+    """Convert the beginning of a string to an integer, till first non-digit is found.
+
+    Args:
+        string: string starting with the number to convert
+
+    Returns:
+        value of the leading digits
+
+    Raises:
+        ValueError: if the string does not start with a digit
+
+    """
     return int("".join(takewhile(str.isdigit, string)))
 
 
@@ -198,7 +219,7 @@ def swap32(value: int, signed: bool = False) -> int:
 
 
 def crc_modbus(data: bytes | bytearray) -> int:
-    """Calculate CRC-16-CCITT MODBUS."""
+    """Calculate CRC-16/MODBUS."""
     crc: int = 0xFFFF
     for i in data:
         crc ^= i & 0xFF
@@ -234,15 +255,15 @@ def crc8(data: bytes | bytearray) -> int:
     return crc & 0xFF
 
 
-def crc_sum(frame: bytes | bytearray, size: int = 1) -> int:
-    """Calculate the sum of the frame bytes truncated to the specified size.
+def crc_sum(data: bytes | bytearray, size: int = 1) -> int:
+    """Calculate the sum of the data bytes truncated to the specified size.
 
     Args:
-        frame: the input data for which the sum is to be calculated
+        data: the input data for which the sum is to be calculated
         size: the size of the sum in bytes (default: 1)
 
     Returns:
-        int: sum of all bytes modulo 2^(8 * size)
+        Sum of all bytes modulo 2^(8 * size)
 
     """
-    return sum(frame) & ((1 << (8 * size)) - 1)
+    return sum(data) & ((1 << (8 * size)) - 1)

@@ -5,7 +5,7 @@ License: Apache-2.0, http://www.apache.org/licenses/
 """
 
 import asyncio
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from functools import cache
 import importlib
 import pkgutil
@@ -19,6 +19,15 @@ from aiobmsble import BMSProblem, PrbType, Severity
 from aiobmsble.basebms import BaseBMS
 import aiobmsble.bms
 from aiobmsble.exceptions import BMSConfigError
+
+__all__: list[str] = [
+    "adv_dict_to_advdata",
+    "available_bms",
+    "get_bms",
+    "identify",
+    "load_bms_plugins",
+    "problem_levels",
+]
 
 _MODULE_POSTFIX: Final[str] = "_bms"
 
@@ -36,7 +45,7 @@ def _platform_data(pdata: Sequence[Any]) -> tuple[Any, ...]:
     return tuple(pdata)
 
 
-def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
+def adv_dict_to_advdata(adv_dict: Mapping[str, Any]) -> AdvertisementData:
     """Generate an AdvertisementData instance from a JSON dictionary.
 
     Args:
@@ -44,10 +53,10 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
             (hex strings or bytes), `service_data`, `service_uuids`.
 
     Returns:
-        AdvertisementData: advertisement usable with `identify()`.
+        Advertisement usable with `identify()`.
 
     Raises:
-        aiobmsble.exceptions.BMSConfigError: if the dictionary is malformed.
+        BMSConfigError if the dictionary is malformed.
 
     """
     advertisement_data_defaults: Final[dict[str, Any]] = {
@@ -61,7 +70,7 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
     }
 
     try:
-        val_dict: dict[str, Any] = adv_dict.copy()
+        val_dict: dict[str, Any] = dict(adv_dict)
         if "manufacturer_data" in adv_dict:
             val_dict["manufacturer_data"] = {
                 int(k): bytes.fromhex(v) if isinstance(v, str) else v
@@ -83,15 +92,18 @@ def adv_dict_to_advdata(adv_dict: dict[str, Any]) -> AdvertisementData:
 
 
 @cache
-def load_bms_plugins() -> set[ModuleType]:
+def load_bms_plugins() -> frozenset[ModuleType]:
     """Discover and load all available Battery Management System (BMS) plugin modules.
 
     This function scans the 'aiobmsble/bms' directory for all Python modules,
-    dynamically imports each discovered module, and returns a set containing
+    dynamically imports each discovered module, and returns a frozenset containing
     the imported module objects required to end with "_bms" and be subclass of BaseBMS.
 
+    Blocking (imports plugin modules); from async code use `identify()`/`get_bms()` or run
+    it in an executor.
+
     Returns:
-        set[ModuleType]: A set of imported BMS plugin modules.
+        A frozenset of imported BMS plugin modules.
 
     Raises:
         ImportError: If a module cannot be imported.
@@ -112,30 +124,30 @@ def load_bms_plugins() -> set[ModuleType]:
 
         modules.add(module)
 
-    return modules
+    return frozenset(modules)
 
 
-async def get_bms(name: str) -> type[BaseBMS] | None:
-    """Return the BMS class identified by a plugin name.
+async def get_bms(bms_type: str) -> type[BaseBMS] | None:
+    """Return the BMS class identified by its BMS type.
 
     Args:
-        name (str): The name of the BMS type (filename of the module)
+        bms_type: BMS type, i.e. the plugin module name, e.g. `dummy_bms`
 
     Returns:
-        type[BaseBMS] | None: the BMS class if found, None otherwise.
+        The BMS class if found, None otherwise.
 
     """
-    if not name.endswith(_MODULE_POSTFIX):
+    if not bms_type.endswith(_MODULE_POSTFIX):
         return None
     loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
     try:
         bms_module: ModuleType = await loop.run_in_executor(
-            None, importlib.import_module, f"aiobmsble.bms.{name}"
+            None, importlib.import_module, f"aiobmsble.bms.{bms_type}"
         )
     except ModuleNotFoundError:
         return None
 
-    bms_class: type[BaseBMS] | None = bms_module.BMS
+    bms_class: Any = getattr(bms_module, "BMS", None)
     if not (isinstance(bms_class, type) and issubclass(bms_class, BaseBMS)):
         return None
 
@@ -143,7 +155,11 @@ async def get_bms(name: str) -> type[BaseBMS] | None:
 
 
 def available_bms() -> frozenset[type[BaseBMS]]:
-    """Return all available BMS classes."""
+    """Return all available BMS classes.
+
+    Blocking (imports plugin modules); from async code use `identify()`/`get_bms()` or run
+    it in an executor.
+    """
     return frozenset(bms_module.BMS for bms_module in load_bms_plugins())
 
 
@@ -155,11 +171,11 @@ async def identify(adv: AdvertisementData, address: str) -> list[type[BaseBMS]]:
     (Organizationally Unique Identifier).
 
     Args:
-        adv (AdvertisementData): The advertisement data to match against available BMS plugins.
-        address (str): Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
+        adv: The advertisement data to match against available BMS plugins.
+        address: Bluetooth device address to check OUI against, format: "00:11:22:aa:bb:cc"
 
     Returns:
-        list[type[BaseBMS]]: A list of matching BMS class(es) if found, an empty list otherwise.
+        A list of matching BMS class(es) if found, an empty list otherwise.
 
     """
     loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
@@ -177,7 +193,7 @@ def problem_levels(problems: Iterable[BMSProblem]) -> dict[PrbType, Severity]:
         problems: decoded problems, e.g. `BMSSample["problems"]`
 
     Returns:
-        dict[PrbType, Severity]: worst level of each reported problem type
+        Worst level of each reported problem type
 
     """
     levels: dict[PrbType, Severity] = {}

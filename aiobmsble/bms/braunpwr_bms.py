@@ -12,7 +12,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.uuids import normalize_uuid_str
 
-from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TempSensor
+from aiobmsble import BMSConfig, BMSInfo, BMSLimits, BMSSample, Limit, TSKind
 from aiobmsble.basebms import BaseBMS
 from aiobmsble.exceptions import BMSDataError
 from aiobmsble.plugin import BMSDp, BMSValue, LimitDp, MatcherPattern, b2str
@@ -44,7 +44,7 @@ class BMS(BaseBMS):
     )
     _INFO_CMDS: Final = frozenset({0x0A, 0x0B})  # reported model, serial number
     # protection limit blocks: (command, payload length, threshold fields)
-    _LIMIT_FRAMES: Final[tuple[tuple[int, int, tuple[LimitDp, ...]], ...]] = (
+    _LIMIT_FIELDS: Final[tuple[tuple[int, int, tuple[LimitDp, ...]], ...]] = (
         (
             0x05,  # cell/pack over-/undervoltage: 12 words, cell [mV], pack [10 mV], delay [ms]
             24,
@@ -106,7 +106,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             MatcherPattern(
                 local_name=pattern,
@@ -161,13 +161,13 @@ class BMS(BaseBMS):
         """Fetch the protection thresholds; each block is optional."""
         limits: BMSLimits = {}
         self._msg.clear()
-        for cmd, length, fields in BMS._LIMIT_FRAMES:
+        for cmd, length, fields in BMS._LIMIT_FIELDS:
             self._exp_reply = (cmd,)
             await self._await_msg(BMS._cmd(cmd))
             payload: bytes = self._msg.get(cmd, b"")[3:-1]
             if len(payload) != length:
-                raise BMSDataError(bms_id=self.bms_type(), address=self._ble_device.address)
-            limits |= BMS._decode_limits(payload, fields)
+                raise BMSDataError
+            limits |= BMS._decode_limits(fields, payload)
         return limits
 
     async def _init_connection(
@@ -188,7 +188,7 @@ class BMS(BaseBMS):
                 *BMS._CMDS,
                 *BMS._INIT_CMDS,
                 *BMS._INFO_CMDS,
-                *(c for c, _, _ in BMS._LIMIT_FRAMES),
+                *(c for c, _, _ in BMS._LIMIT_FIELDS),
             }
             and len(self._frame) >= BMS._MIN_LEN + self._frame[2]
         ):
@@ -238,16 +238,16 @@ class BMS(BaseBMS):
             await self._await_msg(BMS._cmd(cmd))
 
         data: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
-        data["cell_voltages"] = BMS._cell_voltages(
+        data["cell_voltages"] = BMS._decode_cells(
             self._msg[0x2], cells=data.get("cell_count", 0), start=4
         )
-        data["temperature"] = BMS._temperature(
+        data["temperature"] = BMS._decode_temp(
             self._msg[0x3],
             values=data.get("temp_count", 0),
             start=4,
             offset=2731,
             divider=10,
-            types=(TempSensor.T.CELL,) * data.get("temp_count", 0),
+            types=(TSKind.CELL,) * data.get("temp_count", 0),
         )
 
         return data

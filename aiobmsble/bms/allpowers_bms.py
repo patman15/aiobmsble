@@ -52,7 +52,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def matcher_dict_list() -> list[MatcherPattern]:
-        """Provide BluetoothMatcher definition."""
+        """Return the advertisement patterns used to identify the BMS."""
         return [
             MatcherPattern(
                 local_name=pattern,
@@ -74,7 +74,7 @@ class BMS(BaseBMS):
 
     @staticmethod
     def uuid_tx() -> str:
-        """Return 16-bit UUID of characteristic that provides write property."""
+        """Not supported, the BMS has no write characteristic."""
         raise NotImplementedError
 
     def _notification_handler(self, sender: BleakGATTCharacteristic, data: bytearray) -> None:
@@ -96,7 +96,7 @@ class BMS(BaseBMS):
         """Update battery status information."""
 
         self._msg_event.clear()
-        await asyncio.wait_for(self._wait_event(), timeout=BMS.TIMEOUT)
+        await asyncio.wait_for(self._wait_event(), timeout=BMS._TIMEOUT)
 
         result: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg)
 

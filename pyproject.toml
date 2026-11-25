@@ -24,10 +24,17 @@ keywords = [
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Operating System :: OS Independent",
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: AsyncIO",
   "Intended Audience :: Developers",
-  "Topic :: Software Development :: Libraries :: Python Modules"
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed"
 ]
 dependencies = [
   "bleak>=3.0.2,<4",
@@ -35,6 +42,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+cli = ["aiooui"]
 dev = [
     "pytest", "pytest-asyncio", "pytest-cov", "pytest-xdist", "hypothesis", 
     "mypy", "ruff>=0.17,<0.18.0", "pylint-per-file-ignores", "aiooui", 
@@ -52,6 +60,7 @@ Repository = "https://github.com/patman15/aiobmsble.git"
 aiobmsble = "aiobmsble.__main__:main"
 
 [tool.setuptools.package-data]
+"aiobmsble" = ["py.typed"]
 "aiobmsble.test_data" = ["*.json"]
 
 [tool.setuptools_scm]
@@ -67,17 +76,11 @@ reportMissingImports = "error"
 [tool.pytest.ini_options]
 minversion = "8.4"
 addopts="-n auto --cov=aiobmsble --cov=examples --cov-branch --cov-report=term-missing --cov-fail-under=100 --log-level DEBUG"
-pythonpath = [
-    "aiobmsble",
-]
 testpaths = [
     "tests",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-
-[tool.black]
-line-length = 100
 
 # ruff settings from HA 2026.12.0
 [tool.ruff]
