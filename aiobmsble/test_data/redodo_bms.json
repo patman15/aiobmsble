@@ -178,5 +178,22 @@
       "ECO-WORTHY 12.8V 100Ah",
       "MAC correct"
     ]
+  },
+  {
+    "advertisement": {
+      "local_name": "L-36050BNN100-Cxxxxx",
+      "platform_data": ["C8:47:80:00:00:00"],
+      "rssi": -49,
+      "manufacturer_data": {
+        "22618": "c84780000000"
+      },
+      "service_uuids": ["0000ffe0-0000-1000-8000-00805f9b34fb"]
+    },
+    "type": "redodo_bms",
+    "_comments": [
+      "source advmon (https://github.com/patman15/BMS_BLE-HA/issues/890)",
+      "LiTime 36V 50Ah",
+      "MAC correct"
+    ]
   }
 ]
