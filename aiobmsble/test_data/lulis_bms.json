@@ -1,0 +1,12 @@
+[
+  {
+    "advertisement": {
+      "local_name": "LK8625-C4A386",
+      "rssi": -70
+    },
+    "type": "lulis_bms",
+    "_comments": [
+      "source: https://github.com/patman15/BMS_BLE-HA/issues/879"
+    ]
+  }
+]
