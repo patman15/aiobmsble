@@ -19,6 +19,7 @@ class BMS(JbdBMS):
     _UNLOCK_CMDS: Final[tuple[bytes, ...]] = (
         bytes.fromhex("FF AA 23 00 23"),
         bytes.fromhex("FF AA 03 00 03"),
+        bytes.fromhex("FF AA 14 00 14"),
     )
 
     @staticmethod
